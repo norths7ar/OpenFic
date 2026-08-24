@@ -2,12 +2,14 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException
+from fastapi import status as http_status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.schemas.pending_project_change import (
     PendingProjectChangeCreate,
     PendingProjectChangeResponse,
+    PendingProjectChangeStatus,
 )
 from app.core.errors import NotFoundError
 from app.storage.database import get_session
@@ -19,7 +21,7 @@ router = APIRouter(tags=["pending-project-changes"])
 @router.post(
     "/projects/{project_id}/pending-changes",
     response_model=PendingProjectChangeResponse,
-    status_code=status.HTTP_201_CREATED,
+    status_code=http_status.HTTP_201_CREATED,
     summary="创建待审项目变更",
 )
 async def create_pending_change(
@@ -44,7 +46,7 @@ async def create_pending_change(
         return PendingProjectChangeResponse.model_validate(change)
     except NotFoundError as exc:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
+            status_code=http_status.HTTP_404_NOT_FOUND, detail=str(exc)
         ) from exc
 
 
@@ -56,17 +58,38 @@ async def create_pending_change(
 async def list_pending_changes(
     project_id: str,
     session: Annotated[AsyncSession, Depends(get_session)],
+    status: PendingProjectChangeStatus | None = None,
 ) -> list[PendingProjectChangeResponse]:
     try:
         changes = await pending_project_change_service.list_pending_changes(
-            session, project_id
+            session, project_id, status
         )
         return [
             PendingProjectChangeResponse.model_validate(change) for change in changes
         ]
     except NotFoundError as exc:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
+            status_code=http_status.HTTP_404_NOT_FOUND, detail=str(exc)
+        ) from exc
+
+
+@router.get(
+    "/projects/{project_id}/pending-changes/count",
+    summary="获取项目待审变更数量",
+)
+async def get_pending_change_count(
+    project_id: str,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    status: PendingProjectChangeStatus = "pending",
+) -> dict[str, int]:
+    try:
+        count = await pending_project_change_service.count_pending_changes(
+            session, project_id, status
+        )
+        return {"count": count}
+    except NotFoundError as exc:
+        raise HTTPException(
+            status_code=http_status.HTTP_404_NOT_FOUND, detail=str(exc)
         ) from exc
 
 
@@ -87,7 +110,7 @@ async def get_pending_change(
         return PendingProjectChangeResponse.model_validate(change)
     except NotFoundError as exc:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
+            status_code=http_status.HTTP_404_NOT_FOUND, detail=str(exc)
         ) from exc
 
 
@@ -108,5 +131,5 @@ async def reject_pending_change(
         return PendingProjectChangeResponse.model_validate(change)
     except NotFoundError as exc:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
+            status_code=http_status.HTTP_404_NOT_FOUND, detail=str(exc)
         ) from exc

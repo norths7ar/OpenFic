@@ -120,6 +120,72 @@ async def test_pending_change_reject(client: AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
+async def test_pending_change_status_filter_and_count(client: AsyncClient) -> None:
+    project_a = await _create_project(client, "状态项目 A")
+    project_b = await _create_project(client, "状态项目 B")
+    first_response = await client.post(
+        f"/api/v1/projects/{project_a}/pending-changes",
+        json=_change_payload("chapter"),
+    )
+    second_response = await client.post(
+        f"/api/v1/projects/{project_a}/pending-changes",
+        json=_change_payload("character"),
+    )
+    await client.post(
+        f"/api/v1/projects/{project_b}/pending-changes",
+        json=_change_payload("location"),
+    )
+    rejected_change_id = second_response.json()["id"]
+    reject_response = await client.post(
+        f"/api/v1/projects/{project_a}/pending-changes/{rejected_change_id}/reject"
+    )
+    assert reject_response.status_code == 200
+
+    pending_response = await client.get(
+        f"/api/v1/projects/{project_a}/pending-changes",
+        params={"status": "pending"},
+    )
+    rejected_response = await client.get(
+        f"/api/v1/projects/{project_a}/pending-changes",
+        params={"status": "rejected"},
+    )
+    assert [item["id"] for item in pending_response.json()] == [
+        first_response.json()["id"]
+    ]
+    assert [item["id"] for item in rejected_response.json()] == [rejected_change_id]
+
+    default_count_response = await client.get(
+        f"/api/v1/projects/{project_a}/pending-changes/count"
+    )
+    rejected_count_response = await client.get(
+        f"/api/v1/projects/{project_a}/pending-changes/count",
+        params={"status": "rejected"},
+    )
+    project_b_count_response = await client.get(
+        f"/api/v1/projects/{project_b}/pending-changes/count"
+    )
+    assert default_count_response.json() == {"count": 1}
+    assert rejected_count_response.json() == {"count": 1}
+    assert project_b_count_response.json() == {"count": 1}
+
+
+@pytest.mark.asyncio
+async def test_pending_change_status_is_strict_enum(client: AsyncClient) -> None:
+    project_id = await _create_project(client, "状态枚举项目")
+
+    list_response = await client.get(
+        f"/api/v1/projects/{project_id}/pending-changes",
+        params={"status": "applied"},
+    )
+    count_response = await client.get(
+        f"/api/v1/projects/{project_id}/pending-changes/count",
+        params={"status": "applied"},
+    )
+    assert list_response.status_code == 422
+    assert count_response.status_code == 422
+
+
+@pytest.mark.asyncio
 async def test_pending_change_deleted_with_project(
     client: AsyncClient, session
 ) -> None:

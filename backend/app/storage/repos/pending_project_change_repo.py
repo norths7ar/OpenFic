@@ -1,6 +1,6 @@
 """待审项目变更数据访问层。"""
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col
 
@@ -36,9 +36,10 @@ async def get_by_id(
 async def list_by_project(
     session: AsyncSession,
     project_id: str,
+    status: str | None = None,
 ) -> list[PendingProjectChange]:
     """获取项目下的待审变更，最新创建的排在前面。"""
-    result = await session.execute(
+    query = (
         select(PendingProjectChange)
         .where(col(PendingProjectChange.project_id) == project_id)
         .order_by(
@@ -46,7 +47,26 @@ async def list_by_project(
             col(PendingProjectChange.id).desc(),
         )
     )
+    if status is not None:
+        query = query.where(col(PendingProjectChange.status) == status)
+
+    result = await session.execute(query)
     return list(result.scalars().all())
+
+
+async def count_by_project(
+    session: AsyncSession,
+    project_id: str,
+    status: str,
+) -> int:
+    """统计项目下指定状态的待审变更。"""
+    result = await session.execute(
+        select(func.count(col(PendingProjectChange.id))).where(
+            col(PendingProjectChange.project_id) == project_id,
+            col(PendingProjectChange.status) == status,
+        )
+    )
+    return result.scalar_one()
 
 
 async def update(
