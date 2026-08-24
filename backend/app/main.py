@@ -43,6 +43,7 @@ from app.api.routers import (
     model_providers,
     models,
     notes,
+    pending_project_changes,
     projects,
     prompt_chains,
     retrieval_index,
@@ -709,6 +710,7 @@ def create_app() -> FastAPI:
     app.include_router(volumes.router, prefix=app_settings.api_v1_prefix)
     app.include_router(chapters.router, prefix=app_settings.api_v1_prefix)
     app.include_router(notes.router, prefix=app_settings.api_v1_prefix)
+    app.include_router(pending_project_changes.router, prefix=app_settings.api_v1_prefix)
     app.include_router(commands.router, prefix=app_settings.api_v1_prefix)
     app.include_router(characters.router, prefix=app_settings.api_v1_prefix)
     app.include_router(world_info.router, prefix=app_settings.api_v1_prefix)
