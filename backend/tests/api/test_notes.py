@@ -469,6 +469,32 @@ async def test_mentions_kind_filter_world_info_entry_only(client: AsyncClient) -
 
 
 @pytest.mark.asyncio
+async def test_mentions_excludes_disabled_world_info_entries(
+    client: AsyncClient,
+) -> None:
+    project_id, _ = await _create_project(client)
+    world_info = await client.get(f"/api/v1/projects/{project_id}/world-info")
+    assert world_info.status_code == 200
+    entry = await client.post(
+        f"/api/v1/world-info/{world_info.json()['id']}/entries",
+        json={
+            "name": "禁用设定",
+            "content": "不应出现在候选中",
+            "is_enabled": False,
+        },
+    )
+    assert entry.status_code == 201
+
+    response = await client.get(
+        f"/api/v1/projects/{project_id}/mentions",
+        params={"query": "禁用", "kind": "world_info_entry"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["items"] == []
+
+
+@pytest.mark.asyncio
 async def test_mentions_project_404(client: AsyncClient) -> None:
     resp = await client.get(
         "/api/v1/projects/nonexistent/mentions",

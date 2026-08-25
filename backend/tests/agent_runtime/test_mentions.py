@@ -212,3 +212,61 @@ async def test_compile_canonical_mentions_supports_expanded_note_content(session
         "设定片段\n"
         "```\n"
     )
+
+
+@pytest.mark.asyncio
+async def test_compile_canonical_mentions_uses_fallbacks_for_unreadable_entries(
+    session,
+):
+    project = Project(id="proj_mentions_scope", title="当前项目")
+    foreign_project = Project(id="proj_mentions_foreign", title="其他项目")
+    hidden_note = Note(
+        id="note_mentions_hidden",
+        project_id=project.id,
+        title="不应读取的隐藏笔记",
+        is_hidden=True,
+    )
+    world_info = WorldInfo(
+        id="wi_mentions_scope",
+        project_id=project.id,
+        name="世界书",
+    )
+    disabled_entry = WorldInfoEntry(
+        id="wie_mentions_disabled",
+        world_info_id=world_info.id,
+        uid=1,
+        name="不应读取的禁用条目",
+        order=1,
+        is_enabled=False,
+    )
+    foreign_character = Character(
+        id="char_mentions_foreign",
+        project_id=foreign_project.id,
+        name="不应读取的外部角色",
+    )
+    session.add_all([
+        project,
+        foreign_project,
+        hidden_note,
+        world_info,
+        disabled_entry,
+        foreign_character,
+    ])
+    await session.commit()
+
+    compiled = await compile_canonical_mentions(
+        (
+            '<of-mention character_id="char_mentions_foreign" label="旧角色" />\n'
+            '<of-mention note_id="note_mentions_hidden" label="旧隐藏笔记" />\n'
+            '<of-mention world_info_entry_id="wie_mentions_disabled" '
+            'label="旧禁用条目" />'
+        ),
+        session,
+        project_id=project.id,
+    )
+
+    assert compiled == (
+        " @character:旧角色 \n"
+        " @note:旧隐藏笔记 \n"
+        " @world_info_entry:旧禁用条目 "
+    )

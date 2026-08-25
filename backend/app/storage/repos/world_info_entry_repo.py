@@ -115,7 +115,10 @@ async def search_by_world_info(
     pattern = f"%{query}%"
     result = await session.execute(
         select(WorldInfoEntry)
-        .where(col(WorldInfoEntry.world_info_id) == world_info_id)
+        .where(
+            col(WorldInfoEntry.world_info_id) == world_info_id,
+            col(WorldInfoEntry.is_enabled) == True,  # noqa: E712
+        )
         .where(
             or_(
                 col(WorldInfoEntry.name).ilike(pattern),

@@ -48,6 +48,8 @@ def _history_metadata(raw: dict, *, tool_name: str | None = None) -> dict:
 async def build_history(
     node_messages: list[dict],
     db_session: AsyncSession | None = None,
+    *,
+    project_id: str | None = None,
 ) -> list[ContextMessage]:
     """构建 p6 History 上下文片段，只保留真实对话消息。"""
     result: list[ContextMessage] = []
@@ -67,7 +69,14 @@ async def build_history(
             and isinstance(content, str)
             and ("<of-mention" in content or "<of-skill" in content)
         ):
-            content = await compile_canonical_mentions(content, db_session)
+            if project_id is None:
+                content = await compile_canonical_mentions(content, db_session)
+            else:
+                content = await compile_canonical_mentions(
+                    content,
+                    db_session,
+                    project_id=project_id,
+                )
         additional_kwargs = (
             raw.get("additional_kwargs") if isinstance(raw.get("additional_kwargs"), dict) else None
         )

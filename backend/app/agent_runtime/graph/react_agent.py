@@ -722,8 +722,15 @@ def create_react_agent(
                             and isinstance(content, str)
                             and ("<of-mention" in content or "<of-skill" in content)
                         ):
+                            project_id = (
+                                effective_runtime_state.get("project_id")
+                                if effective_runtime_state is not None
+                                else None
+                            )
                             compiled_content = await compile_canonical_mentions(
-                                content, db_session
+                                content,
+                                db_session,
+                                project_id=project_id,
                             )
                         drained_injected_user_message = True
                         attachment_metadata = (

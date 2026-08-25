@@ -642,10 +642,18 @@ class SessionRunner:
         if not content or ("<of-mention" not in content and "<of-skill" not in content):
             return content
         if db_session is not None:
-            return await compile_canonical_mentions(content, db_session)
+            return await compile_canonical_mentions(
+                content,
+                db_session,
+                project_id=self.project_id,
+            )
         session = await create_session()
         try:
-            return await compile_canonical_mentions(content, session)
+            return await compile_canonical_mentions(
+                content,
+                session,
+                project_id=self.project_id,
+            )
         finally:
             await session.close()
 

@@ -15,6 +15,7 @@ from app.storage.repos.note_category_repo import (
 from app.storage.repos.note_repo import get_by_id as get_note_by_id
 from app.storage.repos.volume_repo import get_by_id as get_volume_by_id
 from app.storage.repos.world_info_entry_repo import get_by_id as get_world_info_entry_by_id
+from app.storage.repos.world_info_repo import get_by_id as get_world_info_by_id
 
 _MENTION_RE = re.compile(
     r"<of-mention\b(?P<attrs_self>[^<>]*?)\s*/>"
@@ -89,14 +90,24 @@ def _is_expanded_mention(mention: CanonicalMention) -> bool:
 
 
 class _MentionResolver:
-    def __init__(self, session: AsyncSession | None) -> None:
+    def __init__(
+        self,
+        session: AsyncSession | None,
+        project_id: str | None,
+    ) -> None:
         self._session = session
+        self._project_id = (
+            project_id.strip() if project_id and project_id.strip() else None
+        )
         self._volume_cache: dict[str, str | None] = {}
         self._chapter_path_cache: dict[str, str | None] = {}
         self._note_cache: dict[str, str | None] = {}
         self._note_category_cache: dict[str, str | None] = {}
         self._world_info_entry_cache: dict[str, str | None] = {}
         self._character_cache: dict[str, str | None] = {}
+
+    def _is_current_project(self, project_id: str | None) -> bool:
+        return self._project_id is None or project_id == self._project_id
 
     async def anchor_label(self, mention: CanonicalMention) -> str:
         fallback = _fallback_label(mention)
@@ -141,7 +152,11 @@ class _MentionResolver:
         if session is None:
             return None
         volume = await get_volume_by_id(session, volume_id)
-        title = volume.title.strip() if volume and volume.title else None
+        title = (
+            volume.title.strip()
+            if volume and volume.title and self._is_current_project(volume.project_id)
+            else None
+        )
         self._volume_cache[volume_id] = title
         return title
 
@@ -152,9 +167,18 @@ class _MentionResolver:
         if session is None:
             return None
         chapter = await get_chapter_by_id(session, chapter_id)
-        if chapter is None or not chapter.title:
+        if (
+            chapter is None
+            or not chapter.title
+            or not self._is_current_project(chapter.project_id)
+        ):
             self._chapter_path_cache[chapter_id] = None
             return None
+        if self._project_id is not None:
+            volume = await get_volume_by_id(session, chapter.volume_id)
+            if volume is None or not self._is_current_project(volume.project_id):
+                self._chapter_path_cache[chapter_id] = None
+                return None
         chapter_title = chapter.title.strip()
         volume_title = await self._resolve_volume_title(chapter.volume_id)
         path = f"{volume_title}/{chapter_title}" if volume_title else chapter_title
@@ -168,7 +192,16 @@ class _MentionResolver:
         if session is None:
             return None
         note = await get_note_by_id(session, note_id)
-        title = note.title.strip() if note and note.title else None
+        title = (
+            note.title.strip()
+            if (
+                note
+                and note.title
+                and not note.is_hidden
+                and self._is_current_project(note.project_id)
+            )
+            else None
+        )
         self._note_cache[note_id] = title
         return title
 
@@ -179,7 +212,15 @@ class _MentionResolver:
         if session is None:
             return None
         category = await get_note_category_by_id(session, category_id)
-        title = category.title.strip() if category and category.title else None
+        title = (
+            category.title.strip()
+            if (
+                category
+                and category.title
+                and self._is_current_project(category.project_id)
+            )
+            else None
+        )
         self._note_category_cache[category_id] = title
         return title
 
@@ -190,7 +231,18 @@ class _MentionResolver:
         if session is None:
             return None
         entry = await get_world_info_entry_by_id(session, entry_id)
-        title = entry.name.strip() if entry and entry.name else None
+        if entry is None or not entry.name or not entry.is_enabled:
+            self._world_info_entry_cache[entry_id] = None
+            return None
+        world_info = await get_world_info_by_id(session, entry.world_info_id)
+        title = (
+            entry.name.strip()
+            if (
+                world_info is not None
+                and self._is_current_project(world_info.project_id)
+            )
+            else None
+        )
         self._world_info_entry_cache[entry_id] = title
         return title
 
@@ -201,7 +253,15 @@ class _MentionResolver:
         if session is None:
             return None
         character = await get_character_by_id(session, character_id)
-        name = character.name.strip() if character and character.name else None
+        name = (
+            character.name.strip()
+            if (
+                character
+                and character.name
+                and self._is_current_project(character.project_id)
+            )
+            else None
+        )
         self._character_cache[character_id] = name
         return name
 
@@ -209,12 +269,13 @@ class _MentionResolver:
 async def compile_canonical_mentions(
     text: str,
     session: AsyncSession | None = None,
+    project_id: str | None = None,
 ) -> str:
     parts = parse_canonical_mentions(text)
     if len(parts) == 1 and parts[0] == text:
         return compile_canonical_commands(text)
 
-    resolver = _MentionResolver(session)
+    resolver = _MentionResolver(session, project_id)
     compiled: list[str] = []
 
     for index, part in enumerate(parts):

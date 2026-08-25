@@ -47,7 +47,13 @@ async def build_context_parts(
         parts.append(m)
     if (m := await build_skills(state, agent_name, db_session, node_messages)) is not None:
         parts.append(m)
-    parts.extend(await build_history(node_messages, db_session))
+    parts.extend(
+        await build_history(
+            node_messages,
+            db_session,
+            project_id=state.get("project_id"),
+        )
+    )
 
     cleaned = _process(parts)
     static = [m for m in cleaned if not _is_history(m)]

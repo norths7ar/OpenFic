@@ -59,7 +59,11 @@ async def handle_session_title(context: JobContext) -> dict[str, str] | None:
             total=3,
             message="正在生成会话标题",
         )
-        compiled_message = await compile_canonical_mentions(seed_message, session)
+        compiled_message = await compile_canonical_mentions(
+            seed_message,
+            session,
+            project_id=metadata.project_id,
+        )
         messages = await build_chat_messages(
             session,
             prompt_id="session-title",
