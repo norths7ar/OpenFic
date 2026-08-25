@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Character API Schemas - 角色请求/响应模型。"""
 
 from datetime import datetime
@@ -89,3 +88,11 @@ class CharacterBatchDeleteResponse(BaseModel):
     """批量删除角色响应。"""
 
     deleted_count: int = Field(description="已删除的角色数量")
+
+
+class CharacterReorderRequest(BaseModel):
+    ordered_ids: list[str] = Field(description="按新顺序排列的角色 ID")
+
+
+class ReorderResponse(BaseModel):
+    updated_count: int = Field(description="已更新的条目数量")

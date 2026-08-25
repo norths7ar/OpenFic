@@ -54,6 +54,7 @@ interface CharacterListProps {
   onToggleFavorite: (character: CharacterListItem, isFavorited: boolean) => void;
   onBatchDelete: (characterIds: string[]) => void;
   onBatchFavorite: (characterIds: string[], isFavorited: boolean) => void;
+  onReorderCharacters: (orderedIds: string[]) => void;
 }
 
 interface MenuPosition {
@@ -61,7 +62,7 @@ interface MenuPosition {
   y: number;
 }
 
-type SortField = "favorite" | "updatedAt" | "tokenCount" | "name";
+type SortField = "order" | "favorite" | "updatedAt" | "tokenCount" | "name";
 type SortDirection = "asc" | "desc";
 
 function getAvatarFallback(name: string): string {
@@ -139,6 +140,7 @@ export function CharacterList({
   onToggleFavorite,
   onBatchDelete,
   onBatchFavorite,
+  onReorderCharacters,
 }: CharacterListProps) {
   const { t } = useTranslation();
   const [menuPosition, setMenuPosition] = useState<MenuPosition | null>(null);
@@ -149,14 +151,17 @@ export function CharacterList({
   const [searchQuery, setSearchQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchExpanded, setSearchExpanded] = useState(false);
-  const [sortField, setSortField] = useState<SortField>("favorite");
-  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
+  const [sortField, setSortField] = useState<SortField>("order");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const searchContainerRef = useRef<HTMLDivElement | null>(null);
 
   const sortedCharacters = useMemo(() => {
     return [...characters].sort((a, b) => {
       let comparison = 0;
       switch (sortField) {
+        case "order":
+          comparison = a.order - b.order || a.name.localeCompare(b.name, "zh-CN");
+          break;
         case "favorite":
           comparison = Number(a.isFavorited) - Number(b.isFavorited);
           if (comparison === 0) comparison = a.updatedAt.localeCompare(b.updatedAt);
@@ -243,7 +248,7 @@ export function CharacterList({
         return;
       }
       setSortField(field);
-      setSortDirection("desc");
+      setSortDirection(field === "order" || field === "name" ? "asc" : "desc");
     },
     [sortField],
   );
@@ -297,6 +302,21 @@ export function CharacterList({
     [handleCloseContextMenu, onBatchFavorite, selectedIds],
   );
 
+  const handleManualMove = useCallback(
+    (direction: -1 | 1) => {
+      if (!menuCharacter || sortField !== "order") return;
+      const index = sortedCharacters.findIndex((character) => character.id === menuCharacter.id);
+      const targetIndex = index + direction;
+      if (index < 0 || targetIndex < 0 || targetIndex >= sortedCharacters.length) return;
+      const next = [...sortedCharacters];
+      const [moved] = next.splice(index, 1);
+      next.splice(targetIndex, 0, moved);
+      handleCloseContextMenu();
+      onReorderCharacters(next.map((character) => character.id));
+    },
+    [handleCloseContextMenu, menuCharacter, onReorderCharacters, sortField, sortedCharacters],
+  );
+
   const menuItems = useMemo<ContextMenuItem[]>(() => {
     if (isMultiSelect) {
       return [
@@ -324,7 +344,10 @@ export function CharacterList({
 
     if (!menuCharacter) return [];
 
-    return [
+    const manualIndex = sortedCharacters.findIndex(
+      (character) => character.id === menuCharacter.id,
+    );
+    const items: ContextMenuItem[] = [
       {
         id: "edit-profile",
         label: t("characters.editProfile"),
@@ -334,6 +357,26 @@ export function CharacterList({
           onEditProfile(menuCharacter);
         },
       },
+    ];
+    if (sortField === "order") {
+      items.push(
+        {
+          id: "move-up",
+          label: t("chapterMenu.moveUp"),
+          icon: ArrowUp,
+          disabled: manualIndex <= 0,
+          onClick: () => handleManualMove(-1),
+        },
+        {
+          id: "move-down",
+          label: t("chapterMenu.moveDown"),
+          icon: ArrowDown,
+          disabled: manualIndex < 0 || manualIndex >= sortedCharacters.length - 1,
+          onClick: () => handleManualMove(1),
+        },
+      );
+    }
+    items.push(
       {
         id: "favorite",
         label: menuCharacter.isFavorited ? t("characters.unfavorite") : t("characters.favorite"),
@@ -353,15 +396,19 @@ export function CharacterList({
           onDeleteCharacter(menuCharacter);
         },
       },
-    ];
+    );
+    return items;
   }, [
     handleBatchFavorite,
     handleCloseContextMenu,
+    handleManualMove,
     isMultiSelect,
     menuCharacter,
     onDeleteCharacter,
     onEditProfile,
     onToggleFavorite,
+    sortField,
+    sortedCharacters,
     t,
   ]);
 
@@ -501,6 +548,16 @@ export function CharacterList({
                         </IconButton>
                       </DropdownMenu.Trigger>
                       <DropdownMenu.Content align="end">
+                        <DropdownMenu.Item onClick={() => handleSortChange("order")}>
+                          <Flex
+                            align="center"
+                            justify="between"
+                            width="100%"
+                          >
+                            <Text>{t("characters.sortByOrder")}</Text>
+                            {getSortIcon("order")}
+                          </Flex>
+                        </DropdownMenu.Item>
                         <DropdownMenu.Item onClick={() => handleSortChange("favorite")}>
                           <Flex
                             align="center"

@@ -7,6 +7,8 @@ export interface Character {
   description: string;
   imageUrl: string | null;
   isFavorited: boolean;
+  order: number;
+  isWritingVisible: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -18,6 +20,8 @@ export interface CharacterListItem {
   imageUrl: string | null;
   tokenCount: number;
   isFavorited: boolean;
+  order: number;
+  isWritingVisible: boolean;
   createdAt: string;
   updatedAt: string;
 }

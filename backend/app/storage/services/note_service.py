@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Note Service - 笔记业务逻辑层。
 """
@@ -154,6 +153,52 @@ async def list_notes(
     )
 
 
+async def reorder_items(
+    session: AsyncSession,
+    project_id: str,
+    *,
+    item_kind: Literal["category", "note"],
+    parent_id: str | None,
+    ordered_ids: list[str],
+) -> int:
+    project = await project_repo.get_by_id(session, project_id)
+    if project is None:
+        raise NotFoundError(f"项目不存在: {project_id}")
+    if len(ordered_ids) != len(set(ordered_ids)):
+        raise ValueError("ordered_ids 不能包含重复 ID")
+    if parent_id is not None:
+        parent = await note_category_repo.get_by_id(session, parent_id)
+        if parent is None or parent.project_id != project_id:
+            raise ValueError("父分类不存在或不属于当前项目")
+
+    if item_kind == "category":
+        siblings = [
+            category
+            for category in await note_category_repo.list_by_project(
+                session, project_id
+            )
+            if category.parent_id == parent_id
+        ]
+    else:
+        siblings = [
+            note
+            for note in await note_repo.list_by_project(session, project_id)
+            if note.category_id == parent_id
+        ]
+    expected = {item.id for item in siblings}
+    if set(ordered_ids) != expected or len(ordered_ids) != len(expected):
+        raise ValueError("ordered_ids 必须完整匹配当前同级条目")
+    now = datetime.now(UTC)
+    by_id = {item.id: item for item in siblings}
+    for index, item_id in enumerate(ordered_ids):
+        item = by_id[item_id]
+        item.order = index
+        item.updated_at = now
+        session.add(item)
+    await session.flush()
+    return len(ordered_ids)
+
+
 async def update_note(
     session: AsyncSession,
     note_id: str,
@@ -280,7 +325,8 @@ async def create_category(
         project_id=project_id,
         parent_id=parent_id,
         title=unique_title,
-        order=await note_category_repo.get_max_order(session, project_id, parent_id) + 1,
+        order=await note_category_repo.get_max_order(session, project_id, parent_id)
+        + 1,
     )
     return await note_category_repo.create(session, category)
 
@@ -377,9 +423,12 @@ async def move_item(
 
         if note.category_id != target_category_id:
             note.category_id = target_category_id
-            note.order = await note_repo.get_max_order(
-                session, note.project_id, target_category_id
-            ) + 1
+            note.order = (
+                await note_repo.get_max_order(
+                    session, note.project_id, target_category_id
+                )
+                + 1
+            )
         note.updated_at = datetime.now(UTC)
         note = await note_repo.update_note(session, note)
 

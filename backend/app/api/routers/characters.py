@@ -1,9 +1,17 @@
-# -*- coding: utf-8 -*-
 """Character Router - 角色 CRUD API。"""
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    Query,
+    UploadFile,
+    status,
+)
 from loguru import logger
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,11 +22,14 @@ from app.api.schemas.character import (
     CharacterBatchFavoriteResponse,
     CharacterListItemResponse,
     CharacterListResponse,
+    CharacterReorderRequest,
     CharacterResponse,
     CharacterSearchMatch,
     CharacterSearchResponse,
     CharacterSearchResult,
+    ReorderResponse,
 )
+from app.background.jobs import service as background_service
 from app.core.errors import ConflictError, NotFoundError
 from app.core.storage import get_character_image_url
 from app.storage.database import get_session
@@ -71,7 +82,9 @@ async def list_project_characters(
 ) -> CharacterListResponse:
     """获取项目角色列表。"""
     try:
-        characters = await character_service.list_characters_by_project(session, project_id)
+        characters = await character_service.list_characters_by_project(
+            session, project_id
+        )
         return CharacterListResponse(
             items=[to_list_item_response(character) for character in characters],
             total=len(characters),
@@ -155,7 +168,10 @@ async def batch_favorite_characters(
 ) -> CharacterBatchFavoriteResponse:
     """批量更新项目内角色收藏状态。"""
     try:
-        logger.info(f"批量更新角色收藏: project_id={project_id}, count={len(data.character_ids)}")
+        logger.info(
+            "批量更新角色收藏: "
+            f"project_id={project_id}, count={len(data.character_ids)}"
+        )
         updated_count = await character_service.batch_update_favorite(
             session, project_id, data.character_ids, data.is_favorited
         )
@@ -176,13 +192,40 @@ async def batch_delete_characters(
 ) -> CharacterBatchDeleteResponse:
     """批量删除项目内角色。"""
     try:
-        logger.info(f"批量删除角色: project_id={project_id}, count={len(data.character_ids)}")
+        logger.info(
+            f"批量删除角色: project_id={project_id}, count={len(data.character_ids)}"
+        )
         deleted_count = await character_service.batch_delete_characters(
             session, project_id, data.character_ids
         )
         return CharacterBatchDeleteResponse(deleted_count=deleted_count)
     except NotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+
+
+@router.post(
+    "/projects/{project_id}/characters/reorder",
+    response_model=ReorderResponse,
+)
+async def reorder_project_characters(
+    project_id: str,
+    data: CharacterReorderRequest,
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> ReorderResponse:
+    try:
+        updated_count = await character_service.reorder_characters(
+            session, project_id, data.ordered_ids
+        )
+        await background_service.commit_and_notify(session)
+        return ReorderResponse(updated_count=updated_count)
+    except NotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=str(e)
+        ) from e
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
+        ) from e
 
 
 @router.get(

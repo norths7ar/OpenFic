@@ -150,6 +150,7 @@
     "searchResultSummary": "检索到 {{characters}} 个角色中的 {{matches}} 个结果",
     "noCharactersFound": "没有找到匹配的角色",
     "sort": "排序",
+    "sortByOrder": "手动顺序",
     "sortByFavorite": "收藏优先",
     "sortByUpdated": "最近编辑",
     "sortByTokens": "Tokens",

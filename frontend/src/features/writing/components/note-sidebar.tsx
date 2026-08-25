@@ -12,6 +12,8 @@ import {
   Eye,
   Trash2,
   Search,
+  ArrowUp,
+  ArrowDown,
 } from "lucide-react";
 import { motion } from "motion/react";
 import { useState, useCallback, useMemo, useEffect, useRef } from "react";
@@ -35,6 +37,7 @@ import {
   useUpdateNoteCategory,
   useDeleteNoteCategory,
   useMoveNoteItem,
+  useReorderNoteItems,
   useToggleNoteLock,
   useToggleNoteHidden,
   useDuplicateNote,
@@ -65,6 +68,7 @@ export function NoteSidebar({
   const deleteNoteMutation = useDeleteNote(projectId);
   const deleteCategoryMutation = useDeleteNoteCategory(projectId);
   const moveMutation = useMoveNoteItem(projectId);
+  const reorderMutation = useReorderNoteItems(projectId);
   const toggleLockMutation = useToggleNoteLock(projectId);
   const toggleHiddenMutation = useToggleNoteHidden(projectId);
   const duplicateNoteMutation = useDuplicateNote(projectId);
@@ -272,9 +276,46 @@ export function NoteSidebar({
     [isAgentLocked, moveMutation, showLockedToast],
   );
 
+  const handleManualMove = useCallback(
+    async (direction: -1 | 1) => {
+      if (!contextMenuTarget || !data) return;
+      if (isAgentLocked) {
+        showLockedToast();
+        handleCloseContextMenu();
+        return;
+      }
+      const siblings = resolveSiblingOrder(data, contextMenuTarget);
+      if (!siblings) return;
+      const targetIndex = siblings.index + direction;
+      if (targetIndex < 0 || targetIndex >= siblings.orderedIds.length) return;
+      const orderedIds = [...siblings.orderedIds];
+      const [movedId] = orderedIds.splice(siblings.index, 1);
+      orderedIds.splice(targetIndex, 0, movedId);
+      handleCloseContextMenu();
+      try {
+        await reorderMutation.mutateAsync({
+          kind: contextMenuTarget.type,
+          parentId: siblings.parentId,
+          orderedIds,
+        });
+      } catch {
+        // handled by mutation
+      }
+    },
+    [
+      contextMenuTarget,
+      data,
+      handleCloseContextMenu,
+      isAgentLocked,
+      reorderMutation,
+      showLockedToast,
+    ],
+  );
+
   const contextMenuItems = useMemo<ContextMenuItem[]>(() => {
     if (!contextMenuTarget) return [];
     const items: ContextMenuItem[] = [];
+    const siblingOrder = data ? resolveSiblingOrder(data, contextMenuTarget) : null;
 
     if (contextMenuTarget.type === "note") {
       items.push({
@@ -284,6 +325,23 @@ export function NoteSidebar({
         onClick: handleOpenInNewTab,
       });
     }
+
+    items.push(
+      {
+        id: "moveUp",
+        label: t("chapterMenu.moveUp"),
+        icon: ArrowUp,
+        disabled: !siblingOrder || siblingOrder.index <= 0,
+        onClick: () => void handleManualMove(-1),
+      },
+      {
+        id: "moveDown",
+        label: t("chapterMenu.moveDown"),
+        icon: ArrowDown,
+        disabled: !siblingOrder || siblingOrder.index >= siblingOrder.orderedIds.length - 1,
+        onClick: () => void handleManualMove(1),
+      },
+    );
 
     items.push({
       id: "addToConversation",
@@ -347,6 +405,7 @@ export function NoteSidebar({
     handleCloseContextMenu,
     handleDuplicate,
     handleOpenInNewTab,
+    handleManualMove,
     handleRename,
     handleToggleHidden,
     handleToggleLock,
@@ -592,6 +651,60 @@ function findNoteInTree(
   const note = walk(data.categories) ?? data.rootNotes.find((n) => n.id === noteId);
   if (!note) return undefined;
   return { id: note.id, isLocked: note.isLocked, isHidden: note.isHidden };
+}
+
+function resolveSiblingOrder(
+  data: NoteTreeResponse,
+  target: { id: string; type: "category" | "note" },
+): { parentId: string | null; orderedIds: string[]; index: number } | null {
+  if (target.type === "note") {
+    const rootIndex = data.rootNotes.findIndex((note) => note.id === target.id);
+    if (rootIndex >= 0) {
+      return {
+        parentId: null,
+        orderedIds: data.rootNotes.map((note) => note.id),
+        index: rootIndex,
+      };
+    }
+    const walkNotes = (
+      categories: NoteCategoryItem[],
+    ): { parentId: string; orderedIds: string[]; index: number } | null => {
+      for (const category of categories) {
+        const index = category.notes.findIndex((note) => note.id === target.id);
+        if (index >= 0) {
+          return {
+            parentId: category.id,
+            orderedIds: category.notes.map((note) => note.id),
+            index,
+          };
+        }
+        const nested = walkNotes(category.categories);
+        if (nested) return nested;
+      }
+      return null;
+    };
+    return walkNotes(data.categories);
+  }
+
+  const walkCategories = (
+    categories: NoteCategoryItem[],
+    parentId: string | null,
+  ): { parentId: string | null; orderedIds: string[]; index: number } | null => {
+    const index = categories.findIndex((category) => category.id === target.id);
+    if (index >= 0) {
+      return {
+        parentId,
+        orderedIds: categories.map((category) => category.id),
+        index,
+      };
+    }
+    for (const category of categories) {
+      const nested = walkCategories(category.categories, category.id);
+      if (nested) return nested;
+    }
+    return null;
+  };
+  return walkCategories(data.categories, null);
 }
 
 function findNoteTitleInTree(data: NoteTreeResponse | undefined, noteId: string): string {

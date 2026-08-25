@@ -297,6 +297,8 @@ function transformCharacter(raw: Record<string, unknown>): Character {
     description: (raw.description as string) || "",
     imageUrl: resolveBackendUrl(raw.image_url as string | null | undefined),
     isFavorited: raw.is_favorited as boolean,
+    order: raw.order as number,
+    isWritingVisible: raw.is_writing_visible as boolean,
     createdAt: raw.created_at as string,
     updatedAt: raw.updated_at as string,
   };
@@ -310,6 +312,8 @@ function transformCharacterListItem(raw: Record<string, unknown>): CharacterList
     imageUrl: resolveBackendUrl(raw.image_url as string | null | undefined),
     tokenCount: raw.token_count as number,
     isFavorited: raw.is_favorited as boolean,
+    order: raw.order as number,
+    isWritingVisible: raw.is_writing_visible as boolean,
     createdAt: raw.created_at as string,
     updatedAt: raw.updated_at as string,
   };
@@ -388,6 +392,13 @@ export async function batchDeleteCharacters(
     character_ids: characterIds,
   });
   return response.data.deleted_count as number;
+}
+
+export async function reorderCharacters(projectId: string, orderedIds: string[]): Promise<number> {
+  const response = await apiClient.post(`/projects/${projectId}/characters/reorder`, {
+    ordered_ids: orderedIds,
+  });
+  return response.data.updated_count as number;
 }
 
 export async function searchCharacters(
@@ -2606,6 +2617,7 @@ import type {
   NoteCategoryCreate,
   NoteCategoryUpdate,
   NoteItemMove,
+  NoteItemReorder,
   NoteMoveResult,
 } from "./note.types";
 
@@ -2616,8 +2628,10 @@ function transformNote(raw: Record<string, unknown>): Note {
     categoryId: (raw.category_id as string | null | undefined) ?? null,
     title: raw.title as string,
     content: raw.content as string,
+    order: raw.order as number,
     isLocked: raw.is_locked as boolean,
     isHidden: raw.is_hidden as boolean,
+    isWritingVisible: raw.is_writing_visible as boolean,
     createdAt: raw.created_at as string,
     updatedAt: raw.updated_at as string,
   };
@@ -2629,8 +2643,10 @@ function transformNoteListItem(raw: Record<string, unknown>): NoteListItem {
     projectId: raw.project_id as string,
     categoryId: (raw.category_id as string | null | undefined) ?? null,
     title: raw.title as string,
+    order: raw.order as number,
     isLocked: raw.is_locked as boolean,
     isHidden: raw.is_hidden as boolean,
+    isWritingVisible: raw.is_writing_visible as boolean,
     createdAt: raw.created_at as string,
     updatedAt: raw.updated_at as string,
   };
@@ -2642,6 +2658,7 @@ function transformNoteCategory(raw: Record<string, unknown>): NoteCategory {
     projectId: raw.project_id as string,
     parentId: (raw.parent_id as string | null | undefined) ?? null,
     title: raw.title as string,
+    order: raw.order as number,
     createdAt: raw.created_at as string,
     updatedAt: raw.updated_at as string,
   };
@@ -2680,6 +2697,15 @@ function transformNoteMoveResult(raw: Record<string, unknown>): NoteMoveResult {
 export async function fetchNoteTree(projectId: string): Promise<NoteTreeResponse> {
   const response = await apiClient.get(`/projects/${projectId}/notes`);
   return transformNoteTree(response.data);
+}
+
+export async function reorderNoteItems(projectId: string, data: NoteItemReorder): Promise<number> {
+  const response = await apiClient.post(`/projects/${projectId}/note-items/reorder`, {
+    kind: data.kind,
+    parent_id: data.parentId,
+    ordered_ids: data.orderedIds,
+  });
+  return response.data.updated_count as number;
 }
 
 export async function fetchNote(noteId: string): Promise<Note> {

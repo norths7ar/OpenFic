@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Character Service - 角色业务逻辑层。"""
 
 from dataclasses import dataclass
@@ -74,7 +73,9 @@ async def create_character(
     if project is None:
         raise NotFoundError(f"项目不存在: {project_id}")
 
-    resolved_name = make_available_name(name.strip(), await character_repo.list_names_by_project(session, project_id))
+    resolved_name = make_available_name(
+        name.strip(), await character_repo.list_names_by_project(session, project_id)
+    )
     next_order = await character_repo.get_max_order(session, project_id) + 1
 
     character = await character_repo.create(
@@ -114,6 +115,29 @@ async def list_characters_by_project(
     return await character_repo.list_all_by_project(session, project_id)
 
 
+async def reorder_characters(
+    session: AsyncSession, project_id: str, ordered_ids: list[str]
+) -> int:
+    project = await project_repo.get_by_id(session, project_id)
+    if project is None:
+        raise NotFoundError(f"项目不存在: {project_id}")
+    if len(ordered_ids) != len(set(ordered_ids)):
+        raise ValueError("ordered_ids 不能包含重复 ID")
+    characters = await character_repo.list_all_by_project(session, project_id)
+    expected = {character.id for character in characters}
+    if set(ordered_ids) != expected or len(ordered_ids) != len(expected):
+        raise ValueError("ordered_ids 必须完整匹配当前项目角色")
+    now = datetime.now(UTC)
+    by_id = {character.id: character for character in characters}
+    for index, character_id in enumerate(ordered_ids):
+        character = by_id[character_id]
+        character.order = index
+        character.updated_at = now
+        session.add(character)
+    await session.flush()
+    return len(ordered_ids)
+
+
 async def search_characters(
     session: AsyncSession,
     project_id: str,
@@ -128,7 +152,9 @@ async def search_characters(
     if not stripped_query:
         return CharacterSearchResponse(results=[], total_characters=0, total_matches=0)
 
-    characters = await character_repo.search_by_project(session, project_id, stripped_query)
+    characters = await character_repo.search_by_project(
+        session, project_id, stripped_query
+    )
     lower_query = stripped_query.lower()
     results: list[CharacterSearchResult] = []
     total_matches = 0
@@ -137,10 +163,14 @@ async def search_characters(
         matches: list[CharacterSearchMatch] = []
         for line_number, line in enumerate(character.description.split("\n"), start=1):
             if lower_query in line.lower():
-                matches.append(CharacterSearchMatch(line_number=line_number, line_text=line))
+                matches.append(
+                    CharacterSearchMatch(line_number=line_number, line_text=line)
+                )
 
         if lower_query in character.name.lower():
-            matches.insert(0, CharacterSearchMatch(line_number=0, line_text=character.name))
+            matches.insert(
+                0, CharacterSearchMatch(line_number=0, line_text=character.name)
+            )
 
         if matches:
             results.append(
@@ -173,7 +203,9 @@ async def update_character(
 
     if name is not None:
         next_name = name.strip()
-        if await character_repo.name_exists(session, character.project_id, next_name, exclude_character_id=character.id):
+        if await character_repo.name_exists(
+            session, character.project_id, next_name, exclude_character_id=character.id
+        ):
             raise ConflictError("角色名称已存在")
         character.name = next_name
     if description is not None:
@@ -210,7 +242,9 @@ async def batch_update_favorite(
     project = await project_repo.get_by_id(session, project_id)
     if project is None:
         raise NotFoundError(f"项目不存在: {project_id}")
-    return await character_repo.batch_update_favorite(session, project_id, character_ids, is_favorited)
+    return await character_repo.batch_update_favorite(
+        session, project_id, character_ids, is_favorited
+    )
 
 
 async def batch_delete_characters(
@@ -223,8 +257,12 @@ async def batch_delete_characters(
     if project is None:
         raise NotFoundError(f"项目不存在: {project_id}")
 
-    characters = await character_repo.list_by_project_and_ids(session, project_id, character_ids)
-    deleted_count = await character_repo.batch_delete(session, project_id, character_ids)
+    characters = await character_repo.list_by_project_and_ids(
+        session, project_id, character_ids
+    )
+    deleted_count = await character_repo.batch_delete(
+        session, project_id, character_ids
+    )
     for character in characters:
         if character.image_path:
             delete_character_image(character.image_path)

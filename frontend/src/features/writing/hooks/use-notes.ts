@@ -14,6 +14,7 @@ import {
   updateNoteCategory,
   deleteNoteCategory,
   moveNoteItem,
+  reorderNoteItems,
 } from "@/lib/api-client";
 import type {
   Note,
@@ -23,6 +24,7 @@ import type {
   NoteCategoryCreate,
   NoteCategoryUpdate,
   NoteItemMove,
+  NoteItemReorder,
   NoteTreeResponse,
   NoteCategoryItem,
 } from "@/lib/note.types";
@@ -501,6 +503,22 @@ export function useMoveNoteItem(projectId: string) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["note-tree", projectId] });
+    },
+  });
+}
+
+export function useReorderNoteItems(projectId: string) {
+  const queryClient = useQueryClient();
+  const { t } = useTranslation();
+
+  return useMutation({
+    mutationFn: (data: NoteItemReorder) => reorderNoteItems(projectId, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["note-tree", projectId] });
+      toast.success(t("writing.orderSaved"));
+    },
+    onError: () => {
+      toast.error(t("writing.orderSaveFailed"));
     },
   });
 }

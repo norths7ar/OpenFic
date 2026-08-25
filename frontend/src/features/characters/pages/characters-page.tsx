@@ -20,6 +20,7 @@ import {
   fetchCharacter,
   fetchCharactersByProject,
   fetchProjects,
+  reorderCharacters,
   updateCharacter,
 } from "@/lib/api-client";
 import type { Character, CharacterListItem, CharacterListResponse } from "@/lib/character.types";
@@ -49,17 +50,15 @@ function toCharacterListItem(character: Character): CharacterListItem {
     imageUrl: character.imageUrl,
     tokenCount: countTokens(character.description),
     isFavorited: character.isFavorited,
+    order: character.order,
+    isWritingVisible: character.isWritingVisible,
     createdAt: character.createdAt,
     updatedAt: character.updatedAt,
   };
 }
 
 function sortCharacters(characters: CharacterListItem[]): CharacterListItem[] {
-  return [...characters].sort((a, b) => {
-    const favoriteComparison = Number(b.isFavorited) - Number(a.isFavorited);
-    if (favoriteComparison !== 0) return favoriteComparison;
-    return b.updatedAt.localeCompare(a.updatedAt);
-  });
+  return [...characters].sort((a, b) => a.order - b.order || a.name.localeCompare(b.name, "zh-CN"));
 }
 
 export function CharactersPage() {
@@ -365,6 +364,46 @@ export function CharactersPage() {
     },
   });
 
+  const reorderMutation = useMutation({
+    mutationFn: (orderedIds: string[]) => reorderCharacters(currentProjectId!, orderedIds),
+    onMutate: async (orderedIds) => {
+      if (!currentProjectId) return {};
+      await queryClient.cancelQueries({
+        queryKey: ["characters", currentProjectId],
+        exact: true,
+      });
+      const previous = queryClient.getQueryData<CharacterListResponse>([
+        "characters",
+        currentProjectId,
+      ]);
+      const orderById = new Map(orderedIds.map((id, index) => [id, index]));
+      queryClient.setQueryData<CharacterListResponse>(["characters", currentProjectId], (old) =>
+        old
+          ? {
+              ...old,
+              items: sortCharacters(
+                old.items.map((character) => ({
+                  ...character,
+                  order: orderById.get(character.id) ?? character.order,
+                })),
+              ),
+            }
+          : old,
+      );
+      return { previous };
+    },
+    onError: (_error, _orderedIds, context) => {
+      if (currentProjectId && context?.previous) {
+        queryClient.setQueryData(["characters", currentProjectId], context.previous);
+      }
+      toast.error(t("writing.orderSaveFailed"));
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["characters", currentProjectId] });
+      toast.success(t("writing.orderSaved"));
+    },
+  });
+
   const handleSelectProject = (projectId: string) => {
     setCurrentProject(projectId || null);
     if (projectId) navigate(`/projects/${projectId}/characters`);
@@ -398,6 +437,7 @@ export function CharactersPage() {
       onBatchFavorite={(characterIds, isFavorited) => {
         batchFavoriteMutation.mutate({ characterIds, isFavorited });
       }}
+      onReorderCharacters={(orderedIds) => reorderMutation.mutate(orderedIds)}
     />
   );
 

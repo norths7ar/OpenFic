@@ -4,8 +4,10 @@ export interface Note {
   categoryId: string | null;
   title: string;
   content: string;
+  order: number;
   isLocked: boolean;
   isHidden: boolean;
+  isWritingVisible: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -15,8 +17,10 @@ export interface NoteListItem {
   projectId: string;
   categoryId: string | null;
   title: string;
+  order: number;
   isLocked: boolean;
   isHidden: boolean;
+  isWritingVisible: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -26,6 +30,7 @@ export interface NoteCategory {
   projectId: string;
   parentId: string | null;
   title: string;
+  order: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -65,6 +70,12 @@ export interface NoteItemMove {
   kind: "category" | "note";
   itemId: string;
   targetCategoryId?: string | null;
+}
+
+export interface NoteItemReorder {
+  kind: "category" | "note";
+  parentId: string | null;
+  orderedIds: string[];
 }
 
 export interface NoteMoveResult {

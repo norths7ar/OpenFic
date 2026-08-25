@@ -150,6 +150,7 @@
     "searchResultSummary": "Found {{matches}} results across {{characters}} characters",
     "noCharactersFound": "No matching characters found",
     "sort": "Sort",
+    "sortByOrder": "Manual order",
     "sortByFavorite": "Favorites first",
     "sortByUpdated": "Last edited",
     "sortByTokens": "Tokens",

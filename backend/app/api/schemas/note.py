@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Note API Schemas - 笔记请求/响应模型。
 """
@@ -45,6 +44,16 @@ class NoteItemMove(BaseModel):
     kind: Literal["category", "note"] = Field(description="移动类型")
     item_id: str = Field(description="被移动的分类/笔记 ID")
     target_category_id: str | None = Field(default=None, description="目标分类 ID")
+
+
+class NoteItemsReorderRequest(BaseModel):
+    kind: Literal["category", "note"]
+    parent_id: str | None = None
+    ordered_ids: list[str]
+
+
+class ReorderResponse(BaseModel):
+    updated_count: int
 
 
 class NoteResponse(BaseModel):

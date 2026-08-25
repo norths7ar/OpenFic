@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Notes Router - 笔记与分类 CRUD API。
 """
@@ -21,6 +20,7 @@ from app.api.schemas.note import (
     NoteCreate,
     NoteHiddenToggle,
     NoteItemMove,
+    NoteItemsReorderRequest,
     NoteListItem,
     NoteLockToggle,
     NoteMoveResult,
@@ -30,11 +30,12 @@ from app.api.schemas.note import (
     NoteSearchResult,
     NoteTreeResponse,
     NoteUpdate,
+    ReorderResponse,
 )
 from app.background.jobs import service as background_service
 from app.core.errors import NotFoundError
 from app.storage.database import get_session
-from app.storage.services import note_service, mention_service
+from app.storage.services import mention_service, note_service
 
 router = APIRouter(tags=["notes"])
 
@@ -75,9 +76,13 @@ async def create_category(
         await background_service.commit_and_notify(session)
         return NoteCategoryResponse.model_validate(category)
     except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=str(e)
+        ) from e
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
+        ) from e
 
 
 @router.patch(
@@ -153,6 +158,35 @@ async def move_item(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+@router.post(
+    "/projects/{project_id}/note-items/reorder",
+    response_model=ReorderResponse,
+)
+async def reorder_note_items(
+    project_id: str,
+    data: NoteItemsReorderRequest,
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> ReorderResponse:
+    try:
+        updated_count = await note_service.reorder_items(
+            session,
+            project_id,
+            item_kind=data.kind,
+            parent_id=data.parent_id,
+            ordered_ids=data.ordered_ids,
+        )
+        await background_service.commit_and_notify(session)
+        return ReorderResponse(updated_count=updated_count)
+    except NotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=str(e)
+        ) from e
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
+        ) from e
 
 
 @router.post(
