@@ -1,22 +1,15 @@
 import { Box, Flex } from "@radix-ui/themes";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import axios from "axios";
-import { ChartNoAxesCombined, Globe, LibraryBig, UserRound, Workflow } from "lucide-react";
+import { BookOpen, ChartNoAxesCombined, Globe, LibraryBig, UserRound, Workflow } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { useLocation, useNavigate, useParams } from "react-router";
 
 import { toast } from "@/components";
-import { saveLanguagePreference, supportedLanguages, type LanguageCode } from "@/i18n";
-import { apiClient, fetchProject } from "@/lib/api-client";
-import {
-  getRecentProjects,
-  openRecentProject,
-  removeRecentProject,
-  removeRecentProjectByProjectId,
-} from "@/lib/local-db";
-import type { RecentProject } from "@/lib/recent-projects";
+import { LabeledSelect } from "@/components/select";
+import { fetchProject, fetchProjects } from "@/lib/api-client";
 
 import { useAppShell } from "./app-shell-context";
 import {
@@ -24,7 +17,6 @@ import {
   SIDEBAR_EXPANDED_WIDTH,
   type AppSidebarNavItem,
 } from "./app-sidebar.constants";
-import { RecentProjectsNav } from "./recent-projects-nav";
 import { SidebarActions } from "./sidebar-actions";
 import { SidebarBrand } from "./sidebar-brand";
 import { SidebarNav } from "./sidebar-nav";
@@ -32,26 +24,17 @@ import { SidebarNav } from "./sidebar-nav";
 const MotionBox = motion.create(Box);
 const MotionFlex = motion.create(Flex);
 
-interface AppSidebarProps {
-  appearance: "light" | "dark";
-  onToggleTheme: () => void;
-}
-
-export function AppSidebar({ appearance, onToggleTheme }: AppSidebarProps) {
-  const { t, i18n } = useTranslation();
+export function AppSidebar() {
+  const { t } = useTranslation();
   const location = useLocation();
   const navigate = useNavigate();
   const { projectId } = useParams<{ projectId: string }>();
   const { isMobile, isSidebarOpen, closeSidebar, openSettings } = useAppShell();
-  const queryClient = useQueryClient();
 
   const [isExpanded, setIsExpanded] = useState(false);
   const [isLogoHovered, setIsLogoHovered] = useState(false);
-  const [shouldAnimateTheme, setShouldAnimateTheme] = useState(false);
   const logoPointerInsideRef = useRef(false);
-  const prevAppearanceRef = useRef(appearance);
   const prevPathnameRef = useRef(location.pathname);
-  const lastOpenedProjectIdRef = useRef<string | null>(null);
 
   const sidebarWidth = isMobile
     ? SIDEBAR_EXPANDED_WIDTH
@@ -74,119 +57,81 @@ export function AppSidebar({ appearance, onToggleTheme }: AppSidebarProps) {
     prevPathnameRef.current = location.pathname;
   }, [closeSidebar, isMobile, isSidebarOpen, location.pathname]);
 
-  useEffect(() => {
-    if (prevAppearanceRef.current !== appearance && shouldAnimateTheme) {
-      const timer = setTimeout(() => {
-        setShouldAnimateTheme(false);
-      }, 300);
-      return () => clearTimeout(timer);
-    }
-    prevAppearanceRef.current = appearance;
-  }, [appearance, shouldAnimateTheme]);
+  const { data: projectsData } = useQuery({
+    queryKey: ["projects", "app-sidebar"],
+    queryFn: () => fetchProjects({ page: 1, pageSize: 100 }),
+    enabled: !!projectId,
+  });
+  const projects = projectsData?.items ?? [];
 
-  const { data: currentProject, error: currentProjectError } = useQuery({
+  const { error: currentProjectError } = useQuery({
     queryKey: ["project", projectId],
     queryFn: () => fetchProject(projectId!),
     enabled: !!projectId,
   });
 
-  const { data: recentProjects = [] } = useQuery({
-    queryKey: ["recent-projects"],
-    queryFn: getRecentProjects,
-    staleTime: Infinity,
-  });
-
-  useEffect(() => {
-    if (!projectId) lastOpenedProjectIdRef.current = null;
-  }, [projectId]);
-
   useEffect(() => {
     if (!projectId || !axios.isAxiosError(currentProjectError)) return;
     if (currentProjectError.response?.status !== 404) return;
 
-    void (async () => {
-      await queryClient.cancelQueries({ queryKey: ["recent-projects"] });
-      queryClient.setQueryData<RecentProject[]>(["recent-projects"], (projects) =>
-        projects?.filter((project) => project.projectId !== projectId),
-      );
-      await removeRecentProjectByProjectId(projectId);
-      toast.error(t("projects.projectUnavailable"));
-      navigate("/", { replace: true });
-    })();
-  }, [currentProjectError, navigate, projectId, queryClient, t]);
-
-  useEffect(() => {
-    if (!currentProject || lastOpenedProjectIdRef.current === currentProject.id) return;
-
-    lastOpenedProjectIdRef.current = currentProject.id;
-    let isDiscarded = false;
-
-    void openRecentProject(currentProject.id, currentProject.title).then((nextProjects) => {
-      if (!nextProjects || isDiscarded || lastOpenedProjectIdRef.current !== currentProject.id)
-        return;
-
-      queryClient.setQueryData<RecentProject[]>(["recent-projects"], nextProjects);
-    });
-
-    return () => {
-      isDiscarded = true;
-    };
-  }, [currentProject, queryClient]);
+    toast.error(t("projects.projectUnavailable"));
+    navigate("/", { replace: true });
+  }, [currentProjectError, navigate, projectId, t]);
 
   const navItems = useMemo<AppSidebarNavItem[]>(() => {
     const pathname = location.pathname;
     const items: AppSidebarNavItem[] = [
       {
-        label: t("topbar.projects"),
+        label: t("sidebar.bookshelf"),
         href: "/",
         icon: LibraryBig,
         active: pathname === "/",
       },
-      {
-        label: t("topbar.workspace"),
-        href: "/world-info",
-        icon: Globe,
-        active: pathname.startsWith("/world-info"),
-      },
-      {
-        label: t("topbar.characters"),
-        href: "/characters",
-        icon: UserRound,
-        active: pathname.startsWith("/characters"),
-      },
+    ];
+
+    if (projectId) {
+      items.push(
+        {
+          label: t("topbar.writing"),
+          href: `/projects/${projectId}/write`,
+          icon: BookOpen,
+          active: pathname === `/projects/${projectId}/write`,
+        },
+        {
+          label: t("topbar.workspace"),
+          href: `/projects/${projectId}/world-info`,
+          icon: Globe,
+          active: pathname === `/projects/${projectId}/world-info`,
+        },
+        {
+          label: t("topbar.characters"),
+          href: `/projects/${projectId}/characters`,
+          icon: UserRound,
+          active: pathname === `/projects/${projectId}/characters`,
+        },
+      );
+    }
+
+    return items;
+  }, [location.pathname, projectId, t]);
+
+  const toolNavItems = useMemo<AppSidebarNavItem[]>(
+    () => [
       {
         label: t("topbar.promptChains"),
         href: "/prompt-chains",
         icon: Workflow,
-        active: pathname.startsWith("/prompt-chains"),
+        active: location.pathname.startsWith("/prompt-chains"),
       },
       {
         label: t("dashboard.title"),
         href: "/dashboard",
         icon: ChartNoAxesCombined,
-        active: pathname.startsWith("/dashboard"),
+        active: location.pathname.startsWith("/dashboard"),
       },
-    ];
-
-    return items;
-  }, [location.pathname, t]);
-
-  const handleLanguageChange = async (language: string) => {
-    const nextLanguage = language as LanguageCode;
-    i18n.changeLanguage(nextLanguage);
-    saveLanguagePreference(nextLanguage);
-
-    try {
-      await apiClient.put("/settings", { language: nextLanguage });
-    } catch (error) {
-      console.error("Failed to sync language setting to server:", error);
-    }
-  };
-
-  const handleThemeToggle = useCallback(() => {
-    setShouldAnimateTheme(true);
-    onToggleTheme();
-  }, [onToggleTheme]);
+    ],
+    [location.pathname, t],
+  );
 
   const toggleExpanded = useCallback(() => {
     if (isMobile) {
@@ -240,16 +185,17 @@ export function AppSidebar({ appearance, onToggleTheme }: AppSidebarProps) {
     openSettings();
   }, [closeSidebar, isMobile, openSettings]);
 
-  const handleRemoveRecentProject = useCallback(
-    async (slot: number) => {
-      const isRemoved = await removeRecentProject(slot);
-      if (!isRemoved) return;
+  const projectSection = location.pathname.endsWith("/world-info")
+    ? "world-info"
+    : location.pathname.endsWith("/characters")
+      ? "characters"
+      : "write";
 
-      queryClient.setQueryData<RecentProject[]>(["recent-projects"], (projects = []) =>
-        projects.filter((project) => project.slot !== slot),
-      );
+  const handleProjectChange = useCallback(
+    (nextProjectId: string) => {
+      navigate(`/projects/${nextProjectId}/${projectSection}`);
     },
-    [queryClient],
+    [navigate, projectSection],
   );
 
   return (
@@ -309,7 +255,7 @@ export function AppSidebar({ appearance, onToggleTheme }: AppSidebarProps) {
                 isExpanded={isMobile || isExpanded}
                 isHovered={isLogoHovered}
                 expandLabel={t("topbar.expand")}
-                projectsLabel={t("topbar.projects")}
+                projectsLabel={t("sidebar.bookshelf")}
                 collapseLabel={t("topbar.collapse")}
                 onToggleExpanded={toggleExpanded}
                 onNavigateHome={navigateToProjects}
@@ -343,19 +289,34 @@ export function AppSidebar({ appearance, onToggleTheme }: AppSidebarProps) {
                 />
               </Box>
 
+              {projectId && (isMobile || isExpanded) && (
+                <Box mb="2" width="100%">
+                  <LabeledSelect
+                    label={t("topbar.currentProject")}
+                    value={projectId}
+                    options={projects.map((project) => ({
+                      value: project.id,
+                      label: project.title,
+                    }))}
+                    onChange={handleProjectChange}
+                    disabled={projects.length === 0}
+                    triggerStyle={{ width: "100%" }}
+                    placeholder={t("topbar.currentProject")}
+                  />
+                </Box>
+              )}
+
               <SidebarNav
                 items={navItems}
                 isExpanded={isMobile || isExpanded}
               />
 
-              <RecentProjectsNav
-                projects={recentProjects}
-                currentProjectId={projectId}
-                isExpanded={isMobile || isExpanded}
-                ariaLabel={t("topbar.recentProjects")}
-                closeLabel={t("common.close")}
-                onRemove={handleRemoveRecentProject}
-              />
+              <Box mt="auto">
+                <SidebarNav
+                  items={toolNavItems}
+                  isExpanded={isMobile || isExpanded}
+                />
+              </Box>
 
               <MotionFlex
                 layout
@@ -368,24 +329,8 @@ export function AppSidebar({ appearance, onToggleTheme }: AppSidebarProps) {
                 transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
               >
                 <SidebarActions
-                  appearance={appearance}
                   isExpanded={isMobile || isExpanded}
-                  shouldAnimateTheme={shouldAnimateTheme}
-                  languageLabel={t("topbar.language")}
                   settingsLabel={t("topbar.settings")}
-                  toggleThemeLabel={t("topbar.toggleTheme")}
-                  themeTooltip={
-                    appearance === "light"
-                      ? t("topbar.toggleDarkMode")
-                      : t("topbar.toggleLightMode")
-                  }
-                  languages={supportedLanguages.map((lang) => ({
-                    code: lang.code,
-                    name: lang.name,
-                  }))}
-                  currentLanguage={i18n.language}
-                  onLanguageChange={handleLanguageChange}
-                  onToggleTheme={handleThemeToggle}
                   onOpenSettings={handleOpenSettings}
                 />
               </MotionFlex>

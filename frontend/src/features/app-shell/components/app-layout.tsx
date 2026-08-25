@@ -26,14 +26,12 @@ interface AppLayoutProps {
   appearance: "light" | "dark";
   version: string;
   onAppearanceChange: (appearance: "light" | "dark") => void;
-  onToggleTheme: () => void;
 }
 
 export function AppLayout({
   appearance,
   version,
   onAppearanceChange,
-  onToggleTheme,
 }: AppLayoutProps) {
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -159,10 +157,7 @@ export function AppLayout({
     <AppShellContext.Provider value={contextValue}>
       <div className="app-layout-root">
         <div className="app-layout-body">
-          <AppSidebar
-            appearance={appearance}
-            onToggleTheme={onToggleTheme}
-          />
+          <AppSidebar />
 
           <div className="app-layout-content">
             <Outlet />

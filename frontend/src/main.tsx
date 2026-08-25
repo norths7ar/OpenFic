@@ -163,12 +163,10 @@ function AppContent({
   appearance,
   version,
   setAppearance,
-  toggleTheme,
 }: {
   appearance: "light" | "dark";
   version: string;
   setAppearance: (appearance: "light" | "dark") => void;
-  toggleTheme: () => void;
 }) {
   return (
     <BrowserRouter>
@@ -179,7 +177,6 @@ function AppContent({
               appearance={appearance}
               version={version}
               onAppearanceChange={setAppearance}
-              onToggleTheme={toggleTheme}
             />
           }
         >
@@ -235,10 +232,6 @@ function Root() {
   const [isReady, setIsReady] = useState(false);
   const [requiresAuthentication, setRequiresAuthentication] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const toggleTheme = () => {
-    setAppearance((prev) => (prev === "light" ? "dark" : "light"));
-  };
 
   useEffect(() => {
     let mounted = true;
@@ -373,7 +366,6 @@ function Root() {
                   appearance={appearance}
                   version={FRONTEND_VERSION}
                   setAppearance={setAppearance}
-                  toggleTheme={toggleTheme}
                 />
               </ErrorBoundary>
             )}

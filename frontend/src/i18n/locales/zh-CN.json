@@ -64,8 +64,13 @@
     "invalidPassword": "密码错误",
     "loginFailed": "登录失败，请重试"
   },
+  "sidebar": {
+    "bookshelf": "书架"
+  },
   "topbar": {
     "projects": "项目",
+    "writing": "写作",
+    "currentProject": "当前项目",
     "recentProjects": "最近打开的项目",
     "workspace": "世界书",
     "characters": "角色",
