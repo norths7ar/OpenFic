@@ -167,6 +167,28 @@ function getStoredReasoningEffort(modelId: string): ReasoningEffort {
   }
 }
 
+function isReasoningEffort(value: unknown): value is ReasoningEffort {
+  return (
+    typeof value === "string" && ["off", "low", "medium", "high", "xhigh", "max"].includes(value)
+  );
+}
+
+function storeReasoningEffort(modelId: string, reasoningEffort: ReasoningEffort): void {
+  if (typeof window === "undefined" || !modelId) return;
+  let stored: Record<string, ReasoningEffort> = {};
+  try {
+    stored = JSON.parse(
+      window.localStorage.getItem(ASSISTANT_REASONING_EFFORT_STORAGE_KEY) ?? "{}",
+    ) as Record<string, ReasoningEffort>;
+  } catch {
+    // Replace malformed local preferences with the persisted session value.
+  }
+  window.localStorage.setItem(
+    ASSISTANT_REASONING_EFFORT_STORAGE_KEY,
+    JSON.stringify({ ...stored, [modelId]: reasoningEffort }),
+  );
+}
+
 function getSubagentStatusLabel(
   status: ActiveSubagentState["status"] | "" | undefined,
   t: (key: string, options?: Record<string, unknown>) => string,
@@ -921,14 +943,55 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
 
           const isRemoteRunning = bundle.sessionState?.isRunning ?? false;
 
+          const restoredAgentKey =
+            typeof bundle.sessionState?.state.agent_key === "string"
+              ? bundle.sessionState.state.agent_key
+              : undefined;
+          if (restoredAgentKey && primaryAgents.some((agent) => agent.key === restoredAgentKey)) {
+            setSelectedAgentKey(restoredAgentKey);
+          }
+
+          const restoredModelConfig = bundle.sessionState?.state.model_config;
+          const restoredModelRecordId =
+            restoredModelConfig &&
+            typeof restoredModelConfig === "object" &&
+            !Array.isArray(restoredModelConfig) &&
+            typeof (restoredModelConfig as Record<string, unknown>).model_record_id === "string"
+              ? ((restoredModelConfig as Record<string, unknown>).model_record_id as string)
+              : undefined;
+          const restoredModelId =
+            restoredModelRecordId &&
+            llmModelOptions.some((model) => getModelValue(model) === restoredModelRecordId)
+              ? restoredModelRecordId
+              : undefined;
+          if (restoredModelId) {
+            setSelectedModelId(restoredModelId);
+          }
+
+          const restoredReasoningEffort =
+            restoredModelConfig &&
+            typeof restoredModelConfig === "object" &&
+            !Array.isArray(restoredModelConfig) &&
+            isReasoningEffort(
+              (restoredModelConfig as Record<string, unknown>).reasoning_effort ?? "off",
+            )
+              ? (((restoredModelConfig as Record<string, unknown>).reasoning_effort as
+                  | ReasoningEffort
+                  | undefined) ?? "off")
+              : undefined;
+          if (restoredReasoningEffort) {
+            if (restoredModelId) {
+              storeReasoningEffort(restoredModelId, restoredReasoningEffort);
+            }
+            setReasoningEffort(restoredReasoningEffort);
+          }
+
           agentSidebar.loadSession(sessionId, agentMessages, {
             reconnect: true,
             isRemoteRunning,
             pendingInterrupts: bundle.sessionState?.interrupts,
-            primaryAgentKey:
-              typeof bundle.sessionState?.state.agent_key === "string"
-                ? bundle.sessionState.state.agent_key
-                : undefined,
+            primaryAgentKey: restoredAgentKey,
+            modelId: restoredModelId,
           });
           setActiveSubagents(bundle.activeSubagentRows);
           setCurrentTaskId(fullTask.id);
@@ -975,7 +1038,7 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
           return false;
         }
       },
-      [agentSidebar, currentModel?.contextWindow, t],
+      [agentSidebar, currentModel?.contextWindow, llmModelOptions, primaryAgents, t],
     );
 
     const loadTask = useCallback(
@@ -1140,19 +1203,7 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
       (nextReasoningEffort: ReasoningEffort) => {
         if (!effectiveModelId) return;
         setReasoningEffort(nextReasoningEffort);
-        const stored = (() => {
-          try {
-            return JSON.parse(
-              window.localStorage.getItem(ASSISTANT_REASONING_EFFORT_STORAGE_KEY) ?? "{}",
-            ) as Record<string, ReasoningEffort>;
-          } catch {
-            return {};
-          }
-        })();
-        window.localStorage.setItem(
-          ASSISTANT_REASONING_EFFORT_STORAGE_KEY,
-          JSON.stringify({ ...stored, [effectiveModelId]: nextReasoningEffort }),
-        );
+        storeReasoningEffort(effectiveModelId, nextReasoningEffort);
       },
       [effectiveModelId],
     );

@@ -1310,11 +1310,12 @@ export function useAgentSession({
         reconnect?: boolean;
         isRemoteRunning?: boolean;
         primaryAgentKey?: string;
+        modelId?: string;
         pendingInterrupts?: Record<string, unknown>[];
       } = {},
     ) => {
       sessionIdRef.current = existingSessionId;
-      activeModelIdRef.current = null;
+      activeModelIdRef.current = options.modelId ?? null;
       suppressSocketEventsAfterAbortRef.current = false;
       transportRetryAttemptRef.current = 0;
       suppressNextErrorAfterCompactionErrorRef.current = false;
