@@ -1,16 +1,20 @@
+from typing import Literal, cast
 from urllib.parse import quote
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.errors import NotFoundError
 from app.project_bundle.archive import BundleFormatError
 from app.project_bundle.export import export_project_bundle
+from app.project_bundle.importer import preview_project_bundle
 from app.project_bundle.names import slugify_filename
 from app.storage.database import get_session
 from app.storage.models.project import Project
 
 router = APIRouter(tags=["project-bundles"])
+MAX_BUNDLE_UPLOAD_BYTES = 60 * 1024 * 1024
 
 
 @router.get("/projects/{project_id}/bundle/export")
@@ -45,3 +49,38 @@ async def export_bundle(
             )
         },
     )
+
+
+@router.post("/projects/{project_id}/bundle/import/preview")
+async def preview_bundle_import(
+    project_id: str,
+    file: UploadFile = File(...),  # noqa: B008
+    mode: str = Form(default="merge"),
+    session: AsyncSession = Depends(get_session),  # noqa: B008
+) -> dict:
+    data = await file.read(MAX_BUNDLE_UPLOAD_BYTES + 1)
+    if not data:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="文件为空")
+    if len(data) > MAX_BUNDLE_UPLOAD_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+            detail="Bundle 文件过大",
+        )
+    try:
+        preview = await preview_project_bundle(
+            session, project_id, data, cast(Literal["append", "update", "merge"], mode)
+        )
+    except NotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
+        ) from exc
+    except BundleFormatError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
+        ) from exc
+    return {
+        "mode": preview.mode,
+        "source_project": preview.source_project,
+        "items": [item.__dict__ for item in preview.items],
+        "summary": preview.summary,
+    }
