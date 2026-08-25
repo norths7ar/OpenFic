@@ -9,7 +9,10 @@ from datetime import UTC, datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import NotFoundError, ValidationError
-from app.storage.models.prompt_chain_version import PromptChainVersion, generate_short_hash
+from app.storage.models.prompt_chain_version import (
+    PromptChainVersion,
+    generate_short_hash,
+)
 from app.storage.models.prompt_entry import PromptEntry
 from app.storage.repos import (
     prompt_chain_version_repo,
@@ -469,11 +472,11 @@ async def get_prompt_chains_metadata(session: AsyncSession) -> dict:
     from app.prompts import get_prompt_chains_metadata as get_yaml_metadata
     from app.storage.repos import agent_definition_repo
 
-    custom_agents: list[tuple[str, str]] = []
+    custom_agents: list[tuple[str, str, str]] = []
     records = await agent_definition_repo.list_all(session)
     for record in records:
         if record.source == "custom" and record.key not in DEFAULT_AGENT_KEYS:
-            custom_agents.append((record.key, record.display_name))
+            custom_agents.append((record.key, record.display_name, record.kind))
 
     return get_yaml_metadata(custom_agents=custom_agents)
 

@@ -2069,11 +2069,21 @@ function isPromptCategoryMetadata(value: unknown): value is PromptCategoryMetada
 
 function isPromptMetadata(value: unknown): boolean {
   if (!value || typeof value !== "object") return false;
-  const prompt = value as { id?: unknown; label_key?: unknown; label?: unknown };
+  const prompt = value as {
+    id?: unknown;
+    label_key?: unknown;
+    label?: unknown;
+    visibility?: unknown;
+    editable?: unknown;
+  };
   return (
     typeof prompt.id === "string" &&
     typeof prompt.label_key === "string" &&
-    (typeof prompt.label === "string" || prompt.label === null)
+    (typeof prompt.label === "string" || prompt.label === null) &&
+    (prompt.visibility === "user" ||
+      prompt.visibility === "advanced" ||
+      prompt.visibility === "internal") &&
+    typeof prompt.editable === "boolean"
   );
 }
 

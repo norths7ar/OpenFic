@@ -29,6 +29,8 @@ class PromptDefinition:
     category_id: str
     label_key: str
     yaml_path: Path
+    visibility: str = "advanced"
+    editable: bool = True
 
 
 _PROMPT_DEFINITIONS = (
@@ -133,27 +135,43 @@ def load_prompt_chain(prompt_id: str) -> list[PromptEntryData] | None:
 
 
 def get_prompt_chains_metadata(
-    custom_agents: list[tuple[str, str]] | None = None,
+    custom_agents: list[tuple[str, str] | tuple[str, str, str]] | None = None,
 ) -> dict[str, list[dict[str, object]]]:
     """返回按业务类别分组的单级提示词元数据。"""
+    from app.agent_runtime.agents.definitions import DEFAULT_AGENT_DEFINITIONS
+
+    def prompt_access(definition: PromptDefinition) -> tuple[str, bool]:
+        if definition.category_id != "builtin-agents":
+            return definition.visibility, definition.editable
+        agent_name = definition.prompt_id.removeprefix("builtin-agent--")
+        agent = DEFAULT_AGENT_DEFINITIONS.get(agent_name)
+        is_primary = agent is not None and agent.kind == "primary"
+        return ("user", True) if is_primary else ("internal", False)
+
     prompts_by_category = {
         category_id: [
             {
                 "id": definition.prompt_id,
                 "label_key": definition.label_key,
                 "label": None,
+                "visibility": prompt_access(definition)[0],
+                "editable": prompt_access(definition)[1],
             }
             for definition in _PROMPT_DEFINITIONS
             if definition.category_id == category_id
         ]
         for category_id, _ in _CATEGORY_DEFINITIONS
     }
-    for key, display_name in sorted(custom_agents or [], key=lambda item: item[1].casefold()):
+    for item in sorted(custom_agents or [], key=lambda item: item[1].casefold()):
+        key, display_name = item[:2]
+        kind = item[2] if len(item) > 2 else "subagent"
         prompts_by_category["custom-agents"].append(
             {
                 "id": custom_agent_prompt_id(key),
                 "label_key": "customAgent",
                 "label": display_name,
+                "visibility": "user" if kind == "primary" else "internal",
+                "editable": kind == "primary",
             }
         )
 

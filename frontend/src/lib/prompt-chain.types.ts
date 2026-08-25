@@ -73,6 +73,8 @@ export interface PromptMetadata {
   id: string;
   label_key: string;
   label: string | null;
+  visibility: "user" | "advanced" | "internal";
+  editable: boolean;
 }
 
 export interface PromptCategoryMetadata {

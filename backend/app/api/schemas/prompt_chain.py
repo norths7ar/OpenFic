@@ -4,6 +4,7 @@ PromptChain API Schemas - 提示词链请求/响应模型。
 """
 
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -110,6 +111,10 @@ class PromptMetadata(BaseModel):
     id: str = Field(description="提示词唯一标识")
     label_key: str = Field(description="前端国际化标签键")
     label: str | None = Field(default=None, description="自定义显示名称")
+    visibility: Literal["user", "advanced", "internal"] = Field(
+        description="提示词在管理界面的可见级别"
+    )
+    editable: bool = Field(description="是否允许通过提示词管理界面编辑")
 
 
 class PromptCategoryMetadata(BaseModel):

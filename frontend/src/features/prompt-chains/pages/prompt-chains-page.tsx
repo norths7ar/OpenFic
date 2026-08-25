@@ -29,21 +29,20 @@ import { usePromptChain } from "../hooks/use-prompt-chain";
 
 const MotionBox = motion.create(Box);
 
-const DEFAULT_PROMPT_ID = "builtin-agent--explore";
 const VERSION_HISTORY_COLLAPSED_SIZE = 36;
 const VERSION_HISTORY_MIN_SIZE = 72;
 const PANEL_LAYOUT_KEY = "panel-layout.prompt-chains";
 const PANEL_IDS = ["left-sidebar", "editor"];
 
 function getInitialPromptSelection(searchParams: URLSearchParams): string {
-  return searchParams.get("prompt") || DEFAULT_PROMPT_ID;
+  return searchParams.get("prompt") || "";
 }
 
 function getDefaultPromptId(metadata: PromptChainsMetadata): string | null {
   const promptIds = (metadata.categories ?? []).flatMap((category) =>
-    category.prompts.map((prompt) => prompt.id),
+    category.prompts.filter((prompt) => prompt.visibility === "user").map((prompt) => prompt.id),
   );
-  return promptIds.includes(DEFAULT_PROMPT_ID) ? DEFAULT_PROMPT_ID : (promptIds[0] ?? null);
+  return promptIds[0] ?? null;
 }
 
 function getEffectivePromptId(
@@ -52,7 +51,7 @@ function getEffectivePromptId(
 ): string | null {
   if (!metadata) return promptId;
   const promptIds = (metadata.categories ?? []).flatMap((category) =>
-    category.prompts.map((prompt) => prompt.id),
+    category.prompts.filter((prompt) => prompt.visibility === "user").map((prompt) => prompt.id),
   );
   return promptId && promptIds.includes(promptId) ? promptId : getDefaultPromptId(metadata);
 }
@@ -104,6 +103,16 @@ export function PromptChainsPage() {
   }, []);
 
   const effectivePromptId = getEffectivePromptId(metadata, selectedPromptId);
+  const visibleMetadata: PromptChainsMetadata | null = metadata
+    ? {
+        categories: metadata.categories
+          .map((category) => ({
+            ...category,
+            prompts: category.prompts.filter((prompt) => prompt.visibility === "user"),
+          }))
+          .filter((category) => category.prompts.length > 0),
+      }
+    : null;
 
   const shouldLoadChain = !!effectivePromptId;
   const {
@@ -283,7 +292,7 @@ export function PromptChainsPage() {
         minSize={30}
       >
         <EntriesSidebar
-          promptCategories={metadata?.categories ?? []}
+          promptCategories={visibleMetadata?.categories ?? []}
           selectedPromptId={effectivePromptId}
           onPromptChange={setSelectedPromptId}
           entries={shouldLoadChain ? entries : []}

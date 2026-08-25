@@ -45,6 +45,18 @@ class TestPromptChainAPI:
         }
         assert categories["custom-agents"]["prompts"] == []
 
+        prompts = {
+            prompt["id"]: prompt
+            for category in categories.values()
+            for prompt in category["prompts"]
+        }
+        assert prompts["builtin-agent--discuss"]["visibility"] == "user"
+        assert prompts["builtin-agent--discuss"]["editable"] is True
+        assert prompts["builtin-agent--explore"]["visibility"] == "internal"
+        assert prompts["builtin-agent--explore"]["editable"] is False
+        assert prompts["session-title"]["visibility"] == "advanced"
+        assert prompts["session-title"]["editable"] is True
+
     async def test_get_latest_agent_version_uses_default_yaml(self, client: AsyncClient) -> None:
         response = await client.get(
             "/api/v1/prompt-chains/builtin-agent--explore/versions/latest",
