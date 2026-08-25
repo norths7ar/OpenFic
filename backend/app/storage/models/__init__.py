@@ -19,6 +19,7 @@ from app.storage.models.chapter import Chapter
 from app.storage.models.chapter_summary import ChapterSummary
 from app.storage.models.commit import Commit
 from app.storage.models.project import Project
+from app.storage.models.project_import_binding import ProjectImportBinding
 from app.storage.models.pending_project_change import PendingProjectChange
 from app.storage.models.prompt_chain_version import PromptChainVersion
 from app.storage.models.prompt_entry import PromptEntry
@@ -63,6 +64,7 @@ __all__ = [
     "Note",
     "NoteCategory",
     "Project",
+    "ProjectImportBinding",
     "PendingProjectChange",
     "PromptChainVersion",
     "PromptEntry",
