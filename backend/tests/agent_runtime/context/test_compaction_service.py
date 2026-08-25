@@ -11,6 +11,7 @@ from sqlmodel import SQLModel
 
 from app.agent_runtime.context.compaction.service import (
     CompactionError,
+    _build_messages,
     compact_window,
 )
 from app.agent_runtime.context.compaction.window import CompactionWindow
@@ -99,6 +100,7 @@ def state() -> AgentRuntimeState:
         "session_id": "session_test",
         "task_id": "task_test",
         "project_id": "proj_test",
+        "agent_key": "build",
         "model_config": {
             "provider_type": "openai",
             "base_url": "",
@@ -126,6 +128,28 @@ def window() -> CompactionWindow:
         messages=[ContextMessage(role="assistant", content="old")],
         source_input_tokens=321,
         transcript="<assistant>old</assistant>",
+    )
+
+
+@pytest.mark.asyncio
+async def test_discuss_compaction_uses_discussion_prompt(
+    db_session: AsyncSession,
+    state: AgentRuntimeState,
+    window: CompactionWindow,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    get_prompt = AsyncMock(return_value=_prompt_version())
+    monkeypatch.setattr(
+        "app.agent_runtime.context.compaction.service.prompt_chain_service.get_latest_version_with_entries_or_default",
+        get_prompt,
+    )
+    discuss_state = {**state, "agent_key": "discuss"}
+
+    await _build_messages(db_session, window=window, state=discuss_state)
+
+    get_prompt.assert_awaited_once_with(
+        db_session,
+        prompt_id="session-discussion-compaction",
     )
 
 
@@ -189,9 +213,10 @@ async def test_compact_window_persists_raw_summary_and_emits_events_and_usage(
         "app.agent_runtime.context.compaction.service.create_chat_model",
         lambda _config: fake_model,
     )
+    get_prompt = AsyncMock(return_value=_prompt_version())
     monkeypatch.setattr(
         "app.agent_runtime.context.compaction.service.prompt_chain_service.get_latest_version_with_entries_or_default",
-        AsyncMock(return_value=_prompt_version()),
+        get_prompt,
     )
 
     result = await compact_window(
@@ -210,6 +235,10 @@ async def test_compact_window_persists_raw_summary_and_emits_events_and_usage(
     assert isinstance(fake_model.messages[0], SystemMessage)
     assert isinstance(fake_model.messages[-1], HumanMessage)
     assert fake_model.messages[-1].content == window.transcript
+    get_prompt.assert_awaited_once_with(
+        db_session,
+        prompt_id="session-compaction",
+    )
     assert events[0][0] == "agent:compaction_start"
     assert events[-1][0] == "agent:compaction_success"
     assert "summary" not in events[-1][1]

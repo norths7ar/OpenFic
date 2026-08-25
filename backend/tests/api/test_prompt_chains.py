@@ -29,7 +29,11 @@ class TestPromptChainAPI:
         }
         assert {
             prompt["id"] for prompt in categories["session"]["prompts"]
-        } == {"session-title", "session-compaction"}
+        } == {
+            "session-title",
+            "session-compaction",
+            "session-discussion-compaction",
+        }
         assert {
             prompt["id"] for prompt in categories["memory"]["prompts"]
         } == {"memory-chapter-summary", "memory-range-summary"}
@@ -52,6 +56,30 @@ class TestPromptChainAPI:
         assert data["version"]["prompt_id"] == "builtin-agent--explore"
         assert len(data["entries"]) > 0
         assert all("finish_subagent" not in entry["content"] for entry in data["entries"])
+
+    async def test_get_discussion_compaction_version_uses_discussion_structure(
+        self,
+        client: AsyncClient,
+    ) -> None:
+        response = await client.get(
+            "/api/v1/prompt-chains/session-discussion-compaction/versions/latest",
+        )
+
+        assert response.status_code == 200
+        content = "\n".join(entry["content"] for entry in response.json()["entries"])
+        for heading in (
+            "## 已确认项目事实",
+            "## 本线程暂定结论",
+            "## 候选方案",
+            "## 未决问题",
+            "## 本线程放弃方案",
+            "## 来源",
+            "## 用户明确约束",
+        ):
+            assert heading in content
+        assert "候选方案" in content
+        assert "不是项目 canon" in content
+        assert "仅限本线程有效" in content
 
     async def test_get_discuss_agent_version_uses_default_yaml(
         self, client: AsyncClient

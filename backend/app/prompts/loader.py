@@ -45,6 +45,12 @@ _PROMPT_DEFINITIONS = (
         PROMPTS_DIR / "session" / "compaction.yaml",
     ),
     PromptDefinition(
+        "session-discussion-compaction",
+        "session",
+        "sessionDiscussionCompaction",
+        PROMPTS_DIR / "session" / "discussion-compaction.yaml",
+    ),
+    PromptDefinition(
         "memory-chapter-summary",
         "memory",
         "memoryChapterSummary",

@@ -65,7 +65,7 @@ async def compact_window(
     )
 
     try:
-        messages = await _build_messages(db_session, window=window)
+        messages = await _build_messages(db_session, window=window, state=state)
     except CompactionError as exc:
         await _emit_error(
             event_sink,
@@ -237,10 +237,11 @@ async def _build_messages(
     db_session: AsyncSession,
     *,
     window: CompactionWindow,
+    state: AgentRuntimeState | dict[str, Any] | None = None,
 ) -> list[BaseMessage]:
     version = await prompt_chain_service.get_latest_version_with_entries_or_default(
         db_session,
-        prompt_id="session-compaction",
+        prompt_id=_compaction_prompt_id(state),
     )
     entries = sorted(
         (entry for entry in version.entries if entry.is_enabled),
@@ -259,6 +260,15 @@ async def _build_messages(
 
     messages.append(HumanMessage(content=window.transcript))
     return messages
+
+
+def _compaction_prompt_id(
+    state: AgentRuntimeState | dict[str, Any] | None,
+) -> str:
+    """Select a summary format without changing the generic default."""
+    if state is not None and state.get("agent_key") == "discuss":
+        return "session-discussion-compaction"
+    return "session-compaction"
 
 
 def _to_langchain_message(role: PromptRole, content: str) -> BaseMessage:

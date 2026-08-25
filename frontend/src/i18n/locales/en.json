@@ -1238,6 +1238,7 @@
     "prompts": {
       "sessionTitle": "Title Generation",
       "sessionCompaction": "Context Compaction",
+      "sessionDiscussionCompaction": "Fiction Discussion Compaction",
       "memoryChapterSummary": "Chapter Summary",
       "memoryRangeSummary": "Range Summary",
       "builtinAgentBuild": "Build",

@@ -1238,6 +1238,7 @@
     "prompts": {
       "sessionTitle": "标题生成",
       "sessionCompaction": "上下文压缩",
+      "sessionDiscussionCompaction": "小说讨论压缩",
       "memoryChapterSummary": "章节摘要",
       "memoryRangeSummary": "区间摘要",
       "builtinAgentBuild": "Build",
