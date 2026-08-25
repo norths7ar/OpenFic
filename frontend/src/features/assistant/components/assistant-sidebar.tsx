@@ -1,5 +1,5 @@
 import NumberFlow from "@number-flow/react";
-import { Box, Flex, IconButton, Text, Tooltip } from "@radix-ui/themes";
+import { Box, Button, Flex, IconButton, Text, Tooltip } from "@radix-ui/themes";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowBigDown,
@@ -8,6 +8,7 @@ import {
   ArrowLeft,
   History,
   Layers2,
+  MessageCircle,
   ListChevronsDownUp,
   SquareArrowOutUpRight,
   SquarePen,
@@ -1161,6 +1162,12 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
       window.localStorage.setItem(ASSISTANT_AGENT_STORAGE_KEY, nextAgentKey);
     }, []);
 
+    const hasDiscussionAgent = primaryAgents.some((agent) => agent.key === "discuss");
+    const handleStartDiscussion = useCallback(() => {
+      handleAgentChange("discuss");
+      backToTaskList();
+    }, [backToTaskList, handleAgentChange]);
+
     const agentSelectorOptions = useMemo(
       () =>
         primaryAgents.map((d) => ({
@@ -1293,7 +1300,26 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
           </Flex>
         )}
 
-        <PendingProjectChangesDialog projectId={projectId} />
+        {view !== "allTasks" && (
+          <Flex
+            align="center"
+            gap="2"
+            className="ai-sidebar-project-actions"
+          >
+            <PendingProjectChangesDialog projectId={projectId} />
+            {hasDiscussionAgent ? (
+              <Button
+                size="1"
+                variant="soft"
+                color="purple"
+                onClick={handleStartDiscussion}
+              >
+                <MessageCircle size={14} />
+                {t("assistant.startDiscussion")}
+              </Button>
+            ) : null}
+          </Flex>
+        )}
 
         {view !== "allTasks" && hasActiveTask && (
           <Box className="ai-sidebar-header">

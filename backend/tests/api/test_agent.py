@@ -2618,9 +2618,9 @@ class TestAgentAPI:
             "/api/v1/agent/sessions",
             json={
                 "project_id": target["project_id"],
-
                 "model_id": target["model_id"],
                 "max_iterations": 5,
+                "agent_key": "discuss",
             },
         )
         session_id = session_response.json()["session_id"]
@@ -2632,6 +2632,9 @@ class TestAgentAPI:
         data = response.json()
         assert data["session_id"] == session_id
         assert data["is_running"] is False
+        assert data["state"]["project_id"] == target["project_id"]
+        assert data["state"]["agent_key"] == "discuss"
+        assert data["state"]["model_config"]["model_record_id"] == target["model_id"]
         assert data["state"]["model_config"]["model_id"] == "gpt-3.5-turbo"
         assert session_id not in _SESSION_RUNNERS
 

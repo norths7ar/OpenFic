@@ -106,10 +106,11 @@ export const DEFAULT_AGENT_ICON = "bot";
 const DEFAULT_PRIMARY_DESCRIPTIONS: Record<string, string> = {
   build: "默认的 Agent，执行通用的写作任务，并在需要时调度子 Agent 完成工作",
   plan: "专注于规划和协调，组织子 Agent 工作、审查与交付，负责执行系统写作的任务",
+  discuss: "项目级设定/剧情讨论",
 };
 
 export function getAgentDisplayDescription(key: string, description: string): string {
-  if (key === "build" || key === "plan") {
+  if (key === "build" || key === "plan" || key === "discuss") {
     if (description && description !== DEFAULT_PRIMARY_DESCRIPTIONS[key]) {
       return description;
     }

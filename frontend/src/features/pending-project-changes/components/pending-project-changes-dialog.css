@@ -1,6 +1,6 @@
 .pending-project-changes-trigger {
   align-self: flex-start;
-  margin: 0 var(--space-2);
+  margin: 0;
 }
 
 .pending-project-changes-dialog-content {

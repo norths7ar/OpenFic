@@ -1004,6 +1004,11 @@
   background: var(--color-background);
 }
 
+.ai-sidebar-project-actions {
+  min-height: 36px;
+  padding: 4px var(--space-2);
+}
+
 .ai-sidebar-task-header-row {
   min-height: 36px;
   min-width: 0;

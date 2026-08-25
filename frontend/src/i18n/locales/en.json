@@ -972,7 +972,8 @@
     },
     "primaryDescription": {
       "build": "Default agent that handles general writing tasks and dispatches sub-agents when needed.",
-      "plan": "Focuses on planning and coordination, organizing, reviewing, and delivering sub-agent work for system writing tasks."
+      "plan": "Focuses on planning and coordination, organizing, reviewing, and delivering sub-agent work for system writing tasks.",
+      "discuss": "Project-level setting and plot discussion."
     }
   },
   "connections": {
@@ -1601,6 +1602,7 @@
     "compactContext": "Compact Context",
     "history": "History",
     "newTask": "New Task",
+    "startDiscussion": "New discussion",
     "tokens": "Tokens",
     "totalOutputTokens": "Total Output Tokens: {{count}}",
     "totalInputTokens": "Total Input Tokens: {{count}}",
