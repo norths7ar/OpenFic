@@ -84,7 +84,7 @@ def _build_entry_name(comment: object, uid: int) -> str:
     return f"条目 {uid}"
 
 
-def _calculate_token_count(content: str) -> int:
+def calculate_token_count(content: str) -> int:
     """计算条目内容的 token 数。"""
     try:
         return len(get_encoding("cl100k_base").encode(content))
@@ -123,7 +123,9 @@ async def ensure_entry_name_available(
         session, world_info_id, exclude_entry_id=exclude_entry_id
     )
     if normalized_name in existing_names:
-        raise WorldInfoEntryNameConflictError(f"世界书条目名称已存在: {normalized_name}")
+        raise WorldInfoEntryNameConflictError(
+            f"世界书条目名称已存在: {normalized_name}"
+        )
     return normalized_name
 
 
@@ -203,7 +205,9 @@ async def import_entries(
         await world_info_entry_repo.delete_by_world_info(session, world_info_id)
         existing_entries: list[WorldInfoEntry] = []
     else:
-        existing_entries = await world_info_entry_repo.list_all_by_world_info(session, world_info_id)
+        existing_entries = await world_info_entry_repo.list_all_by_world_info(
+            session, world_info_id
+        )
 
     existing_by_name = {entry.name: entry for entry in existing_entries}
     max_uid = await world_info_entry_repo.get_max_uid(session, world_info_id)
@@ -211,7 +215,7 @@ async def import_entries(
 
     imported_count = 0
     for entry in entries:
-        token_count = _calculate_token_count(entry.content)
+        token_count = calculate_token_count(entry.content)
         existing = existing_by_name.get(entry.name)
         if existing is not None:
             existing.content = entry.content
@@ -542,7 +546,9 @@ async def search_entries(
     await get_world_info(session, world_info_id)
 
     if not query.strip():
-        return WorldInfoEntrySearchResponse(results=[], total_entries=0, total_matches=0)
+        return WorldInfoEntrySearchResponse(
+            results=[], total_entries=0, total_matches=0
+        )
 
     entries = await world_info_entry_repo.search_by_content(
         session, world_info_id, query

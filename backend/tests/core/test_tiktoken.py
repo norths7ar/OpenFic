@@ -1,14 +1,13 @@
 from hashlib import sha256
 from pathlib import Path
 
+import pytest
 import tiktoken
 import tiktoken.load
 import tiktoken.registry
-import pytest
 
 from app.core.utils.tiktoken import get_encoding
 from app.storage.services import character_service, world_info_entry_service
-
 
 EXPECTED_ENCODING_HASHES = {
     "cl100k_base": "223921b76ee99bde995b7ff738513eef100fb51d18c93597a113bcffe865b2a7",
@@ -89,4 +88,4 @@ def test_world_info_token_count_uses_shared_offline_encoding(
         raising=False,
     )
 
-    assert world_info_entry_service._calculate_token_count("OpenFic") == 7
+    assert world_info_entry_service.calculate_token_count("OpenFic") == 7

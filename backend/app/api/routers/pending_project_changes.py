@@ -11,7 +11,7 @@ from app.api.schemas.pending_project_change import (
     PendingProjectChangeResponse,
     PendingProjectChangeStatus,
 )
-from app.core.errors import NotFoundError
+from app.core.errors import ConflictError, NotFoundError, ValidationError
 from app.storage.database import get_session
 from app.storage.services import pending_project_change_service
 
@@ -36,8 +36,6 @@ async def create_pending_change(
             target_type=data.target_type,
             target_id=data.target_id,
             operation=data.operation,
-            base_hash=data.base_hash,
-            before=data.before,
             after=data.after,
             source_task_id=data.source_task_id,
             source_message_id=data.source_message_id,
@@ -47,6 +45,11 @@ async def create_pending_change(
     except NotFoundError as exc:
         raise HTTPException(
             status_code=http_status.HTTP_404_NOT_FOUND, detail=str(exc)
+        ) from exc
+    except ValidationError as exc:
+        raise HTTPException(
+            status_code=http_status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=str(exc),
         ) from exc
 
 
@@ -70,6 +73,61 @@ async def list_pending_changes(
     except NotFoundError as exc:
         raise HTTPException(
             status_code=http_status.HTTP_404_NOT_FOUND, detail=str(exc)
+        ) from exc
+
+
+@router.post(
+    "/projects/{project_id}/pending-changes/{change_id}/apply",
+    response_model=PendingProjectChangeResponse,
+    summary="采用待审项目变更",
+)
+async def apply_pending_change(
+    project_id: str,
+    change_id: str,
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> PendingProjectChangeResponse:
+    from app.storage.services import pending_project_change_apply_service
+
+    change = None
+    try:
+        change = await pending_project_change_service.get_pending_change(
+            session, project_id, change_id
+        )
+        async with session.begin_nested():
+            applied = await pending_project_change_apply_service.apply_pending_change(
+                session, change
+            )
+        return PendingProjectChangeResponse.model_validate(applied)
+    except NotFoundError as exc:
+        raise HTTPException(
+            status_code=http_status.HTTP_404_NOT_FOUND,
+            detail=str(exc),
+        ) from exc
+    except pending_project_change_apply_service.PendingChangeConflictError as exc:
+        if change is not None:
+            await session.refresh(change)
+        raise HTTPException(
+            status_code=http_status.HTTP_409_CONFLICT,
+            detail={
+                "code": "pending_change_conflict",
+                "message": str(exc),
+                "current": exc.current,
+                "current_hash": exc.current_hash,
+            },
+        ) from exc
+    except ConflictError as exc:
+        if change is not None:
+            await session.refresh(change)
+        raise HTTPException(
+            status_code=http_status.HTTP_409_CONFLICT,
+            detail=str(exc),
+        ) from exc
+    except ValidationError as exc:
+        if change is not None:
+            await session.refresh(change)
+        raise HTTPException(
+            status_code=http_status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=str(exc),
         ) from exc
 
 
@@ -132,4 +190,9 @@ async def reject_pending_change(
     except NotFoundError as exc:
         raise HTTPException(
             status_code=http_status.HTTP_404_NOT_FOUND, detail=str(exc)
+        ) from exc
+    except ConflictError as exc:
+        raise HTTPException(
+            status_code=http_status.HTTP_409_CONFLICT,
+            detail=str(exc),
         ) from exc

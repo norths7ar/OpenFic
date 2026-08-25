@@ -1,6 +1,11 @@
 """待审项目变更数据访问层。"""
 
+from datetime import UTC, datetime
+from typing import Any, cast
+
 from sqlalchemy import delete, func, select
+from sqlalchemy import update as sql_update
+from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col
 
@@ -78,6 +83,29 @@ async def update(
     await session.flush()
     await session.refresh(change)
     return change
+
+
+async def claim_for_apply(
+    session: AsyncSession,
+    project_id: str,
+    change_id: str,
+) -> bool:
+    """原子地领取一条待审变更。"""
+    result = cast(
+        CursorResult[Any],
+        await session.execute(
+            sql_update(PendingProjectChange)
+            .where(
+                col(PendingProjectChange.project_id) == project_id,
+                col(PendingProjectChange.id) == change_id,
+                col(PendingProjectChange.status) == "pending",
+            )
+            .values(status="applying", updated_at=datetime.now(UTC))
+            .execution_options(synchronize_session=False)
+        ),
+    )
+    await session.flush()
+    return result.rowcount == 1
 
 
 async def delete_by_project(session: AsyncSession, project_id: str) -> None:

@@ -19,7 +19,7 @@ class PendingProjectChange(SQLModel, table=True):
             name="ck_pending_project_changes_operation",
         ),
         CheckConstraint(
-            "status IN ('pending', 'rejected', 'applied')",
+            "status IN ('pending', 'applying', 'rejected', 'applied')",
             name="ck_pending_project_changes_status",
         ),
         Index(
