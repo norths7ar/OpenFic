@@ -45,6 +45,7 @@ EXPECTED_AGENT_TOOL_PERMISSIONS = [
     {"tool_name": "move_chapter_to_volume", "mode": "ask"},
     {"tool_name": "move_note", "mode": "ask"},
     {"tool_name": "notify_subagent", "mode": "allow"},
+    {"tool_name": "propose_project_change", "mode": "allow"},
     {"tool_name": "read_chapter", "mode": "allow"},
     {"tool_name": "read_chapter_summaries", "mode": "allow"},
     {"tool_name": "read_character", "mode": "allow"},
