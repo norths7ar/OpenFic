@@ -156,7 +156,12 @@ const DashboardPage = lazy(() =>
 
 function ProjectRouteRedirect() {
   const { projectId } = useParams<{ projectId: string }>();
-  return <Navigate to={`/projects/${projectId}/write`} replace />;
+  return (
+    <Navigate
+      to={`/projects/${projectId}/write`}
+      replace
+    />
+  );
 }
 
 function AppContent({
@@ -190,7 +195,15 @@ function AppContent({
           />
           <Route
             path="/projects/:projectId/write"
-            element={<WritingPage />}
+            element={<WritingPage workspaceView="write" />}
+          />
+          <Route
+            path="/projects/:projectId/discuss"
+            element={<WritingPage workspaceView="discuss" />}
+          />
+          <Route
+            path="/projects/:projectId/notes"
+            element={<WritingPage workspaceView="notes" />}
           />
           <Route
             path="/projects/:projectId/world-info"

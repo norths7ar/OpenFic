@@ -85,6 +85,7 @@ import { RecentTasksCard } from "./tasks/recent-tasks-card";
 
 interface AssistantSidebarProps {
   projectId: string;
+  preferredAgentKey?: string;
   onStateChange?: (state: AssistantSidebarState) => void;
   onOpenMentionChapter?: (chapterId: string, chapterTitle: string) => void;
   onClose?: () => void;
@@ -281,6 +282,7 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
   function AssistantSidebar(
     {
       projectId,
+      preferredAgentKey,
       onStateChange,
       onOpenMentionChapter,
       onClose,
@@ -320,6 +322,7 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
     >({});
     const pendingSendActionRef = useRef<(() => void) | null>(null);
     const [isMessagesAtBottom, setIsMessagesAtBottom] = useState(true);
+    const handledPreferredAgentRef = useRef<string | null>(null);
     const scrollToBottomFnRef = useRef<(() => void) | null>(null);
 
     const { data: tasksData, refetch: refetchRecentTasks } = useTasks(projectId, { limit: 3 });
@@ -1241,6 +1244,34 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
       },
       [backToTaskList],
     );
+
+    useEffect(() => {
+      if (!preferredAgentKey) {
+        handledPreferredAgentRef.current = null;
+        return;
+      }
+
+      const requestKey = `${projectId}:${preferredAgentKey}`;
+      if (handledPreferredAgentRef.current === requestKey) return;
+      if (!primaryAgents.some((agent) => agent.key === preferredAgentKey)) return;
+
+      handledPreferredAgentRef.current = requestKey;
+      if (preferredAgentKey === "discuss") {
+        if (hasActiveSession && effectiveAgentKey === "discuss") return;
+        handleStartDiscussion("local");
+        return;
+      }
+
+      handleAgentChange(preferredAgentKey);
+    }, [
+      effectiveAgentKey,
+      handleAgentChange,
+      handleStartDiscussion,
+      hasActiveSession,
+      preferredAgentKey,
+      primaryAgents,
+      projectId,
+    ]);
 
     const agentSelectorOptions = useMemo(
       () =>

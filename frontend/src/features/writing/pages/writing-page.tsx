@@ -34,13 +34,19 @@ const SummaryPanel = lazy(() =>
   import("../components/summary-panel").then((module) => ({ default: module.SummaryPanel })),
 );
 
-export function WritingPage() {
+type WritingWorkspaceView = "discuss" | "notes" | "write";
+
+interface WritingPageProps {
+  workspaceView?: WritingWorkspaceView;
+}
+
+export function WritingPage({ workspaceView = "write" }: WritingPageProps) {
   const { t } = useTranslation();
   const { projectId } = useParams<{ projectId: string }>();
   const { appendToAssistant, isAssistantSidebarOpen, isMobile, openAssistantSidebar } =
     useAppShell();
 
-  const { setCurrentChapter, hydrateSidebarView } = useWritingStore();
+  const { setCurrentChapter, hydrateSidebarView, setSidebarView } = useWritingStore();
   const {
     openTab,
     openSingleTab,
@@ -92,8 +98,17 @@ export function WritingPage() {
   const isViewingSubagent = assistantState.conversationDescriptor?.kind === "subagent";
 
   useEffect(() => {
-    void hydrateSidebarView();
-  }, [hydrateSidebarView]);
+    let cancelled = false;
+    void hydrateSidebarView().then(() => {
+      if (cancelled) return;
+      if (workspaceView === "notes") setSidebarView("notes");
+      if (workspaceView === "write") setSidebarView("chapters");
+    });
+    if (workspaceView === "discuss") openAssistantSidebar();
+    return () => {
+      cancelled = true;
+    };
+  }, [hydrateSidebarView, openAssistantSidebar, setSidebarView, workspaceView]);
 
   const allChapters = useMemo(
     () => chaptersData?.volumes.flatMap((volume) => volume.chapters) ?? [],
@@ -454,6 +469,7 @@ export function WritingPage() {
               <Box className="writing-page-sidebar writing-page-sidebar--right">
                 <AssistantSidebarHost
                   projectId={projectId}
+                  preferredAgentKey={workspaceView === "discuss" ? "discuss" : undefined}
                   onStateChange={setAssistantState}
                   onOpenMentionChapter={handleChapterSelect}
                   isMobileOverlay={false}
@@ -591,6 +607,7 @@ export function WritingPage() {
       {isMobile && (
         <AssistantSidebarHost
           projectId={projectId}
+          preferredAgentKey={workspaceView === "discuss" ? "discuss" : undefined}
           onStateChange={setAssistantState}
           onOpenMentionChapter={handleChapterSelect}
           isMobileOverlay

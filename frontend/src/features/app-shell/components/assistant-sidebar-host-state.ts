@@ -6,6 +6,7 @@ export interface AssistantSidebarHostRegistration {
   projectId: string;
   isMobileOverlay: boolean;
   isOpen: boolean;
+  preferredAgentKey?: string;
   onStateChange?: (state: AssistantSidebarState) => void;
   onOpenMentionChapter?: (chapterId: string, chapterTitle: string) => void;
   onClose?: () => void;
@@ -26,6 +27,7 @@ export function registerAssistantSidebarHost(
     current.projectId === registration.projectId &&
     current.isMobileOverlay === registration.isMobileOverlay &&
     current.isOpen === registration.isOpen &&
+    current.preferredAgentKey === registration.preferredAgentKey &&
     current.onStateChange === registration.onStateChange &&
     current.onOpenMentionChapter === registration.onOpenMentionChapter &&
     current.onClose === registration.onClose

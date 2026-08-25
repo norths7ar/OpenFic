@@ -65,7 +65,9 @@
     "loginFailed": "登录失败，请重试"
   },
   "sidebar": {
-    "bookshelf": "书架"
+    "bookshelf": "书架",
+    "discuss": "讨论",
+    "notes": "笔记 / 提纲"
   },
   "topbar": {
     "projects": "项目",

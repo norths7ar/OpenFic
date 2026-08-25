@@ -15,6 +15,7 @@ export function AssistantSidebarHost({
   isMobileOverlay,
   onOpenMentionChapter,
   onStateChange,
+  preferredAgentKey,
   projectId,
 }: AssistantSidebarHostProps) {
   const id = useId();
@@ -39,6 +40,7 @@ export function AssistantSidebarHost({
       projectId,
       isMobileOverlay,
       isOpen: isMobileOverlay ? isAssistantSidebarOpen : true,
+      preferredAgentKey,
       onStateChange: (state) => callbacksRef.current.onStateChange?.(state),
       onOpenMentionChapter: (chapterId, chapterTitle) =>
         callbacksRef.current.onOpenMentionChapter?.(chapterId, chapterTitle),
@@ -48,6 +50,7 @@ export function AssistantSidebarHost({
     id,
     isMobileOverlay,
     isAssistantSidebarOpen,
+    preferredAgentKey,
     projectId,
     closeAssistantSidebar,
     registerAssistantSidebarHost,

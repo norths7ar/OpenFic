@@ -1,7 +1,16 @@
 import { Box, Flex } from "@radix-ui/themes";
 import { useQuery } from "@tanstack/react-query";
 import axios from "axios";
-import { BookOpen, ChartNoAxesCombined, Globe, LibraryBig, UserRound, Workflow } from "lucide-react";
+import {
+  BookOpen,
+  ChartNoAxesCombined,
+  FileText,
+  Globe,
+  LibraryBig,
+  MessageCircle,
+  UserRound,
+  Workflow,
+} from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent } from "react";
 import { useTranslation } from "react-i18next";
@@ -98,6 +107,12 @@ export function AppSidebar() {
           active: pathname === `/projects/${projectId}/write`,
         },
         {
+          label: t("sidebar.discuss"),
+          href: `/projects/${projectId}/discuss`,
+          icon: MessageCircle,
+          active: pathname === `/projects/${projectId}/discuss`,
+        },
+        {
           label: t("topbar.workspace"),
           href: `/projects/${projectId}/world-info`,
           icon: Globe,
@@ -108,6 +123,12 @@ export function AppSidebar() {
           href: `/projects/${projectId}/characters`,
           icon: UserRound,
           active: pathname === `/projects/${projectId}/characters`,
+        },
+        {
+          label: t("sidebar.notes"),
+          href: `/projects/${projectId}/notes`,
+          icon: FileText,
+          active: pathname === `/projects/${projectId}/notes`,
         },
       );
     }
@@ -185,11 +206,10 @@ export function AppSidebar() {
     openSettings();
   }, [closeSidebar, isMobile, openSettings]);
 
-  const projectSection = location.pathname.endsWith("/world-info")
-    ? "world-info"
-    : location.pathname.endsWith("/characters")
-      ? "characters"
-      : "write";
+  const projectSection =
+    ["write", "discuss", "world-info", "characters", "notes", "changes"].find((section) =>
+      location.pathname.endsWith(`/${section}`),
+    ) ?? "write";
 
   const handleProjectChange = useCallback(
     (nextProjectId: string) => {
@@ -290,7 +310,10 @@ export function AppSidebar() {
               </Box>
 
               {projectId && (isMobile || isExpanded) && (
-                <Box mb="2" width="100%">
+                <Box
+                  mb="2"
+                  width="100%"
+                >
                   <LabeledSelect
                     label={t("topbar.currentProject")}
                     value={projectId}

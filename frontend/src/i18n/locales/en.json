@@ -65,7 +65,9 @@
     "loginFailed": "Login failed. Please try again."
   },
   "sidebar": {
-    "bookshelf": "Bookshelf"
+    "bookshelf": "Bookshelf",
+    "discuss": "Discussion",
+    "notes": "Notes / Outline"
   },
   "topbar": {
     "projects": "Projects",

@@ -28,11 +28,7 @@ interface AppLayoutProps {
   onAppearanceChange: (appearance: "light" | "dark") => void;
 }
 
-export function AppLayout({
-  appearance,
-  version,
-  onAppearanceChange,
-}: AppLayoutProps) {
+export function AppLayout({ appearance, version, onAppearanceChange }: AppLayoutProps) {
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -173,6 +169,7 @@ export function AppLayout({
               <AssistantSidebar
                 ref={assistantSidebarRef}
                 projectId={assistantSidebarHost.projectId}
+                preferredAgentKey={assistantSidebarHost.preferredAgentKey}
                 onStateChange={
                   assistantSidebarHost.isActive ? assistantSidebarHost.onStateChange : undefined
                 }
