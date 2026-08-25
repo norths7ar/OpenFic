@@ -1,9 +1,10 @@
-import { Box, Flex } from "@radix-ui/themes";
+import { Box, Button, Flex } from "@radix-ui/themes";
 import { useQuery } from "@tanstack/react-query";
 import axios from "axios";
 import {
   BookOpen,
   ChartNoAxesCombined,
+  Database,
   FileText,
   FileClock,
   Globe,
@@ -19,6 +20,7 @@ import { useLocation, useNavigate, useParams } from "react-router";
 
 import { toast } from "@/components";
 import { LabeledSelect } from "@/components/select";
+import { ProjectDataDialog } from "@/features/projects/components/project-data-dialog";
 import { fetchProject, fetchProjects } from "@/lib/api-client";
 
 import { useAppShell } from "./app-shell-context";
@@ -42,6 +44,7 @@ export function AppSidebar() {
   const { isMobile, isSidebarOpen, closeSidebar, openSettings } = useAppShell();
 
   const [isExpanded, setIsExpanded] = useState(false);
+  const [isProjectDataOpen, setIsProjectDataOpen] = useState(false);
   const [isLogoHovered, setIsLogoHovered] = useState(false);
   const logoPointerInsideRef = useRef(false);
   const prevPathnameRef = useRef(location.pathname);
@@ -333,6 +336,15 @@ export function AppSidebar() {
                     triggerStyle={{ width: "100%" }}
                     placeholder={t("topbar.currentProject")}
                   />
+                  <Button
+                    variant="ghost"
+                    size="1"
+                    onClick={() => setIsProjectDataOpen(true)}
+                    style={{ width: "100%", justifyContent: "flex-start", marginTop: 4 }}
+                  >
+                    <Database size={15} />
+                    {t("projectData.open")}
+                  </Button>
                 </Box>
               )}
 
@@ -368,6 +380,14 @@ export function AppSidebar() {
           </MotionBox>
         )}
       </AnimatePresence>
+
+      {projectId && (
+        <ProjectDataDialog
+          open={isProjectDataOpen}
+          projectId={projectId}
+          onOpenChange={setIsProjectDataOpen}
+        />
+      )}
     </>
   );
 }
