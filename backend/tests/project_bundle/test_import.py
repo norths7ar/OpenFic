@@ -326,3 +326,62 @@ async def test_preview_api_validates_input_and_does_not_write(
         files={"file": ("bundle.zip", b"12", "application/zip")},
     )
     assert oversized.status_code == 413
+
+
+@pytest.mark.asyncio
+async def test_archive_task_messages_are_projected_and_exported(
+    session, client
+) -> None:
+    project = Project(id="archive-project", title="档案项目")
+    other_project = Project(id="archive-other-project", title="其他项目")
+    task = Task(
+        id="archive-task",
+        project_id=project.id,
+        title="历史讨论",
+        mode="agent",
+        is_imported_archive=True,
+        agent_session_id=None,
+    )
+    message = AgentRunMessage(
+        id="archive-message",
+        session_id="historical-session",
+        task_id=task.id,
+        project_id=project.id,
+        role="user",
+        content="历史内容",
+        status="completed",
+        display_channel="list",
+        seq=0,
+    )
+    cross_project_message = AgentRunMessage(
+        id="archive-cross-project-message",
+        session_id="historical-session",
+        task_id=task.id,
+        project_id=other_project.id,
+        role="user",
+        content="不应泄露",
+        status="completed",
+        display_channel="list",
+        seq=1,
+    )
+    session.add_all([project, other_project, task, message, cross_project_message])
+    await session.flush()
+
+    response = await client.get(f"/api/v1/tasks/{task.id}")
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["is_imported_archive"] is True
+    assert payload["agent_session_id"] is None
+    assert len(payload["messages"]) == 1
+    assert payload["messages"][0]["content"] == "历史内容"
+
+    bundle = await export_project_bundle(session, project.id)
+    parsed = parse_project_bundle(bundle, project.id)
+    assert {doc.id for doc in parsed.documents} >= {task.id, message.id}
+    preview = await preview_project_bundle(session, project.id, bundle, "merge")
+    assert preview.summary == {
+        "create": 0,
+        "update": 0,
+        "unchanged": 2,
+        "conflict": 0,
+    }

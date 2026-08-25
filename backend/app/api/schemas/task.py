@@ -56,6 +56,7 @@ class TaskResponse(BaseModel):
     current_revision_id: str | None = Field(default=None, description="当前用户消息checkpoint对应的revision ID")
     current_message_id: str | None = Field(default=None, description="当前最新用户消息 ID")
     agent_session_id: str | None = Field(default=None, description="Agent会话ID")
+    is_imported_archive: bool = Field(default=False)
     is_running: bool = Field(default=False, description="任务是否正在后台运行")
     is_favorited: bool = Field(description="是否收藏")
     created_at: datetime = Field(description="创建时间")
@@ -77,6 +78,7 @@ class TaskListItem(BaseModel):
     cost: float = Field(default=0.0, description="累计费用（美元）")
     is_running: bool = Field(default=False, description="任务是否正在后台运行")
     is_favorited: bool = Field(description="是否收藏")
+    is_imported_archive: bool = Field(default=False)
     created_at: datetime = Field(description="创建时间")
     updated_at: datetime = Field(description="更新时间")
 

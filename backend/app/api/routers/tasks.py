@@ -12,7 +12,10 @@ from sqlmodel import col
 from app.agent_runtime.modes import AgentMode
 from app.agent_runtime.attachments import delete_attachments_for_task
 from app.agent_runtime.persistence.child_runs import list_child_runs_for_parent
-from app.agent_runtime.persistence.task_projection import load_task_messages_for_agent_session
+from app.agent_runtime.persistence.task_projection import (
+    load_task_messages_for_agent_session,
+    load_task_messages_for_archive,
+)
 from app.agent_runtime.runner.checkpointer import delete_checkpoints_for_thread, get_checkpointer
 
 from app.api.schemas.task import (
@@ -89,7 +92,11 @@ async def get_task(
 ) -> TaskResponse:
     try:
         task = await task_service.get_task(session, task_id)
-        if task.agent_session_id:
+        if task.is_imported_archive:
+            task_messages = await load_task_messages_for_archive(
+                session, task.id, task.project_id
+            )
+        elif task.agent_session_id:
             task_messages = await load_task_messages_for_agent_session(
                 session,
                 task.agent_session_id,
@@ -112,6 +119,7 @@ async def get_task(
             current_revision_id=task.current_revision_id,
             current_message_id=task.current_message_id,
             agent_session_id=task.agent_session_id,
+            is_imported_archive=task.is_imported_archive,
             is_running=task.is_running,
             is_favorited=task.is_favorited,
             created_at=task.created_at,
@@ -184,6 +192,7 @@ async def list_tasks(
                     and task.current_revision_id not in cancelled_revision_ids
                 ),
                 is_favorited=task.is_favorited,
+                is_imported_archive=task.is_imported_archive,
                 created_at=task.created_at,
                 updated_at=task.updated_at,
             )
@@ -209,7 +218,11 @@ async def update_task(
             is_favorited=request.is_favorited,
         )
         await session.commit()
-        if task.agent_session_id:
+        if task.is_imported_archive:
+            task_messages = await load_task_messages_for_archive(
+                session, task.id, task.project_id
+            )
+        elif task.agent_session_id:
             task_messages = await load_task_messages_for_agent_session(
                 session,
                 task.agent_session_id,
@@ -232,6 +245,7 @@ async def update_task(
             current_revision_id=task.current_revision_id,
             current_message_id=task.current_message_id,
             agent_session_id=task.agent_session_id,
+            is_imported_archive=task.is_imported_archive,
             is_running=task.is_running,
             is_favorited=task.is_favorited,
             created_at=task.created_at,

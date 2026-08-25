@@ -50,6 +50,7 @@ class Task(SQLModel, table=True):
     current_revision_id: str | None = Field(default=None, index=True, foreign_key="revisions.id")
     current_message_id: str | None = Field(default=None, index=True)
     agent_session_id: str | None = Field(default=None, index=True, description="Agent会话ID")
+    is_imported_archive: bool = Field(default=False, description="是否为导入的只读讨论档案")
     is_running: bool = Field(default=False, description="任务是否正在后台运行")
     is_favorited: bool = Field(default=False, index=True)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))

@@ -147,6 +147,24 @@ async def list_by_session(
         ) from e
 
 
+async def list_by_task(
+    session: AsyncSession, task_id: str, project_id: str
+) -> list[PersistedMessage]:
+    """按 task_id 返回消息，供无 live session 的导入档案读取。"""
+    try:
+        result = await session.execute(
+            select(AgentRunMessage)
+            .where(
+                col(AgentRunMessage.task_id) == task_id,
+                col(AgentRunMessage.project_id) == project_id,
+            )
+            .order_by(col(AgentRunMessage.seq).asc(), col(AgentRunMessage.id).asc())
+        )
+        return [_row_to_dto(row) for row in result.scalars().all()]
+    except SQLAlchemyError as e:
+        raise PersistenceLoadError(f"list_by_task failed for task {task_id}") from e
+
+
 async def delete_from_seq(
     session: AsyncSession, session_id: str, seq: int
 ) -> int:

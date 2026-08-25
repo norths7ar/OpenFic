@@ -387,7 +387,14 @@ async def preview_project_bundle(
         )
         if not current_project_ok:
             current_hash = "cross-project"
-        incoming_hash = document_semantic_hash(doc.semantic_fields, doc.title, doc.body)
+        incoming_fields = doc.semantic_fields
+        if doc.kind == "discussion_message":
+            incoming_fields = {
+                key: value
+                for key, value in incoming_fields.items()
+                if key not in {"created_at", "updated_at"}
+            }
+        incoming_hash = document_semantic_hash(incoming_fields, doc.title, doc.body)
         item = _action(
             mode,
             doc.kind,
@@ -583,12 +590,9 @@ async def _current_hash(
     if current is None:
         return None, True
     task = await session.get(Task, current.task_id)
-    if (
-        task is None
-        or task.project_id != project_id
-        or current.project_id != project_id
-        or current.session_id != task.agent_session_id
-    ):
+    if task is None or task.project_id != project_id or current.project_id != project_id:
+        return None, False
+    if not task.is_imported_archive and current.session_id != task.agent_session_id:
         return None, False
     fields = {
         "kind": "discussion_message",

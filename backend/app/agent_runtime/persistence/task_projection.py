@@ -16,7 +16,6 @@ from app.agent_runtime.persistence.child_runs import (
 from app.agent_runtime.persistence.types import PersistedMessage
 from app.api.schemas.task import TaskMessage
 
-
 SUBAGENT_AGENT_IDS = {"explore", "composer", "auditor", "writer", "actor", "reviewer"}
 SUBAGENT_ORCHESTRATION_TOOL_NAMES = {
     "dispatch_subagent",
@@ -412,3 +411,10 @@ async def load_task_messages_for_agent_session(
         rows,
         identities_by_dispatch_id=_subagent_identity_by_dispatch_id(child_runs),
     )
+
+
+async def load_task_messages_for_archive(
+    session: AsyncSession, task_id: str, project_id: str
+) -> list[TaskMessage]:
+    """Project archived messages directly by task, without a live session."""
+    return _project_rows(await repo.list_by_task(session, task_id, project_id))

@@ -238,7 +238,10 @@ async def export_project_bundle(session: AsyncSession, project_id: str) -> bytes
                 select(Task)
                 .where(
                     col(Task.project_id) == project_id,
-                    col(Task.agent_session_id).is_not(None),
+                    (
+                        col(Task.agent_session_id).is_not(None)
+                        | col(Task.is_imported_archive).is_(True)
+                    ),
                 )
                 .order_by(col(Task.created_at), col(Task.id))
             )
@@ -246,7 +249,6 @@ async def export_project_bundle(session: AsyncSession, project_id: str) -> bytes
     )
     for index, task in enumerate(tasks, start=1):
         session_id = task.agent_session_id
-        assert session_id is not None
         directory = (
             f"discussions/{index:06d}-{slugify_filename(task.title, task.id)}"
             f"--{task.id}"
@@ -284,7 +286,11 @@ async def export_project_bundle(session: AsyncSession, project_id: str) -> bytes
                     .where(
                         col(AgentRunMessage.project_id) == project_id,
                         col(AgentRunMessage.task_id) == task.id,
-                        col(AgentRunMessage.session_id) == session_id,
+                        *(
+                            [col(AgentRunMessage.session_id) == session_id]
+                            if session_id is not None
+                            else []
+                        ),
                         col(AgentRunMessage.role).in_(["user", "assistant"]),
                         col(AgentRunMessage.display_channel) == "list",
                         col(AgentRunMessage.content) != "",
