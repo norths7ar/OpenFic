@@ -2028,6 +2028,31 @@
       }
     }
   },
+  "pendingProjectChanges": {
+    "trigger": "Pending changes {{count}}",
+    "title": "Pending project changes",
+    "description": "{{count}} change(s) are waiting for review. This view is read-only except for rejection.",
+    "loading": "Loading pending changes...",
+    "loadFailed": "Failed to load pending changes: {{error}}",
+    "retry": "Retry",
+    "empty": "No pending project changes.",
+    "targetType": "Target type",
+    "targetId": "Target ID",
+    "operation": "Operation",
+    "createdAt": "Created at",
+    "model": "Model",
+    "sourceTask": "Source task",
+    "sourceMessage": "Source message",
+    "before": "Before",
+    "after": "After",
+    "none": "None",
+    "reject": "Reject",
+    "rejectConfirmTitle": "Reject this pending change?",
+    "rejectConfirmDescription": "This change will be marked as rejected and cannot be applied from this inbox.",
+    "rejectSuccess": "Pending change rejected",
+    "rejectFailed": "Failed to reject pending change: {{error}}",
+    "unknownError": "Unknown error"
+  },
   "index": {
     "description": "Configure chapter retrieval indexing: scope, embedding model, chunking and auto-update strategy.",
     "enable": "Enable scope",

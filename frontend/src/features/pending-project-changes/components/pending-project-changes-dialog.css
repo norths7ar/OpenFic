@@ -1,0 +1,124 @@
+.pending-project-changes-trigger {
+  align-self: flex-start;
+  margin: 0 var(--space-2);
+}
+
+.pending-project-changes-dialog-content {
+  width: min(900px, calc(100vw - 32px));
+  max-width: none;
+}
+
+.pending-project-changes-layout {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.7fr) minmax(0, 1.6fr);
+  min-height: 420px;
+  border: 1px solid var(--gray-a5);
+  border-radius: var(--radius-3);
+  overflow: hidden;
+}
+
+.pending-project-changes-list-scroll,
+.pending-project-changes-detail-scroll {
+  height: 420px;
+}
+
+.pending-project-changes-list-scroll {
+  border-right: 1px solid var(--gray-a5);
+}
+
+.pending-project-changes-list {
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-2);
+  gap: var(--space-1);
+}
+
+.pending-project-changes-list-item {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  padding: var(--space-2);
+  border: 0;
+  border-radius: var(--radius-2);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.pending-project-changes-list-item:hover,
+.pending-project-changes-list-item[data-selected="true"] {
+  background: var(--accent-a3);
+}
+
+.pending-project-changes-list-item:focus-visible {
+  outline: 2px solid var(--accent-8);
+  outline-offset: -2px;
+}
+
+.pending-project-changes-detail {
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-4);
+  gap: var(--space-4);
+}
+
+.pending-project-changes-metadata {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.pending-project-changes-metadata-item {
+  min-width: 0;
+}
+
+.pending-project-changes-metadata-value {
+  display: block;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.pending-project-changes-json-section {
+  min-width: 0;
+}
+
+.pending-project-changes-json-section pre {
+  max-height: 220px;
+  margin: var(--space-2) 0 0;
+  padding: var(--space-3);
+  overflow: auto;
+  border-radius: var(--radius-2);
+  background: var(--gray-a3);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-1);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.pending-project-changes-state {
+  min-height: 320px;
+}
+
+@media (max-width: 640px) {
+  .pending-project-changes-layout {
+    grid-template-columns: 1fr;
+    min-height: 0;
+  }
+
+  .pending-project-changes-list-scroll,
+  .pending-project-changes-detail-scroll {
+    height: auto;
+    max-height: 260px;
+  }
+
+  .pending-project-changes-list-scroll {
+    border-right: 0;
+    border-bottom: 1px solid var(--gray-a5);
+  }
+
+  .pending-project-changes-metadata {
+    grid-template-columns: 1fr;
+  }
+}

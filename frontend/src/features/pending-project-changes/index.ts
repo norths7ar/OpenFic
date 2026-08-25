@@ -9,6 +9,7 @@ export {
   usePendingProjectChanges,
   useRejectPendingProjectChange,
 } from "./hooks";
+export { PendingProjectChangesDialog } from "./components/pending-project-changes-dialog";
 export type {
   JsonValue,
   PendingProjectChange,

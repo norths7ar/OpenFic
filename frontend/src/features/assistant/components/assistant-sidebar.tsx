@@ -27,6 +27,7 @@ import { CircularProgress, ConfirmDialog, Spinner, toast, getModelValue } from "
 import { AgentBrandIcon } from "@/components/agent-brand-icon";
 import { useAppShell } from "@/features/app-shell";
 import { appendMentionMarkup } from "@/features/assistant/lib/mention-text";
+import { PendingProjectChangesDialog } from "@/features/pending-project-changes";
 import { fetchAgentDefinitions } from "@/features/settings/lib/agent-definitions-api";
 import { fetchSettings, updateSettings } from "@/features/settings/lib/settings-api";
 import { useSummaryPanel } from "@/features/writing/hooks/use-summaries";
@@ -1291,6 +1292,8 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
             </Text>
           </Flex>
         )}
+
+        <PendingProjectChangesDialog projectId={projectId} />
 
         {view !== "allTasks" && hasActiveTask && (
           <Box className="ai-sidebar-header">
