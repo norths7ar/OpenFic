@@ -192,8 +192,8 @@ async def test_list_characters_returns_project_character_names() -> None:
 
     assert json.loads(result) == {
         "characters": [
-            {"name": "林舟"},
-            {"name": "沈墨"},
+            {"id": "char-1", "name": "林舟"},
+            {"id": "char-2", "name": "沈墨"},
         ]
     }
 
@@ -224,6 +224,7 @@ async def test_read_character_reads_description_by_name() -> None:
         result = await tool.ainvoke({"name": "林舟"})
 
     assert json.loads(result) == {
+        "id": "char-1",
         "name": "林舟",
         "description": "1|主角\n2|旧友",
     }
@@ -526,8 +527,8 @@ async def test_list_world_entries_returns_enabled_entry_titles() -> None:
 
     assert json.loads(result) == {
         "entries": [
-            {"title": "主角", "uid": 1, "order": 1},
-            {"title": "势力", "uid": 2, "order": 2},
+            {"id": "e1", "title": "主角", "uid": 1, "order": 1},
+            {"id": "e2", "title": "势力", "uid": 2, "order": 2},
         ]
     }
 
@@ -556,6 +557,7 @@ async def test_read_world_entry_reads_content_by_title() -> None:
         result = await tool.ainvoke({"title": "主角"})
 
     assert json.loads(result) == {
+        "id": "e1",
         "title": "主角",
         "uid": 1,
         "order": 1,

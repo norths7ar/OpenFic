@@ -26,4 +26,5 @@ import app.agent_runtime.tools.impls.note.move_note  # noqa: F401
 import app.agent_runtime.tools.impls.note.create_note_category  # noqa: F401
 import app.agent_runtime.tools.impls.note.edit_note_category  # noqa: F401
 import app.agent_runtime.tools.impls.note.delete_note_category  # noqa: F401
+import app.agent_runtime.tools.impls.project_change  # noqa: F401
 import app.agent_runtime.tools.impls.skill.skill  # noqa: F401

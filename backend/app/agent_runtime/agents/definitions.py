@@ -118,6 +118,7 @@ DEFAULT_AGENT_DEFINITIONS: Mapping[str, AgentDefinition] = MappingProxyType(
             model_id=None,
             enabled_tool_categories=(
                 "interaction",
+                "project_change_proposal",
                 "chapter_read",
                 "summary_read",
                 "world_read",

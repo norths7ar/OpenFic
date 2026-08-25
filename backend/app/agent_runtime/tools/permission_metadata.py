@@ -42,6 +42,7 @@ _PERMISSION_METADATA_BY_TOOL_NAME = {
     "move_chapter_to_volume": ToolPermissionMetadata("move_chapter_to_volume", "ask"),
     "move_note": ToolPermissionMetadata("move_note", "ask"),
     "notify_subagent": ToolPermissionMetadata("notify_subagent", "allow"),
+    "propose_project_change": ToolPermissionMetadata("propose_project_change", "allow"),
     "read_chapter": ToolPermissionMetadata("read_chapter", "allow"),
     "read_chapter_summaries": ToolPermissionMetadata("read_chapter_summaries", "allow"),
     "read_character": ToolPermissionMetadata("read_character", "allow"),

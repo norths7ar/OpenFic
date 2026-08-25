@@ -36,6 +36,7 @@ async def test_list_agent_definitions(client: AsyncClient):
     assert discuss["delegatable_agents"] == []
     assert discuss["enabled_tool_categories"] == [
         "interaction",
+        "project_change_proposal",
         "chapter_read",
         "summary_read",
         "world_read",

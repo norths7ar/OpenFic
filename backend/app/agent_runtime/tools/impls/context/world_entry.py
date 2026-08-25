@@ -258,7 +258,12 @@ class ListWorldEntriesTool(AgentTool):
             return json.dumps(
                 {
                     "entries": [
-                        {"title": entry.name, "uid": entry.uid, "order": entry.order}
+                        {
+                            "id": entry.id,
+                            "title": entry.name,
+                            "uid": entry.uid,
+                            "order": entry.order,
+                        }
                         for entry in entries
                     ]
                 },
@@ -287,6 +292,7 @@ class ReadWorldEntryTool(AgentTool):
             )
             return json.dumps(
                 {
+                    "id": entry.id,
                     "title": entry.name,
                     "uid": entry.uid,
                     "order": entry.order,

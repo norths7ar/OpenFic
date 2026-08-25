@@ -222,7 +222,7 @@ class ListCharactersTool(AgentTool):
             return json.dumps(
                 {
                     "characters": [
-                        {"name": character.name}
+                        {"id": character.id, "name": character.name}
                         for character in characters
                     ]
                 },
@@ -250,6 +250,7 @@ class ReadCharacterTool(AgentTool):
             )
             return json.dumps(
                 {
+                    "id": character.id,
                     "name": character.name,
                     "description": _format_content_with_line_numbers(character.description),
                 },

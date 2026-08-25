@@ -53,6 +53,7 @@ def test_default_agent_definitions_include_three_primary_agents_and_six_subagent
     assert discuss.model_id is None
     assert discuss.enabled_tool_categories == (
         "interaction",
+        "project_change_proposal",
         "chapter_read",
         "summary_read",
         "world_read",

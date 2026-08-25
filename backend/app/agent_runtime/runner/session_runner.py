@@ -874,6 +874,7 @@ class SessionRunner:
                 "user_request": state_user_request,
                 "user_attachments": attachments or [],
                 "current_revision_id": revision.id,
+                "current_message_id": _user_message.id,
                 "referenced_skill_ids": list(referenced_skill_ids),
                 "messages": history_messages,
             }
