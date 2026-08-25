@@ -32,7 +32,7 @@ function RecentProjectNavItem({
 }: RecentProjectNavItemProps) {
   const link = (
     <Link
-      to={`/projects/${project.projectId}`}
+      to={`/projects/${project.projectId}/write`}
       aria-label={project.title}
       aria-current={isActive ? "page" : undefined}
       className="app-sidebar-recent-project__link"

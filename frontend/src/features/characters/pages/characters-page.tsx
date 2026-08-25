@@ -5,7 +5,7 @@ import { motion } from "motion/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Group, Panel, Separator } from "react-resizable-panels";
-import { useSearchParams } from "react-router";
+import { useNavigate, useParams, useSearchParams } from "react-router";
 
 import { PanelLayoutLoading } from "@/components";
 import { toast } from "@/components/toast";
@@ -64,6 +64,8 @@ function sortCharacters(characters: CharacterListItem[]): CharacterListItem[] {
 
 export function CharactersPage() {
   const { t } = useTranslation();
+  const { projectId: projectIdFromRoute } = useParams<{ projectId: string }>();
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const { isMobile, openAssistantSidebar } = useAppShell();
@@ -97,8 +99,17 @@ export function CharactersPage() {
 
   useEffect(() => {
     const initProject = async () => {
-      if (currentProjectId || projects.length === 0) return;
-      const projectIdFromUrl = searchParams.get("projectId");
+      if (projects.length === 0) return;
+      const projectIdFromUrl = projectIdFromRoute ?? searchParams.get("projectId");
+      const routeProjectId =
+        projectIdFromRoute && projects.some((project) => project.id === projectIdFromRoute)
+          ? projectIdFromRoute
+          : null;
+      if (routeProjectId) {
+        if (currentProjectId !== routeProjectId) setCurrentProject(routeProjectId);
+        return;
+      }
+      if (currentProjectId) return;
       const cachedProjectId = await getPreference(LAST_PROJECT_KEY);
       const nextProjectId =
         (projectIdFromUrl && projects.some((project) => project.id === projectIdFromUrl)
@@ -113,7 +124,7 @@ export function CharactersPage() {
     };
 
     void initProject();
-  }, [currentProjectId, projects, searchParams, setCurrentProject]);
+  }, [currentProjectId, projectIdFromRoute, projects, searchParams, setCurrentProject]);
 
   useEffect(() => {
     if (currentProjectId) void setPreference(LAST_PROJECT_KEY, currentProjectId);
@@ -356,6 +367,7 @@ export function CharactersPage() {
 
   const handleSelectProject = (projectId: string) => {
     setCurrentProject(projectId || null);
+    if (projectId) navigate(`/projects/${projectId}/characters`);
   };
 
   const handleSelectCharacter = (characterId: string) => {

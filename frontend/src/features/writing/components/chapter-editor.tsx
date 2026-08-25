@@ -175,7 +175,7 @@ function ChapterEditorContent({
 
   const handleWorldInfoClick = useCallback(() => {
     if (projectId) {
-      navigate(`/world-info?projectId=${projectId}&from=writing`);
+      navigate(`/projects/${projectId}/world-info?from=writing`);
     }
   }, [navigate, projectId]);
 

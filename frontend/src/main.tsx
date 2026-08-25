@@ -2,7 +2,7 @@ import { Theme } from "@radix-ui/themes";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { lazy, StrictMode, Suspense, useState, useEffect } from "react";
 import { ErrorBoundary } from "react-error-boundary";
-import { BrowserRouter, Routes, Route } from "react-router";
+import { BrowserRouter, Navigate, Routes, Route, useParams } from "react-router";
 
 import App from "./App.tsx";
 import { AppCrashFallback, GlobalLoading } from "./components";
@@ -154,6 +154,11 @@ const DashboardPage = lazy(() =>
   })),
 );
 
+function ProjectRouteRedirect() {
+  const { projectId } = useParams<{ projectId: string }>();
+  return <Navigate to={`/projects/${projectId}/write`} replace />;
+}
+
 function AppContent({
   appearance,
   version,
@@ -184,7 +189,19 @@ function AppContent({
           />
           <Route
             path="/projects/:projectId"
+            element={<ProjectRouteRedirect />}
+          />
+          <Route
+            path="/projects/:projectId/write"
             element={<WritingPage />}
+          />
+          <Route
+            path="/projects/:projectId/world-info"
+            element={<WorldInfoPage />}
+          />
+          <Route
+            path="/projects/:projectId/characters"
+            element={<CharactersPage />}
           />
           <Route
             path="/world-info"

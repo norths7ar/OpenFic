@@ -26,7 +26,7 @@ export function ProjectListItem({ project, onEdit, onDelete }: ProjectListItemPr
   const navigate = useNavigate();
 
   const handleClick = () => {
-    navigate(`/projects/${project.id}`);
+    navigate(`/projects/${project.id}/write`);
   };
 
   return (

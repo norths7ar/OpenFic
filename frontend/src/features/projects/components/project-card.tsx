@@ -26,7 +26,7 @@ export function ProjectCard({ project, onEdit, onDelete }: ProjectCardProps) {
   const navigate = useNavigate();
 
   const handleClick = () => {
-    navigate(`/projects/${project.id}`);
+    navigate(`/projects/${project.id}/write`);
   };
 
   return (

@@ -11,7 +11,7 @@ import { motion } from "motion/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Panel, Group, Separator } from "react-resizable-panels";
-import { useSearchParams } from "react-router";
+import { useNavigate, useParams, useSearchParams } from "react-router";
 
 import "./world-info-page.css";
 
@@ -70,6 +70,8 @@ function generateUniqueEntryName(baseName: string, entries: WorldInfoEntryBrief[
 
 export function WorldInfoPage() {
   const { t } = useTranslation();
+  const { projectId: projectIdFromRoute } = useParams<{ projectId: string }>();
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const { closeAssistantSidebar, isMobile, openAssistantSidebar } = useAppShell();
@@ -107,13 +109,13 @@ export function WorldInfoPage() {
 
   // 从 URL 参数初始化状态
   useEffect(() => {
-    const projectId = searchParams.get("projectId");
+    const projectId = projectIdFromRoute ?? searchParams.get("projectId");
     const from = searchParams.get("from");
 
     if (from === "writing" && projectId) {
       setFromWriting(true, projectId);
     }
-  }, [searchParams, setFromWriting]);
+  }, [projectIdFromRoute, searchParams, setFromWriting]);
 
   const { data: projectsData } = useQuery({
     queryKey: ["projects", "world-info-page"],
@@ -121,12 +123,21 @@ export function WorldInfoPage() {
   });
 
   const projects = useMemo(() => projectsData?.items ?? [], [projectsData?.items]);
-  const projectIdFromUrl = searchParams.get("projectId");
+  const projectIdFromUrl = projectIdFromRoute ?? searchParams.get("projectId");
 
   useEffect(() => {
     const initProject = async () => {
-      if (currentProjectId || projects.length === 0) return;
+      if (projects.length === 0) return;
       const cachedProjectId = await getPreference(LAST_PROJECT_KEY);
+      const routeProjectId =
+        projectIdFromRoute && projects.some((project) => project.id === projectIdFromRoute)
+          ? projectIdFromRoute
+          : null;
+      if (routeProjectId) {
+        if (currentProjectId !== routeProjectId) setCurrentProject(routeProjectId);
+        return;
+      }
+      if (currentProjectId) return;
       const nextProjectId =
         (projectIdFromUrl && projects.some((project) => project.id === projectIdFromUrl)
           ? projectIdFromUrl
@@ -140,7 +151,7 @@ export function WorldInfoPage() {
     };
 
     void initProject();
-  }, [currentProjectId, projectIdFromUrl, projects, setCurrentProject]);
+  }, [currentProjectId, projectIdFromRoute, projectIdFromUrl, projects, setCurrentProject]);
 
   useEffect(() => {
     if (currentProjectId) void setPreference(LAST_PROJECT_KEY, currentProjectId);
@@ -372,11 +383,14 @@ export function WorldInfoPage() {
   const handleSelectProject = useCallback(
     (projectId: string) => {
       setCurrentProject(projectId || null);
+      if (projectId) {
+        navigate(`/projects/${projectId}/world-info`);
+      }
       setIsCreatingEntry(false);
       setSidebarOpen(false);
       closeAssistantSidebar();
     },
-    [closeAssistantSidebar, setCurrentProject, setSidebarOpen],
+    [closeAssistantSidebar, navigate, setCurrentProject, setSidebarOpen],
   );
 
   /** 处理创建条目 */
