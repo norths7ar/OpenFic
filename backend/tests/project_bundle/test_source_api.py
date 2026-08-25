@@ -2,14 +2,14 @@ from uuid import uuid4
 
 import pytest
 import yaml
-from httpx import AsyncClient
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlmodel import select
-
 from app.project_bundle.archive import build_zip
 from app.storage.models.character import Character
 from app.storage.models.note import Note
 from app.storage.models.project import Project
+from app.storage.models.world_info_entry import WorldInfoEntry
+from httpx import AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import select
 
 
 def _source_bundle(
@@ -75,6 +75,33 @@ def _upload(data: bytes, mode: str = "merge") -> dict:
         "file": ("source.openfic.zip", data, "application/zip"),
         "mode": (None, mode),
     }
+
+
+def _visibility_bundle(project_id: str, *, disabled: bool) -> bytes:
+    config = {
+        "schema": "openfic.import-map",
+        "version": 1,
+        "project_id": project_id,
+        "rules": [
+            {
+                "id": "world-visibility",
+                "target": "worldbook",
+                "source": "world.md",
+                "split": {"type": "headings", "item_levels": [3]},
+                "section_level": 2,
+                "disabled_title_suffix": "[已停用]",
+            }
+        ],
+    }
+    marker = " [已停用]" if disabled else ""
+    return build_zip(
+        {
+            "openfic-import.yaml": yaml.safe_dump(
+                config, allow_unicode=True, sort_keys=True
+            ),
+            "world.md": f"# 世界\n## 体系\n### 灵气{marker}\n灵气内容",
+        }
+    )
 
 
 @pytest.mark.asyncio
@@ -175,6 +202,52 @@ async def test_source_apply_updates_changed_source(
         )
     ).all()
     assert len(notes) == 1
+
+
+@pytest.mark.asyncio
+async def test_source_apply_updates_visibility_without_recreating_target(
+    client: AsyncClient, session
+) -> None:
+    project = await _create_project(session)
+    first = await client.post(
+        f"/api/v1/projects/{project.id}/bundle/source/apply",
+        files=_upload(_visibility_bundle(project.id, disabled=False)),
+    )
+    assert first.status_code == 200
+    assert first.json()["summary"]["create"] == 1
+
+    before = (
+        await session.execute(
+            select(WorldInfoEntry).where(WorldInfoEntry.name == "灵气")
+        )
+    ).scalar_one()
+    target_id = before.id
+    assert before.is_enabled is True
+
+    second = await client.post(
+        f"/api/v1/projects/{project.id}/bundle/source/apply",
+        files=_upload(_visibility_bundle(project.id, disabled=True)),
+    )
+    assert second.status_code == 200
+    assert second.json()["summary"] == {
+        "create": 0,
+        "update": 1,
+        "unchanged": 0,
+        "conflict": 0,
+    }
+
+    await session.refresh(before)
+    entries = (
+        (
+            await session.execute(
+                select(WorldInfoEntry).where(WorldInfoEntry.name == "灵气")
+            )
+        )
+        .scalars()
+        .all()
+    )
+    assert [entry.id for entry in entries] == [target_id]
+    assert entries[0].is_enabled is False
 
 
 @pytest.mark.asyncio

@@ -1,6 +1,5 @@
 import pytest
 import yaml
-
 from app.project_bundle.archive import BundleFormatError, build_zip
 from app.project_bundle.source_mapping import parse_source_mapping
 
@@ -91,6 +90,47 @@ def test_world_section_and_fenced_headings() -> None:
     items = parse_source_mapping(data, "p")
     assert [item.title for item in items] == ["Entry"]
     assert items[0].section == "Section"
+
+
+def test_disabled_title_suffix_controls_visibility_without_changing_identity() -> None:
+    rule = {
+        "id": "world",
+        "target": "worldbook",
+        "source": "world.md",
+        "split": {"type": "headings", "item_levels": [3]},
+        "section_level": 2,
+        "disabled_title_suffix": "[已停用]",
+    }
+    enabled = parse_source_mapping(
+        bundle("p", [rule], **{"world.md": "# 世界\n## 分区\n### 条目\n内容"}),
+        "p",
+    )[0]
+    disabled = parse_source_mapping(
+        bundle(
+            "p",
+            [rule],
+            **{"world.md": "# 世界\n## 分区\n### 条目 [已停用]\n内容"},
+        ),
+        "p",
+    )[0]
+
+    assert enabled.title == disabled.title == "条目"
+    assert enabled.anchor == disabled.anchor == "H1:世界/H2:分区/H3:条目"
+    assert enabled.writing_visible is True
+    assert disabled.writing_visible is False
+
+
+@pytest.mark.parametrize("value", ["", "bad\nmarker"])
+def test_disabled_title_suffix_must_be_non_empty_and_single_line(value: str) -> None:
+    rule = {
+        "id": "world",
+        "target": "worldbook",
+        "source": "world.md",
+        "split": {"type": "file"},
+        "disabled_title_suffix": value,
+    }
+    with pytest.raises(BundleFormatError, match="disabled_title_suffix"):
+        parse_source_mapping(bundle("p", [rule], **{"world.md": "# 世界"}), "p")
 
 
 def test_mixed_outline_levels_use_only_current_ancestor_category() -> None:

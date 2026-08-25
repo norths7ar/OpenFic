@@ -46,6 +46,7 @@ _RULE_KEYS = {
     "category_levels",
     "category_path",
     "writing_visible",
+    "disabled_title_suffix",
     "context_mode",
 }
 _SPLIT_KEYS = {"type", "item_levels"}
@@ -169,6 +170,14 @@ def _validate_rule(rule: Any) -> dict[str, Any]:
         or not isinstance(rule["writing_visible"], bool)
     ):
         _fail("writing_visible is only a boolean for content targets")
+    if "disabled_title_suffix" in rule and (
+        target not in {"worldbook", "characters", "notes"}
+        or not isinstance(rule["disabled_title_suffix"], str)
+        or not rule["disabled_title_suffix"]
+        or "\n" in rule["disabled_title_suffix"]
+        or "\r" in rule["disabled_title_suffix"]
+    ):
+        _fail("disabled_title_suffix must be a non-empty content-target string")
     if "context_mode" in rule and (
         target != "discussions" or rule["context_mode"] not in {"global", "local"}
     ):
@@ -183,18 +192,29 @@ def _mapped_items(path: str, text: str, rule: dict[str, Any]) -> list[MappedSour
     visible = rule.get("writing_visible", True)
     context = rule.get("context_mode", "global") if target == "discussions" else None
     h1 = next(heading for heading in headings if heading.level == 1)
+
+    def item_title_and_visibility(title: str) -> tuple[str, bool]:
+        suffix = rule.get("disabled_title_suffix")
+        if not isinstance(suffix, str) or not title.endswith(suffix):
+            return title, visible
+        clean_title = title[: -len(suffix)].rstrip()
+        if not clean_title:
+            _fail("disabled title suffix must not consume the whole title")
+        return clean_title, False
+
     if rule["split"]["type"] == "file":
+        title, item_visible = item_title_and_visibility(h1.title)
         return [
             MappedSourceItem(
                 path,
                 rule["id"],
                 target,
-                "H1:" + h1.title,
-                h1.title,
+                "H1:" + title,
+                title,
                 "\n".join(lines[h1.line + 1 :]).strip("\n"),
                 None,
                 list(rule.get("category_path", [])),
-                visible,
+                item_visible,
                 context,
                 0,
             )
@@ -207,6 +227,7 @@ def _mapped_items(path: str, text: str, rule: dict[str, Any]) -> list[MappedSour
     section_level = rule.get("section_level")
     category_levels = set(rule.get("category_levels", []))
     for heading in selected:
+        title, item_visible = item_title_and_visibility(heading.title)
         end = len(lines)
         for candidate in headings:
             if candidate.line <= heading.line:
@@ -226,7 +247,10 @@ def _mapped_items(path: str, text: str, rule: dict[str, Any]) -> list[MappedSour
         if len(categories) > 2:
             _fail("category path cannot exceed two levels")
         anchor = "/".join(
-            f"H{item.level}:{item.title}" for item in [*ancestors, heading]
+            [
+                *(f"H{item.level}:{item.title}" for item in ancestors),
+                f"H{heading.level}:{title}",
+            ]
         )
         results.append(
             MappedSourceItem(
@@ -234,11 +258,11 @@ def _mapped_items(path: str, text: str, rule: dict[str, Any]) -> list[MappedSour
                 rule["id"],
                 target,
                 anchor,
-                heading.title,
+                title,
                 "\n".join(lines[heading.line + 1 : end]).strip("\n"),
                 section,
                 categories,
-                visible,
+                item_visible,
                 context,
                 0,
             )
