@@ -31,6 +31,8 @@ class RevisionNoteSnapshot(SQLModel, table=True):
     )
     is_locked: bool | None = Field(default=None)
     is_hidden: bool | None = Field(default=None)
+    note_order: int | None = Field(default=None)
+    is_writing_visible: bool | None = Field(default=None)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC), index=True)
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
@@ -52,5 +54,6 @@ class RevisionNoteCategorySnapshot(SQLModel, table=True):
     exists: bool = Field(default=True)
     parent_id: str | None = Field(default=None, index=True)
     title: str | None = Field(default=None, max_length=200)
+    category_order: int | None = Field(default=None)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC), index=True)
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))

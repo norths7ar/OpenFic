@@ -45,6 +45,7 @@ def _build_category_item(node) -> NoteCategoryItem:
         project_id=node.category.project_id,
         parent_id=node.category.parent_id,
         title=node.category.title,
+        order=node.category.order,
         created_at=node.category.created_at,
         updated_at=node.category.updated_at,
         categories=[_build_category_item(child) for child in node.sub_categories],

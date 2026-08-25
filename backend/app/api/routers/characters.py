@@ -37,6 +37,8 @@ def to_response(character: Character) -> CharacterResponse:
         description=character.description,
         image_url=get_character_image_url(character.image_path),
         is_favorited=character.is_favorited,
+        order=character.order,
+        is_writing_visible=character.is_writing_visible,
         created_at=character.created_at,
         updated_at=character.updated_at,
     )
@@ -51,6 +53,8 @@ def to_list_item_response(character: Character) -> CharacterListItemResponse:
         image_url=get_character_image_url(character.image_path),
         token_count=character_service.calculate_token_count(character.description),
         is_favorited=character.is_favorited,
+        order=character.order,
+        is_writing_visible=character.is_writing_visible,
         created_at=character.created_at,
         updated_at=character.updated_at,
     )

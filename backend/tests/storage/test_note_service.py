@@ -28,6 +28,57 @@ async def test_create_note_at_root_level(session: AsyncSession) -> None:
     assert note.category_id is None
     assert note.title == "根笔记"
     assert note.content == "内容"
+    assert note.order == 1
+    assert note.is_writing_visible is True
+
+
+@pytest.mark.asyncio
+async def test_create_notes_and_categories_append_within_each_parent(
+    session: AsyncSession,
+) -> None:
+    project = await _create_project(session)
+    first_category = await note_service.create_category(
+        session, project.id, parent_id=None, title="第一类"
+    )
+    second_category = await note_service.create_category(
+        session, project.id, parent_id=None, title="第二类"
+    )
+    first_note = await note_service.create_note(
+        session, project.id, category_id=first_category.id, title="第一条"
+    )
+    second_note = await note_service.create_note(
+        session, project.id, category_id=first_category.id, title="第二条"
+    )
+    other_note = await note_service.create_note(
+        session, project.id, category_id=second_category.id, title="另一类第一条"
+    )
+
+    assert (first_category.order, second_category.order) == (1, 2)
+    assert (first_note.order, second_note.order) == (1, 2)
+    assert other_note.order == 1
+
+
+@pytest.mark.asyncio
+async def test_move_note_appends_to_target_category(session: AsyncSession) -> None:
+    project = await _create_project(session)
+    source = await note_service.create_category(
+        session, project.id, parent_id=None, title="来源"
+    )
+    target = await note_service.create_category(
+        session, project.id, parent_id=None, title="目标"
+    )
+    existing = await note_service.create_note(
+        session, project.id, category_id=target.id, title="目标已有"
+    )
+    moving = await note_service.create_note(
+        session, project.id, category_id=source.id, title="待移动"
+    )
+
+    moved = await note_service.move_item(session, "note", moving.id, target.id)
+
+    assert existing.order == 1
+    assert moved.category_id == target.id
+    assert moved.order == 2
 
 
 @pytest.mark.asyncio

@@ -111,11 +111,20 @@ class CreateNoteCategoryTool(AgentTool):
                     c.title for c in before.values() if c.parent_id == parent_id
                 }
                 unique_title = generate_unique_title(title, sibling_titles)
+                next_order = max(
+                    (
+                        category.order
+                        for category in before.values()
+                        if category.parent_id == parent_id
+                    ),
+                    default=0,
+                ) + 1
 
                 category = NoteCategory(
                     project_id=self.project_id,
                     parent_id=parent_id,
                     title=unique_title,
+                    order=next_order,
                 )
                 category = await note_category_repo.create(session, category)
                 after = note_category_images_by_id(

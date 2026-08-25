@@ -93,6 +93,8 @@ async def create_note(
         category_id=category_id,
         title=unique_title,
         content=content,
+        order=await note_repo.get_max_order(session, project_id, category_id) + 1,
+        is_writing_visible=True,
     )
     note = await note_repo.create(session, note)
 
@@ -278,6 +280,7 @@ async def create_category(
         project_id=project_id,
         parent_id=parent_id,
         title=unique_title,
+        order=await note_category_repo.get_max_order(session, project_id, parent_id) + 1,
     )
     return await note_category_repo.create(session, category)
 
@@ -339,7 +342,14 @@ async def move_item(
             if target.parent_id is not None:
                 raise ValueError("分类层级不能超过两级")
 
-        category.parent_id = target_category_id
+        if category.parent_id != target_category_id:
+            category.parent_id = target_category_id
+            category.order = (
+                await note_category_repo.get_max_order(
+                    session, category.project_id, target_category_id
+                )
+                + 1
+            )
         category.updated_at = datetime.now(UTC)
         category = await note_category_repo.update_category(session, category)
 
@@ -365,7 +375,11 @@ async def move_item(
             if target is None or target.project_id != note.project_id:
                 raise ValueError("目标分类不存在或不属于当前项目")
 
-        note.category_id = target_category_id
+        if note.category_id != target_category_id:
+            note.category_id = target_category_id
+            note.order = await note_repo.get_max_order(
+                session, note.project_id, target_category_id
+            ) + 1
         note.updated_at = datetime.now(UTC)
         note = await note_repo.update_note(session, note)
 

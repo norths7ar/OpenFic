@@ -31,6 +31,8 @@ async def test_create_note(client: AsyncClient) -> None:
     assert data["project_id"] == project_id
     assert data["is_locked"] is False
     assert data["is_hidden"] is False
+    assert data["order"] == 1
+    assert data["is_writing_visible"] is True
 
 
 @pytest.mark.asyncio
@@ -202,6 +204,7 @@ async def test_create_category(client: AsyncClient) -> None:
     assert resp.status_code == 201
     assert resp.json()["title"] == "设定"
     assert resp.json()["parent_id"] is None
+    assert resp.json()["order"] == 1
 
 
 @pytest.mark.asyncio

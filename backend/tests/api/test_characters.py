@@ -62,6 +62,8 @@ async def test_create_character_with_image_returns_image_url(client: AsyncClient
     assert character["description"] == "主角描述"
     assert character["image_url"].startswith("/character-images/")
     assert character["is_favorited"] is False
+    assert character["order"] == 1
+    assert character["is_writing_visible"] is True
     assert "created_at" in character
     assert "updated_at" in character
 
@@ -246,7 +248,7 @@ async def test_batch_delete_characters_is_scoped_by_project(client: AsyncClient)
 
 
 @pytest.mark.asyncio
-async def test_list_characters_places_favorites_first_then_updated_desc(client: AsyncClient) -> None:
+async def test_list_characters_uses_persistent_creation_order(client: AsyncClient) -> None:
     project_id = await create_project(client, "收藏排序项目")
     favorite_old = await create_character(client, project_id, "收藏旧")
     normal_recent = await create_character(client, project_id, "普通新")
@@ -267,7 +269,7 @@ async def test_list_characters_places_favorites_first_then_updated_desc(client: 
 
     assert response.status_code == 200
     names = [item["name"] for item in response.json()["items"]]
-    assert names == [favorite_recent["name"], favorite_old["name"], normal_recent["name"]]
+    assert names == [favorite_old["name"], normal_recent["name"], favorite_recent["name"]]
 
 
 @pytest.mark.asyncio

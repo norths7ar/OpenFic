@@ -138,6 +138,10 @@ class WriteNoteTool(AgentTool):
                     n.title for n in notes if n.category_id == category_id
                 }
                 unique_title = generate_unique_title(title, sibling_titles)
+                next_order = max(
+                    (note.order for note in notes if note.category_id == category_id),
+                    default=0,
+                ) + 1
 
                 before = note_images_by_id(
                     await note_repo.list_by_project(
@@ -149,8 +153,10 @@ class WriteNoteTool(AgentTool):
                     category_id=category_id,
                     title=unique_title,
                     content=content,
+                    order=next_order,
                     is_locked=False,
                     is_hidden=False,
+                    is_writing_visible=True,
                 )
                 note = await note_repo.create(session, note)
                 after = note_images_by_id(

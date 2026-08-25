@@ -25,6 +25,22 @@ async def get_by_id(session: AsyncSession, category_id: str) -> NoteCategory | N
     return result.scalar_one_or_none()
 
 
+async def get_max_order(
+    session: AsyncSession,
+    project_id: str,
+    parent_id: str | None,
+) -> int:
+    statement = select(func.max(col(NoteCategory.order))).where(
+        col(NoteCategory.project_id) == project_id
+    )
+    if parent_id is None:
+        statement = statement.where(col(NoteCategory.parent_id).is_(None))
+    else:
+        statement = statement.where(col(NoteCategory.parent_id) == parent_id)
+    result = await session.execute(statement)
+    return int(result.scalar_one_or_none() or 0)
+
+
 async def list_by_project(
     session: AsyncSession,
     project_id: str,
@@ -32,7 +48,7 @@ async def list_by_project(
     result = await session.execute(
         select(NoteCategory)
         .where(col(NoteCategory.project_id) == project_id)
-        .order_by(col(NoteCategory.title).asc())
+        .order_by(col(NoteCategory.order).asc(), col(NoteCategory.title).asc(), col(NoteCategory.id).asc())
     )
     return list(result.scalars().all())
 
@@ -45,7 +61,7 @@ async def get_by_parent(
         stmt = select(NoteCategory).where(col(NoteCategory.parent_id).is_(None))
     else:
         stmt = select(NoteCategory).where(col(NoteCategory.parent_id) == parent_id)
-    stmt = stmt.order_by(col(NoteCategory.title).asc())
+    stmt = stmt.order_by(col(NoteCategory.order).asc(), col(NoteCategory.title).asc(), col(NoteCategory.id).asc())
     result = await session.execute(stmt)
     return list(result.scalars().all())
 

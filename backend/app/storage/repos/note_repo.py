@@ -23,6 +23,22 @@ async def get_by_id(session: AsyncSession, note_id: str) -> Note | None:
     return result.scalar_one_or_none()
 
 
+async def get_max_order(
+    session: AsyncSession,
+    project_id: str,
+    category_id: str | None,
+) -> int:
+    statement = select(func.max(col(Note.order))).where(
+        col(Note.project_id) == project_id
+    )
+    if category_id is None:
+        statement = statement.where(col(Note.category_id).is_(None))
+    else:
+        statement = statement.where(col(Note.category_id) == category_id)
+    result = await session.execute(statement)
+    return int(result.scalar_one_or_none() or 0)
+
+
 async def list_by_project(
     session: AsyncSession,
     project_id: str,
@@ -32,7 +48,7 @@ async def list_by_project(
     stmt = (
         select(Note)
         .where(col(Note.project_id) == project_id)
-        .order_by(col(Note.title).asc())
+        .order_by(col(Note.order).asc(), col(Note.title).asc(), col(Note.id).asc())
     )
     if not include_hidden:
         stmt = stmt.where(col(Note.is_hidden) == False)  # noqa: E712
@@ -91,7 +107,7 @@ async def search_by_content(
             col(Note.project_id) == project_id,
             col(Note.content).ilike(f"%{normalized_query}%"),
         )
-        .order_by(col(Note.title).asc())
+        .order_by(col(Note.order).asc(), col(Note.title).asc(), col(Note.id).asc())
     )
     return list(result.scalars().all())
 

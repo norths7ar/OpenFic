@@ -19,5 +19,7 @@ class Character(SQLModel, table=True):
     description: str = Field(default="")
     image_path: str | None = Field(default=None)
     is_favorited: bool = Field(default=False, index=True)
+    order: int = Field(default=0, index=True)
+    is_writing_visible: bool = Field(default=True, index=True)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC), index=True)

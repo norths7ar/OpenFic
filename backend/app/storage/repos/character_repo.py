@@ -38,6 +38,13 @@ async def list_names_by_project(session: AsyncSession, project_id: str) -> list[
     return list(result.scalars().all())
 
 
+async def get_max_order(session: AsyncSession, project_id: str) -> int:
+    result = await session.execute(
+        select(func.max(col(Character.order))).where(col(Character.project_id) == project_id)
+    )
+    return int(result.scalar_one_or_none() or 0)
+
+
 async def name_exists(
     session: AsyncSession,
     project_id: str,
@@ -71,7 +78,7 @@ async def list_by_project(
     result = await session.execute(
         select(Character)
         .where(col(Character.project_id) == project_id)
-        .order_by(col(Character.is_favorited).desc(), col(Character.updated_at).desc())
+        .order_by(col(Character.order).asc(), col(Character.name).asc(), col(Character.id).asc())
         .offset(offset)
         .limit(page_size)
     )
@@ -83,7 +90,7 @@ async def list_all_by_project(session: AsyncSession, project_id: str) -> list[Ch
     result = await session.execute(
         select(Character)
         .where(col(Character.project_id) == project_id)
-        .order_by(col(Character.is_favorited).desc(), col(Character.updated_at).desc())
+        .order_by(col(Character.order).asc(), col(Character.name).asc(), col(Character.id).asc())
     )
     return list(result.scalars().all())
 
@@ -103,7 +110,7 @@ async def search_by_project(session: AsyncSession, project_id: str, query: str) 
         select(Character)
         .where(col(Character.project_id) == project_id)
         .where(or_(col(Character.name).ilike(pattern), col(Character.description).ilike(pattern)))
-        .order_by(col(Character.is_favorited).desc(), col(Character.updated_at).desc())
+        .order_by(col(Character.order).asc(), col(Character.name).asc(), col(Character.id).asc())
     )
     return list(result.scalars().all())
 

@@ -71,6 +71,8 @@ class NoteImage:
     content: str
     is_locked: bool
     is_hidden: bool
+    order: int
+    is_writing_visible: bool
 
 
 @dataclass(frozen=True)
@@ -79,6 +81,7 @@ class NoteCategoryImage:
     project_id: str
     parent_id: str | None
     title: str
+    order: int
 
 
 @dataclass(frozen=True)
@@ -101,6 +104,8 @@ class CharacterImage:
     name: str
     description: str
     is_favorited: bool
+    order: int
+    is_writing_visible: bool
 
 
 @dataclass(frozen=True)
@@ -366,6 +371,8 @@ def _image_from_note(note: Note) -> NoteImage:
         content=note.content,
         is_locked=note.is_locked,
         is_hidden=note.is_hidden,
+        order=getattr(note, "order", 0),
+        is_writing_visible=getattr(note, "is_writing_visible", True),
     )
 
 
@@ -380,6 +387,12 @@ def _image_from_note_snapshot(snapshot: RevisionNoteSnapshot) -> NoteImage | Non
         content=snapshot.content or "",
         is_locked=snapshot.is_locked or False,
         is_hidden=snapshot.is_hidden or False,
+        order=snapshot.note_order or 0,
+        is_writing_visible=(
+            snapshot.is_writing_visible
+            if snapshot.is_writing_visible is not None
+            else True
+        ),
     )
 
 
@@ -409,6 +422,8 @@ async def _snapshot_from_note_image(
         content_blob_id=content_blob_id,
         is_locked=image.is_locked,
         is_hidden=image.is_hidden,
+        note_order=image.order,
+        is_writing_visible=image.is_writing_visible,
     )
 def _note_has_changed(before: NoteImage | None, after: NoteImage | None) -> bool:
     if before is None or after is None:
@@ -419,6 +434,8 @@ def _note_has_changed(before: NoteImage | None, after: NoteImage | None) -> bool
         or before.category_id != after.category_id
         or before.is_locked != after.is_locked
         or before.is_hidden != after.is_hidden
+        or before.order != after.order
+        or before.is_writing_visible != after.is_writing_visible
     )
 
 
@@ -460,6 +477,7 @@ def _image_from_note_category(category: NoteCategory) -> NoteCategoryImage:
         project_id=category.project_id,
         parent_id=category.parent_id,
         title=category.title,
+        order=getattr(category, "order", 0),
     )
 
 
@@ -473,6 +491,7 @@ def _image_from_note_category_snapshot(
         project_id=snapshot.project_id,
         parent_id=snapshot.parent_id,
         title=snapshot.title or "",
+        order=snapshot.category_order or 0,
     )
 
 
@@ -496,6 +515,7 @@ def _snapshot_from_note_category_image(
         exists=True,
         parent_id=image.parent_id,
         title=image.title,
+        category_order=image.order,
     )
 
 
@@ -507,6 +527,7 @@ def _note_category_has_changed(
     return (
         before.title != after.title
         or before.parent_id != after.parent_id
+        or before.order != after.order
     )
 
 
@@ -669,6 +690,8 @@ def _image_from_character(character: Character) -> CharacterImage:
         name=character.name,
         description=character.description,
         is_favorited=character.is_favorited,
+        order=getattr(character, "order", 0),
+        is_writing_visible=getattr(character, "is_writing_visible", True),
     )
 
 
@@ -683,6 +706,12 @@ def _image_from_character_snapshot(
         name=snapshot.name or "",
         description=snapshot.description or "",
         is_favorited=snapshot.is_favorited if snapshot.is_favorited is not None else False,
+        order=snapshot.character_order or 0,
+        is_writing_visible=(
+            snapshot.is_writing_visible
+            if snapshot.is_writing_visible is not None
+            else True
+        ),
     )
 
 
@@ -710,6 +739,8 @@ async def _snapshot_from_character_image(
         description=description,
         description_blob_id=description_blob_id,
         is_favorited=image.is_favorited,
+        character_order=image.order,
+        is_writing_visible=image.is_writing_visible,
     )
 def _character_has_changed(
     before: CharacterImage | None,
@@ -721,6 +752,8 @@ def _character_has_changed(
         before.name != after.name
         or before.description != after.description
         or before.is_favorited != after.is_favorited
+        or before.order != after.order
+        or before.is_writing_visible != after.is_writing_visible
     )
 
 
@@ -1036,11 +1069,13 @@ async def rollback_revision_for_session(
                     project_id=after_cat_image.project_id,
                     parent_id=after_cat_image.parent_id,
                     title=after_cat_image.title,
+                    order=after_cat_image.order,
                 ),
             )
         else:
             current_cat.parent_id = after_cat_image.parent_id
             current_cat.title = after_cat_image.title
+            current_cat.order = after_cat_image.order
             current_cat.updated_at = datetime.now(UTC)
             await note_category_repo.update_category(session, current_cat)
 
@@ -1066,8 +1101,10 @@ async def rollback_revision_for_session(
                     category_id=category_id,
                     title=after_note_image.title,
                     content=after_note_image.content,
+                    order=after_note_image.order,
                     is_locked=after_note_image.is_locked,
                     is_hidden=after_note_image.is_hidden,
+                    is_writing_visible=after_note_image.is_writing_visible,
                 ),
             )
         else:
@@ -1077,8 +1114,10 @@ async def rollback_revision_for_session(
             current_note.category_id = category_id
             current_note.title = after_note_image.title
             current_note.content = after_note_image.content
+            current_note.order = after_note_image.order
             current_note.is_locked = after_note_image.is_locked
             current_note.is_hidden = after_note_image.is_hidden
+            current_note.is_writing_visible = after_note_image.is_writing_visible
             current_note.updated_at = datetime.now(UTC)
             await note_repo.update_note(session, current_note)
 
@@ -1144,12 +1183,16 @@ async def rollback_revision_for_session(
                     name=after_character_image.name,
                     description=after_character_image.description,
                     is_favorited=after_character_image.is_favorited,
+                    order=after_character_image.order,
+                    is_writing_visible=after_character_image.is_writing_visible,
                 ),
             )
         else:
             current_character.name = after_character_image.name
             current_character.description = after_character_image.description
             current_character.is_favorited = after_character_image.is_favorited
+            current_character.order = after_character_image.order
+            current_character.is_writing_visible = after_character_image.is_writing_visible
             current_character.updated_at = datetime.now(UTC)
             await character_repo.update(session, current_character)
 

@@ -15,6 +15,8 @@ class CharacterResponse(BaseModel):
     description: str = Field(description="角色描述")
     image_url: str | None = Field(description="角色头像 URL")
     is_favorited: bool = Field(description="是否收藏")
+    order: int = Field(description="手动排序")
+    is_writing_visible: bool = Field(description="是否对写作 Agent 可见")
     created_at: datetime = Field(description="创建时间")
     updated_at: datetime = Field(description="更新时间")
 
@@ -28,6 +30,8 @@ class CharacterListItemResponse(BaseModel):
     image_url: str | None = Field(description="角色头像 URL")
     token_count: int = Field(description="角色描述 Token 数")
     is_favorited: bool = Field(description="是否收藏")
+    order: int = Field(description="手动排序")
+    is_writing_visible: bool = Field(description="是否对写作 Agent 可见")
     created_at: datetime = Field(description="创建时间")
     updated_at: datetime = Field(description="更新时间")
 

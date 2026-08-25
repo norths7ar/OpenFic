@@ -75,10 +75,17 @@ async def create_character(
         raise NotFoundError(f"项目不存在: {project_id}")
 
     resolved_name = make_available_name(name.strip(), await character_repo.list_names_by_project(session, project_id))
+    next_order = await character_repo.get_max_order(session, project_id) + 1
 
     character = await character_repo.create(
         session,
-        Character(project_id=project_id, name=resolved_name, description=description),
+        Character(
+            project_id=project_id,
+            name=resolved_name,
+            description=description,
+            order=next_order,
+            is_writing_visible=True,
+        ),
     )
     if image_file is not None:
         character.image_path = await save_character_image(character.id, image_file)
