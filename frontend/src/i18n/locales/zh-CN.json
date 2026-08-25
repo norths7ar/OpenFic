@@ -1308,6 +1308,8 @@
     "resetConfirm": "确认重置"
   },
   "pendingProjectChanges": {
+    "navLabel": "待审变更",
+    "projectScope": "当前项目范围内的 AI 长期资料变更。候审内容不会自动写入正式资料。",
     "trigger": "待审变更 {{count}}",
     "title": "项目待审变更",
     "description": "有 {{count}} 项变更等待审核。除拒绝外，此视图只读。",

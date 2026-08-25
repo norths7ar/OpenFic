@@ -10,6 +10,7 @@ import { Toaster } from "./components/toaster";
 import { AppLayout } from "./features/app-shell";
 import { AuthPage } from "./features/auth";
 import { CharactersPage } from "./features/characters";
+import { PendingProjectChangesPage } from "./features/pending-project-changes";
 import { PromptChainsPage } from "./features/prompt-chains";
 import { fetchSettings } from "./features/settings/lib/settings-api";
 import type { Settings } from "./features/settings/lib/settings.types";
@@ -204,6 +205,10 @@ function AppContent({
           <Route
             path="/projects/:projectId/notes"
             element={<WritingPage workspaceView="notes" />}
+          />
+          <Route
+            path="/projects/:projectId/changes"
+            element={<PendingProjectChangesPage />}
           />
           <Route
             path="/projects/:projectId/world-info"

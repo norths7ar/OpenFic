@@ -2058,6 +2058,8 @@
     }
   },
   "pendingProjectChanges": {
+    "navLabel": "Pending changes",
+    "projectScope": "AI-proposed long-term changes for the current project. Pending content is never written automatically.",
     "trigger": "Pending changes {{count}}",
     "title": "Pending project changes",
     "description": "{{count}} change(s) are waiting for review. This view is read-only except for rejection.",

@@ -5,6 +5,7 @@ import {
   BookOpen,
   ChartNoAxesCombined,
   FileText,
+  FileClock,
   Globe,
   LibraryBig,
   MessageCircle,
@@ -129,6 +130,12 @@ export function AppSidebar() {
           href: `/projects/${projectId}/notes`,
           icon: FileText,
           active: pathname === `/projects/${projectId}/notes`,
+        },
+        {
+          label: t("pendingProjectChanges.navLabel"),
+          href: `/projects/${projectId}/changes`,
+          icon: FileClock,
+          active: pathname === `/projects/${projectId}/changes`,
         },
       );
     }

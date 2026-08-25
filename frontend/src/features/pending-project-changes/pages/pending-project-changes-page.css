@@ -1,0 +1,24 @@
+.pending-project-changes-page {
+  height: 100%;
+  min-height: 0;
+  overflow: auto;
+}
+
+.pending-project-changes-page-scope {
+  display: block;
+}
+
+.pending-project-changes-page-title {
+  margin: 0;
+  font-size: var(--font-size-6);
+  line-height: 1.2;
+}
+
+.pending-project-changes-page .pending-project-changes-layout {
+  min-height: min(620px, calc(100vh - 240px));
+}
+
+.pending-project-changes-page .pending-project-changes-list-scroll,
+.pending-project-changes-page .pending-project-changes-detail-scroll {
+  height: min(620px, calc(100vh - 240px));
+}
