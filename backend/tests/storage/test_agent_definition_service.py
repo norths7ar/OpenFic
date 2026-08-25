@@ -30,7 +30,17 @@ async def test_list_definitions_includes_builtins():
             d.source == "builtin"
             for d in defs
             if d.key
-            in ("build", "plan", "explore", "composer", "auditor", "writer", "actor", "reviewer")
+            in (
+                "build",
+                "plan",
+                "discuss",
+                "explore",
+                "composer",
+                "auditor",
+                "writer",
+                "actor",
+                "reviewer",
+            )
         )
     finally:
         await engine.dispose()

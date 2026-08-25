@@ -163,6 +163,26 @@ async def _resolve_entry_by_title(session, world_info_id: str, title: str) -> Wo
     return matches[0]
 
 
+async def _resolve_enabled_entry_by_title(
+    session,
+    world_info_id: str,
+    title: str,
+) -> WorldInfoEntry:
+    """Resolve a title for read-only access using enabled entries only."""
+    normalized_title = title.strip()
+    if not normalized_title:
+        raise ToolExecutionError("世界书条目标题不能为空")
+    entries = await world_info_entry_repo.list_enabled_by_world_info(
+        session, world_info_id
+    )
+    matches = [entry for entry in entries if entry.name == normalized_title]
+    if not matches:
+        raise ToolExecutionError(f"世界书条目不存在: {normalized_title}")
+    if len(matches) > 1:
+        raise ToolExecutionError(f"世界书条目标题不唯一: {normalized_title}")
+    return matches[0]
+
+
 async def _ensure_title_available(
     session,
     world_info_id: str,
@@ -225,7 +245,7 @@ class ReadWorldEntryTool(AgentTool):
         session = await create_session()
         try:
             world_info = await _get_project_world_info(session, self.project_id)
-            entry = await _resolve_entry_by_title(session, world_info.id, title)
+            entry = await _resolve_enabled_entry_by_title(session, world_info.id, title)
             return json.dumps(
                 {
                     "title": entry.name,

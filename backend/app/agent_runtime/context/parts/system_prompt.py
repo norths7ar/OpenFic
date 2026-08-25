@@ -18,6 +18,7 @@ async def build_system_prompt(
     builtin_agent_names = {
         "build",
         "plan",
+        "discuss",
         "explore",
         "composer",
         "auditor",

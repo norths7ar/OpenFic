@@ -1241,6 +1241,7 @@
       "memoryRangeSummary": "Range Summary",
       "builtinAgentBuild": "Build",
       "builtinAgentPlan": "Plan",
+      "builtinAgentDiscuss": "Discuss",
       "builtinAgentExplore": "Explore",
       "builtinAgentComposer": "Composer",
       "builtinAgentAuditor": "Auditor",

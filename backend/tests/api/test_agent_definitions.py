@@ -21,6 +21,7 @@ async def test_list_agent_definitions(client: AsyncClient):
     assert "writer" in keys
     build = next(d for d in data["definitions"] if d["key"] == "build")
     plan = next(d for d in data["definitions"] if d["key"] == "plan")
+    discuss = next(d for d in data["definitions"] if d["key"] == "discuss")
     assert build["kind"] == "primary"
     assert plan["kind"] == "primary"
     assert build["enabled_skills"] == []
@@ -28,9 +29,35 @@ async def test_list_agent_definitions(client: AsyncClient):
     assert build["color"] == "blue"
     assert build["icon"] == "pen-tool"
     assert plan["color"] == "green"
+    assert discuss["kind"] == "primary"
+    assert discuss["description"] == "项目级设定/剧情讨论"
+    assert discuss["color"] == "purple"
+    assert discuss["icon"] == "lightbulb"
+    assert discuss["delegatable_agents"] == []
+    assert discuss["enabled_tool_categories"] == [
+        "interaction",
+        "chapter_read",
+        "summary_read",
+        "world_read",
+        "note_read",
+        "character_read",
+    ]
+    assert not any(
+        category.endswith("_write") for category in discuss["enabled_tool_categories"]
+    )
 
     ordered_keys = [d["key"] for d in data["definitions"]]
-    builtin_order = ("build", "plan", "explore", "composer", "auditor", "writer", "reviewer", "actor")
+    builtin_order = (
+        "build",
+        "plan",
+        "discuss",
+        "explore",
+        "composer",
+        "auditor",
+        "writer",
+        "reviewer",
+        "actor",
+    )
     positions = [ordered_keys.index(key) for key in builtin_order]
     assert positions == sorted(positions)
 

@@ -4,7 +4,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlmodel import SQLModel
 
 
-def test_default_agent_definitions_include_two_primary_agents_and_six_subagents():
+def test_default_agent_definitions_include_three_primary_agents_and_six_subagents():
     from app.agent_runtime.agents.definitions import (
         DEFAULT_AGENT_KEYS,
         get_default_agent_definition,
@@ -13,6 +13,7 @@ def test_default_agent_definitions_include_two_primary_agents_and_six_subagents(
     assert DEFAULT_AGENT_KEYS == (
         "build",
         "plan",
+        "discuss",
         "explore",
         "composer",
         "auditor",
@@ -42,6 +43,27 @@ def test_default_agent_definitions_include_two_primary_agents_and_six_subagents(
         "writer",
         "actor",
         "reviewer",
+    )
+
+    discuss = get_default_agent_definition("discuss")
+    assert discuss.display_name == "Discuss"
+    assert discuss.description == "项目级设定/剧情讨论"
+    assert discuss.kind == "primary"
+    assert discuss.prompt_agent_name == "discuss"
+    assert discuss.model_id is None
+    assert discuss.enabled_tool_categories == (
+        "interaction",
+        "chapter_read",
+        "summary_read",
+        "world_read",
+        "note_read",
+        "character_read",
+    )
+    assert discuss.color == "purple"
+    assert discuss.icon == "lightbulb"
+    assert discuss.delegatable_agents == ()
+    assert not any(
+        category.endswith("_write") for category in discuss.enabled_tool_categories
     )
 
     for key in DEFAULT_AGENT_KEYS[2:]:

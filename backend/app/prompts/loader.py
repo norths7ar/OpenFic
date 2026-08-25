@@ -13,6 +13,7 @@ PROMPTS_DIR = Path(__file__).parent
 _BUILTIN_AGENT_NAMES = (
     "build",
     "plan",
+    "discuss",
     "explore",
     "composer",
     "auditor",

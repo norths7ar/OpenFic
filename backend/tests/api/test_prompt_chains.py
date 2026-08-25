@@ -36,6 +36,9 @@ class TestPromptChainAPI:
         assert "builtin-agent--explore" in {
             prompt["id"] for prompt in categories["builtin-agents"]["prompts"]
         }
+        assert "builtin-agent--discuss" in {
+            prompt["id"] for prompt in categories["builtin-agents"]["prompts"]
+        }
         assert categories["custom-agents"]["prompts"] == []
 
     async def test_get_latest_agent_version_uses_default_yaml(self, client: AsyncClient) -> None:
@@ -49,6 +52,20 @@ class TestPromptChainAPI:
         assert data["version"]["prompt_id"] == "builtin-agent--explore"
         assert len(data["entries"]) > 0
         assert all("finish_subagent" not in entry["content"] for entry in data["entries"])
+
+    async def test_get_discuss_agent_version_uses_default_yaml(
+        self, client: AsyncClient
+    ) -> None:
+        response = await client.get(
+            "/api/v1/prompt-chains/builtin-agent--discuss/versions/latest",
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["version"]["prompt_id"] == "builtin-agent--discuss"
+        content = "\n".join(entry["content"] for entry in data["entries"])
+        assert "项目级设定与剧情讨论空间" in content
+        assert "不得把未确认讨论写入长期资料" in content
 
     async def test_get_default_version_returns_yaml_after_creating_version(
         self,

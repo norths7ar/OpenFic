@@ -551,7 +551,7 @@ async def test_read_world_entry_reads_content_by_title() -> None:
         mock_session = AsyncMock()
         mock_cs.return_value = mock_session
         mock_world_repo.get_by_project_id = AsyncMock(return_value=SimpleNamespace(id="world-1"))
-        mock_entry_repo.list_all_by_world_info = AsyncMock(return_value=entries)
+        mock_entry_repo.list_enabled_by_world_info = AsyncMock(return_value=entries)
 
         result = await tool.ainvoke({"title": "主角"})
 
@@ -583,11 +583,61 @@ async def test_read_world_entry_rejects_duplicate_titles() -> None:
         mock_session = AsyncMock()
         mock_cs.return_value = mock_session
         mock_world_repo.get_by_project_id = AsyncMock(return_value=SimpleNamespace(id="world-1"))
-        mock_entry_repo.list_all_by_world_info = AsyncMock(return_value=entries)
+        mock_entry_repo.list_enabled_by_world_info = AsyncMock(return_value=entries)
 
         result = await tool.ainvoke({"title": "主角"})
 
     assert json.loads(result) == {"error": "世界书条目标题不唯一: 主角"}
+
+
+@pytest.mark.asyncio
+async def test_read_world_entry_rejects_disabled_entry_by_title() -> None:
+    from app.agent_runtime.tools.impls.context.world_entry import ReadWorldEntryTool
+
+    tool = ReadWorldEntryTool(_state=_make_state())
+    with patch(
+        "app.agent_runtime.tools.impls.context.world_entry.create_session"
+    ) as mock_cs, patch(
+        "app.agent_runtime.tools.impls.context.world_entry.world_info_repo"
+    ) as mock_world_repo, patch(
+        "app.agent_runtime.tools.impls.context.world_entry.world_info_entry_repo"
+    ) as mock_entry_repo:
+        mock_session = AsyncMock()
+        mock_cs.return_value = mock_session
+        mock_world_repo.get_by_project_id = AsyncMock(return_value=SimpleNamespace(id="world-1"))
+        mock_entry_repo.list_enabled_by_world_info = AsyncMock(return_value=[])
+
+        result = await tool.ainvoke({"title": "已关闭"})
+
+    assert json.loads(result) == {"error": "世界书条目不存在: 已关闭"}
+    mock_entry_repo.list_enabled_by_world_info.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_read_world_entry_duplicate_title_ignores_disabled_entry() -> None:
+    from app.agent_runtime.tools.impls.context.world_entry import ReadWorldEntryTool
+
+    tool = ReadWorldEntryTool(_state=_make_state())
+    entries = [
+        SimpleNamespace(
+            id="e1", name="主角", uid=1, order=1, content="启用", is_enabled=True
+        ),
+    ]
+    with patch(
+        "app.agent_runtime.tools.impls.context.world_entry.create_session"
+    ) as mock_cs, patch(
+        "app.agent_runtime.tools.impls.context.world_entry.world_info_repo"
+    ) as mock_world_repo, patch(
+        "app.agent_runtime.tools.impls.context.world_entry.world_info_entry_repo"
+    ) as mock_entry_repo:
+        mock_session = AsyncMock()
+        mock_cs.return_value = mock_session
+        mock_world_repo.get_by_project_id = AsyncMock(return_value=SimpleNamespace(id="world-1"))
+        mock_entry_repo.list_enabled_by_world_info = AsyncMock(return_value=entries)
+
+        result = await tool.ainvoke({"title": "主角"})
+
+    assert json.loads(result)["content"] == "1|启用"
 
 
 @pytest.mark.asyncio
