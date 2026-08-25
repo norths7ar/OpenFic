@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import {
+  applyPendingProjectChange,
   countPendingProjectChanges,
   listPendingProjectChanges,
   rejectPendingProjectChange,
@@ -51,6 +52,29 @@ export function useRejectPendingProjectChange(projectId: string) {
       void queryClient.invalidateQueries({
         queryKey: pendingProjectChangesQueryKeys.countRoot(projectId),
       });
+    },
+  });
+}
+
+export function useApplyPendingProjectChange(projectId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (changeId: string) => applyPendingProjectChange(projectId, changeId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: pendingProjectChangesQueryKeys.listRoot(projectId),
+      });
+      void queryClient.invalidateQueries({
+        queryKey: pendingProjectChangesQueryKeys.countRoot(projectId),
+      });
+      void queryClient.invalidateQueries({ queryKey: ["note-tree", projectId] });
+      void queryClient.invalidateQueries({ queryKey: ["note"] });
+      void queryClient.invalidateQueries({ queryKey: ["characters", projectId] });
+      void queryClient.invalidateQueries({ queryKey: ["character"] });
+      void queryClient.invalidateQueries({ queryKey: ["world-info-by-project", projectId] });
+      void queryClient.invalidateQueries({ queryKey: ["world-info-entries"] });
+      void queryClient.invalidateQueries({ queryKey: ["world-info-entry-detail"] });
     },
   });
 }

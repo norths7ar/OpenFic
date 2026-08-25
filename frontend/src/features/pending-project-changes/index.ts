@@ -1,10 +1,12 @@
 export {
+  applyPendingProjectChange,
   countPendingProjectChanges,
   listPendingProjectChanges,
   rejectPendingProjectChange,
 } from "./api";
 export {
   pendingProjectChangesQueryKeys,
+  useApplyPendingProjectChange,
   usePendingProjectChangeCount,
   usePendingProjectChanges,
   useRejectPendingProjectChange,

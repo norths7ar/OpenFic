@@ -37,3 +37,13 @@ export async function rejectPendingProjectChange(
   );
   return response.data;
 }
+
+export async function applyPendingProjectChange(
+  projectId: string,
+  changeId: string,
+): Promise<PendingProjectChange> {
+  const response = await apiClient.post<PendingProjectChange>(
+    `/projects/${projectId}/pending-changes/${changeId}/apply`,
+  );
+  return response.data;
+}

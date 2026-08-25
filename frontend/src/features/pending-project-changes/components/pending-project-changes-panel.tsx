@@ -1,11 +1,13 @@
 import { Badge, Button, Flex, ScrollArea, Text } from "@radix-ui/themes";
-import { FileClock, XCircle } from "lucide-react";
+import axios from "axios";
+import { CheckCircle2, FileClock, XCircle } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { ConfirmDialog, Spinner, toast } from "@/components";
 
 import {
+  useApplyPendingProjectChange,
   usePendingProjectChangeCount,
   usePendingProjectChanges,
   useRejectPendingProjectChange,
@@ -15,6 +17,50 @@ import type { JsonValue, PendingProjectChange } from "../types";
 import "./pending-project-changes-dialog.css";
 
 const EMPTY_PENDING_PROJECT_CHANGES: PendingProjectChange[] = [];
+const APPLICABLE_TARGET_TYPES = new Set(["note", "note_category", "character", "world_entry"]);
+const CREATE_FIELDS: Record<string, string[]> = {
+  note: ["body", "category_id", "kind", "title", "writing_visible"],
+  note_category: ["kind", "parent_id", "title"],
+  character: ["body", "kind", "title", "writing_visible"],
+  world_entry: ["body", "kind", "section", "title", "writing_visible"],
+};
+const SNAPSHOT_FIELDS: Record<string, string[]> = {
+  note: [
+    "body",
+    "category_id",
+    "id",
+    "is_hidden",
+    "is_locked",
+    "kind",
+    "order",
+    "project_id",
+    "title",
+    "writing_visible",
+  ],
+  note_category: ["id", "kind", "order", "parent_id", "project_id", "title"],
+  character: [
+    "body",
+    "id",
+    "is_favorited",
+    "kind",
+    "order",
+    "project_id",
+    "title",
+    "writing_visible",
+  ],
+  world_entry: [
+    "body",
+    "id",
+    "kind",
+    "order",
+    "project_id",
+    "section",
+    "title",
+    "uid",
+    "world_info_id",
+    "writing_visible",
+  ],
+};
 
 function formatJson(value: JsonValue): string {
   return JSON.stringify(value, null, 2);
@@ -28,6 +74,44 @@ function formatCreatedAt(value: string, locale: string): string {
 
 function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "";
+}
+
+function isRecord(value: JsonValue): value is { [key: string]: JsonValue } {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
+
+function hasExactFields(
+  value: JsonValue,
+  expected: string[],
+): value is { [key: string]: JsonValue } {
+  return isRecord(value) && Object.keys(value).sort().join("\0") === expected.join("\0");
+}
+
+function isApplicable(change: PendingProjectChange): boolean {
+  if (!APPLICABLE_TARGET_TYPES.has(change.target_type) || change.status !== "pending") return false;
+  if (change.operation === "create") {
+    return (
+      change.target_id === null &&
+      hasExactFields(change.after, CREATE_FIELDS[change.target_type]) &&
+      change.after.kind === change.target_type
+    );
+  }
+  if (!change.target_id || !change.base_hash) return false;
+  if (
+    !hasExactFields(change.before, SNAPSHOT_FIELDS[change.target_type]) ||
+    change.before.kind !== change.target_type ||
+    change.before.project_id !== change.project_id
+  ) {
+    return false;
+  }
+  if (change.operation === "delete") {
+    return change.target_type !== "note_category" && change.after === null;
+  }
+  return (
+    hasExactFields(change.after, SNAPSHOT_FIELDS[change.target_type]) &&
+    change.after.kind === change.target_type &&
+    change.after.project_id === change.project_id
+  );
 }
 
 function ChangeMetadata({ label, value }: { label: string; value: string }) {
@@ -73,9 +157,11 @@ export function PendingProjectChangesPanel({
   const { t, i18n } = useTranslation();
   const [selectedChangeId, setSelectedChangeId] = useState<string | null>(null);
   const [changeToReject, setChangeToReject] = useState<PendingProjectChange | null>(null);
+  const [changeToApply, setChangeToApply] = useState<PendingProjectChange | null>(null);
   const changesQuery = usePendingProjectChanges(projectId, "pending");
   const countQuery = usePendingProjectChangeCount(projectId);
   const rejectMutation = useRejectPendingProjectChange(projectId);
+  const applyMutation = useApplyPendingProjectChange(projectId);
   const changes = changesQuery.data ?? EMPTY_PENDING_PROJECT_CHANGES;
   const selectedChange = useMemo(
     () => changes.find((change) => change.id === selectedChangeId) ?? changes[0] ?? null,
@@ -100,6 +186,27 @@ export function PendingProjectChangesPanel({
       onError: (error) => {
         toast.error(
           t("pendingProjectChanges.rejectFailed", {
+            error: getErrorMessage(error) || t("pendingProjectChanges.unknownError"),
+          }),
+        );
+      },
+    });
+  };
+
+  const handleApply = () => {
+    if (!changeToApply) return;
+    applyMutation.mutate(changeToApply.id, {
+      onSuccess: () => {
+        toast.success(t("pendingProjectChanges.applySuccess"));
+        setChangeToApply(null);
+      },
+      onError: (error) => {
+        if (axios.isAxiosError(error) && error.response?.status === 409) {
+          toast.error(t("pendingProjectChanges.applyConflict"));
+          return;
+        }
+        toast.error(
+          t("pendingProjectChanges.applyFailed", {
             error: getErrorMessage(error) || t("pendingProjectChanges.unknownError"),
           }),
         );
@@ -234,15 +341,31 @@ export function PendingProjectChangesPanel({
                     >
                       {selectedChange.target_type}
                     </Text>
-                    <Button
-                      size="1"
-                      color="red"
-                      variant="soft"
-                      onClick={() => setChangeToReject(selectedChange)}
-                    >
-                      <XCircle size={14} />
-                      {t("pendingProjectChanges.reject")}
-                    </Button>
+                    <Flex gap="2">
+                      {isApplicable(selectedChange) ? (
+                        <Button
+                          size="1"
+                          color="green"
+                          onClick={() => setChangeToApply(selectedChange)}
+                          disabled={rejectMutation.isPending}
+                        >
+                          <CheckCircle2 size={14} />
+                          {t("pendingProjectChanges.apply")}
+                        </Button>
+                      ) : (
+                        <Badge color="gray">{t("pendingProjectChanges.notApplicable")}</Badge>
+                      )}
+                      <Button
+                        size="1"
+                        color="red"
+                        variant="soft"
+                        onClick={() => setChangeToReject(selectedChange)}
+                        disabled={applyMutation.isPending}
+                      >
+                        <XCircle size={14} />
+                        {t("pendingProjectChanges.reject")}
+                      </Button>
+                    </Flex>
                   </Flex>
                   <div className="pending-project-changes-metadata">
                     <ChangeMetadata
@@ -288,6 +411,23 @@ export function PendingProjectChangesPanel({
           </div>
         )}
       </div>
+      <ConfirmDialog
+        open={Boolean(changeToApply)}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen && !applyMutation.isPending) setChangeToApply(null);
+        }}
+        onConfirm={handleApply}
+        title={t("pendingProjectChanges.applyConfirmTitle")}
+        description={t(
+          changeToApply?.operation === "delete"
+            ? "pendingProjectChanges.applyDeleteConfirmDescription"
+            : "pendingProjectChanges.applyConfirmDescription",
+        )}
+        confirmText={t("pendingProjectChanges.apply")}
+        confirmColor={changeToApply?.operation === "delete" ? "red" : "green"}
+        cancelText={t("common.cancel")}
+        loading={applyMutation.isPending}
+      />
       <ConfirmDialog
         open={Boolean(changeToReject)}
         onOpenChange={(nextOpen) => {
