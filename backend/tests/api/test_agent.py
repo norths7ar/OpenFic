@@ -969,6 +969,33 @@ class TestAgentAPI:
         assert data["agent_key"] == "build"
         assert data["status"] == "created"
 
+    async def test_create_discuss_session_persists_project_agent_and_model_record(
+        self,
+        client: AsyncClient,
+    ) -> None:
+        target = await _seed_agent_target(client)
+
+        response = await client.post(
+            "/api/v1/agent/sessions",
+            json={
+                "project_id": target["project_id"],
+                "model_id": target["model_id"],
+                "agent_key": "discuss",
+            },
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert data["agent_key"] == "discuss"
+
+        runner = _SESSION_RUNNERS[data["session_id"]]
+        state = await (await runner._get_graph()).aget_state(
+            {"configurable": {"thread_id": data["session_id"]}}
+        )
+        assert state.values["project_id"] == target["project_id"]
+        assert state.values["agent_key"] == "discuss"
+        assert state.values["model_config"]["model_record_id"] == target["model_id"]
+
     async def test_create_agent_session_with_default_agent_key(self, client: AsyncClient) -> None:
         target = await _seed_agent_target(client)
 

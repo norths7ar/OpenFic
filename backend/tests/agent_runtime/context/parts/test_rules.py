@@ -2,7 +2,12 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.orm import sessionmaker
+from sqlmodel import SQLModel
+
 from app.agent_runtime.context.parts.rules import build_rules
+from app.storage.models.agent_rule import AgentRule
 
 
 @pytest.mark.asyncio
@@ -45,8 +50,47 @@ async def test_rules_renders_pseudo_xml(mock_session):
 
 
 @pytest.mark.asyncio
+async def test_rules_include_global_and_current_project_only():
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:", future=True)
+    factory = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+    async with engine.begin() as connection:
+        await connection.run_sync(SQLModel.metadata.create_all)
+
+    try:
+        async with factory() as session:
+            session.add_all(
+                [
+                    AgentRule(content="全局规则", scope="global", order_index=1),
+                    AgentRule(
+                        content="当前项目规则",
+                        scope="project",
+                        project_id="proj-1",
+                        order_index=2,
+                    ),
+                    AgentRule(
+                        content="其他项目规则",
+                        scope="project",
+                        project_id="proj-2",
+                        order_index=2,
+                    ),
+                ]
+            )
+            await session.commit()
+
+            message = await build_rules(session, project_id="proj-1")
+
+        assert message is not None
+        assert "全局规则" in message.content
+        assert "当前项目规则" in message.content
+        assert "其他项目规则" not in message.content
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.asyncio
 async def test_rules_db_error_raises_context_build_error(mock_session):
     from app.agent_runtime.context.errors import ContextBuildError
+
     with patch(
         "app.agent_runtime.context.parts.rules.agent_rule_service.list_all_rules",
         AsyncMock(side_effect=RuntimeError("db down")),

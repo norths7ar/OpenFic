@@ -64,13 +64,15 @@ async def test_assembles_messages_in_order(base_state: AgentRuntimeState) -> Non
         ContextMessage(role="assistant", content="prompt-assistant", metadata={"part": "system_prompt"}),
     ]
 
+    db_session = AsyncMock()
+    build_rules_mock = AsyncMock(return_value=None)
     with (
         patch(
             "app.agent_runtime.context.build_context.build_system_prompt",
             new=AsyncMock(return_value=sys_msgs),
         ), patch(
             "app.agent_runtime.context.build_context.build_rules",
-            new=AsyncMock(return_value=None),
+            new=build_rules_mock,
         ), patch(
             "app.agent_runtime.context.build_context.build_skills",
             new=AsyncMock(return_value=None),
@@ -83,7 +85,7 @@ async def test_assembles_messages_in_order(base_state: AgentRuntimeState) -> Non
             state=base_state,
             agent_name="writer",
             node_messages=[{"role": "user", "content": "hi", "metadata": {"part": "history"}}],
-            db_session=AsyncMock(),
+            db_session=db_session,
         )
 
     assert isinstance(out[0], SystemMessage)
@@ -94,6 +96,7 @@ async def test_assembles_messages_in_order(base_state: AgentRuntimeState) -> Non
     assert out[2].content == "prompt-assistant"
     assert isinstance(out[-1], HumanMessage)
     assert out[-1].content == "hi"
+    build_rules_mock.assert_awaited_once_with(db_session, "p1")
 
 
 @pytest.mark.asyncio
