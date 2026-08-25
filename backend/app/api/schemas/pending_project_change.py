@@ -6,7 +6,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 PendingProjectChangeOperation = Literal["create", "update", "delete"]
-PendingProjectChangeStatus = Literal["pending", "rejected"]
+PendingProjectChangeStatus = Literal["pending", "rejected", "applied"]
 
 
 class PendingProjectChangeCreate(BaseModel):
@@ -38,6 +38,7 @@ class PendingProjectChangeResponse(BaseModel):
     source_message_id: str | None
     model_id: str | None
     status: PendingProjectChangeStatus
+    applied_at: datetime | None
     created_at: datetime
     updated_at: datetime
 

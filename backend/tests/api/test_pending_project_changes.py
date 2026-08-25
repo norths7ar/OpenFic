@@ -61,6 +61,7 @@ async def test_pending_change_create_list_and_detail(client: AsyncClient) -> Non
     assert created["project_id"] == project_id
     assert created["operation"] == "update"
     assert created["status"] == "pending"
+    assert created["applied_at"] is None
     assert created["before"]["title"] == "旧标题"
 
     list_response = await client.get(f"/api/v1/projects/{project_id}/pending-changes")
@@ -173,14 +174,20 @@ async def test_pending_change_status_filter_and_count(client: AsyncClient) -> No
 async def test_pending_change_status_is_strict_enum(client: AsyncClient) -> None:
     project_id = await _create_project(client, "状态枚举项目")
 
-    list_response = await client.get(
+    applied_list_response = await client.get(
         f"/api/v1/projects/{project_id}/pending-changes",
         params={"status": "applied"},
     )
+    list_response = await client.get(
+        f"/api/v1/projects/{project_id}/pending-changes",
+        params={"status": "unknown"},
+    )
     count_response = await client.get(
         f"/api/v1/projects/{project_id}/pending-changes/count",
-        params={"status": "applied"},
+        params={"status": "unknown"},
     )
+    assert applied_list_response.status_code == 200
+    assert applied_list_response.json() == []
     assert list_response.status_code == 422
     assert count_response.status_code == 422
 

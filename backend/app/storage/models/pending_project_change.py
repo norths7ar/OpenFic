@@ -19,7 +19,7 @@ class PendingProjectChange(SQLModel, table=True):
             name="ck_pending_project_changes_operation",
         ),
         CheckConstraint(
-            "status IN ('pending', 'rejected')",
+            "status IN ('pending', 'rejected', 'applied')",
             name="ck_pending_project_changes_status",
         ),
         Index(
@@ -48,5 +48,6 @@ class PendingProjectChange(SQLModel, table=True):
     source_message_id: str | None = Field(default=None, max_length=128, index=True)
     model_id: str | None = Field(default=None, max_length=200, index=True)
     status: str = Field(default="pending", max_length=20)
+    applied_at: datetime | None = Field(default=None)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
