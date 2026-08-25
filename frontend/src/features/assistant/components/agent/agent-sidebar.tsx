@@ -23,6 +23,7 @@ interface AgentSidebarProps {
   modelId: string;
   reasoningEffort?: ReasoningEffort;
   agentKey?: string;
+  contextMode?: "global" | "local";
   inputValue: string;
   attachments: PendingAgentImageAttachment[];
   onClearInput: () => void;
@@ -61,6 +62,7 @@ export function useAgentSidebar({
   modelId,
   reasoningEffort,
   agentKey,
+  contextMode,
   inputValue,
   attachments,
   onClearInput,
@@ -106,6 +108,7 @@ export function useAgentSidebar({
     modelId,
     reasoningEffort,
     agentKey,
+    contextMode,
     maxIterations: 5,
     onTokenUsage,
     onTaskUsageSnapshot,

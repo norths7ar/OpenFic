@@ -55,6 +55,7 @@ export interface NoteCreate {
 export interface NoteUpdate {
   title?: string;
   content?: string;
+  isWritingVisible?: boolean;
 }
 
 export interface NoteCategoryCreate {

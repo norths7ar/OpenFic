@@ -360,6 +360,9 @@ export async function updateCharacter(
   if (data.isFavorited !== undefined) {
     formData.append("is_favorited", String(data.isFavorited));
   }
+  if (data.isWritingVisible !== undefined) {
+    formData.append("is_writing_visible", String(data.isWritingVisible));
+  }
   if (data.image) formData.append("image", data.image);
 
   const response = await apiClient.patch(`/characters/${characterId}`, formData, {
@@ -2726,6 +2729,7 @@ export async function updateNote(noteId: string, data: NoteUpdate): Promise<Note
   const response = await apiClient.patch(`/notes/${noteId}`, {
     title: data.title,
     content: data.content,
+    is_writing_visible: data.isWritingVisible,
   });
   return transformNote(response.data);
 }

@@ -86,6 +86,7 @@ function flattenTree(
       depth,
       isLocked: note.isLocked,
       isHidden: note.isHidden,
+      isWritingVisible: note.isWritingVisible,
       ancestorCategoryIds,
     });
   }

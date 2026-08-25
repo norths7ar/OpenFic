@@ -256,6 +256,7 @@ async def update_character(
     name: Annotated[str | None, Form(min_length=1, max_length=200)] = None,
     description: Annotated[str | None, Form()] = None,
     is_favorited: Annotated[bool | None, Form()] = None,
+    is_writing_visible: Annotated[bool | None, Form()] = None,
     image: Annotated[UploadFile | None, File()] = None,
 ) -> CharacterResponse:
     """更新角色。"""
@@ -266,6 +267,7 @@ async def update_character(
             name=name,
             description=description,
             is_favorited=is_favorited,
+            is_writing_visible=is_writing_visible,
             image_file=image,
         )
         return to_response(character)

@@ -14,6 +14,7 @@ import {
   ArrowDown,
   ArrowUp,
   ArrowUpDown,
+  BotOff,
   CheckSquare,
   ListChecks,
   Pencil,
@@ -52,6 +53,7 @@ interface CharacterListProps {
   onEditProfile: (character: CharacterListItem) => void;
   onDeleteCharacter: (character: CharacterListItem) => void;
   onToggleFavorite: (character: CharacterListItem, isFavorited: boolean) => void;
+  onToggleWritingVisibility: (character: CharacterListItem, isWritingVisible: boolean) => void;
   onBatchDelete: (characterIds: string[]) => void;
   onBatchFavorite: (characterIds: string[], isFavorited: boolean) => void;
   onReorderCharacters: (orderedIds: string[]) => void;
@@ -138,6 +140,7 @@ export function CharacterList({
   onEditProfile,
   onDeleteCharacter,
   onToggleFavorite,
+  onToggleWritingVisibility,
   onBatchDelete,
   onBatchFavorite,
   onReorderCharacters,
@@ -378,6 +381,17 @@ export function CharacterList({
     }
     items.push(
       {
+        id: "writing-visibility",
+        label: menuCharacter.isWritingVisible
+          ? t("characters.hideFromWritingAgent")
+          : t("characters.showToWritingAgent"),
+        icon: BotOff,
+        onClick: () => {
+          handleCloseContextMenu();
+          onToggleWritingVisibility(menuCharacter, !menuCharacter.isWritingVisible);
+        },
+      },
+      {
         id: "favorite",
         label: menuCharacter.isFavorited ? t("characters.unfavorite") : t("characters.favorite"),
         icon: menuCharacter.isFavorited ? StarOff : Star,
@@ -407,6 +421,7 @@ export function CharacterList({
     onDeleteCharacter,
     onEditProfile,
     onToggleFavorite,
+    onToggleWritingVisibility,
     sortField,
     sortedCharacters,
     t,
@@ -819,6 +834,14 @@ export function CharacterList({
                             {character.name}
                           </Text>
                           <Flex gap="2">
+                            {!character.isWritingVisible ? (
+                              <Text
+                                size="1"
+                                color="orange"
+                              >
+                                {t("characters.notVisibleToWritingAgent")}
+                              </Text>
+                            ) : null}
                             <Text
                               size="1"
                               color="gray"

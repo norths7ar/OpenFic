@@ -200,6 +200,20 @@ async def test_update_character_favorite_state(client: AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
+async def test_update_character_writing_visibility(client: AsyncClient) -> None:
+    project_id = await create_project(client, "写作可见性项目")
+    character = await create_character(client, project_id, "暂不登场角色")
+
+    response = await client.patch(
+        f"/api/v1/characters/{character['id']}",
+        data={"is_writing_visible": "false"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["is_writing_visible"] is False
+
+
+@pytest.mark.asyncio
 async def test_batch_favorite_characters_is_scoped_by_project(client: AsyncClient) -> None:
     project_id = await create_project(client, "批量收藏项目")
     other_project_id = await create_project(client, "其他批量收藏项目")

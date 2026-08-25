@@ -23,64 +23,67 @@ from app.agent_runtime.attachments import (
     serialize_agent_attachment,
 )
 from app.agent_runtime.context.compaction.service import CompactionError
-from app.agent_runtime.persistence.child_runs import get_child_run_by_pending_approval
+from app.agent_runtime.fork import fork_agent_session_at_revision
+from app.agent_runtime.model_config import without_api_key
 from app.agent_runtime.persistence.child_runs import (
     TERMINAL_CHILD_RUN_STATUSES,
-    count_pending_child_run_requests,
     cancel_child_run,
+    count_pending_child_run_requests,
+    get_child_run_agent_number,
+    get_child_run_by_pending_approval,
     get_child_run_for_parent,
     list_active_child_runs,
     list_child_runs_for_parent,
 )
-from app.agent_runtime.persistence.child_runs import get_child_run_agent_number
+from app.agent_runtime.persistence.model import AgentChildRun
 from app.agent_runtime.persistence.task_projection import (
     load_task_messages_for_agent_session,
 )
-from app.agent_runtime.persistence.model import AgentChildRun
-from app.agent_runtime.revisions import finalize_revision_status, rollback_revision_for_session
-from app.agent_runtime.fork import fork_agent_session_at_revision
-from app.agent_runtime.model_config import without_api_key
+from app.agent_runtime.revisions import (
+    finalize_revision_status,
+    rollback_revision_for_session,
+)
 from app.agent_runtime.runner.checkpointer import (
     delete_checkpoints_after_for_thread,
     delete_checkpoints_for_thread,
     get_checkpointer,
 )
+from app.agent_runtime.runner.run_registry import get_agent_run_registry
 from app.agent_runtime.runner.session_runner import SessionRunner
 from app.agent_runtime.runner.subagent_runner import SubagentRunner
-from app.agent_runtime.runner.run_registry import get_agent_run_registry
 from app.agent_runtime.streaming.replay_buffer import get_agent_event_replay_buffer
 from app.agent_runtime.tools import ToolRegistry
 from app.agent_runtime.tools.impls.orchestration.common import ensure_child_processing
 from app.api.schemas.agent import (
+    ActiveSubagentStateResponse,
+    AgentAttachmentResponse,
     AgentCancelPendingMessageRequest,
     AgentCancelPendingMessageResponse,
     AgentCancelResponse,
-    AgentAttachmentResponse,
     AgentCompactionResponse,
     AgentForkRequest,
     AgentForkResponse,
+    AgentInterruptResumeRequest,
     AgentPendingMessageResponse,
     AgentQuestionAnswerRequest,
-    AgentInterruptResumeRequest,
     AgentRollbackRequest,
     AgentRollbackResponse,
-    ActiveSubagentStateResponse,
     AgentSendMessageRequest,
     AgentSendMessageResponse,
     AgentSessionCreateRequest,
     AgentSessionCreateResponse,
     AgentSessionStateResponse,
-    SubagentSessionResponse,
     AgentToolApprovalRequest,
     AgentToolMetadataResponse,
+    SubagentSessionResponse,
 )
+from app.background.jobs import service as background_service
+from app.background.jobs.session_title_jobs import enqueue_session_title_job
 from app.core.encryption import EncryptionService
 from app.core.errors import NotFoundError
 from app.core.ids import generate_id
 from app.models.repos import model_provider_repo, model_repo
 from app.settings import settings
-from app.background.jobs.session_title_jobs import enqueue_session_title_job
-from app.background.jobs import service as background_service
 from app.socket import emit
 from app.socket.handlers import agent_session_room, background_project_room
 from app.storage.database import get_session
@@ -766,6 +769,11 @@ async def create_agent_session(
     session: AsyncSession = Depends(get_session),
 ) -> AgentSessionCreateResponse:
     try:
+        if request.context_mode == "global" and request.agent_key != "discuss":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="全局上下文仅可用于讨论 Agent",
+            )
         definition = await load_agent_definition(session, request.agent_key)
         if not definition.enabled:
             raise HTTPException(
@@ -947,6 +955,11 @@ async def send_agent_message(
                 )
             )
     if body.agent_key:
+        if runner.context_mode == "global" and body.agent_key != "discuss":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="全局讨论会话不能切换为非讨论 Agent",
+            )
         await _validate_primary_agent(session, body.agent_key)
         runner.agent_key = body.agent_key
     run_kwargs = {"attachments": attachment_metadata} if attachment_metadata else {}

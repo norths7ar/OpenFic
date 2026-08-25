@@ -5,7 +5,7 @@
  */
 
 import { useDraggable } from "@dnd-kit/core";
-import { Box, Flex, Text, Switch, Checkbox } from "@radix-ui/themes";
+import { Box, Flex, Text, Switch, Checkbox, Tooltip } from "@radix-ui/themes";
 import { GripVertical } from "lucide-react";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -411,12 +411,21 @@ function EntryListItemComponent({
             gap="1"
             style={{ flexShrink: 0 }}
           >
-            <Switch
-              size="1"
-              checked={entry.isEnabled}
-              onClick={(e) => e.stopPropagation()}
-              onCheckedChange={() => onToggle(entry.id)}
-            />
+            <Tooltip
+              content={
+                entry.isEnabled
+                  ? t("worldInfo.visibleToWritingAgent")
+                  : t("worldInfo.notVisibleToWritingAgent")
+              }
+            >
+              <Switch
+                size="1"
+                checked={entry.isEnabled}
+                aria-label={t("worldInfo.toggleWritingVisibility")}
+                onClick={(e) => e.stopPropagation()}
+                onCheckedChange={() => onToggle(entry.id)}
+              />
+            </Tooltip>
           </Flex>
         </Flex>
       </Flex>

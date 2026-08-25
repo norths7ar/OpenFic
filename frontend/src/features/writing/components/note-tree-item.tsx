@@ -94,6 +94,7 @@ export interface NoteTreeItemData {
   ancestorCategoryIds: string[];
   isLocked?: boolean;
   isHidden?: boolean;
+  isWritingVisible?: boolean;
   isExpanded?: boolean;
   childCount?: number;
 }
@@ -527,6 +528,13 @@ export const NoteTreeItem = memo(function NoteTreeItem({
               style={{ opacity: 0.4, color: textColor }}
             />
           )}
+          {data.type === "note" && data.isWritingVisible === false && !data.isHidden ? (
+            <EyeOff
+              size={12}
+              style={{ opacity: 0.4, color: "var(--orange-9)" }}
+              aria-label={t("writing.noteNotVisibleToWritingAgent")}
+            />
+          ) : null}
 
           {isHovered && (
             <button

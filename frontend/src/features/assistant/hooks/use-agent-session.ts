@@ -248,6 +248,7 @@ interface UseAgentSessionOptions {
   modelId: string;
   reasoningEffort?: ReasoningEffort;
   agentKey?: string;
+  contextMode?: "global" | "local";
   maxIterations?: number;
   onTokenUsage?: (sessionId: string, usage: TokenUsageState) => void;
   onTaskUsageSnapshot?: (payload: {
@@ -275,6 +276,7 @@ export function useAgentSession({
   modelId,
   reasoningEffort,
   agentKey,
+  contextMode = "local",
   maxIterations = 5,
   onTokenUsage,
   onTaskUsageSnapshot,
@@ -852,6 +854,7 @@ export function useAgentSession({
           ...(reasoningEffort ? { reasoning_effort: reasoningEffort } : {}),
           max_iterations: maxIterations,
           ...(agentKey ? { agent_key: agentKey } : {}),
+          context_mode: agentKey === "discuss" ? contextMode : "local",
         });
 
         if (projectIdRef.current !== projectId) return;
@@ -894,6 +897,7 @@ export function useAgentSession({
     },
     [
       agentKey,
+      contextMode,
       attachAgentSocket,
       commitTranscriptState,
       maxIterations,

@@ -270,6 +270,7 @@ async def update_note(
             note_id,
             title=data.title,
             content=data.content,
+            is_writing_visible=data.is_writing_visible,
         )
         await background_service.commit_and_notify(session)
         return NoteResponse.model_validate(note)

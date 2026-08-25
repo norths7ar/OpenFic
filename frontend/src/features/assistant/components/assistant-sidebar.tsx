@@ -1,11 +1,12 @@
 import NumberFlow from "@number-flow/react";
-import { Box, Button, Flex, IconButton, Text, Tooltip } from "@radix-ui/themes";
+import { Box, Button, DropdownMenu, Flex, IconButton, Text, Tooltip } from "@radix-ui/themes";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowBigDown,
   ArrowBigUp,
   ArrowDown,
   ArrowLeft,
+  ChevronDown,
   History,
   Layers2,
   MessageCircle,
@@ -309,6 +310,7 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
     const [isLoadingTask, setIsLoadingTask] = useState(false);
     const [currentTaskTitle, setCurrentTaskTitle] = useState<string>("");
     const [currentTaskId, setCurrentTaskId] = useState<string | null>(null);
+    const [contextMode, setContextMode] = useState<"global" | "local">("local");
     const [summaryWarningOpen, setSummaryWarningOpen] = useState(false);
     const [sessionTotalUsage, setSessionTotalUsage] = useState<SessionTotalUsageState>(() =>
       createSessionTotalUsageState(),
@@ -461,6 +463,7 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
       async (response: AgentForkResponse) => {
         try {
           const fullTask = await fetchTask(response.task_id);
+          setContextMode(fullTask.contextMode);
           const forkTask: TaskListItem = {
             id: fullTask.id,
             projectId: fullTask.projectId,
@@ -528,6 +531,7 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
       (response: AgentSessionCreateResponse) => {
         setCurrentTaskId(response.task_id);
         setCurrentTaskTitle(response.task_title);
+        setContextMode(response.context_mode);
         setSessionTotalUsage(createSessionTotalUsageState(response.session_id, response.task_id));
         setConversationUsageBySession((current) => ({
           ...current,
@@ -622,6 +626,7 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
       modelId: effectiveModelId,
       reasoningEffort,
       agentKey: effectiveAgentKey,
+      contextMode,
       inputValue,
       attachments: pendingAttachments,
       onClearInput: () => setInputValue(""),
@@ -913,6 +918,7 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
             fetchActiveSubagents,
           });
           const fullTask = bundle.task;
+          setContextMode(fullTask.contextMode);
 
           if (!fullTask.agentSessionId) {
             toast.error(t("writing.aiSidebar.agentSessionNotFound"));
@@ -1084,6 +1090,7 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
       setIsLoadingTask(false);
       setCurrentTaskId(null);
       setCurrentTaskTitle("");
+      setContextMode("local");
       void refetchRecentTasks();
     }, [agentSidebar, refetchRecentTasks]);
 
@@ -1210,16 +1217,30 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
       [effectiveModelId],
     );
 
-    const handleAgentChange = useCallback((nextAgentKey: string) => {
-      setSelectedAgentKey(nextAgentKey);
-      window.localStorage.setItem(ASSISTANT_AGENT_STORAGE_KEY, nextAgentKey);
-    }, []);
+    const hasActiveSession = Boolean(parentConversationSessionId);
+    const handleAgentChange = useCallback(
+      (nextAgentKey: string) => {
+        if (hasActiveSession && contextMode === "global" && nextAgentKey !== "discuss") {
+          toast.error(t("assistant.globalDiscussionAgentLocked"));
+          return;
+        }
+        if (!hasActiveSession) setContextMode("local");
+        setSelectedAgentKey(nextAgentKey);
+        window.localStorage.setItem(ASSISTANT_AGENT_STORAGE_KEY, nextAgentKey);
+      },
+      [contextMode, hasActiveSession, t],
+    );
 
     const hasDiscussionAgent = primaryAgents.some((agent) => agent.key === "discuss");
-    const handleStartDiscussion = useCallback(() => {
-      handleAgentChange("discuss");
-      backToTaskList();
-    }, [backToTaskList, handleAgentChange]);
+    const handleStartDiscussion = useCallback(
+      (nextContextMode: "global" | "local") => {
+        backToTaskList();
+        setContextMode(nextContextMode);
+        setSelectedAgentKey("discuss");
+        window.localStorage.setItem(ASSISTANT_AGENT_STORAGE_KEY, "discuss");
+      },
+      [backToTaskList],
+    );
 
     const agentSelectorOptions = useMemo(
       () =>
@@ -1272,7 +1293,7 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
     const recentTasks = tasksData?.items ?? [];
     const hasRecentTasks = recentTasks.length > 0;
 
-    const hasActiveTask = Boolean(parentConversationSessionId);
+    const hasActiveTask = hasActiveSession;
 
     const shouldShowMobileToolbar = isMobileOverlay && view !== "allTasks" && !hasActiveTask;
 
@@ -1361,15 +1382,27 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
           >
             <PendingProjectChangesDialog projectId={projectId} />
             {hasDiscussionAgent ? (
-              <Button
-                size="1"
-                variant="soft"
-                color="purple"
-                onClick={handleStartDiscussion}
-              >
-                <MessageCircle size={14} />
-                {t("assistant.startDiscussion")}
-              </Button>
+              <DropdownMenu.Root>
+                <DropdownMenu.Trigger>
+                  <Button
+                    size="1"
+                    variant="soft"
+                    color="purple"
+                  >
+                    <MessageCircle size={14} />
+                    {t("assistant.startDiscussion")}
+                    <ChevronDown size={13} />
+                  </Button>
+                </DropdownMenu.Trigger>
+                <DropdownMenu.Content align="end">
+                  <DropdownMenu.Item onClick={() => handleStartDiscussion("global")}>
+                    {t("assistant.globalDiscussion")}
+                  </DropdownMenu.Item>
+                  <DropdownMenu.Item onClick={() => handleStartDiscussion("local")}>
+                    {t("assistant.localDiscussion")}
+                  </DropdownMenu.Item>
+                </DropdownMenu.Content>
+              </DropdownMenu.Root>
             ) : null}
           </Flex>
         )}
@@ -1418,14 +1451,30 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
                     </Text>
                   </Flex>
                 ) : (
-                  <Text
-                    size="2"
-                    weight="medium"
-                    title={currentTaskTitle || t("assistant.taskFallbackTitle")}
-                    className="ai-sidebar-task-title"
+                  <Flex
+                    direction="column"
+                    className="ai-sidebar-task-title-stack"
                   >
-                    {currentTaskTitle || t("assistant.taskFallbackTitle")}
-                  </Text>
+                    <Text
+                      size="2"
+                      weight="medium"
+                      title={currentTaskTitle || t("assistant.taskFallbackTitle")}
+                      className="ai-sidebar-task-title"
+                    >
+                      {currentTaskTitle || t("assistant.taskFallbackTitle")}
+                    </Text>
+                    {effectiveAgentKey === "discuss" ? (
+                      <Text
+                        size="1"
+                        color="gray"
+                        className="ai-sidebar-task-subtitle"
+                      >
+                        {contextMode === "global"
+                          ? t("assistant.globalContextLocked")
+                          : t("assistant.localContextLocked")}
+                      </Text>
+                    ) : null}
+                  </Flex>
                 )}
               </Flex>
 

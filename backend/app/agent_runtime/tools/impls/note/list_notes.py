@@ -7,6 +7,10 @@ import json
 
 from pydantic import BaseModel, Field
 
+from app.agent_runtime.context.knowledge_visibility import (
+    includes_all_knowledge,
+    note_is_visible,
+)
 from app.agent_runtime.tools.base import AgentTool
 from app.agent_runtime.tools.registry import ToolRegistry
 from app.storage.database import create_session
@@ -39,6 +43,10 @@ class ListNotesTool(AgentTool):
             notes = await note_repo.list_by_project(
                 session, self.project_id, include_hidden=False
             )
+            include_all = includes_all_knowledge(self._state)
+            notes = [
+                note for note in notes if note_is_visible(note, include_all=include_all)
+            ]
 
             target_category_id: str | None = None
             if path == "/":

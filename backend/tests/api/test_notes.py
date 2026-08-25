@@ -105,6 +105,24 @@ async def test_update_note(client: AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
+async def test_update_note_writing_visibility(client: AsyncClient) -> None:
+    project_id, _ = await _create_project(client)
+    create = await client.post(
+        f"/api/v1/projects/{project_id}/notes",
+        json={"title": "后续伏笔", "content": "暂不进入写作上下文"},
+    )
+    note_id = create.json()["id"]
+
+    response = await client.patch(
+        f"/api/v1/notes/{note_id}",
+        json={"is_writing_visible": False},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["is_writing_visible"] is False
+
+
+@pytest.mark.asyncio
 async def test_update_note_rejects_content_over_line_limit(client: AsyncClient) -> None:
     project_id, _ = await _create_project(client)
     create = await client.post(

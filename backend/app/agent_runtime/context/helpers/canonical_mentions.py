@@ -1,20 +1,30 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 import html
 import re
+from dataclasses import dataclass
+from typing import Literal
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.agent_runtime.context.helpers.canonical_commands import compile_canonical_commands
-from app.storage.repos.character_repo import get_by_id as get_character_by_id
+from app.agent_runtime.context.helpers.canonical_commands import (
+    compile_canonical_commands,
+)
+from app.agent_runtime.context.knowledge_visibility import (
+    character_is_visible,
+    note_is_visible,
+    world_entry_is_visible,
+)
 from app.storage.repos.chapter_repo import get_by_id as get_chapter_by_id
+from app.storage.repos.character_repo import get_by_id as get_character_by_id
 from app.storage.repos.note_category_repo import (
     get_by_id as get_note_category_by_id,
 )
 from app.storage.repos.note_repo import get_by_id as get_note_by_id
 from app.storage.repos.volume_repo import get_by_id as get_volume_by_id
-from app.storage.repos.world_info_entry_repo import get_by_id as get_world_info_entry_by_id
+from app.storage.repos.world_info_entry_repo import (
+    get_by_id as get_world_info_entry_by_id,
+)
 from app.storage.repos.world_info_repo import get_by_id as get_world_info_by_id
 
 _MENTION_RE = re.compile(
@@ -94,17 +104,68 @@ class _MentionResolver:
         self,
         session: AsyncSession | None,
         project_id: str | None,
+        *,
+        include_all_knowledge: bool = False,
     ) -> None:
         self._session = session
         self._project_id = (
             project_id.strip() if project_id and project_id.strip() else None
         )
+        self._include_all_knowledge = include_all_knowledge
         self._volume_cache: dict[str, str | None] = {}
         self._chapter_path_cache: dict[str, str | None] = {}
         self._note_cache: dict[str, str | None] = {}
         self._note_category_cache: dict[str, str | None] = {}
         self._world_info_entry_cache: dict[str, str | None] = {}
         self._character_cache: dict[str, str | None] = {}
+
+    async def mention_is_available(self, mention: CanonicalMention) -> bool:
+        """Validate knowledge mentions before accepting any client-supplied body."""
+
+        session = self._session
+        if session is None:
+            return True
+        if mention.kind == "note":
+            note_id = mention.attrs.get("note_id", "").strip()
+            if not note_id:
+                return True
+            note = await get_note_by_id(session, note_id)
+            return bool(
+                note
+                and self._is_current_project(note.project_id)
+                and note_is_visible(
+                    note,
+                    include_all=self._include_all_knowledge,
+                )
+            )
+        if mention.kind == "world_info_entry":
+            entry_id = mention.attrs.get("world_info_entry_id", "").strip()
+            if not entry_id:
+                return True
+            entry = await get_world_info_entry_by_id(session, entry_id)
+            if entry is None or not world_entry_is_visible(
+                entry,
+                include_all=self._include_all_knowledge,
+            ):
+                return False
+            world_info = await get_world_info_by_id(session, entry.world_info_id)
+            return bool(
+                world_info and self._is_current_project(world_info.project_id)
+            )
+        if mention.kind == "character":
+            character_id = mention.attrs.get("character_id", "").strip()
+            if not character_id:
+                return True
+            character = await get_character_by_id(session, character_id)
+            return bool(
+                character
+                and self._is_current_project(character.project_id)
+                and character_is_visible(
+                    character,
+                    include_all=self._include_all_knowledge,
+                )
+            )
+        return True
 
     def _is_current_project(self, project_id: str | None) -> bool:
         return self._project_id is None or project_id == self._project_id
@@ -197,7 +258,10 @@ class _MentionResolver:
             if (
                 note
                 and note.title
-                and not note.is_hidden
+                and note_is_visible(
+                    note,
+                    include_all=self._include_all_knowledge,
+                )
                 and self._is_current_project(note.project_id)
             )
             else None
@@ -231,7 +295,14 @@ class _MentionResolver:
         if session is None:
             return None
         entry = await get_world_info_entry_by_id(session, entry_id)
-        if entry is None or not entry.name or not entry.is_enabled:
+        if (
+            entry is None
+            or not entry.name
+            or not world_entry_is_visible(
+                entry,
+                include_all=self._include_all_knowledge,
+            )
+        ):
             self._world_info_entry_cache[entry_id] = None
             return None
         world_info = await get_world_info_by_id(session, entry.world_info_id)
@@ -258,6 +329,10 @@ class _MentionResolver:
             if (
                 character
                 and character.name
+                and character_is_visible(
+                    character,
+                    include_all=self._include_all_knowledge,
+                )
                 and self._is_current_project(character.project_id)
             )
             else None
@@ -270,17 +345,27 @@ async def compile_canonical_mentions(
     text: str,
     session: AsyncSession | None = None,
     project_id: str | None = None,
+    *,
+    context_mode: Literal["global", "local"] = "local",
 ) -> str:
     parts = parse_canonical_mentions(text)
     if len(parts) == 1 and parts[0] == text:
         return compile_canonical_commands(text)
 
-    resolver = _MentionResolver(session, project_id)
+    resolver = _MentionResolver(
+        session,
+        project_id,
+        include_all_knowledge=context_mode == "global",
+    )
     compiled: list[str] = []
 
     for index, part in enumerate(parts):
         if isinstance(part, str):
             compiled.append(part)
+            continue
+
+        if _is_expanded_mention(part) and not await resolver.mention_is_available(part):
+            compiled.append(" [引用不在当前上下文范围内] ")
             continue
 
         if _is_expanded_mention(part):

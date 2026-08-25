@@ -21,7 +21,6 @@ from app.agent_runtime.context.helpers import (
     compile_canonical_mentions,
     extract_referenced_skill_ids,
 )
-from app.audit import AuditContext
 from app.agent_runtime.graph.orchestrator.graph import build_orchestrator_graph
 from app.agent_runtime.graph.react_agent import _to_history_dict
 from app.agent_runtime.graph.state import AgentRuntimeState
@@ -35,7 +34,10 @@ from app.agent_runtime.persistence import (
 )
 from app.agent_runtime.persistence.model import AgentRunMessage
 from app.agent_runtime.revisions import begin_user_revision, finalize_revision_status
-from app.agent_runtime.runner.checkpointer import get_checkpointer, prune_thread_checkpoints
+from app.agent_runtime.runner.checkpointer import (
+    get_checkpointer,
+    prune_thread_checkpoints,
+)
 from app.agent_runtime.runner.event_translator import EventTranslator
 from app.agent_runtime.runner.run_registry import get_agent_run_registry
 from app.agent_runtime.streaming.replay_buffer import get_agent_event_replay_buffer
@@ -45,6 +47,7 @@ from app.agent_runtime.usage_cost import (
     extract_cache_read_tokens,
     extract_cache_write_tokens,
 )
+from app.audit import AuditContext
 from app.core.ids import generate_id
 from app.socket import emit
 from app.socket.handlers import agent_session_room
@@ -648,6 +651,7 @@ class SessionRunner:
                 content,
                 db_session,
                 project_id=self.project_id,
+                context_mode=self.context_mode,
             )
         session = await create_session()
         try:
@@ -655,6 +659,7 @@ class SessionRunner:
                 content,
                 session,
                 project_id=self.project_id,
+                context_mode=self.context_mode,
             )
         finally:
             await session.close()

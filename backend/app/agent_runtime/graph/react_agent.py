@@ -31,23 +31,22 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.types import Overwrite, RetryPolicy, Send
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.agent_runtime.content_blocks import extract_text_content
 from app.agent_runtime.attachments import build_image_content_blocks
-from app.agent_runtime.types import ReactAgentConfig
+from app.agent_runtime.content_blocks import extract_text_content
 from app.agent_runtime.context import build_context, build_context_parts
-from app.agent_runtime.context.processors.filter import (
-    filter_tool_result_metadata_content,
-)
-from app.agent_runtime.context.helpers import (
-    compile_canonical_mentions,
-    extract_referenced_skill_ids,
-)
 from app.agent_runtime.context.compaction.config import AUTO_TRIGGER_RATIO
 from app.agent_runtime.context.compaction.service import CompactionError, compact_window
 from app.agent_runtime.context.compaction.tokens import count_context_tokens
 from app.agent_runtime.context.compaction.window import (
     CompactionNoWindowError,
     select_compaction_window,
+)
+from app.agent_runtime.context.helpers import (
+    compile_canonical_mentions,
+    extract_referenced_skill_ids,
+)
+from app.agent_runtime.context.processors.filter import (
+    filter_tool_result_metadata_content,
 )
 from app.agent_runtime.context.processors.to_langchain import to_langchain_messages
 from app.agent_runtime.context.types import ContextMessage
@@ -64,10 +63,11 @@ from app.agent_runtime.tool_call_recovery import (
     is_malformed_tool_call,
     recover_message_tool_calls,
 )
+from app.agent_runtime.types import ReactAgentConfig
 
 if TYPE_CHECKING:
-    from app.audit import LLMCallAudit
     from app.agent_runtime.graph.state import AgentRuntimeState
+    from app.audit import LLMCallAudit
 
 
 # ---------------------------------------------------------------------------
@@ -731,6 +731,12 @@ def create_react_agent(
                                 content,
                                 db_session,
                                 project_id=project_id,
+                                context_mode=(
+                                    "global"
+                                    if effective_runtime_state is not None
+                                    and effective_runtime_state.get("context_mode") == "global"
+                                    else "local"
+                                ),
                             )
                         drained_injected_user_message = True
                         attachment_metadata = (

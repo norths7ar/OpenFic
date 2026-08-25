@@ -4,17 +4,24 @@ from typing import Any
 
 from pydantic import BaseModel, Field, field_validator
 
+from app.agent_runtime.context.knowledge_visibility import (
+    includes_all_knowledge,
+    world_entry_is_visible,
+)
 from app.agent_runtime.revisions import (
     current_revision_id_from_state,
     record_world_entry_diffs,
     world_entry_images_by_id,
 )
 from app.agent_runtime.tools.base import AgentTool
-from app.core.editor_content_limits import EditorContentLimitError, validate_editor_content
 from app.agent_runtime.tools.errors import ToolExecutionError
 from app.agent_runtime.tools.impls._locks import keyed_lock
 from app.agent_runtime.tools.registry import ToolRegistry
 from app.agent_runtime.tools.text_match import fuzzy_replace
+from app.core.editor_content_limits import (
+    EditorContentLimitError,
+    validate_editor_content,
+)
 from app.storage.database import create_session
 from app.storage.models.world_info_entry import WorldInfoEntry
 from app.storage.repos import world_info_entry_repo, world_info_repo
@@ -150,11 +157,25 @@ async def _get_project_world_info(session, project_id: str):
     return world_info
 
 
-async def _resolve_entry_by_title(session, world_info_id: str, title: str) -> WorldInfoEntry:
+async def _resolve_enabled_entry_by_title(
+    session,
+    world_info_id: str,
+    title: str,
+    *,
+    include_all: bool = False,
+) -> WorldInfoEntry:
+    """Resolve a title using the immutable session visibility boundary."""
     normalized_title = title.strip()
     if not normalized_title:
         raise ToolExecutionError("世界书条目标题不能为空")
-    entries = await world_info_entry_repo.list_all_by_world_info(session, world_info_id)
+    entries = (
+        await world_info_entry_repo.list_all_by_world_info(session, world_info_id)
+        if include_all
+        else await world_info_entry_repo.list_enabled_by_world_info(
+            session,
+            world_info_id,
+        )
+    )
     matches = [entry for entry in entries if entry.name == normalized_title]
     if not matches:
         raise ToolExecutionError(f"世界书条目不存在: {normalized_title}")
@@ -163,19 +184,23 @@ async def _resolve_entry_by_title(session, world_info_id: str, title: str) -> Wo
     return matches[0]
 
 
-async def _resolve_enabled_entry_by_title(
+async def _resolve_writable_entry_by_title(
     session,
     world_info_id: str,
     title: str,
+    *,
+    include_all: bool,
 ) -> WorldInfoEntry:
-    """Resolve a title for read-only access using enabled entries only."""
     normalized_title = title.strip()
     if not normalized_title:
         raise ToolExecutionError("世界书条目标题不能为空")
-    entries = await world_info_entry_repo.list_enabled_by_world_info(
-        session, world_info_id
-    )
-    matches = [entry for entry in entries if entry.name == normalized_title]
+    entries = await world_info_entry_repo.list_all_by_world_info(session, world_info_id)
+    matches = [
+        entry
+        for entry in entries
+        if entry.name == normalized_title
+        and world_entry_is_visible(entry, include_all=include_all)
+    ]
     if not matches:
         raise ToolExecutionError(f"世界书条目不存在: {normalized_title}")
     if len(matches) > 1:
@@ -218,8 +243,17 @@ class ListWorldEntriesTool(AgentTool):
         session = await create_session()
         try:
             world_info = await _get_project_world_info(session, self.project_id)
-            entries = await world_info_entry_repo.list_enabled_by_world_info(
-                session, world_info.id
+            include_all = includes_all_knowledge(self._state)
+            entries = (
+                await world_info_entry_repo.list_all_by_world_info(
+                    session,
+                    world_info.id,
+                )
+                if include_all
+                else await world_info_entry_repo.list_enabled_by_world_info(
+                    session,
+                    world_info.id,
+                )
             )
             return json.dumps(
                 {
@@ -245,7 +279,12 @@ class ReadWorldEntryTool(AgentTool):
         session = await create_session()
         try:
             world_info = await _get_project_world_info(session, self.project_id)
-            entry = await _resolve_enabled_entry_by_title(session, world_info.id, title)
+            entry = await _resolve_enabled_entry_by_title(
+                session,
+                world_info.id,
+                title,
+                include_all=includes_all_knowledge(self._state),
+            )
             return json.dumps(
                 {
                     "title": entry.name,
@@ -367,7 +406,12 @@ class EditWorldEntryTool(AgentTool):
             return None
         try:
             world_info = await _get_project_world_info(session, self.project_id)
-            entry = await _resolve_entry_by_title(session, world_info.id, title)
+            entry = await _resolve_writable_entry_by_title(
+                session,
+                world_info.id,
+                title,
+                include_all=includes_all_knowledge(self._state),
+            )
             before = _preview_from_entry(entry)
             content = before.content
             if old_content is not None and new_content is not None:
@@ -420,7 +464,12 @@ class EditWorldEntryTool(AgentTool):
         session = await create_session()
         try:
             world_info = await _get_project_world_info(session, self.project_id)
-            entry = await _resolve_entry_by_title(session, world_info.id, title)
+            entry = await _resolve_writable_entry_by_title(
+                session,
+                world_info.id,
+                title,
+                include_all=includes_all_knowledge(self._state),
+            )
             before = _preview_from_entry(entry)
             content = entry.content
             if old_content is not None and new_content is not None:
@@ -489,7 +538,12 @@ class DeleteWorldEntryTool(AgentTool):
         session = await create_session()
         try:
             world_info = await _get_project_world_info(session, self.project_id)
-            entry = await _resolve_entry_by_title(session, world_info.id, title)
+            entry = await _resolve_writable_entry_by_title(
+                session,
+                world_info.id,
+                title,
+                include_all=includes_all_knowledge(self._state),
+            )
             before = _preview_from_entry(entry)
             before_images = world_entry_images_by_id([entry], project_id=self.project_id)
             await world_info_entry_service.delete_entry(session, entry.id)

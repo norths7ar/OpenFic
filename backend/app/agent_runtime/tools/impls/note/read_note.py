@@ -7,6 +7,10 @@ import json
 
 from pydantic import BaseModel, Field
 
+from app.agent_runtime.context.knowledge_visibility import (
+    includes_all_knowledge,
+    note_is_visible,
+)
 from app.agent_runtime.tools.base import AgentTool
 from app.agent_runtime.tools.errors import ToolExecutionError
 from app.agent_runtime.tools.impls.note.refs import (
@@ -51,6 +55,11 @@ class ReadNoteTool(AgentTool):
 
             if note.is_hidden:
                 raise ToolExecutionError("该笔记已隐藏")
+            if not note_is_visible(
+                note,
+                include_all=includes_all_knowledge(self._state),
+            ):
+                raise ToolExecutionError("笔记不在当前上下文范围内")
 
             return json.dumps(
                 {

@@ -37,6 +37,7 @@ export interface CharacterUpdate {
   description?: string;
   image?: File | null;
   isFavorited?: boolean;
+  isWritingVisible?: boolean;
 }
 
 export interface CharacterListResponse {

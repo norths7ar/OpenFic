@@ -7,12 +7,16 @@ import json
 
 from pydantic import BaseModel, Field
 
-from app.agent_runtime.tools.base import AgentTool
+from app.agent_runtime.context.knowledge_visibility import (
+    includes_all_knowledge,
+    note_is_visible,
+)
 from app.agent_runtime.revisions import (
     current_revision_id_from_state,
     note_images_by_id,
     record_note_diffs,
 )
+from app.agent_runtime.tools.base import AgentTool
 from app.agent_runtime.tools.errors import ToolExecutionError
 from app.agent_runtime.tools.impls.note.refs import (
     NoteRef,
@@ -41,6 +45,7 @@ class DeleteNoteTool(AgentTool):
         session = await create_session()
         try:
             ref = NoteRef.model_validate(note_ref)
+            include_all = includes_all_knowledge(self._state)
             if ref.id is not None:
                 note = await note_repo.get_by_id(session, ref.id)
                 if note is None:
@@ -49,6 +54,11 @@ class DeleteNoteTool(AgentTool):
                 notes = await note_repo.list_by_project(
                     session, self.project_id, include_hidden=False
                 )
+                notes = [
+                    note
+                    for note in notes
+                    if note_is_visible(note, include_all=include_all)
+                ]
                 cats = await note_category_repo.list_by_project(
                     session, self.project_id
                 )
@@ -60,6 +70,8 @@ class DeleteNoteTool(AgentTool):
                 raise ToolExecutionError("该笔记已锁定，无法删除")
             if note.is_hidden:
                 raise ToolExecutionError("该笔记已隐藏")
+            if not note_is_visible(note, include_all=include_all):
+                raise ToolExecutionError("笔记不在当前上下文范围内")
 
             before = note_images_by_id(
                 await note_repo.list_by_project(

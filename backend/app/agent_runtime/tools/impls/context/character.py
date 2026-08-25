@@ -4,17 +4,24 @@ from typing import Any
 
 from pydantic import BaseModel, Field, field_validator
 
+from app.agent_runtime.context.knowledge_visibility import (
+    character_is_visible,
+    includes_all_knowledge,
+)
 from app.agent_runtime.revisions import (
     character_images_by_id,
     current_revision_id_from_state,
     record_character_diffs,
 )
 from app.agent_runtime.tools.base import AgentTool
-from app.core.editor_content_limits import EditorContentLimitError, validate_editor_content
 from app.agent_runtime.tools.errors import ToolExecutionError
 from app.agent_runtime.tools.impls._locks import keyed_lock
 from app.agent_runtime.tools.registry import ToolRegistry
 from app.agent_runtime.tools.text_match import fuzzy_replace
+from app.core.editor_content_limits import (
+    EditorContentLimitError,
+    validate_editor_content,
+)
 from app.storage.database import create_session
 from app.storage.models.character import Character
 from app.storage.repos import character_repo
@@ -135,15 +142,35 @@ def _build_character_diff(
     } | ({"character_id": target.id} if target.id else {})
 
 
-async def _list_project_characters(session, project_id: str) -> list[Character]:
-    return await character_repo.list_all_by_project(session, project_id)
+async def _list_project_characters(
+    session,
+    project_id: str,
+    *,
+    include_all: bool = True,
+) -> list[Character]:
+    characters = await character_repo.list_all_by_project(session, project_id)
+    return [
+        character
+        for character in characters
+        if character_is_visible(character, include_all=include_all)
+    ]
 
 
-async def _resolve_character_by_name(session, project_id: str, name: str) -> Character:
+async def _resolve_character_by_name(
+    session,
+    project_id: str,
+    name: str,
+    *,
+    include_all: bool = True,
+) -> Character:
     normalized_name = name.strip()
     if not normalized_name:
         raise ToolExecutionError("角色名称不能为空")
-    characters = await _list_project_characters(session, project_id)
+    characters = await _list_project_characters(
+        session,
+        project_id,
+        include_all=include_all,
+    )
     matches = [character for character in characters if character.name == normalized_name]
     if not matches:
         raise ToolExecutionError(f"角色不存在: {normalized_name}")
@@ -187,7 +214,11 @@ class ListCharactersTool(AgentTool):
     async def _execute(self) -> str:
         session = await create_session()
         try:
-            characters = await _list_project_characters(session, self.project_id)
+            characters = await _list_project_characters(
+                session,
+                self.project_id,
+                include_all=includes_all_knowledge(self._state),
+            )
             return json.dumps(
                 {
                     "characters": [
@@ -211,7 +242,12 @@ class ReadCharacterTool(AgentTool):
     async def _execute(self, name: str) -> str:
         session = await create_session()
         try:
-            character = await _resolve_character_by_name(session, self.project_id, name)
+            character = await _resolve_character_by_name(
+                session,
+                self.project_id,
+                name,
+                include_all=includes_all_knowledge(self._state),
+            )
             return json.dumps(
                 {
                     "name": character.name,
@@ -318,7 +354,12 @@ class EditCharacterTool(AgentTool):
         ):
             return None
         try:
-            character = await _resolve_character_by_name(session, self.project_id, name)
+            character = await _resolve_character_by_name(
+                session,
+                self.project_id,
+                name,
+                include_all=includes_all_knowledge(self._state),
+            )
             before = _preview_from_character(character)
             description = before.description
             if old_description is not None and new_description is not None:
@@ -367,7 +408,12 @@ class EditCharacterTool(AgentTool):
         session = await create_session()
         try:
             async with await keyed_lock(self.project_id):
-                character = await _resolve_character_by_name(session, self.project_id, name)
+                character = await _resolve_character_by_name(
+                    session,
+                    self.project_id,
+                    name,
+                    include_all=includes_all_knowledge(self._state),
+                )
                 before = _preview_from_character(character)
                 description = character.description
                 if old_description is not None and new_description is not None:
@@ -435,7 +481,12 @@ class DeleteCharacterTool(AgentTool):
         revision_id = _require_revision_id(self._state)
         session = await create_session()
         try:
-            character = await _resolve_character_by_name(session, self.project_id, name)
+            character = await _resolve_character_by_name(
+                session,
+                self.project_id,
+                name,
+                include_all=includes_all_knowledge(self._state),
+            )
             before = _preview_from_character(character)
             before_images = character_images_by_id([character])
             await character_service.delete_character(session, character.id)

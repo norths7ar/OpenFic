@@ -10,13 +10,16 @@ from typing import Any
 
 from pydantic import BaseModel, Field, field_validator
 
-from app.agent_runtime.tools.base import AgentTool
-from app.core.editor_content_limits import EditorContentLimitError, validate_editor_content
+from app.agent_runtime.context.knowledge_visibility import (
+    includes_all_knowledge,
+    note_is_visible,
+)
 from app.agent_runtime.revisions import (
     current_revision_id_from_state,
     note_images_by_id,
     record_note_diffs,
 )
+from app.agent_runtime.tools.base import AgentTool
 from app.agent_runtime.tools.errors import ToolExecutionError
 from app.agent_runtime.tools.impls.note.refs import (
     NoteRef,
@@ -24,6 +27,10 @@ from app.agent_runtime.tools.impls.note.refs import (
 )
 from app.agent_runtime.tools.registry import ToolRegistry
 from app.agent_runtime.tools.text_match import fuzzy_replace
+from app.core.editor_content_limits import (
+    EditorContentLimitError,
+    validate_editor_content,
+)
 from app.storage.database import create_session
 from app.storage.repos import note_category_repo, note_repo
 
@@ -99,12 +106,16 @@ class EditNoteTool(AgentTool):
             return None
 
         ref = NoteRef.model_validate(note_ref)
+        include_all = includes_all_knowledge(self._state)
         if ref.id is not None:
             note = await note_repo.get_by_id(session, ref.id)
             if note is None:
                 return None
         else:
             notes = await note_repo.list_by_project(session, self.project_id, include_hidden=False)
+            notes = [
+                note for note in notes if note_is_visible(note, include_all=include_all)
+            ]
             categories = await note_category_repo.list_by_project(session, self.project_id)
             try:
                 note = resolve_note_from_list(notes, ref, categories=categories)
@@ -114,7 +125,7 @@ class EditNoteTool(AgentTool):
         if (
             note.project_id != self.project_id
             or note.is_locked
-            or note.is_hidden
+            or not note_is_visible(note, include_all=include_all)
         ):
             return None
 
@@ -160,6 +171,7 @@ class EditNoteTool(AgentTool):
         session = await create_session()
         try:
             ref = NoteRef.model_validate(note_ref)
+            include_all = includes_all_knowledge(self._state)
             if ref.id is not None:
                 note = await note_repo.get_by_id(session, ref.id)
                 if note is None:
@@ -168,6 +180,11 @@ class EditNoteTool(AgentTool):
                 notes = await note_repo.list_by_project(
                     session, self.project_id, include_hidden=False
                 )
+                notes = [
+                    note
+                    for note in notes
+                    if note_is_visible(note, include_all=include_all)
+                ]
                 cats = await note_category_repo.list_by_project(
                     session, self.project_id
                 )
@@ -179,6 +196,8 @@ class EditNoteTool(AgentTool):
                 raise ToolExecutionError("该笔记已锁定，无法修改")
             if note.is_hidden:
                 raise ToolExecutionError("该笔记已隐藏")
+            if not note_is_visible(note, include_all=include_all):
+                raise ToolExecutionError("笔记不在当前上下文范围内")
 
             before = note_images_by_id(
                 await note_repo.list_by_project(

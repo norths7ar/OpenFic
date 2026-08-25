@@ -6,8 +6,7 @@ import io
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, cast
-from unittest.mock import AsyncMock, MagicMock, patch
-from unittest.mock import ANY
+from unittest.mock import ANY, AsyncMock, MagicMock, patch
 
 import pytest
 import pytest_asyncio
@@ -425,6 +424,7 @@ class TestAgentAPI:
 
                 "model_id": target["model_id"],
                 "max_iterations": 5,
+                "agent_key": "discuss",
                 "context_mode": "global",
             },
         )

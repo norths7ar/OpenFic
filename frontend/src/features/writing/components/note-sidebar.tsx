@@ -261,6 +261,32 @@ export function NoteSidebar({
     await toggleHiddenMutation.mutateAsync({ noteId: note.id, isHidden: !note.isHidden });
   }, [contextMenuTarget, data, handleCloseContextMenu, toggleHiddenMutation]);
 
+  const handleToggleWritingVisibility = useCallback(async () => {
+    if (!contextMenuTarget || contextMenuTarget.type !== "note") return;
+    if (isAgentLocked) {
+      showLockedToast();
+      handleCloseContextMenu();
+      return;
+    }
+    const note = findNoteInTree(data, contextMenuTarget.id);
+    if (!note) {
+      handleCloseContextMenu();
+      return;
+    }
+    handleCloseContextMenu();
+    await updateNoteMutation.mutateAsync({
+      noteId: note.id,
+      data: { isWritingVisible: !note.isWritingVisible },
+    });
+  }, [
+    contextMenuTarget,
+    data,
+    handleCloseContextMenu,
+    isAgentLocked,
+    showLockedToast,
+    updateNoteMutation,
+  ]);
+
   const handleMove = useCallback(
     async (itemId: string, kind: "category" | "note", targetCategoryId: string | null) => {
       if (isAgentLocked) {
@@ -382,6 +408,14 @@ export function NoteSidebar({
           icon: note.isHidden ? Eye : EyeOff,
           onClick: () => void handleToggleHidden(),
         });
+        items.push({
+          id: "toggleWritingVisibility",
+          label: note.isWritingVisible
+            ? t("writing.noteHideFromWritingAgent")
+            : t("writing.noteShowToWritingAgent"),
+          icon: EyeOff,
+          onClick: () => void handleToggleWritingVisibility(),
+        });
       }
     }
 
@@ -409,6 +443,7 @@ export function NoteSidebar({
     handleRename,
     handleToggleHidden,
     handleToggleLock,
+    handleToggleWritingVisibility,
     onAddToConversation,
     t,
   ]);
@@ -637,7 +672,14 @@ export function NoteSidebar({
 function findNoteInTree(
   data: NoteTreeResponse | undefined,
   noteId: string,
-): { id: string; isLocked: boolean; isHidden: boolean } | undefined {
+):
+  | {
+      id: string;
+      isLocked: boolean;
+      isHidden: boolean;
+      isWritingVisible: boolean;
+    }
+  | undefined {
   if (!data) return undefined;
   const walk = (categories: NoteCategoryItem[]): NoteListItem | undefined => {
     for (const cat of categories) {
@@ -650,7 +692,12 @@ function findNoteInTree(
   };
   const note = walk(data.categories) ?? data.rootNotes.find((n) => n.id === noteId);
   if (!note) return undefined;
-  return { id: note.id, isLocked: note.isLocked, isHidden: note.isHidden };
+  return {
+    id: note.id,
+    isLocked: note.isLocked,
+    isHidden: note.isHidden,
+    isWritingVisible: note.isWritingVisible,
+  };
 }
 
 function resolveSiblingOrder(

@@ -310,6 +310,36 @@ export function CharactersPage() {
     },
   });
 
+  const writingVisibilityMutation = useMutation({
+    mutationFn: ({
+      character,
+      isWritingVisible,
+    }: {
+      character: CharacterListItem;
+      isWritingVisible: boolean;
+    }) => updateCharacter(character.id, { isWritingVisible }),
+    onMutate: ({ character, isWritingVisible }) => {
+      upsertCharacterCache({
+        ...character,
+        isWritingVisible,
+        updatedAt: new Date().toISOString(),
+      });
+    },
+    onSuccess: (character) => {
+      upsertCharacterCache(toCharacterListItem(character));
+      queryClient.invalidateQueries({ queryKey: ["characters", character.projectId] });
+      toast.success(
+        character.isWritingVisible
+          ? t("characters.writingVisibilityOn")
+          : t("characters.writingVisibilityOff"),
+      );
+    },
+    onError: (_error, { character }) => {
+      upsertCharacterCache(character);
+      toast.error(t("characters.writingVisibilityFailed"));
+    },
+  });
+
   const deleteMutation = useMutation({
     mutationFn: (characterId: string) => deleteCharacter(characterId),
     onSuccess: async (_data, characterId) => {
@@ -432,6 +462,9 @@ export function CharactersPage() {
       onDeleteCharacter={setDeleteCharacterTarget}
       onToggleFavorite={(character, isFavorited) => {
         favoriteMutation.mutate({ character, isFavorited });
+      }}
+      onToggleWritingVisibility={(character, isWritingVisible) => {
+        writingVisibilityMutation.mutate({ character, isWritingVisible });
       }}
       onBatchDelete={(characterIds) => batchDeleteMutation.mutate(characterIds)}
       onBatchFavorite={(characterIds, isFavorited) => {

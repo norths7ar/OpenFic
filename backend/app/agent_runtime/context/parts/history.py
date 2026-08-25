@@ -1,10 +1,11 @@
-from typing import Any
+from typing import Any, Literal
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.agent_runtime.context.helpers import compile_canonical_mentions
 from app.agent_runtime.attachments import build_image_content_blocks
+from app.agent_runtime.context.helpers import compile_canonical_mentions
 from app.agent_runtime.context.types import ContextMessage
+
 
 def _is_context_history_message(raw: dict) -> bool:
     display_channel = raw.get("display_channel", raw.get("displayChannel"))
@@ -50,6 +51,7 @@ async def build_history(
     db_session: AsyncSession | None = None,
     *,
     project_id: str | None = None,
+    context_mode: Literal["global", "local"] = "local",
 ) -> list[ContextMessage]:
     """构建 p6 History 上下文片段，只保留真实对话消息。"""
     result: list[ContextMessage] = []
@@ -69,13 +71,23 @@ async def build_history(
             and isinstance(content, str)
             and ("<of-mention" in content or "<of-skill" in content)
         ):
+            context_kwargs = (
+                {"context_mode": "global"}
+                if context_mode == "global"
+                else {}
+            )
             if project_id is None:
-                content = await compile_canonical_mentions(content, db_session)
+                content = await compile_canonical_mentions(
+                    content,
+                    db_session,
+                    **context_kwargs,
+                )
             else:
                 content = await compile_canonical_mentions(
                     content,
                     db_session,
                     project_id=project_id,
+                    **context_kwargs,
                 )
         additional_kwargs = (
             raw.get("additional_kwargs") if isinstance(raw.get("additional_kwargs"), dict) else None

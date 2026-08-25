@@ -204,32 +204,44 @@ async def update_note(
     note_id: str,
     title: str | None = None,
     content: str | None = None,
+    is_writing_visible: bool | None = None,
 ) -> Note:
     note = await get_note(session, note_id)
     changed = False
+    records_writing_activity = False
 
     if title is not None and title != note.title:
         note.title = title
         changed = True
+        records_writing_activity = True
 
     if content is not None and content != note.content:
         validate_editor_content(content)
         note.content = content
         changed = True
+        records_writing_activity = True
+
+    if (
+        is_writing_visible is not None
+        and is_writing_visible != note.is_writing_visible
+    ):
+        note.is_writing_visible = is_writing_visible
+        changed = True
 
     if changed:
         note.updated_at = datetime.now(UTC)
         note = await note_repo.update_note(session, note)
-        await writing_activity_service.record_activity(
-            session,
-            project_id=note.project_id,
-            chapter_id=note.id,
-            chapter_title=note.title,
-            source="user",
-            operation="update",
-            old_word_count=0,
-            new_word_count=0,
-        )
+        if records_writing_activity:
+            await writing_activity_service.record_activity(
+                session,
+                project_id=note.project_id,
+                chapter_id=note.id,
+                chapter_title=note.title,
+                source="user",
+                operation="update",
+                old_word_count=0,
+                new_word_count=0,
+            )
     return note
 
 

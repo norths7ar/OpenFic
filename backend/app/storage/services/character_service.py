@@ -195,6 +195,7 @@ async def update_character(
     name: str | None = None,
     description: str | None = None,
     is_favorited: bool | None = None,
+    is_writing_visible: bool | None = None,
     image_file: UploadFile | None = None,
 ) -> Character:
     """更新角色。"""
@@ -213,6 +214,8 @@ async def update_character(
         character.description = description
     if is_favorited is not None:
         character.is_favorited = is_favorited
+    if is_writing_visible is not None:
+        character.is_writing_visible = is_writing_visible
     if image_file is not None:
         character.image_path = await save_character_image(character.id, image_file)
     character.updated_at = datetime.now(UTC)

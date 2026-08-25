@@ -30,6 +30,10 @@ class NoteUpdate(BaseModel):
         default=None, min_length=1, max_length=200, description="笔记标题"
     )
     content: str | None = Field(default=None, description="笔记内容")
+    is_writing_visible: bool | None = Field(
+        default=None,
+        description="是否对写作 Agent 可见",
+    )
 
 
 class NoteLockToggle(BaseModel):
