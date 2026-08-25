@@ -175,9 +175,11 @@ def _document_fields(
         for name in ("created_at", "updated_at"):
             value = _text(frontmatter.get(name), name)
             try:
-                datetime.fromisoformat(value)
+                parsed_datetime = datetime.fromisoformat(value)
             except ValueError as exc:
                 raise BundleFormatError(f"{name} must be an ISO datetime") from exc
+            if parsed_datetime.tzinfo is None or parsed_datetime.utcoffset() is None:
+                raise BundleFormatError(f"{name} must include a timezone")
             fields[name] = value
     return fields
 
@@ -247,7 +249,7 @@ def parse_project_bundle(data: bytes, target_project_id: str) -> ParsedProjectBu
                 raise BundleFormatError("uid must be positive")
             if len(fields["section"]) > 500:
                 raise BundleFormatError("section exceeds 500 characters")
-        if kind in {"world_entry", "character", "note"}:
+        if kind in {"world_entry", "character", "note", "discussion_message"}:
             try:
                 validate_editor_content(parsed_doc.body)
             except ValueError as exc:
@@ -255,6 +257,12 @@ def parse_project_bundle(data: bytes, target_project_id: str) -> ParsedProjectBu
         if kind == "discussion" and parsed_doc.body:
             raise BundleFormatError("discussion document body must be empty")
         if kind == "discussion_message":
+            if len(fields["status"]) > 20:
+                raise BundleFormatError("discussion message status is too long")
+            if fields["status"] == "pending":
+                raise BundleFormatError(
+                    "pending discussion messages cannot be imported"
+                )
             label = "用户" if fields["role"] == "user" else "助手"
             if parsed_doc.title != f"{label} {fields['seq']:06d}":
                 raise BundleFormatError("discussion message H1 is not canonical")
@@ -297,10 +305,14 @@ def parse_project_bundle(data: bytes, target_project_id: str) -> ParsedProjectBu
     for category in parsed_categories:
         seen: set[str] = set()
         current: str | None = category.id
+        depth = 0
         while current is not None:
             if current in seen:
                 raise BundleFormatError("category hierarchy contains a cycle")
             seen.add(current)
+            depth += 1
+            if depth > 2:
+                raise BundleFormatError("category hierarchy exceeds two levels")
             current = next(
                 (
                     c.semantic_fields["parent_id"]
@@ -309,8 +321,19 @@ def parse_project_bundle(data: bytes, target_project_id: str) -> ParsedProjectBu
                 ),
                 None,
             )
+    category_names: set[tuple[str | None, str]] = set()
+    for category in parsed_categories:
+        name_key = (category.semantic_fields["parent_id"], category.title)
+        if name_key in category_names:
+            raise BundleFormatError("note category name is duplicated among siblings")
+        category_names.add(name_key)
+
     discussions = {doc.id for doc in parsed if doc.kind == "discussion"}
     message_positions: set[tuple[str, int]] = set()
+    world_names: set[str] = set()
+    world_uids: set[int] = set()
+    character_names: set[str] = set()
+    note_names: set[tuple[str | None, str]] = set()
     for doc in parsed:
         if (
             doc.kind == "note"
@@ -331,6 +354,30 @@ def parse_project_bundle(data: bytes, target_project_id: str) -> ParsedProjectBu
             if position in message_positions:
                 raise BundleFormatError("discussion message seq is duplicated")
             message_positions.add(position)
+        if doc.kind == "world_entry":
+            if doc.title in world_names:
+                raise BundleFormatError("world entry name is duplicated")
+            if doc.semantic_fields["uid"] in world_uids:
+                raise BundleFormatError("world entry uid is duplicated")
+            world_names.add(doc.title)
+            world_uids.add(doc.semantic_fields["uid"])
+        elif doc.kind == "character":
+            if doc.title in character_names:
+                raise BundleFormatError("character name is duplicated")
+            character_names.add(doc.title)
+        elif doc.kind == "note":
+            note_key = (doc.semantic_fields["category_id"], doc.title)
+            if note_key in note_names:
+                raise BundleFormatError("note title is duplicated in a category")
+            note_names.add(note_key)
+
+    world_info_ids = {
+        doc.semantic_fields["world_info_id"]
+        for doc in parsed
+        if doc.kind == "world_entry"
+    }
+    if len(world_info_ids) > 1:
+        raise BundleFormatError("bundle contains multiple world books")
     return ParsedProjectBundle(source_project, parsed, parsed_categories)
 
 
@@ -343,6 +390,11 @@ async def preview_project_bundle(
     if mode not in {"append", "update", "merge"}:
         raise BundleFormatError("invalid preview mode")
     bundle = parse_project_bundle(data, target_project_id)
+    target_world = (
+        await session.execute(
+            select(WorldInfo).where(col(WorldInfo.project_id) == target_project_id)
+        )
+    ).scalar_one_or_none()
     items: list[PreviewItem] = []
     for category in bundle.note_categories:
         current = await session.get(NoteCategory, category.id)
@@ -414,12 +466,75 @@ async def preview_project_bundle(
             project_id=target_project_id,
         ):
             item = replace(item, action="conflict", reason="same_name_different_id")
+        if doc.kind == "world_entry":
+            incoming_world = await session.get(
+                WorldInfo, doc.semantic_fields["world_info_id"]
+            )
+            if (
+                incoming_world is not None
+                and incoming_world.project_id != target_project_id
+            ):
+                item = replace(
+                    item, action="conflict", reason="cross_project_world_book_id"
+                )
+            elif (
+                target_world is not None
+                and doc.semantic_fields["world_info_id"] != target_world.id
+            ):
+                item = replace(item, action="conflict", reason="world_book_id_mismatch")
+            elif await _has_world_uid_conflict(
+                session,
+                world_info_id=doc.semantic_fields["world_info_id"],
+                entry_id=doc.id,
+                uid=doc.semantic_fields["uid"],
+            ):
+                item = replace(item, action="conflict", reason="same_uid_different_id")
+        if item.action in {"create", "update"} and await _targets_live_discussion(
+            session, doc, target_project_id
+        ):
+            item = replace(
+                item, action="conflict", reason="live_discussion_is_read_only"
+            )
         items.append(item)
     summary = {
         key: sum(item.action == key for item in items)
         for key in ("create", "update", "unchanged", "conflict")
     }
     return ProjectBundlePreview(mode, bundle.source_project, items, summary)
+
+
+async def _has_world_uid_conflict(
+    session: AsyncSession,
+    *,
+    world_info_id: str,
+    entry_id: str,
+    uid: int,
+) -> bool:
+    statement = select(col(WorldInfoEntry.id)).where(
+        col(WorldInfoEntry.world_info_id) == world_info_id,
+        col(WorldInfoEntry.uid) == uid,
+        col(WorldInfoEntry.id) != entry_id,
+    )
+    return (await session.execute(statement.limit(1))).scalar_one_or_none() is not None
+
+
+async def _targets_live_discussion(
+    session: AsyncSession,
+    doc: ParsedBundleDocument,
+    project_id: str,
+) -> bool:
+    if doc.kind == "discussion":
+        task_id = doc.id
+    elif doc.kind == "discussion_message":
+        task_id = doc.semantic_fields["discussion_id"]
+    else:
+        return False
+    task = await session.get(Task, task_id)
+    return bool(
+        task is not None
+        and task.project_id == project_id
+        and not task.is_imported_archive
+    )
 
 
 async def _has_name_conflict(
@@ -590,7 +705,11 @@ async def _current_hash(
     if current is None:
         return None, True
     task = await session.get(Task, current.task_id)
-    if task is None or task.project_id != project_id or current.project_id != project_id:
+    if (
+        task is None
+        or task.project_id != project_id
+        or current.project_id != project_id
+    ):
         return None, False
     if not task.is_imported_archive and current.session_id != task.agent_session_id:
         return None, False

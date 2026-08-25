@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 from collections.abc import Iterable
+from datetime import UTC, datetime
 from pathlib import PurePosixPath
 from typing import Any
 
@@ -42,6 +43,12 @@ def _doc(frontmatter: dict[str, Any], title: str, body: str) -> str:
 
 def document_semantic_hash(fields: dict[str, Any], title: str, body: str) -> str:
     return semantic_hash({**fields, "title": title, "body": body})
+
+
+def _iso_datetime(value: datetime) -> str:
+    if value.tzinfo is None or value.utcoffset() is None:
+        value = value.replace(tzinfo=UTC)
+    return value.astimezone(UTC).isoformat()
 
 
 def _category_paths(categories: Iterable[NoteCategory]) -> dict[str, str]:
@@ -310,8 +317,8 @@ async def export_project_bundle(session: AsyncSession, project_id: str) -> bytes
                 "seq": message.seq,
                 "role": message.role,
                 "status": message.status,
-                "created_at": message.created_at.isoformat(),
-                "updated_at": message.updated_at.isoformat(),
+                "created_at": _iso_datetime(message.created_at),
+                "updated_at": _iso_datetime(message.updated_at),
             }
             message_hash = document_semantic_hash(
                 {

@@ -12,6 +12,8 @@ from app.project_bundle.markdown import (
 from app.storage.models.note import Note, NoteCategory
 from app.storage.models.project import Project
 from app.storage.models.task import Task
+from app.storage.models.world_info import WorldInfo
+from app.storage.models.world_info_entry import WorldInfoEntry
 
 
 def _rewrite_document(bundle: bytes, *, body: str) -> bytes:
@@ -269,6 +271,26 @@ async def test_parser_rejects_orphan_category_and_discussion_message(session) ->
     with pytest.raises(BundleFormatError, match="H1 is not canonical"):
         parse_project_bundle(build_zip(invalid_message_files), project.id)
 
+    invalid_time_files = dict(discussion_files)
+    time_doc = parse_markdown_document(
+        invalid_time_files[message_item["path"]].decode()
+    )
+    time_doc.frontmatter["created_at"] = "2026-01-02T03:04:05"
+    invalid_time_files[message_item["path"]] = render_markdown_document(
+        time_doc.frontmatter, time_doc.title, time_doc.body
+    )
+    with pytest.raises(BundleFormatError, match="include a timezone"):
+        parse_project_bundle(build_zip(invalid_time_files), project.id)
+
+    pending_files = dict(discussion_files)
+    pending_doc = parse_markdown_document(pending_files[message_item["path"]].decode())
+    pending_doc.frontmatter["status"] = "pending"
+    pending_files[message_item["path"]] = render_markdown_document(
+        pending_doc.frontmatter, pending_doc.title, pending_doc.body
+    )
+    with pytest.raises(BundleFormatError, match="pending discussion"):
+        parse_project_bundle(build_zip(pending_files), project.id)
+
     manifest["documents"] = [
         item for item in manifest["documents"] if item is not discussion_item
     ]
@@ -278,6 +300,70 @@ async def test_parser_rejects_orphan_category_and_discussion_message(session) ->
     )
     with pytest.raises(BundleFormatError, match="message parent is missing"):
         parse_project_bundle(build_zip(discussion_files), project.id)
+
+
+@pytest.mark.asyncio
+async def test_parser_and_preview_reject_internal_and_world_book_collisions(
+    session,
+) -> None:
+    target = Project(id="bundle-collision-target", title="目标")
+    other = Project(id="bundle-collision-other", title="其他")
+    target_world = WorldInfo(
+        id="bundle-target-world", project_id=target.id, name="目标世界书"
+    )
+    other_world = WorldInfo(
+        id="bundle-other-world", project_id=other.id, name="其他世界书"
+    )
+    entry = WorldInfoEntry(
+        id="bundle-collision-entry",
+        world_info_id=target_world.id,
+        uid=1,
+        name="设定",
+        order=1,
+    )
+    first_category = NoteCategory(
+        id="bundle-category-a", project_id=target.id, title="分类甲", order=1
+    )
+    second_category = NoteCategory(
+        id="bundle-category-b", project_id=target.id, title="分类乙", order=2
+    )
+    session.add_all(
+        [
+            target,
+            other,
+            target_world,
+            other_world,
+            entry,
+            first_category,
+            second_category,
+        ]
+    )
+    await session.flush()
+    bundle = await export_project_bundle(session, target.id)
+
+    duplicate_categories = _rewrite_manifest(
+        bundle,
+        lambda manifest: manifest["note_categories"][1].update(title="分类甲"),
+    )
+    with pytest.raises(BundleFormatError, match="duplicated among siblings"):
+        parse_project_bundle(duplicate_categories, target.id)
+
+    files = read_zip(bundle)
+    manifest = yaml.safe_load(files["openfic.yaml"])
+    world_item = next(
+        item for item in manifest["documents"] if item["kind"] == "world_entry"
+    )
+    world_doc = parse_markdown_document(files[world_item["path"]].decode())
+    world_doc.frontmatter["world_info_id"] = other_world.id
+    files[world_item["path"]] = render_markdown_document(
+        world_doc.frontmatter, world_doc.title, world_doc.body
+    )
+    preview = await preview_project_bundle(
+        session, target.id, build_zip(files), "merge"
+    )
+    entry_item = next(item for item in preview.items if item.id == entry.id)
+    assert entry_item.action == "conflict"
+    assert entry_item.reason == "cross_project_world_book_id"
 
 
 @pytest.mark.asyncio
