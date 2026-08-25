@@ -122,6 +122,7 @@ class SessionRunner:
         model_config: dict,
         project_id: str = "",
         agent_key: str = "build",
+        context_mode: str = "local",
     ):
         self._validate_model_config(model_config)
         self.session_id = session_id
@@ -129,6 +130,7 @@ class SessionRunner:
         self.model_config = dict(model_config)
         self.project_id = project_id
         self.agent_key = agent_key
+        self.context_mode = context_mode
         self._graph: CompiledStateGraph | None = None
         self._inject_queue: asyncio.Queue[tuple[str | None, str, str]] = asyncio.Queue()
         self._queued_user_messages: dict[str, tuple[str, datetime]] = {}
@@ -748,6 +750,7 @@ class SessionRunner:
                 "session_id": self.session_id,
                 "task_id": self.task_id,
                 "project_id": self.project_id,
+                "context_mode": self.context_mode,
                 "model_config": without_api_key(self.model_config),
                 "active_agent": None,
                 "agent_key": self.agent_key,
@@ -856,6 +859,7 @@ class SessionRunner:
                 "session_id": self.session_id,
                 "task_id": self.task_id,
                 "project_id": self.project_id,
+                "context_mode": self.context_mode,
                 "model_config": without_api_key(self.model_config),
                 "active_agent": None,
                 "agent_key": self.agent_key,

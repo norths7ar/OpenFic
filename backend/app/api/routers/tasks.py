@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Task Router - 任务API路由。"""
 
-from typing import cast
+from typing import Literal, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from loguru import logger
@@ -102,6 +102,7 @@ async def get_task(
             project_id=task.project_id,
             title=task.title,
             mode=_require_agent_mode(task.mode),
+            context_mode=cast(Literal["global", "local"], task.context_mode),
             messages=task_messages,
             token_input=task.token_input,
             token_output=task.token_output,
@@ -171,6 +172,7 @@ async def list_tasks(
                 project_id=task.project_id,
                 title=task.title,
                 mode=_require_agent_mode(task.mode),
+                context_mode=cast(Literal["global", "local"], task.context_mode),
                 token_input=task.token_input,
                 token_output=task.token_output,
                 token_cache=task.token_cache,
@@ -220,6 +222,7 @@ async def update_task(
             project_id=task.project_id,
             title=task.title,
             mode=_require_agent_mode(task.mode),
+            context_mode=cast(Literal["global", "local"], task.context_mode),
             messages=task_messages,
             token_input=task.token_input,
             token_output=task.token_output,

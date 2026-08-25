@@ -64,6 +64,9 @@ async def test_fork_clones_history_to_target_round_without_inherited_rollback(fo
     from app.agent_runtime.revisions import begin_user_revision
 
     async with fork_db() as session:
+        source_task = await session.get(Task, "task-1")
+        assert source_task is not None
+        source_task.context_mode = "global"
         first_user = await message_repo.insert_message(
             session,
             session_id="sess-1",
@@ -138,6 +141,7 @@ async def test_fork_clones_history_to_target_round_without_inherited_rollback(fo
     assert result.task.title == "Agent Session(Fork)"
     assert result.state_values["session_id"] == "sess-fork"
     assert result.state_values["task_id"] == result.task.id
+    assert result.state_values["context_mode"] == "global"
     assert result.state_values["current_revision_id"] is None
 
     async with fork_db() as session:
@@ -151,6 +155,7 @@ async def test_fork_clones_history_to_target_round_without_inherited_rollback(fo
     assert all("revision_id" not in message.metadata for message in fork_messages)
     assert fork_task is not None
     assert source_task is not None
+    assert fork_task.context_mode == source_task.context_mode == "global"
     assert [message.content for message in source_messages] == [
         "第一轮",
         "第一轮回复",

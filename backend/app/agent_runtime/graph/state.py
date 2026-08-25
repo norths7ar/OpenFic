@@ -1,10 +1,11 @@
-from typing import Any, NotRequired, TypedDict
+from typing import Any, Literal, NotRequired, TypedDict
 
 
 class AgentRuntimeState(TypedDict):
     session_id: str
     task_id: str
     project_id: str
+    context_mode: Literal["global", "local"]
     model_config: dict
     active_agent: str | None
     agent_key: str

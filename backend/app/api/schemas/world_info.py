@@ -37,6 +37,7 @@ class WorldInfoEntryCreate(BaseModel):
     """创建世界书条目请求。"""
 
     name: str = Field(min_length=1, max_length=200, description="条目名称")
+    section: str = Field(default="", max_length=500, description="条目分区")
     content: str = Field(default="", description="条目内容")
     token_count: int = Field(default=0, ge=0, description="Token 数量")
     is_enabled: bool = Field(default=True, description="开关状态")
@@ -46,6 +47,7 @@ class WorldInfoEntryUpdate(BaseModel):
     """更新世界书条目请求。"""
 
     name: str | None = Field(default=None, min_length=1, max_length=200)
+    section: str | None = Field(default=None, max_length=500)
     content: str | None = None
     token_count: int | None = Field(default=None, ge=0)
     is_enabled: bool | None = None
@@ -89,6 +91,7 @@ class WorldInfoEntryResponse(BaseModel):
     world_info_id: str = Field(description="所属世界书 ID")
     uid: int = Field(description="用户可见序列号")
     name: str = Field(description="条目名称")
+    section: str = Field(default="", description="条目分区")
     order: int = Field(description="排序序号")
     content: str = Field(description="条目内容")
     token_count: int = Field(description="Token 数量")
@@ -106,6 +109,7 @@ class WorldInfoEntryBriefResponse(BaseModel):
     world_info_id: str = Field(description="所属世界书 ID")
     uid: int = Field(description="用户可见序列号")
     name: str = Field(description="条目名称")
+    section: str = Field(default="", description="条目分区")
     order: int = Field(description="排序序号")
     token_count: int = Field(description="Token 数量")
     is_enabled: bool = Field(description="开关状态")
@@ -127,6 +131,7 @@ class WorldInfoImportPreviewEntry(BaseModel):
 
     uid: int = Field(description="原始条目 UID")
     name: str = Field(description="导入后的条目名称")
+    section: str = Field(default="", description="条目分区")
     content_preview: str = Field(description="内容预览")
     is_enabled: bool = Field(description="导入后的启用状态")
 

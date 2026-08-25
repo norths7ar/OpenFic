@@ -9,7 +9,7 @@ import time
 from collections.abc import Callable
 from contextlib import asynccontextmanager, suppress
 from datetime import UTC, datetime
-from typing import TypeGuard, cast
+from typing import Literal, TypeGuard, cast
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from loguru import logger
@@ -158,6 +158,7 @@ def _build_seed_state(
     task_id: str,
     project_id: str,
     model_config: dict,
+    context_mode: str = "local",
     agent_key: str = "build",
     current_revision_id: str | None = None,
 ) -> dict:
@@ -165,6 +166,7 @@ def _build_seed_state(
         "session_id": session_id,
         "task_id": task_id,
         "project_id": project_id,
+        "context_mode": context_mode,
         "model_config": without_api_key(model_config),
         "active_agent": None,
         "agent_key": agent_key,
@@ -278,6 +280,7 @@ async def _get_runner(
         task_id=task.id,
         model_config={"max_context_tokens": 1},
         project_id=task.project_id,
+        context_mode=task.context_mode,
     )
     graph = await runner._get_graph()
     state = await graph.aget_state({"configurable": {"thread_id": session_id}})
@@ -784,6 +787,7 @@ async def create_agent_session(
             title="New session",
             mode="agent",
             agent_session_id=session_id,
+            context_mode=request.context_mode,
         )
         task.title = _build_default_agent_session_title(task.created_at)
         runner = SessionRunner(
@@ -792,12 +796,14 @@ async def create_agent_session(
             model_config=model_config,
             project_id=request.project_id,
             agent_key=request.agent_key,
+            context_mode=task.context_mode,
         )
         await runner.materialize_state(
             _build_seed_state(
                 session_id=session_id,
                 task_id=task.id,
                 project_id=request.project_id,
+                context_mode=task.context_mode,
                 model_config=model_config,
                 agent_key=request.agent_key,
             )
@@ -813,6 +819,7 @@ async def create_agent_session(
             task_created_at=task.created_at.isoformat(),
             task_updated_at=task.updated_at.isoformat(),
             agent_key=request.agent_key,
+            context_mode=cast(Literal["global", "local"], task.context_mode),
         )
     except HTTPException:
         raise
@@ -1634,6 +1641,7 @@ async def fork_agent_session(
             task_id=result.task.id,
             model_config=model_config,
             project_id=result.task.project_id,
+            context_mode=result.task.context_mode,
         )
         fork_session_id = result.session_id
         _SESSION_RUNNERS[result.session_id] = runner

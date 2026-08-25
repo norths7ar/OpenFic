@@ -4,6 +4,7 @@ Agent API Schemas。
 """
 
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -30,6 +31,7 @@ class AgentSessionCreateRequest(BaseModel):
         default=None,
         description="当前会话推理强度，仅 reasoning 模型可用",
     )
+    context_mode: Literal["global", "local"] = Field(default="local")
 
     model_config = {"extra": "forbid"}
 
@@ -45,6 +47,7 @@ class AgentSessionCreateResponse(BaseModel):
     task_created_at: str = Field(..., description="任务创建时间")
     task_updated_at: str = Field(..., description="任务更新时间")
     agent_key: str = Field(..., description="当前会话使用的主智能体标识")
+    context_mode: Literal["global", "local"] = Field(default="local")
 
 
 class AgentAttachmentResponse(BaseModel):

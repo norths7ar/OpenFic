@@ -5,7 +5,7 @@ Task Service - 任务业务逻辑层。
 
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, Literal
 
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -43,6 +43,7 @@ async def create_task(
     title: str,
     mode: AgentMode = "agent",
     agent_session_id: str | None = None,
+    context_mode: Literal["global", "local"] = "local",
 ) -> Task:
     """创建任务。"""
     project = await project_repo.get_by_id(session, project_id)
@@ -54,6 +55,7 @@ async def create_task(
         title=title,
         mode=mode,
         agent_session_id=agent_session_id,
+        context_mode=context_mode,
     )
     return await task_repo.create(session, task)
 

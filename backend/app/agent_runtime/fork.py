@@ -67,6 +67,7 @@ def _build_fork_state(
         "session_id": session_id,
         "task_id": task.id,
         "project_id": task.project_id,
+        "context_mode": task.context_mode,
         "model_config": without_api_key(model_config),
         "active_agent": None,
         "is_completed": True,
@@ -162,6 +163,7 @@ async def fork_agent_session_at_revision(
         title=_fork_title(source_task.title),
         mode=cast(Literal["agent"], source_task.mode),
         agent_session_id=fork_session_id,
+        context_mode=cast(Literal["global", "local"], source_task.context_mode),
     )
     source_attachment_ids = {
         attachment.get("id")

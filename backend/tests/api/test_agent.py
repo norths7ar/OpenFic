@@ -425,6 +425,7 @@ class TestAgentAPI:
 
                 "model_id": target["model_id"],
                 "max_iterations": 5,
+                "context_mode": "global",
             },
         )
 
@@ -437,10 +438,13 @@ class TestAgentAPI:
         assert data["session_id"].startswith("agent_")
         assert "checkpoint_id" not in data
         assert data["task_title"]
+        assert data["context_mode"] == "global"
         assert data["session_id"] in _SESSION_RUNNERS
 
         created_task = await task_service.get_task(session, data["task_id"])
         assert created_task.title == data["task_title"]
+        assert created_task.context_mode == "global"
+        assert _SESSION_RUNNERS[data["session_id"]].context_mode == "global"
 
     async def test_send_agent_message_uses_requested_model_for_next_run(
         self,

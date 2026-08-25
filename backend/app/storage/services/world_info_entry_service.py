@@ -30,6 +30,7 @@ class WorldInfoImportEntry:
     content: str
     is_enabled: bool
     order: int
+    section: str = ""
 
 
 @dataclass
@@ -169,6 +170,7 @@ def parse_sillytavern_worldbook(raw_payload: bytes) -> WorldInfoImportPreviewRes
             WorldInfoImportEntry(
                 uid=uid,
                 name=_build_entry_name(comment, uid),
+                section="",
                 content=content_text,
                 is_enabled=not disable,
                 order=order_value,
@@ -213,6 +215,7 @@ async def import_entries(
         existing = existing_by_name.get(entry.name)
         if existing is not None:
             existing.content = entry.content
+            existing.section = entry.section
             existing.token_count = token_count
             existing.is_enabled = entry.is_enabled
             existing.updated_at = datetime.now(UTC)
@@ -228,6 +231,7 @@ async def import_entries(
                 world_info_id=world_info_id,
                 uid=max_uid,
                 name=entry.name,
+                section=entry.section,
                 order=max_order,
                 content=entry.content,
                 token_count=token_count,
@@ -253,6 +257,7 @@ async def create_entry(
     content: str = "",
     token_count: int = 0,
     is_enabled: bool = True,
+    section: str = "",
 ) -> WorldInfoEntry:
     """
     创建世界书条目。
@@ -287,6 +292,7 @@ async def create_entry(
         world_info_id=world_info_id,
         uid=max_uid + 1,
         name=unique_name,
+        section=section,
         order=max_order + 1,
         content=content,
         token_count=token_count,
@@ -344,6 +350,7 @@ async def update_entry(
     content: str | None = None,
     token_count: int | None = None,
     is_enabled: bool | None = None,
+    section: str | None = None,
 ) -> WorldInfoEntry:
     """
     更新世界书条目。
@@ -374,6 +381,8 @@ async def update_entry(
     if content is not None:
         validate_editor_content(content)
         entry.content = content
+    if section is not None:
+        entry.section = section
     if token_count is not None:
         entry.token_count = token_count
     if is_enabled is not None:

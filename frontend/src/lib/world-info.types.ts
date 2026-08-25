@@ -26,6 +26,7 @@ export interface WorldInfoEntry {
   worldInfoId: string;
   uid: number;
   name: string;
+  section: string;
   order: number;
   content: string;
   tokenCount: number;
@@ -40,6 +41,7 @@ export interface WorldInfoEntryBrief {
   worldInfoId: string;
   uid: number;
   name: string;
+  section: string;
   order: number;
   tokenCount: number;
   isEnabled: boolean;
@@ -50,6 +52,7 @@ export interface WorldInfoEntryBrief {
 /** 创建条目请求 */
 export interface WorldInfoEntryCreate {
   name: string;
+  section?: string;
   content?: string;
   tokenCount?: number;
   isEnabled?: boolean;
@@ -58,6 +61,7 @@ export interface WorldInfoEntryCreate {
 /** 更新条目请求 */
 export interface WorldInfoEntryUpdate {
   name?: string;
+  section?: string;
   content?: string;
   tokenCount?: number;
   isEnabled?: boolean;
@@ -72,6 +76,7 @@ export interface WorldInfoEntryBriefListResponse {
 export interface WorldInfoImportPreviewEntry {
   uid: number;
   name: string;
+  section: string;
   contentPreview: string;
   isEnabled: boolean;
 }

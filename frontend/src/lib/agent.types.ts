@@ -235,6 +235,7 @@ export interface AgentSessionCreateRequest {
   max_iterations?: number;
   agent_key?: string;
   reasoning_effort?: ReasoningEffort;
+  context_mode?: "global" | "local";
 }
 
 export interface AgentSessionCreateResponse {
@@ -245,6 +246,7 @@ export interface AgentSessionCreateResponse {
   task_title: string;
   task_created_at: string;
   task_updated_at: string;
+  context_mode: "global" | "local";
 }
 
 export interface AgentForkResponse {

@@ -234,6 +234,7 @@ export function WorldInfoPage() {
       worldInfoId: entry.worldInfoId,
       uid: entry.uid,
       name: entry.name,
+      section: entry.section,
       order: entry.order,
       tokenCount: entry.tokenCount,
       isEnabled: entry.isEnabled,

@@ -4,6 +4,7 @@ Task API Schemas - 任务请求/响应模型。
 """
 
 from datetime import datetime
+from typing import Literal
 from pydantic import BaseModel, Field
 
 from app.agent_runtime.modes import AgentMode
@@ -45,6 +46,7 @@ class TaskResponse(BaseModel):
     project_id: str = Field(description="项目 ID")
     title: str = Field(description="任务标题")
     mode: AgentMode = Field(description="固定为单一 Agent runtime")
+    context_mode: Literal["global", "local"] = Field(default="local")
     messages: list[TaskMessage] = Field(description="对话消息列表")
     token_input: int = Field(default=0, description="输入 token 总数")
     token_output: int = Field(default=0, description="输出 token 总数")
@@ -67,6 +69,7 @@ class TaskListItem(BaseModel):
     project_id: str = Field(description="项目 ID")
     title: str = Field(description="任务标题")
     mode: AgentMode = Field(description="固定为单一 Agent runtime")
+    context_mode: Literal["global", "local"] = Field(default="local")
     token_input: int = Field(default=0, description="输入 token 总数")
     token_output: int = Field(default=0, description="输出 token 总数")
     token_cache: int = Field(default=0, description="缓存命中 token 总数")

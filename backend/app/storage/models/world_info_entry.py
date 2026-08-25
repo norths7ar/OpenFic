@@ -33,6 +33,7 @@ class WorldInfoEntry(SQLModel, table=True):
     world_info_id: str = Field(index=True, foreign_key="world_info.id")
     uid: int = Field(index=True)
     name: str = Field(max_length=200)
+    section: str = Field(default="", max_length=500)
     order: int = Field(index=True)
     content: str = Field(default="")
     token_count: int = Field(default=0)

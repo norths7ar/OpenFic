@@ -28,6 +28,7 @@ export interface TaskListItem {
   id: string;
   projectId: string;
   title: string;
+  contextMode: "global" | "local";
   tokenInput: number;
   tokenOutput: number;
   tokenCache: number;
@@ -44,6 +45,7 @@ export interface Task {
   id: string;
   projectId: string;
   title: string;
+  contextMode: "global" | "local";
   messages: TaskMessage[];
   tokenInput: number;
   tokenOutput: number;

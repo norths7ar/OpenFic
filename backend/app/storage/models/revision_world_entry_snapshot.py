@@ -25,6 +25,7 @@ class RevisionWorldEntrySnapshot(SQLModel, table=True):
     world_info_id: str | None = Field(default=None, index=True)
     uid: int | None = Field(default=None, index=True)
     name: str | None = Field(default=None, max_length=200)
+    section: str | None = Field(default=None, max_length=500)
     entry_order: int | None = Field(default=None, index=True)
     content: str | None = Field(default=None)
     content_blob_id: str | None = Field(

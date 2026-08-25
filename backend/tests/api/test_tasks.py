@@ -68,6 +68,24 @@ class TestTaskAPI:
         await session.commit()
         return task, project_id, chapter_id
 
+    async def test_context_mode_round_trips_and_is_not_patchable(
+        self, client: AsyncClient, session: AsyncSession
+    ) -> None:
+        task, project_id, _ = await self.create_agent_task(
+            client, session, title="全局上下文任务"
+        )
+        task.context_mode = "global"
+        await session.commit()
+
+        response = await client.get(f"/api/v1/tasks/{task.id}")
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["context_mode"] == "global"
+
+        patch_response = await client.patch(
+            f"/api/v1/tasks/{task.id}", json={"context_mode": "local"}
+        )
+        assert patch_response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
     async def test_create_task_endpoint_is_removed(self, client: AsyncClient) -> None:
         response = await client.post(
             "/api/v1/tasks",

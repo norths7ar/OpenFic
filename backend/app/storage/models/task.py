@@ -3,6 +3,7 @@
 
 from datetime import UTC, datetime
 
+from sqlalchemy import CheckConstraint
 from sqlmodel import Field, SQLModel
 
 from app.core.ids import generate_id
@@ -32,11 +33,15 @@ class Task(SQLModel, table=True):
     """
 
     __tablename__ = "tasks"
+    __table_args__ = (
+        CheckConstraint("context_mode IN ('global', 'local')", name="ck_tasks_context_mode"),
+    )
 
     id: str = Field(default_factory=generate_id, primary_key=True)
     project_id: str = Field(index=True, foreign_key="projects.id")
     title: str = Field(max_length=200)
     mode: str = Field(max_length=20, index=True)
+    context_mode: str = Field(default="local", max_length=20)
     token_input: int = Field(default=0, ge=0)
     token_output: int = Field(default=0, ge=0)
     token_cache: int = Field(default=0, ge=0)

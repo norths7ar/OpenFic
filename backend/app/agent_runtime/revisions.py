@@ -95,6 +95,7 @@ class WorldEntryImage:
     content: str
     token_count: int
     is_enabled: bool
+    section: str = ""
 
 
 @dataclass(frozen=True)
@@ -576,6 +577,7 @@ def _image_from_world_entry(entry: WorldInfoEntry, project_id: str) -> WorldEntr
         world_info_id=entry.world_info_id,
         uid=entry.uid,
         name=entry.name,
+        section=getattr(entry, "section", ""),
         order=entry.order,
         content=entry.content,
         token_count=entry.token_count,
@@ -594,6 +596,7 @@ def _image_from_world_entry_snapshot(
         world_info_id=snapshot.world_info_id or "",
         uid=snapshot.uid or 0,
         name=snapshot.name or "",
+        section=snapshot.section or "",
         order=snapshot.entry_order or 1,
         content=snapshot.content or "",
         token_count=snapshot.token_count or 0,
@@ -624,6 +627,7 @@ async def _snapshot_from_world_entry_image(
         world_info_id=image.world_info_id,
         uid=image.uid,
         name=image.name,
+        section=image.section,
         entry_order=image.order,
         content=content,
         content_blob_id=content_blob_id,
@@ -640,6 +644,7 @@ def _world_entry_has_changed(
         before.world_info_id != after.world_info_id
         or before.uid != after.uid
         or before.name != after.name
+        or before.section != after.section
         or before.order != after.order
         or before.content != after.content
         or before.token_count != after.token_count
@@ -1145,6 +1150,7 @@ async def rollback_revision_for_session(
                     world_info_id=after_entry_image.world_info_id,
                     uid=after_entry_image.uid,
                     name=after_entry_image.name,
+                    section=after_entry_image.section,
                     order=after_entry_image.order,
                     content=after_entry_image.content,
                     token_count=after_entry_image.token_count,
@@ -1155,6 +1161,7 @@ async def rollback_revision_for_session(
             current_entry.world_info_id = after_entry_image.world_info_id
             current_entry.uid = after_entry_image.uid
             current_entry.name = after_entry_image.name
+            current_entry.section = after_entry_image.section
             current_entry.order = after_entry_image.order
             current_entry.content = after_entry_image.content
             current_entry.token_count = after_entry_image.token_count
