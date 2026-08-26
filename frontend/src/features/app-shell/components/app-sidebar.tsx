@@ -1,15 +1,17 @@
-import { Box, Button, Flex } from "@radix-ui/themes";
+import { Box, Button, Flex, IconButton, Text } from "@radix-ui/themes";
 import { useQuery } from "@tanstack/react-query";
 import axios from "axios";
 import {
   BookOpen,
   ChartNoAxesCombined,
-  Database,
+  ChevronDown,
+  ChevronRight,
   FileText,
   FileClock,
   Globe,
   LibraryBig,
   MessageCircle,
+  ListTree,
   UserRound,
   Workflow,
 } from "lucide-react";
@@ -19,8 +21,6 @@ import { useTranslation } from "react-i18next";
 import { useLocation, useNavigate, useParams } from "react-router";
 
 import { toast } from "@/components";
-import { LabeledSelect } from "@/components/select";
-import { ProjectDataDialog } from "@/features/projects/components/project-data-dialog";
 import { fetchProject, fetchProjects } from "@/lib/api-client";
 
 import { useAppShell } from "./app-shell-context";
@@ -44,7 +44,7 @@ export function AppSidebar() {
   const { isMobile, isSidebarOpen, closeSidebar, openSettings } = useAppShell();
 
   const [isExpanded, setIsExpanded] = useState(false);
-  const [isProjectDataOpen, setIsProjectDataOpen] = useState(false);
+  const [isProjectListOpen, setIsProjectListOpen] = useState(false);
   const [isLogoHovered, setIsLogoHovered] = useState(false);
   const logoPointerInsideRef = useRef(false);
   const prevPathnameRef = useRef(location.pathname);
@@ -73,7 +73,6 @@ export function AppSidebar() {
   const { data: projectsData } = useQuery({
     queryKey: ["projects", "app-sidebar"],
     queryFn: () => fetchProjects({ page: 1, pageSize: 100 }),
-    enabled: !!projectId,
   });
   const projects = projectsData?.items ?? [];
 
@@ -93,14 +92,7 @@ export function AppSidebar() {
 
   const navItems = useMemo<AppSidebarNavItem[]>(() => {
     const pathname = location.pathname;
-    const items: AppSidebarNavItem[] = [
-      {
-        label: t("sidebar.bookshelf"),
-        href: "/",
-        icon: LibraryBig,
-        active: pathname === "/",
-      },
-    ];
+    const items: AppSidebarNavItem[] = [];
 
     if (projectId) {
       items.push(
@@ -127,6 +119,12 @@ export function AppSidebar() {
           href: `/projects/${projectId}/characters`,
           icon: UserRound,
           active: pathname === `/projects/${projectId}/characters`,
+        },
+        {
+          label: t("sidebar.outlines"),
+          href: `/projects/${projectId}/outlines`,
+          icon: ListTree,
+          active: pathname === `/projects/${projectId}/outlines`,
         },
         {
           label: t("sidebar.notes"),
@@ -217,13 +215,14 @@ export function AppSidebar() {
   }, [closeSidebar, isMobile, openSettings]);
 
   const projectSection =
-    ["write", "discuss", "world-info", "characters", "notes", "changes"].find((section) =>
-      location.pathname.endsWith(`/${section}`),
+    ["write", "discuss", "world-info", "characters", "outlines", "notes", "changes"].find(
+      (section) => location.pathname.endsWith(`/${section}`),
     ) ?? "write";
 
   const handleProjectChange = useCallback(
     (nextProjectId: string) => {
       navigate(`/projects/${nextProjectId}/${projectSection}`);
+      setIsProjectListOpen(false);
     },
     [navigate, projectSection],
   );
@@ -319,33 +318,69 @@ export function AppSidebar() {
                 />
               </Box>
 
-              {projectId && (isMobile || isExpanded) && (
-                <Box
+              <Flex
+                align="center"
+                width="100%"
+                mb="1"
+              >
+                <Button
+                  variant="ghost"
+                  color="gray"
+                  onClick={navigateToProjects}
+                  aria-current={location.pathname === "/" ? "page" : undefined}
+                  style={{ flex: 1, height: 40, justifyContent: "flex-start", padding: 0 }}
+                >
+                  <Flex
+                    align="center"
+                    justify="center"
+                    width="40px"
+                    height="40px"
+                  >
+                    <LibraryBig size={20} />
+                  </Flex>
+                  {(isMobile || isExpanded) && (
+                    <Text
+                      size="2"
+                      weight={location.pathname === "/" ? "bold" : "medium"}
+                    >
+                      {t("sidebar.bookshelf")}
+                    </Text>
+                  )}
+                </Button>
+                {(isMobile || isExpanded) && (
+                  <IconButton
+                    variant="ghost"
+                    color="gray"
+                    size="2"
+                    aria-label={t("topbar.currentProject")}
+                    onClick={() => setIsProjectListOpen((open) => !open)}
+                  >
+                    {isProjectListOpen ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
+                  </IconButton>
+                )}
+              </Flex>
+
+              {(isMobile || isExpanded) && isProjectListOpen && (
+                <Flex
+                  direction="column"
+                  gap="1"
                   mb="2"
+                  pl="5"
                   width="100%"
                 >
-                  <LabeledSelect
-                    label={t("topbar.currentProject")}
-                    value={projectId}
-                    options={projects.map((project) => ({
-                      value: project.id,
-                      label: project.title,
-                    }))}
-                    onChange={handleProjectChange}
-                    disabled={projects.length === 0}
-                    triggerStyle={{ width: "100%" }}
-                    placeholder={t("topbar.currentProject")}
-                  />
-                  <Button
-                    variant="ghost"
-                    size="1"
-                    onClick={() => setIsProjectDataOpen(true)}
-                    style={{ width: "100%", justifyContent: "flex-start", marginTop: 4 }}
-                  >
-                    <Database size={15} />
-                    {t("projectData.open")}
-                  </Button>
-                </Box>
+                  {projects.map((project) => (
+                    <Button
+                      key={project.id}
+                      variant={project.id === projectId ? "soft" : "ghost"}
+                      color="gray"
+                      size="1"
+                      onClick={() => handleProjectChange(project.id)}
+                      style={{ width: "100%", justifyContent: "flex-start" }}
+                    >
+                      <Text truncate>{project.title}</Text>
+                    </Button>
+                  ))}
+                </Flex>
               )}
 
               <SidebarNav
@@ -380,14 +415,6 @@ export function AppSidebar() {
           </MotionBox>
         )}
       </AnimatePresence>
-
-      {projectId && (
-        <ProjectDataDialog
-          open={isProjectDataOpen}
-          projectId={projectId}
-          onOpenChange={setIsProjectDataOpen}
-        />
-      )}
     </>
   );
 }

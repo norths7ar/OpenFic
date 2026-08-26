@@ -5,7 +5,7 @@
  */
 
 import { Box, Card, Flex, Text, IconButton, Tooltip } from "@radix-ui/themes";
-import { Edit2, Trash2, BookOpen } from "lucide-react";
+import { BookOpen, Database, Edit2, Trash2 } from "lucide-react";
 import { motion } from "motion/react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
@@ -18,10 +18,11 @@ const MotionCard = motion.create(Card);
 interface ProjectCardProps {
   project: Project;
   onEdit: (project: Project) => void;
+  onManageData: (project: Project) => void;
   onDelete: (project: Project) => void;
 }
 
-export function ProjectCard({ project, onEdit, onDelete }: ProjectCardProps) {
+export function ProjectCard({ project, onEdit, onManageData, onDelete }: ProjectCardProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
 
@@ -131,6 +132,19 @@ export function ProjectCard({ project, onEdit, onDelete }: ProjectCardProps) {
             gap="3"
             ml="2"
           >
+            <Tooltip content={t("projectData.open")}>
+              <IconButton
+                size="1"
+                variant="ghost"
+                aria-label={t("projectData.open")}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onManageData(project);
+                }}
+              >
+                <Database size={14} />
+              </IconButton>
+            </Tooltip>
             <Tooltip content={t("common.edit")}>
               <IconButton
                 size="1"

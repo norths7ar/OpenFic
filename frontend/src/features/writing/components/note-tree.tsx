@@ -24,6 +24,7 @@ const ROOT_DROP_ID = "note-tree-root";
 
 interface NoteTreeProps {
   data: NoteTreeResponse | undefined;
+  emptyLabel?: string;
   onNoteSelect: (noteId: string, title: string) => void;
   onCategorySelect: (categoryId: string) => void;
   currentNoteId: string | null;
@@ -200,6 +201,7 @@ function RootDropArea({ children }: { children: React.ReactNode }) {
 
 export function NoteTree({
   data,
+  emptyLabel,
   onNoteSelect,
   onCategorySelect,
   currentNoteId,
@@ -345,7 +347,7 @@ export function NoteTree({
               color="gray"
               align="center"
             >
-              {t("writing.emptyNotes")}
+              {emptyLabel ?? t("writing.emptyNotes")}
             </Text>
           </Flex>
         ) : (

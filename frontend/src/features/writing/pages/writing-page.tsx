@@ -385,6 +385,7 @@ export function WritingPage({ workspaceView = "write" }: WritingPageProps) {
       onAddToConversation={isViewingSubagent ? undefined : handleAddToConversation}
       initialCurrentChapterNavigationKey={initialCurrentChapterNavigationKey}
       onOpenSummary={handleOpenSummary}
+      showNotes={false}
     />
   );
 
@@ -595,6 +596,7 @@ export function WritingPage({ workspaceView = "write" }: WritingPageProps) {
                   compact
                   initialCurrentChapterNavigationKey={initialCurrentChapterNavigationKey}
                   onOpenSummary={handleOpenSummary}
+                  showNotes={false}
                 />
               </MotionBox>
             </div>

@@ -25,7 +25,12 @@ import {
   buildNoteCategoryMentionTag,
   buildNoteMentionTag,
 } from "@/features/assistant/lib/mention-text";
-import type { NoteCategoryItem, NoteListItem, NoteTreeResponse } from "@/lib/note.types";
+import type {
+  DocumentType,
+  NoteCategoryItem,
+  NoteListItem,
+  NoteTreeResponse,
+} from "@/lib/note.types";
 import { createToastThrottler } from "@/lib/ui-utils";
 
 import {
@@ -51,6 +56,7 @@ interface NoteSidebarProps {
   onAddToConversation?: (markup: string) => void;
   isAgentLocked?: boolean;
   compact?: boolean;
+  documentType?: DocumentType;
 }
 
 export function NoteSidebar({
@@ -58,17 +64,20 @@ export function NoteSidebar({
   onNoteSelect,
   onAddToConversation,
   isAgentLocked = false,
+  documentType = "note",
 }: NoteSidebarProps) {
   const { t } = useTranslation();
-  const { data } = useNoteTree(projectId);
-  const createNoteMutation = useCreateNote(projectId);
-  const createCategoryMutation = useCreateNoteCategory(projectId);
+  const isOutline = documentType === "outline";
+  const untitledDocumentLabel = t(isOutline ? "writing.untitledOutline" : "writing.untitledNote");
+  const { data } = useNoteTree(projectId, documentType);
+  const createNoteMutation = useCreateNote(projectId, documentType);
+  const createCategoryMutation = useCreateNoteCategory(projectId, documentType);
   const updateNoteMutation = useUpdateNote(projectId);
   const updateCategoryMutation = useUpdateNoteCategory(projectId);
   const deleteNoteMutation = useDeleteNote(projectId);
   const deleteCategoryMutation = useDeleteNoteCategory(projectId);
   const moveMutation = useMoveNoteItem(projectId);
-  const reorderMutation = useReorderNoteItems(projectId);
+  const reorderMutation = useReorderNoteItems(projectId, documentType);
   const toggleLockMutation = useToggleNoteLock(projectId);
   const toggleHiddenMutation = useToggleNoteHidden(projectId);
   const duplicateNoteMutation = useDuplicateNote(projectId);
@@ -153,7 +162,7 @@ export function NoteSidebar({
     }
     const targetCategoryId = resolveNewNoteCategoryId(data, selectedCategoryId);
     const note = await createNoteMutation.mutateAsync({
-      title: t("writing.untitledNote"),
+      title: untitledDocumentLabel,
       categoryId: targetCategoryId,
     });
     setSelectedCategoryId(null);
@@ -164,7 +173,7 @@ export function NoteSidebar({
     isAgentLocked,
     onNoteSelect,
     showLockedToast,
-    t,
+    untitledDocumentLabel,
     data,
     selectedCategoryId,
   ]);
@@ -205,13 +214,13 @@ export function NoteSidebar({
     const target = contextMenuTarget;
     handleCloseContextMenu();
     if (!onAddToConversation) return;
-    const label = target.title.trim() || t("writing.untitledNote");
+    const label = target.title.trim() || untitledDocumentLabel;
     if (target.type === "note") {
       onAddToConversation(buildNoteMentionTag({ noteId: target.id, label }));
     } else {
       onAddToConversation(buildNoteCategoryMentionTag({ categoryId: target.id, label }));
     }
-  }, [contextMenuTarget, handleCloseContextMenu, onAddToConversation, t]);
+  }, [contextMenuTarget, handleCloseContextMenu, onAddToConversation, untitledDocumentLabel]);
 
   const handleDuplicate = useCallback(async () => {
     if (!contextMenuTarget || contextMenuTarget.type !== "note") return;
@@ -545,6 +554,7 @@ export function NoteSidebar({
           >
             <NoteSearchPopover
               projectId={projectId}
+              documentType={documentType}
               query={contentSearchQuery}
               open={contentSearchOpen}
               onOpenChange={handlePopoverOpenChange}
@@ -608,7 +618,7 @@ export function NoteSidebar({
               gap="0"
               align="center"
             >
-              <Tooltip content={t("writing.newNote")}>
+              <Tooltip content={t(isOutline ? "writing.newOutline" : "writing.newNote")}>
                 <IconButton
                   variant="ghost"
                   size="2"
@@ -633,6 +643,7 @@ export function NoteSidebar({
 
       <NoteTree
         data={data}
+        emptyLabel={t(isOutline ? "writing.emptyOutlines" : "writing.emptyNotes")}
         onNoteSelect={handleNoteSelect}
         onCategorySelect={handleCategorySelect}
         currentNoteId={currentNoteId}

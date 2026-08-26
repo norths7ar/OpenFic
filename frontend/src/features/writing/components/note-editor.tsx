@@ -276,7 +276,7 @@ function NoteEditorContent({
         size="1"
         style={{ color: "var(--yellow-10)" }}
       >
-        {t("writing.noteLocked")}
+        {t(note.documentType === "outline" ? "writing.outlineLocked" : "writing.noteLocked")}
       </Text>
     </Flex>
   ) : undefined;
@@ -292,7 +292,11 @@ function NoteEditorContent({
       hasChanges={hasChanges}
       isLocked={isAgentLocked}
       onLockedAction={showLockedToast}
-      placeholder={t("writing.noteContentPlaceholder")}
+      placeholder={t(
+        note.documentType === "outline"
+          ? "writing.outlineContentPlaceholder"
+          : "writing.noteContentPlaceholder",
+      )}
       lockedBanner={lockedBanner}
       scrollTop={scrollTop}
       onScrollPositionChange={handleScrollPositionChange}

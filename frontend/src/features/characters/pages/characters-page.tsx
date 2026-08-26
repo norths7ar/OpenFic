@@ -5,12 +5,13 @@ import { motion } from "motion/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Group, Panel, Separator } from "react-resizable-panels";
-import { useNavigate, useParams, useSearchParams } from "react-router";
+import { useParams, useSearchParams } from "react-router";
 
 import { PanelLayoutLoading } from "@/components";
 import { toast } from "@/components/toast";
 import { AssistantSidebarHost, MobileAppSidebarTrigger, useAppShell } from "@/features/app-shell";
 import type { AssistantSidebarState } from "@/features/assistant";
+import { buildCharacterMentionTag } from "@/features/assistant/lib/mention-text";
 import { usePersistedPanelLayout } from "@/hooks/use-persisted-panel-layout";
 import {
   batchDeleteCharacters,
@@ -65,7 +66,6 @@ function sortCharacters(characters: CharacterListItem[]): CharacterListItem[] {
 export function CharactersPage() {
   const { t } = useTranslation();
   const { projectId: projectIdFromRoute } = useParams<{ projectId: string }>();
-  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const { isMobile, openAssistantSidebar } = useAppShell();
@@ -467,11 +467,6 @@ export function CharactersPage() {
     },
   });
 
-  const handleSelectProject = (projectId: string) => {
-    setCurrentProject(projectId || null);
-    if (projectId) navigate(`/projects/${projectId}/characters`);
-  };
-
   const handleSelectCharacter = (characterId: string) => {
     queryClient.removeQueries({
       queryKey: projectDataQueryKeys.characters.detail(characterId),
@@ -488,9 +483,6 @@ export function CharactersPage() {
       selectedCharacterId={currentCharacterId}
       isLoading={isCharactersLoading}
       isCreating={createMutation.isPending}
-      projects={projects}
-      currentProjectId={currentProjectId ?? ""}
-      onSelectProject={handleSelectProject}
       onCreateCharacter={handleCreateCharacter}
       onSelectCharacter={handleSelectCharacter}
       onEditProfile={setProfileCharacter}
@@ -564,11 +556,27 @@ export function CharactersPage() {
             collapsible={false}
           >
             <Box className="characters-panel">
-              <AssistantSidebarHost
-                projectId={currentProjectId}
-                onStateChange={setAssistantState}
-                isMobileOverlay={false}
-              />
+              {selectedCharacter ? (
+                <AssistantSidebarHost
+                  projectId={currentProjectId}
+                  preferredAgentKey="discuss"
+                  initialComposerMarkup={buildCharacterMentionTag({
+                    characterId: selectedCharacter.id,
+                    label: selectedCharacter.name,
+                  })}
+                  onStateChange={setAssistantState}
+                  isMobileOverlay={false}
+                />
+              ) : (
+                <Flex
+                  height="100%"
+                  align="center"
+                  justify="center"
+                  p="4"
+                >
+                  <Text color="gray">{t("characters.selectCharacterToDiscuss")}</Text>
+                </Flex>
+              )}
             </Box>
           </Panel>
         </Group>
@@ -605,6 +613,7 @@ export function CharactersPage() {
                   size="2"
                   aria-label={t("assistant.mobileTitle")}
                   onClick={openAssistantSidebar}
+                  disabled={!selectedCharacter}
                 >
                   <Bot size={18} />
                 </IconButton>
@@ -662,9 +671,14 @@ export function CharactersPage() {
         </Flex>
       )}
 
-      {isMobile && currentProjectId && (
+      {isMobile && currentProjectId && selectedCharacter && (
         <AssistantSidebarHost
           projectId={currentProjectId}
+          preferredAgentKey="discuss"
+          initialComposerMarkup={buildCharacterMentionTag({
+            characterId: selectedCharacter.id,
+            label: selectedCharacter.name,
+          })}
           onStateChange={setAssistantState}
           isMobileOverlay
         />

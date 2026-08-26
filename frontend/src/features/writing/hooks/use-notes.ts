@@ -241,7 +241,7 @@ function countCategoryNotes(cats: NoteCategoryItem[]): number {
 
 export function useNoteTree(projectId: string, documentType: DocumentType = "note") {
   return useQuery({
-    queryKey: projectDataQueryKeys.notes.tree(projectId, documentType),
+    queryKey: projectDataQueryKeys.notes.typedTree(projectId, documentType),
     queryFn: () => fetchNoteTree(projectId, documentType),
     enabled: !!projectId,
     staleTime: 5 * 60 * 1000,

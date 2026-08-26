@@ -46,9 +46,7 @@ import { flushSync } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { Virtuoso } from "react-virtuoso";
 
-import { ProjectSelectField } from "@/components";
 import { ContextMenu, type ContextMenuItem } from "@/components/context-menu";
-import type { Project } from "@/lib/project.types";
 import type { WorldInfoEntryBrief } from "@/lib/world-info.types";
 
 import { useWorldInfoStore } from "../store/use-world-info-store";
@@ -70,9 +68,6 @@ type SortDirection = "asc" | "desc";
 const VIRTUAL_LIST_OVERSCAN = 320;
 
 interface EntryListProps {
-  projects: Project[];
-  currentProjectId: string;
-  onSelectProject: (projectId: string) => void;
   onImport: () => void;
   /** 条目列表 */
   entries: WorldInfoEntryBrief[];
@@ -112,9 +107,6 @@ interface ContextMenuPosition {
 }
 
 export function EntryList({
-  projects,
-  currentProjectId,
-  onSelectProject,
   onImport,
   entries,
   onCreateEntry,
@@ -623,14 +615,6 @@ export function EntryList({
             direction="column"
             gap="2"
           >
-            <ProjectSelectField
-              projects={projects}
-              value={currentProjectId}
-              onChange={onSelectProject}
-              showNoneOption={false}
-              placeholder={t("worldInfo.selectProject")}
-            />
-
             <Flex
               gap="2"
               align="center"

@@ -5,6 +5,7 @@
  */
 
 export { WritingPage } from "./pages/writing-page";
+export { DocumentWorkspacePage } from "./pages/document-workspace-page";
 export { ChapterEditor } from "./components/chapter-editor";
 export { ChapterSidebar } from "./components/chapter-sidebar";
 export { useWritingStore } from "./store/use-writing-store";

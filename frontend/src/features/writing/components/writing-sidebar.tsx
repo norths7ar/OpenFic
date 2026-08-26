@@ -14,6 +14,7 @@ interface WritingSidebarProps {
   compact?: boolean;
   initialCurrentChapterNavigationKey?: string | null;
   onOpenSummary?: () => void;
+  showNotes?: boolean;
 }
 
 export function WritingSidebar({
@@ -25,6 +26,7 @@ export function WritingSidebar({
   compact = false,
   initialCurrentChapterNavigationKey = null,
   onOpenSummary,
+  showNotes = true,
 }: WritingSidebarProps) {
   const { t } = useTranslation();
   const sidebarView = useWritingStore((s) => s.sidebarView);
@@ -39,24 +41,26 @@ export function WritingSidebar({
         background: "var(--color-background)",
       }}
     >
-      <div
-        style={{
-          padding: compact ? "8px 8px" : "12px 12px",
-          borderBottom: "1px solid var(--gray-a4)",
-        }}
-      >
-        <SegmentedControl.Root
-          value={sidebarView}
-          onValueChange={(value) => setSidebarView(value as "chapters" | "notes")}
-          size="2"
-          style={{ width: "100%" }}
+      {showNotes && (
+        <div
+          style={{
+            padding: compact ? "8px 8px" : "12px 12px",
+            borderBottom: "1px solid var(--gray-a4)",
+          }}
         >
-          <SegmentedControl.Item value="chapters">{t("writing.chapters")}</SegmentedControl.Item>
-          <SegmentedControl.Item value="notes">{t("writing.notes")}</SegmentedControl.Item>
-        </SegmentedControl.Root>
-      </div>
+          <SegmentedControl.Root
+            value={sidebarView}
+            onValueChange={(value) => setSidebarView(value as "chapters" | "notes")}
+            size="2"
+            style={{ width: "100%" }}
+          >
+            <SegmentedControl.Item value="chapters">{t("writing.chapters")}</SegmentedControl.Item>
+            <SegmentedControl.Item value="notes">{t("writing.notes")}</SegmentedControl.Item>
+          </SegmentedControl.Root>
+        </div>
+      )}
 
-      {sidebarView === "chapters" ? (
+      {!showNotes || sidebarView === "chapters" ? (
         <ChapterSidebar
           projectId={projectId}
           onChapterSelect={onChapterSelect}

@@ -86,6 +86,7 @@ import { RecentTasksCard } from "./tasks/recent-tasks-card";
 interface AssistantSidebarProps {
   projectId: string;
   preferredAgentKey?: string;
+  initialComposerMarkup?: string;
   onStateChange?: (state: AssistantSidebarState) => void;
   onOpenMentionChapter?: (chapterId: string, chapterTitle: string) => void;
   onClose?: () => void;
@@ -283,6 +284,7 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
     {
       projectId,
       preferredAgentKey,
+      initialComposerMarkup,
       onStateChange,
       onOpenMentionChapter,
       onClose,
@@ -323,6 +325,7 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
     const pendingSendActionRef = useRef<(() => void) | null>(null);
     const [isMessagesAtBottom, setIsMessagesAtBottom] = useState(true);
     const handledPreferredAgentRef = useRef<string | null>(null);
+    const handledInitialComposerMarkupRef = useRef<string | null>(null);
     const scrollToBottomFnRef = useRef<(() => void) | null>(null);
 
     const { data: tasksData, refetch: refetchRecentTasks } = useTasks(projectId, { limit: 3 });
@@ -701,6 +704,7 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
       isViewingSubagent,
       subagentSession.tokenUsage,
     ]);
+
     const sessionTotalDisplay = useMemo(
       () => ({
         tokenInput: sessionTotalUsage.tokenInput,
@@ -1272,6 +1276,25 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
       primaryAgents,
       projectId,
     ]);
+
+    useEffect(() => {
+      if (!initialComposerMarkup) {
+        handledInitialComposerMarkupRef.current = null;
+        return;
+      }
+      const requestKey = `${projectId}:${initialComposerMarkup}`;
+      if (handledInitialComposerMarkupRef.current === requestKey) return;
+      handledInitialComposerMarkupRef.current = requestKey;
+
+      let cancelled = false;
+      queueMicrotask(() => {
+        if (cancelled) return;
+        setInputValue((current) => appendMentionMarkup(current, initialComposerMarkup));
+      });
+      return () => {
+        cancelled = true;
+      };
+    }, [initialComposerMarkup, projectId]);
 
     const agentSelectorOptions = useMemo(
       () =>

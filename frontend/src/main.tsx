@@ -8,6 +8,7 @@ import App from "./App.tsx";
 import { AppCrashFallback, GlobalLoading } from "./components";
 import { Toaster } from "./components/toaster";
 import { AppLayout } from "./features/app-shell";
+import { DiscussionPage } from "./features/assistant";
 import { AuthPage } from "./features/auth";
 import { CharactersPage } from "./features/characters";
 import { PendingProjectChangesPage } from "./features/pending-project-changes";
@@ -15,7 +16,7 @@ import { PromptChainsPage } from "./features/prompt-chains";
 import { fetchSettings } from "./features/settings/lib/settings-api";
 import type { Settings } from "./features/settings/lib/settings.types";
 import { WorldInfoPage } from "./features/world-info";
-import { WritingPage } from "./features/writing";
+import { DocumentWorkspacePage, WritingPage } from "./features/writing";
 // 初始化 i18n
 import i18n, { type LanguageCode } from "./i18n";
 import { checkHealth, fetchAuthPreferences, fetchAuthStatus } from "./lib/api-client";
@@ -200,11 +201,15 @@ function AppContent({
           />
           <Route
             path="/projects/:projectId/discuss"
-            element={<WritingPage workspaceView="discuss" />}
+            element={<DiscussionPage />}
           />
           <Route
             path="/projects/:projectId/notes"
-            element={<WritingPage workspaceView="notes" />}
+            element={<DocumentWorkspacePage documentType="note" />}
+          />
+          <Route
+            path="/projects/:projectId/outlines"
+            element={<DocumentWorkspacePage documentType="outline" />}
           />
           <Route
             path="/projects/:projectId/changes"

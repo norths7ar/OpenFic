@@ -283,6 +283,15 @@ export function AgentComposerEditor({
   });
 
   useEffect(() => {
+    if (!editor) return;
+    if (docToCanonicalText(editor.state.doc) === value) return;
+
+    isApplyingExternalValueRef.current = true;
+    editor.commands.setContent(mentionTextToHtml(value), { emitUpdate: false });
+    isApplyingExternalValueRef.current = false;
+  }, [editor, value]);
+
+  useEffect(() => {
     let cancelled = false;
     queueMicrotask(() => {
       if (cancelled) return;

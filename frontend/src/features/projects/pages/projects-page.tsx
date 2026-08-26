@@ -17,6 +17,7 @@ import type { Project } from "@/lib/project.types";
 
 import { ImportDialog } from "../components/import-dialog";
 import { ProjectCard } from "../components/project-card";
+import { ProjectDataDialog } from "../components/project-data-dialog";
 import { ProjectFormDialog } from "../components/project-form-dialog";
 import { ProjectListItem } from "../components/project-list-item";
 import { ProjectsToolbar } from "../components/projects-toolbar";
@@ -67,6 +68,7 @@ export function ProjectsPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletingProject, setDeletingProject] = useState<Project | null>(null);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [dataProject, setDataProject] = useState<Project | null>(null);
 
   const handleFormDialogOpenChange = (open: boolean) => {
     setFormDialogOpen(open);
@@ -258,6 +260,7 @@ export function ProjectsPage() {
                       key={project.id}
                       project={project}
                       onEdit={handleOpenEdit}
+                      onManageData={setDataProject}
                       onDelete={handleOpenDelete}
                     />
                   ))}
@@ -273,6 +276,7 @@ export function ProjectsPage() {
                       key={project.id}
                       project={project}
                       onEdit={handleOpenEdit}
+                      onManageData={setDataProject}
                       onDelete={handleOpenDelete}
                     />
                   ))}
@@ -393,6 +397,16 @@ export function ProjectsPage() {
           void queryClient.refetchQueries({ queryKey: projectsQueryKey });
         }}
       />
+
+      {dataProject && (
+        <ProjectDataDialog
+          open
+          projectId={dataProject.id}
+          onOpenChange={(open) => {
+            if (!open) setDataProject(null);
+          }}
+        />
+      )}
     </Box>
   );
 }

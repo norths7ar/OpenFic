@@ -13,6 +13,7 @@ interface AssistantSidebarHostProps extends Omit<
 export function AssistantSidebarHost({
   className,
   isMobileOverlay,
+  initialComposerMarkup,
   onOpenMentionChapter,
   onStateChange,
   preferredAgentKey,
@@ -41,6 +42,7 @@ export function AssistantSidebarHost({
       isMobileOverlay,
       isOpen: isMobileOverlay ? isAssistantSidebarOpen : true,
       preferredAgentKey,
+      initialComposerMarkup,
       onStateChange: (state) => callbacksRef.current.onStateChange?.(state),
       onOpenMentionChapter: (chapterId, chapterTitle) =>
         callbacksRef.current.onOpenMentionChapter?.(chapterId, chapterTitle),
@@ -51,6 +53,7 @@ export function AssistantSidebarHost({
     isMobileOverlay,
     isAssistantSidebarOpen,
     preferredAgentKey,
+    initialComposerMarkup,
     projectId,
     closeAssistantSidebar,
     registerAssistantSidebarHost,

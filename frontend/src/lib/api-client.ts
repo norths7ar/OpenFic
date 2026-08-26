@@ -1840,9 +1840,13 @@ export interface NoteSearchResponse {
   totalMatches: number;
 }
 
-export async function searchNotes(projectId: string, query: string): Promise<NoteSearchResponse> {
+export async function searchNotes(
+  projectId: string,
+  query: string,
+  documentType: DocumentType = "note",
+): Promise<NoteSearchResponse> {
   const response = await apiClient.get(`/projects/${projectId}/notes/search`, {
-    params: { q: query },
+    params: { q: query, document_type: documentType },
   });
   const data = response.data as Record<string, unknown>;
   return {

@@ -29,10 +29,9 @@ import { motion } from "motion/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { ProjectSelectField, Spinner } from "@/components";
+import { Spinner } from "@/components";
 import { ContextMenu, type ContextMenuItem } from "@/components/context-menu";
 import type { CharacterListItem } from "@/lib/character.types";
-import type { Project } from "@/lib/project.types";
 import { formatRelativeTime } from "@/lib/time-utils";
 
 import { CharacterSearchPopover } from "./character-search-popover";
@@ -42,12 +41,9 @@ const loadedAvatarUrls = new Set<string>();
 interface CharacterListProps {
   characters: CharacterListItem[];
   projectId: string;
-  projects: Project[];
-  currentProjectId: string;
   selectedCharacterId: string | null;
   isLoading?: boolean;
   isCreating?: boolean;
-  onSelectProject: (projectId: string) => void;
   onCreateCharacter: () => void;
   onSelectCharacter: (characterId: string) => void;
   onEditProfile: (character: CharacterListItem) => void;
@@ -129,12 +125,9 @@ function CharacterListAvatar({
 export function CharacterList({
   characters,
   projectId,
-  projects,
-  currentProjectId,
   selectedCharacterId,
   isLoading = false,
   isCreating = false,
-  onSelectProject,
   onCreateCharacter,
   onSelectCharacter,
   onEditProfile,
@@ -441,16 +434,6 @@ export function CharacterList({
             direction="column"
             gap="2"
           >
-            <Box className="characters-list-project-select">
-              <ProjectSelectField
-                projects={projects}
-                value={currentProjectId}
-                onChange={onSelectProject}
-                showNoneOption={false}
-                placeholder={t("characters.selectProject")}
-              />
-            </Box>
-
             <Flex
               gap="2"
               align="center"

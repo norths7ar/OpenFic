@@ -170,6 +170,7 @@ export function AppLayout({ appearance, version, onAppearanceChange }: AppLayout
                 ref={assistantSidebarRef}
                 projectId={assistantSidebarHost.projectId}
                 preferredAgentKey={assistantSidebarHost.preferredAgentKey}
+                initialComposerMarkup={assistantSidebarHost.initialComposerMarkup}
                 onStateChange={
                   assistantSidebarHost.isActive ? assistantSidebarHost.onStateChange : undefined
                 }

@@ -11,7 +11,7 @@ import { motion } from "motion/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Panel, Group, Separator } from "react-resizable-panels";
-import { useNavigate, useParams, useSearchParams } from "react-router";
+import { useParams, useSearchParams } from "react-router";
 
 import "./world-info-page.css";
 
@@ -19,6 +19,7 @@ import { PanelLayoutLoading } from "@/components";
 import { toast } from "@/components/toast";
 import { AssistantSidebarHost, MobileAppSidebarTrigger, useAppShell } from "@/features/app-shell";
 import type { AssistantSidebarState } from "@/features/assistant";
+import { buildWorldInfoEntryMentionTag } from "@/features/assistant/lib/mention-text";
 import { usePersistedPanelLayout } from "@/hooks/use-persisted-panel-layout";
 import {
   fetchWorldInfoByProject,
@@ -72,10 +73,9 @@ function generateUniqueEntryName(baseName: string, entries: WorldInfoEntryBrief[
 export function WorldInfoPage() {
   const { t } = useTranslation();
   const { projectId: projectIdFromRoute } = useParams<{ projectId: string }>();
-  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const queryClient = useQueryClient();
-  const { closeAssistantSidebar, isMobile, openAssistantSidebar } = useAppShell();
+  const { isMobile, openAssistantSidebar } = useAppShell();
 
   const {
     currentWorldInfoId,
@@ -385,19 +385,6 @@ export function WorldInfoPage() {
     },
   });
 
-  const handleSelectProject = useCallback(
-    (projectId: string) => {
-      setCurrentProject(projectId || null);
-      if (projectId) {
-        navigate(`/projects/${projectId}/world-info`);
-      }
-      setIsCreatingEntry(false);
-      setSidebarOpen(false);
-      closeAssistantSidebar();
-    },
-    [closeAssistantSidebar, navigate, setCurrentProject, setSidebarOpen],
-  );
-
   /** 处理创建条目 */
   const handleCreateEntry = useCallback(() => {
     if (currentWorldInfoId) {
@@ -595,9 +582,6 @@ export function WorldInfoPage() {
   // 侧边栏内容
   const sidebarContent = currentProjectId ? (
     <EntryList
-      projects={projects}
-      currentProjectId={currentProjectId}
-      onSelectProject={handleSelectProject}
       onImport={() => setImportDialogOpen(true)}
       entries={entries}
       onCreateEntry={handleCreateEntry}
@@ -632,28 +616,34 @@ export function WorldInfoPage() {
     </Flex>
   );
 
-  const agentSidebarContent = currentProjectId ? (
-    <AssistantSidebarHost
-      projectId={currentProjectId}
-      onStateChange={setAssistantState}
-      isMobileOverlay={isMobile}
-    />
-  ) : (
-    <Flex
-      align="center"
-      justify="center"
-      height="100%"
-      p="4"
-    >
-      <Text
-        size="2"
-        color="gray"
+  const agentSidebarContent =
+    currentProjectId && selectedEntry ? (
+      <AssistantSidebarHost
+        projectId={currentProjectId}
+        preferredAgentKey="discuss"
+        initialComposerMarkup={buildWorldInfoEntryMentionTag({
+          worldInfoEntryId: selectedEntry.id,
+          label: selectedEntry.name,
+        })}
+        onStateChange={setAssistantState}
+        isMobileOverlay={isMobile}
+      />
+    ) : (
+      <Flex
         align="center"
+        justify="center"
+        height="100%"
+        p="4"
       >
-        {t("worldInfo.noProject")}
-      </Text>
-    </Flex>
-  );
+        <Text
+          size="2"
+          color="gray"
+          align="center"
+        >
+          {t("worldInfo.selectEntryToDiscuss")}
+        </Text>
+      </Flex>
+    );
 
   const editorContent = isCreatingEntry ? (
     <Box p="4">
@@ -853,6 +843,7 @@ export function WorldInfoPage() {
                       size="2"
                       aria-label={t("assistant.mobileTitle")}
                       onClick={openAssistantSidebar}
+                      disabled={!selectedEntry}
                     >
                       <Bot size={18} />
                     </IconButton>
@@ -917,7 +908,7 @@ export function WorldInfoPage() {
         </Flex>
       </Flex>
 
-      {isMobile && currentProjectId ? agentSidebarContent : null}
+      {isMobile && currentProjectId && selectedEntry ? agentSidebarContent : null}
 
       <ImportWorldInfoDialog
         open={importDialogOpen}

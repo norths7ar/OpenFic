@@ -6,9 +6,11 @@ import { ContentSearchPopover } from "@/components/content-search-popover";
 import type { ContentSearchResultItem } from "@/components/content-search-popover";
 import { searchNotes } from "@/lib/api-client";
 import type { NoteSearchResultItem } from "@/lib/api-client";
+import type { DocumentType } from "@/lib/note.types";
 
 interface NoteSearchPopoverProps {
   projectId: string;
+  documentType?: DocumentType;
   query: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -30,6 +32,7 @@ function toSearchResultItem(item: NoteSearchResultItem): ContentSearchResultItem
 
 export function NoteSearchPopover({
   projectId,
+  documentType = "note",
   query,
   open,
   onOpenChange,
@@ -69,8 +72,8 @@ export function NoteSearchPopover({
   }, [query, open]);
 
   const { data, isLoading } = useQuery({
-    queryKey: ["notes-search", projectId, debouncedQuery],
-    queryFn: () => searchNotes(projectId, debouncedQuery),
+    queryKey: ["notes-search", projectId, documentType, debouncedQuery],
+    queryFn: () => searchNotes(projectId, debouncedQuery, documentType),
     enabled: !!projectId && debouncedQuery.trim().length > 0 && open,
     staleTime: 0,
   });
