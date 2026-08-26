@@ -171,6 +171,7 @@ export function AppLayout({ appearance, version, onAppearanceChange }: AppLayout
                 projectId={assistantSidebarHost.projectId}
                 preferredAgentKey={assistantSidebarHost.preferredAgentKey}
                 initialComposerMarkup={assistantSidebarHost.initialComposerMarkup}
+                discussionWorkspace={assistantSidebarHost.discussionWorkspace}
                 onStateChange={
                   assistantSidebarHost.isActive ? assistantSidebarHost.onStateChange : undefined
                 }

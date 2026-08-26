@@ -28,7 +28,10 @@ import { useTranslation } from "react-i18next";
 import { CircularProgress, ConfirmDialog, Spinner, toast, getModelValue } from "@/components";
 import { AgentBrandIcon } from "@/components/agent-brand-icon";
 import { useAppShell } from "@/features/app-shell";
-import { appendMentionMarkup } from "@/features/assistant/lib/mention-text";
+import {
+  appendMentionMarkup,
+  replaceAutomaticMentionMarkup,
+} from "@/features/assistant/lib/mention-text";
 import { PendingProjectChangesDialog } from "@/features/pending-project-changes";
 import { fetchAgentDefinitions } from "@/features/settings/lib/agent-definitions-api";
 import { fetchSettings, updateSettings } from "@/features/settings/lib/settings-api";
@@ -87,6 +90,7 @@ interface AssistantSidebarProps {
   projectId: string;
   preferredAgentKey?: string;
   initialComposerMarkup?: string;
+  discussionWorkspace?: boolean;
   onStateChange?: (state: AssistantSidebarState) => void;
   onOpenMentionChapter?: (chapterId: string, chapterTitle: string) => void;
   onClose?: () => void;
@@ -285,6 +289,7 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
       projectId,
       preferredAgentKey,
       initialComposerMarkup,
+      discussionWorkspace = false,
       onStateChange,
       onOpenMentionChapter,
       onClose,
@@ -326,6 +331,7 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
     const [isMessagesAtBottom, setIsMessagesAtBottom] = useState(true);
     const handledPreferredAgentRef = useRef<string | null>(null);
     const handledInitialComposerMarkupRef = useRef<string | null>(null);
+    const automaticComposerMarkupRef = useRef<string | null>(null);
     const scrollToBottomFnRef = useRef<(() => void) | null>(null);
 
     const { data: tasksData, refetch: refetchRecentTasks } = useTasks(projectId, { limit: 3 });
@@ -1278,18 +1284,19 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
     ]);
 
     useEffect(() => {
-      if (!initialComposerMarkup) {
-        handledInitialComposerMarkupRef.current = null;
-        return;
-      }
-      const requestKey = `${projectId}:${initialComposerMarkup}`;
+      const nextMarkup = initialComposerMarkup?.trim() || null;
+      const requestKey = `${projectId}:${nextMarkup ?? ""}`;
       if (handledInitialComposerMarkupRef.current === requestKey) return;
       handledInitialComposerMarkupRef.current = requestKey;
+      const previousMarkup = automaticComposerMarkupRef.current;
+      automaticComposerMarkupRef.current = nextMarkup;
 
       let cancelled = false;
       queueMicrotask(() => {
         if (cancelled) return;
-        setInputValue((current) => appendMentionMarkup(current, initialComposerMarkup));
+        setInputValue((current) =>
+          replaceAutomaticMentionMarkup(current, previousMarkup, nextMarkup),
+        );
       });
       return () => {
         cancelled = true;
@@ -1404,7 +1411,20 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
         direction="column"
         height="100%"
         className="ai-sidebar-shell"
+        data-discussion-workspace={discussionWorkspace}
       >
+        {discussionWorkspace ? (
+          <Box className="ai-sidebar-discussion-history">
+            <AllTasksPage
+              projectId={projectId}
+              onBack={() => undefined}
+              onTaskClick={loadTask}
+              activeTaskId={currentTaskId}
+              showBack={false}
+              title={t("assistant.discussionHistory")}
+            />
+          </Box>
+        ) : null}
         {shouldShowMobileToolbar && (
           <Flex
             align="center"
@@ -1434,7 +1454,7 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
             gap="2"
             className="ai-sidebar-project-actions"
           >
-            <PendingProjectChangesDialog projectId={projectId} />
+            {!discussionWorkspace ? <PendingProjectChangesDialog projectId={projectId} /> : null}
             {hasDiscussionAgent ? (
               <DropdownMenu.Root>
                 <DropdownMenu.Trigger>
@@ -1444,7 +1464,9 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
                     color="purple"
                   >
                     <MessageCircle size={14} />
-                    {t("assistant.startDiscussion")}
+                    {contextMode === "global"
+                      ? t("assistant.globalDiscussionStatus")
+                      : t("assistant.localDiscussionStatus")}
                     <ChevronDown size={13} />
                   </Button>
                 </DropdownMenu.Trigger>
@@ -1554,15 +1576,17 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
                     )}
                   </IconButton>
                 </Tooltip>
-                <IconButton
-                  variant="ghost"
-                  color="gray"
-                  size="1"
-                  onClick={openAllTasks}
-                  aria-label={t("assistant.history")}
-                >
-                  <History size={16} />
-                </IconButton>
+                {!discussionWorkspace ? (
+                  <IconButton
+                    variant="ghost"
+                    color="gray"
+                    size="1"
+                    onClick={openAllTasks}
+                    aria-label={t("assistant.history")}
+                  >
+                    <History size={16} />
+                  </IconButton>
+                ) : null}
                 <IconButton
                   variant="ghost"
                   color="gray"
@@ -1701,7 +1725,7 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
           </Box>
         ) : null}
 
-        {view === "allTasks" ? (
+        {view === "allTasks" && !discussionWorkspace ? (
           <AllTasksPage
             projectId={projectId}
             onBack={() => {
@@ -1763,6 +1787,21 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
                   onAtBottomChange={setIsMessagesAtBottom}
                   scrollToBottomFnRef={scrollToBottomFnRef}
                 />
+              ) : !hasActiveTask && discussionWorkspace ? (
+                <Flex
+                  align="center"
+                  justify="center"
+                  height="100%"
+                  px="5"
+                >
+                  <Text
+                    size="2"
+                    color="gray"
+                    align="center"
+                  >
+                    {t("assistant.discussionEmptyHint")}
+                  </Text>
+                </Flex>
               ) : !hasActiveTask ? (
                 <RecentTasksCard
                   tasks={recentTasks}

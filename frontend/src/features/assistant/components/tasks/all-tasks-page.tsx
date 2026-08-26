@@ -21,9 +21,19 @@ interface AllTasksPageProps {
   projectId: string;
   onBack: () => void;
   onTaskClick: (task: TaskListItem) => void;
+  activeTaskId?: string | null;
+  showBack?: boolean;
+  title?: string;
 }
 
-export function AllTasksPage({ projectId, onBack, onTaskClick }: AllTasksPageProps) {
+export function AllTasksPage({
+  projectId,
+  onBack,
+  onTaskClick,
+  activeTaskId = null,
+  showBack = true,
+  title,
+}: AllTasksPageProps) {
   const { t } = useTranslation();
   const [searchQuery, setSearchQuery] = useState("");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -139,18 +149,20 @@ export function AllTasksPage({ projectId, onBack, onTaskClick }: AllTasksPagePro
         gap="2"
         style={{ borderBottom: "1px solid var(--gray-a4)" }}
       >
-        <IconButton
-          variant="ghost"
-          size="2"
-          onClick={onBack}
-        >
-          <ArrowLeft size={18} />
-        </IconButton>
+        {showBack ? (
+          <IconButton
+            variant="ghost"
+            size="2"
+            onClick={onBack}
+          >
+            <ArrowLeft size={18} />
+          </IconButton>
+        ) : null}
         <Text
           size="3"
           weight="medium"
         >
-          {t("writing.aiSidebar.allTasks")}
+          {title ?? t("writing.aiSidebar.allTasks")}
         </Text>
       </Flex>
 
@@ -219,6 +231,7 @@ export function AllTasksPage({ projectId, onBack, onTaskClick }: AllTasksPagePro
             <Box
               key={task.id}
               className="task-list-item"
+              data-active={task.id === activeTaskId}
               onClick={() => {
                 if (editingTaskId !== task.id) onTaskClick(task);
               }}

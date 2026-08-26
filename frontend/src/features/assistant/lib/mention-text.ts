@@ -342,6 +342,22 @@ export function appendMentionMarkup(currentText: string, mentionMarkup: string):
   return `${currentText} ${mentionMarkup}`;
 }
 
+export function replaceAutomaticMentionMarkup(
+  currentText: string,
+  previousMarkup: string | null,
+  nextMarkup: string | null,
+): string {
+  let nextText = currentText;
+
+  if (previousMarkup) {
+    nextText = nextText.split(previousMarkup).join("");
+    nextText = nextText.replace(/[ \t]{2,}/g, " ").trim();
+  }
+
+  if (!nextMarkup || nextText.includes(nextMarkup)) return nextText;
+  return appendMentionMarkup(nextText, nextMarkup);
+}
+
 export function filterMentionCandidates(
   candidates: AssistantMentionCandidate[],
   query: string,

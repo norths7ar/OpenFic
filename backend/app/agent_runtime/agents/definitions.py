@@ -112,7 +112,10 @@ DEFAULT_AGENT_DEFINITIONS: Mapping[str, AgentDefinition] = MappingProxyType(
         "discuss": AgentDefinition(
             key="discuss",
             display_name="Discuss",
-            description="项目级设定/剧情讨论",
+            description=(
+                "围绕当前项目讨论设定与剧情，按所选范围读取资料，"
+                "并保持信息边界"
+            ),
             kind="primary",
             prompt_agent_name="discuss",
             model_id=None,

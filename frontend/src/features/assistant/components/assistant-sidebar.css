@@ -997,6 +997,32 @@
   --ai-sidebar-scroll-button-offset: 132px;
 }
 
+.ai-sidebar-shell[data-discussion-workspace="true"] {
+  box-sizing: border-box;
+  padding-left: 292px;
+}
+
+.ai-sidebar-discussion-history {
+  position: absolute;
+  inset: 0 auto 0 0;
+  z-index: 12;
+  width: 292px;
+  min-width: 240px;
+  max-width: 360px;
+  overflow: hidden;
+  border-right: 1px solid var(--gray-a5);
+}
+
+@media (max-width: 900px) {
+  .ai-sidebar-shell[data-discussion-workspace="true"] {
+    padding-left: 240px;
+  }
+
+  .ai-sidebar-discussion-history {
+    width: 240px;
+  }
+}
+
 .ai-sidebar-mobile-toolbar {
   min-height: 44px;
   padding: 4px 10px;
@@ -1181,6 +1207,11 @@
   border-color: var(--gray-a6);
   background: var(--gray-a2);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.task-list-item[data-active="true"] {
+  border-color: var(--jade-a7);
+  background: var(--jade-a3);
 }
 
 .task-running-dot {

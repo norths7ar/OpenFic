@@ -1036,7 +1036,7 @@
     "primaryDescription": {
       "build": "Default agent that handles general writing tasks and dispatches sub-agents when needed.",
       "plan": "Focuses on planning and coordination, organizing, reviewing, and delivering sub-agent work for system writing tasks.",
-      "discuss": "Project-level setting and plot discussion."
+      "discuss": "Discuss project settings and plot with the selected knowledge scope and clear information boundaries."
     }
   },
   "connections": {
@@ -1667,6 +1667,10 @@
     "history": "History",
     "newTask": "New Task",
     "startDiscussion": "New discussion",
+    "discussionHistory": "Conversations",
+    "discussionEmptyHint": "Choose a previous discussion on the left, or start a new one below.",
+    "globalDiscussionStatus": "Global discussion",
+    "localDiscussionStatus": "Local discussion",
     "globalDiscussion": "Global discussion (all knowledge)",
     "localDiscussion": "Local discussion (writing visibility boundary)",
     "globalContextLocked": "Global context · locked after creation",

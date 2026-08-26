@@ -1036,7 +1036,7 @@
     "primaryDescription": {
       "build": "默认的 Agent，执行通用的写作任务，并在需要时调度子 Agent 完成工作",
       "plan": "专注于规划和协调，组织子 Agent 工作、审查与交付，负责执行系统写作的任务",
-      "discuss": "项目级设定/剧情讨论"
+      "discuss": "围绕当前项目讨论设定与剧情，按所选范围读取资料，并保持信息边界"
     }
   },
   "connections": {
@@ -1765,6 +1765,10 @@
     "history": "历史记录",
     "newTask": "新建任务",
     "startDiscussion": "开始讨论",
+    "discussionHistory": "对话记录",
+    "discussionEmptyHint": "从左侧选择一段讨论，或直接在下方开始新的讨论。",
+    "globalDiscussionStatus": "全局讨论",
+    "localDiscussionStatus": "局部讨论",
     "globalDiscussion": "全局讨论（可见全部资料）",
     "localDiscussion": "局部讨论（遵守写作可见边界）",
     "globalContextLocked": "全局上下文 · 创建后不可切换",

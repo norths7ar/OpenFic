@@ -30,7 +30,9 @@ async def test_list_agent_definitions(client: AsyncClient):
     assert build["icon"] == "pen-tool"
     assert plan["color"] == "green"
     assert discuss["kind"] == "primary"
-    assert discuss["description"] == "项目级设定/剧情讨论"
+    assert discuss["description"] == (
+        "围绕当前项目讨论设定与剧情，按所选范围读取资料，并保持信息边界"
+    )
     assert discuss["color"] == "purple"
     assert discuss["icon"] == "lightbulb"
     assert discuss["delegatable_agents"] == []
