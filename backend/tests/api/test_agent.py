@@ -30,6 +30,7 @@ from app.agent_runtime.streaming.replay_buffer import get_agent_event_replay_buf
 from app.api.routers.agent_runtime import (
     _SESSION_RUNNERS,
     _build_model_config,
+    _checkpoint_has_pending_interrupt,
     _launch_task,
 )
 from app.settings import settings
@@ -1522,6 +1523,76 @@ class TestAgentAPI:
         assert revision.status == "active"
         launch_task.assert_awaited_once()
         launch_task.await_args.kwargs["coro"].close()
+
+    async def test_resume_recovers_failed_revision_with_pending_checkpoint(
+        self,
+        client: AsyncClient,
+        session,
+    ) -> None:
+        target = await _seed_agent_target(client)
+        session_response = await client.post(
+            "/api/v1/agent/sessions",
+            json={"project_id": target["project_id"], "model_id": target["model_id"]},
+        )
+        payload = session_response.json()
+        session_id = payload["session_id"]
+        task = await task_service.get_task(session, payload["task_id"])
+        revision = Revision(
+            project_id=task.project_id,
+            task_id=task.id,
+            message="checkpoint write failed",
+            agent_session_id=session_id,
+            revision_type="agent",
+            status="failed",
+            is_checkpoint=True,
+            project_snapshot_title="Recoverable failure",
+            project_snapshot_word_count=0,
+            project_snapshot_chapter_count=0,
+        )
+        session.add(revision)
+        await session.flush()
+        task.current_revision_id = revision.id
+        session.add(task)
+        await session.commit()
+
+        checkpoint = SimpleNamespace(
+            checkpoint={"channel_values": {"current_revision_id": revision.id}},
+            pending_writes=[(None, "__interrupt__", [object()])]
+        )
+        with (
+            patch(
+                "app.api.routers.agent_runtime.get_checkpointer",
+                new=AsyncMock(return_value=SimpleNamespace(
+                    aget_tuple=AsyncMock(return_value=checkpoint)
+                )),
+            ),
+            patch("app.api.routers.agent_runtime._launch_task", new=AsyncMock()) as launch_task,
+        ):
+            response = await client.post(
+                f"/api/v1/agent/sessions/{session_id}/tool-approval",
+                json={"approval_id": "recoverable-approval", "approved": True},
+            )
+
+        await session.refresh(revision)
+        assert response.status_code == status.HTTP_200_OK
+        assert revision.status == "active"
+        launch_task.assert_awaited_once()
+        launch_task.await_args.kwargs["coro"].close()
+
+    async def test_failed_revision_recovery_requires_matching_checkpoint_revision(self) -> None:
+        checkpoint = SimpleNamespace(
+            checkpoint={"channel_values": {"current_revision_id": "revision-a"}},
+            pending_writes=[(None, "__interrupt__", [object()])],
+        )
+        with patch(
+            "app.api.routers.agent_runtime.get_checkpointer",
+            new=AsyncMock(
+                return_value=SimpleNamespace(
+                    aget_tuple=AsyncMock(return_value=checkpoint),
+                )
+            ),
+        ):
+            assert not await _checkpoint_has_pending_interrupt("session-a", "revision-b")
 
     async def test_resume_claim_holds_session_lock_before_new_message_can_start(
         self,
@@ -3699,6 +3770,43 @@ class TestAgentAPI:
         assert response.json()["success"] is True
         await asyncio.sleep(0.05)
         mock_resume.assert_awaited_once_with("batch-1", responses)
+
+    async def test_submit_interrupt_batch_accepts_maximum_tool_batch(
+        self, client: AsyncClient
+    ) -> None:
+        target = await _seed_agent_target(client)
+        session_response = await client.post(
+            "/api/v1/agent/sessions",
+            json={
+                "project_id": target["project_id"],
+                "model_id": target["model_id"],
+                "max_iterations": 5,
+            },
+        )
+        session_id = session_response.json()["session_id"]
+        responses = [
+            {
+                "interrupt_id": f"approval-{index}",
+                "action_type": "tool_approval",
+                "approval_id": f"approval-{index}",
+                "approved": True,
+            }
+            for index in range(20)
+        ]
+
+        with patch(
+            "app.api.routers.agent_runtime.SessionRunner.resume_interrupt_batch",
+            new=AsyncMock(return_value=None),
+        ) as mock_resume:
+            response = await client.post(
+                f"/api/v1/agent/sessions/{session_id}/interrupt-resume",
+                json={"batch_id": "batch-maximum", "responses": responses},
+            )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["success"] is True
+        await asyncio.sleep(0.05)
+        mock_resume.assert_awaited_once_with("batch-maximum", responses)
 
     async def test_rollback_session_uses_revision_id_and_restores_data(
         self,

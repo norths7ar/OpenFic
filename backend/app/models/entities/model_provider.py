@@ -5,6 +5,7 @@ ModelProvider 数据模型。
 
 from datetime import UTC, datetime
 
+from sqlalchemy import Column, Text
 from sqlmodel import Field, SQLModel
 
 from app.core.ids import generate_id
@@ -30,12 +31,16 @@ class ModelProvider(SQLModel, table=True):
     name: str = Field(default="", max_length=200)
     url: str = Field(max_length=500)
     api_key_encrypted: str = Field(max_length=1000)
+    custom_headers_encrypted: str = Field(
+        default="",
+        sa_column=Column(Text, nullable=False),
+    )
     provider_type: str = Field(
         max_length=50,
         description=(
             "Provider type: anthropic, openai, google-genai, ollama, groq, "
             "huggingface, mistral, nvidia-ai-endpoints, cohere, openrouter, "
-            "amazon-nova, deepseek, openai-compatible"
+            "amazon-nova, deepseek, openai-compatible, openai-compatible-responses"
         ),
     )
     is_builtin: bool = Field(default=False, description="是否为内置提供商（不可删除/编辑）")

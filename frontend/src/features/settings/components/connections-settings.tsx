@@ -23,7 +23,11 @@ import {
   deleteProvider,
 } from "../lib/model-api";
 import { ProviderIcon } from "../lib/provider-icons";
-import { getProviderDisplayName, resolveProviderDisplayName } from "../lib/provider-utils";
+import {
+  getProviderDisplayName,
+  isCustomProviderType,
+  resolveProviderDisplayName,
+} from "../lib/provider-utils";
 import { AgentSettingsLockNotice } from "./agent-settings-lock-notice";
 import { ConnectionFormDialog } from "./connection-form-dialog";
 import { ProviderModelsDialog } from "./provider-models-dialog";
@@ -247,8 +251,7 @@ export function ConnectionsSettings({
                           weight="medium"
                         >
                           {connection.name ||
-                            (connection.providerType === "openai-compatible" ||
-                            connection.providerType === "anthropic-compatible"
+                            (isCustomProviderType(connection.providerType)
                               ? connection.url
                               : null) ||
                             resolveProviderDisplayName(connection)}
@@ -265,8 +268,7 @@ export function ConnectionsSettings({
                           {connection.catalogMatch?.displayName ||
                             getProviderDisplayName(connection.providerType)}
                         </Text>
-                        {(connection.providerType === "openai-compatible" ||
-                          connection.providerType === "anthropic-compatible") &&
+                        {isCustomProviderType(connection.providerType) &&
                           !connection.catalogMatch && (
                             <>
                               <Text

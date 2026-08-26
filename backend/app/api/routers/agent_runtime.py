@@ -83,6 +83,7 @@ from app.core.encryption import EncryptionService
 from app.core.errors import NotFoundError
 from app.core.ids import generate_id
 from app.models.repos import model_provider_repo, model_repo
+from app.models.services.model_provider_service import ModelProviderService
 from app.settings import settings
 from app.socket import emit
 from app.socket.handlers import agent_session_room, background_project_room
@@ -365,6 +366,32 @@ async def _ensure_agent_session_resumable(
         )
 
 
+async def _checkpoint_has_pending_interrupt(session_id: str, revision_id: str) -> bool:
+    checkpointer = await get_checkpointer()
+    checkpoint = await checkpointer.aget_tuple(
+        {"configurable": {"thread_id": session_id}}
+    )
+    checkpoint_data = getattr(checkpoint, "checkpoint", None) if checkpoint is not None else None
+    channel_values = (
+        checkpoint_data.get("channel_values")
+        if isinstance(checkpoint_data, dict)
+        else None
+    )
+    if not isinstance(channel_values, dict) or channel_values.get("current_revision_id") != revision_id:
+        return False
+    return (
+        any(
+            len(pending_write) >= 3
+            and pending_write[1] == "__interrupt__"
+            and isinstance(pending_write[2], list)
+            and bool(pending_write[2])
+            for pending_write in checkpoint.pending_writes or []
+        )
+        if checkpoint is not None
+        else False
+    )
+
+
 async def _claim_agent_session_resume(
     session: AsyncSession,
     session_id: str,
@@ -386,6 +413,14 @@ async def _claim_agent_session_resume(
         return revision_id, True
 
     revision = await revision_repo.get_by_id(session, revision_id)
+    if revision is not None and revision.status == "failed":
+        if await _checkpoint_has_pending_interrupt(session_id, revision_id):
+            if await revision_repo.recover_failed_revision(session, revision_id):
+                await session.commit()
+                if await revision_repo.claim_interrupted_revision(session, revision_id):
+                    await session.commit()
+                    return revision_id, True
+                revision = await revision_repo.get_by_id(session, revision_id)
     if revision is not None and revision.status == "cancelled":
         await _ensure_agent_session_resumable(session, session_id)
     if allow_active and revision is not None and revision.status == "active":
@@ -425,7 +460,11 @@ async def _release_agent_session_resume_claim(
 
 
 async def _build_model_config(
-    model, provider, api_key: str, reasoning_effort: str | None = None
+    model,
+    provider,
+    api_key: str,
+    reasoning_effort: str | None = None,
+    custom_headers: dict[str, str] | None = None,
 ) -> dict:
     model_config = {
         "model_record_id": model.id,
@@ -450,6 +489,8 @@ async def _build_model_config(
     }
     if reasoning_effort and reasoning_effort != "off":
         model_config["reasoning_effort"] = reasoning_effort
+    if custom_headers:
+        model_config["custom_headers"] = custom_headers
     return model_config
 
 
@@ -490,7 +531,16 @@ async def _resolve_model_config(
     except Exception as exc:
         raise ValueError("API密钥解密失败") from exc
 
-    return await _build_model_config(model, provider, api_key, reasoning_effort)
+    custom_headers = ModelProviderService(
+        encryption_service
+    ).get_decrypted_custom_headers(provider)
+    return await _build_model_config(
+        model,
+        provider,
+        api_key,
+        reasoning_effort,
+        custom_headers,
+    )
 
 
 async def _resolve_legacy_model_config(
