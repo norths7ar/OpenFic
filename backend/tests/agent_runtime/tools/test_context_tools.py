@@ -175,8 +175,20 @@ async def test_list_characters_returns_project_character_names() -> None:
 
     tool = ListCharactersTool(_state=_make_state())
     characters = [
-        SimpleNamespace(id="char-1", name="林舟", description="主角", is_favorited=True),
-        SimpleNamespace(id="char-2", name="沈墨", description="反派", is_favorited=False),
+        SimpleNamespace(
+            id="char-1",
+            name="林舟",
+            description="主角",
+            is_favorited=True,
+            is_writing_visible=True,
+        ),
+        SimpleNamespace(
+            id="char-2",
+            name="沈墨",
+            description="反派",
+            is_favorited=False,
+            is_writing_visible=True,
+        ),
     ]
 
     with patch(
@@ -209,6 +221,7 @@ async def test_read_character_reads_description_by_name() -> None:
             name="林舟",
             description="主角\n旧友",
             is_favorited=True,
+            is_writing_visible=True,
         ),
     ]
 
@@ -375,6 +388,7 @@ async def test_edit_character_replaces_description_text() -> None:
         name="林舟",
         description="主角",
         is_favorited=False,
+        is_writing_visible=True,
     )
     updated_character = SimpleNamespace(
         id="char-1",
@@ -382,6 +396,7 @@ async def test_edit_character_replaces_description_text() -> None:
         name="林舟",
         description="主角与旧友",
         is_favorited=True,
+        is_writing_visible=True,
     )
 
     with patch(
@@ -438,6 +453,7 @@ async def test_edit_character_rejects_over_limit_replacement_without_updating() 
         name="林舟",
         description="旧内容",
         is_favorited=False,
+        is_writing_visible=True,
     )
 
     with patch(
@@ -474,6 +490,7 @@ async def test_delete_character_removes_name() -> None:
         name="林舟",
         description="主角",
         is_favorited=False,
+        is_writing_visible=True,
     )
 
     with patch(
@@ -613,7 +630,10 @@ async def test_read_world_entry_rejects_disabled_entry_by_title() -> None:
 
         result = await tool.ainvoke({"title": "已关闭"})
 
-    assert json.loads(result) == {"error": "世界书条目不存在: 已关闭"}
+    payload = json.loads(result)
+    assert payload["type"] == "fail"
+    assert payload["success"] is False
+    assert payload["message"] == "世界书条目不存在: 已关闭"
     mock_entry_repo.list_enabled_by_world_info.assert_awaited_once()
 
 
@@ -944,8 +964,12 @@ async def test_edit_world_entry_rejects_duplicate_new_title() -> None:
 
     tool = EditWorldEntryTool(_state={**_make_state(), "current_revision_id": "rev-1"})
     entries = [
-        SimpleNamespace(id="e1", name="主角", uid=1, order=1, content="林舟"),
-        SimpleNamespace(id="e2", name="反派", uid=2, order=2, content="沈墨"),
+        SimpleNamespace(
+            id="e1", name="主角", uid=1, order=1, content="林舟", is_enabled=True
+        ),
+        SimpleNamespace(
+            id="e2", name="反派", uid=2, order=2, content="沈墨", is_enabled=True
+        ),
     ]
 
     with patch(

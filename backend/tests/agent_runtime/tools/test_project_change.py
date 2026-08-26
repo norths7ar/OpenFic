@@ -123,7 +123,10 @@ async def test_project_change_uses_state_project_and_rejects_missing_project() -
         }
     )
 
-    assert "缺少当前项目" in json.loads(result)["error"]
+    payload = json.loads(result)
+    assert payload["type"] == "fail"
+    assert payload["success"] is False
+    assert "缺少当前项目" in payload["message"]
 
 
 @pytest.mark.asyncio
