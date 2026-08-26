@@ -66,17 +66,9 @@ def test_zip_skips_safe_directory_entries() -> None:
     assert read_zip(stream.getvalue()) == {"notes/a.md": b"a"}
 
 
-def test_zip_checks_actual_read_size(monkeypatch: pytest.MonkeyPatch) -> None:
-    data = build_zip({"a.md": ""})
+def test_zip_checks_declared_size_before_reading(monkeypatch: pytest.MonkeyPatch) -> None:
+    data = build_zip({"a.md": "12"})
     monkeypatch.setattr("app.project_bundle.archive.MAX_FILE_UNCOMPRESSED", 1)
-    original_read = zipfile.ZipFile.read
-    monkeypatch.setattr(
-        zipfile.ZipFile,
-        "read",
-        lambda archive, info: (
-            b"12" if info.filename == "a.md" else original_read(archive, info)
-        ),
-    )
     with pytest.raises(BundleFormatError):
         read_zip(data)
 

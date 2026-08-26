@@ -457,6 +457,14 @@ async def preview_project_bundle(
             current_hash,
             incoming_hash,
         )
+        if doc.kind == "note":
+            current_note = await session.get(Note, doc.id)
+            if (
+                current_note is not None
+                and current_note.is_locked
+                and item.action != "unchanged"
+            ):
+                item = replace(item, action="conflict", reason="locked_note")
         if await _has_name_conflict(
             session,
             kind=doc.kind,

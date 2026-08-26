@@ -9,7 +9,7 @@ from typing import Literal
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.editor_content_limits import validate_editor_content
-from app.core.errors import NotFoundError
+from app.core.errors import ConflictError, NotFoundError
 from app.storage.models.note import Note, NoteCategory
 from app.storage.repos import (
     note_category_repo,
@@ -210,6 +210,14 @@ async def update_note(
     changed = False
     records_writing_activity = False
 
+    changes_locked_content = (
+        title is not None and title != note.title
+    ) or (
+        content is not None and content != note.content
+    )
+    if note.is_locked and changes_locked_content:
+        raise ConflictError("笔记已锁定，请先解锁")
+
     if title is not None and title != note.title:
         note.title = title
         changed = True
@@ -250,6 +258,8 @@ async def delete_note(
     note_id: str,
 ) -> None:
     note = await get_note(session, note_id)
+    if note.is_locked:
+        raise ConflictError("笔记已锁定，请先解锁")
     project_id = note.project_id
     old_title = note.title
     await note_repo.delete(session, note)
@@ -427,6 +437,8 @@ async def move_item(
         note = await note_repo.get_by_id(session, item_id)
         if note is None:
             raise NotFoundError(f"笔记不存在: {item_id}")
+        if note.is_locked:
+            raise ConflictError("笔记已锁定，请先解锁")
 
         if target_category_id is not None:
             target = await note_category_repo.get_by_id(session, target_category_id)

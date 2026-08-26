@@ -140,6 +140,7 @@ TOOL_DISPLAY_ORDER = {
     "delete_world_entry": 37,
     "activate_skill": 38,
     "reference_skill": 39,
+    "propose_project_change": 40,
 }
 
 def _build_default_agent_session_title(created_at: datetime) -> str:
@@ -753,8 +754,6 @@ async def list_agent_tools() -> list[AgentToolMetadataResponse]:
     items_by_key: dict[str, AgentToolMetadataResponse] = {}
 
     for tool in ToolRegistry.get_tools(state={"session_id": "", "project_id": ""}):
-        if tool.name not in TOOL_DISPLAY_ORDER:
-            continue
         items_by_key[tool.name] = AgentToolMetadataResponse(
             key=tool.name,
             is_readonly=tool.access_level == "readonly",

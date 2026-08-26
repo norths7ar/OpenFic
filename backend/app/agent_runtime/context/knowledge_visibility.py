@@ -15,14 +15,12 @@ def includes_all_knowledge(state: Mapping[str, Any]) -> bool:
 
 
 def character_is_visible(character: Character, *, include_all: bool) -> bool:
-    return include_all or getattr(character, "is_writing_visible", True)
+    return include_all or character.is_writing_visible
 
 
 def note_is_visible(note: Note, *, include_all: bool) -> bool:
-    return not note.is_hidden and (
-        include_all or getattr(note, "is_writing_visible", True)
-    )
+    return not note.is_hidden and (include_all or note.is_writing_visible)
 
 
 def world_entry_is_visible(entry: WorldInfoEntry, *, include_all: bool) -> bool:
-    return include_all or getattr(entry, "is_enabled", True)
+    return include_all or entry.is_enabled

@@ -215,7 +215,7 @@ async def test_compile_canonical_mentions_supports_expanded_note_content(session
 
 
 @pytest.mark.asyncio
-async def test_compile_canonical_mentions_uses_fallbacks_for_unreadable_entries(
+async def test_compile_canonical_mentions_redacts_unavailable_compact_entries(
     session,
 ):
     project = Project(id="proj_mentions_scope", title="当前项目")
@@ -265,8 +265,7 @@ async def test_compile_canonical_mentions_uses_fallbacks_for_unreadable_entries(
         project_id=project.id,
     )
 
-    assert compiled == (
-        " @character:旧角色 \n"
-        " @note:旧隐藏笔记 \n"
-        " @world_info_entry:旧禁用条目 "
-    )
+    assert "旧角色" not in compiled
+    assert "旧隐藏笔记" not in compiled
+    assert "旧禁用条目" not in compiled
+    assert compiled.count("[引用不在当前上下文范围内]") == 3

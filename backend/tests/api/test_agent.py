@@ -412,6 +412,10 @@ class TestAgentAPI:
                 "key": "reference_skill",
                 "is_readonly": True,
             },
+            {
+                "key": "propose_project_change",
+                "is_readonly": False,
+            },
         ]
 
     async def test_create_agent_session_success(self, client: AsyncClient, session) -> None:

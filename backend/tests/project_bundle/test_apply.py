@@ -162,6 +162,33 @@ async def test_apply_updates_content_without_deleting_unlisted_rows(session) -> 
 
 
 @pytest.mark.asyncio
+async def test_apply_rejects_updates_to_locked_notes(session) -> None:
+    project = Project(id="apply-locked-project", title="锁定项目")
+    note = Note(
+        id="apply-locked-note",
+        project_id=project.id,
+        title="锁定笔记",
+        content="基线",
+        order=1,
+    )
+    session.add_all([project, note])
+    await session.flush()
+    edited = _rewrite_kind(
+        await export_project_bundle(session, project.id),
+        "note",
+        body="导入后的内容",
+    )
+    note.is_locked = True
+    await session.flush()
+
+    with pytest.raises(BundleApplyConflictError) as conflict:
+        await apply_project_bundle(session, project.id, edited, "merge")
+
+    assert any(item.reason == "locked_note" for item in conflict.value.items)
+    assert note.content == "基线"
+
+
+@pytest.mark.asyncio
 async def test_apply_rejects_concurrent_changes_and_live_discussion_edits(
     session,
 ) -> None:

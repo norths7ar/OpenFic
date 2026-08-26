@@ -4,6 +4,7 @@
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.errors import ConflictError
 from app.storage.models.note import Note
 from app.storage.models.project import Project
 from app.storage.repos import note_category_repo, note_repo
@@ -79,6 +80,32 @@ async def test_move_note_appends_to_target_category(session: AsyncSession) -> No
     assert existing.order == 1
     assert moved.category_id == target.id
     assert moved.order == 2
+
+
+@pytest.mark.asyncio
+async def test_locked_note_blocks_content_move_and_delete_but_allows_visibility(
+    session: AsyncSession,
+) -> None:
+    project = await _create_project(session)
+    target = await note_service.create_category(
+        session, project.id, parent_id=None, title="目标"
+    )
+    note = await note_service.create_note(
+        session, project.id, category_id=None, title="锁定笔记", content="原文"
+    )
+    await note_service.set_note_locked(session, note.id, True)
+
+    with pytest.raises(ConflictError, match="已锁定"):
+        await note_service.update_note(session, note.id, content="改写")
+    with pytest.raises(ConflictError, match="已锁定"):
+        await note_service.move_item(session, "note", note.id, target.id)
+    with pytest.raises(ConflictError, match="已锁定"):
+        await note_service.delete_note(session, note.id)
+
+    updated = await note_service.update_note(
+        session, note.id, is_writing_visible=False
+    )
+    assert updated.is_writing_visible is False
 
 
 @pytest.mark.asyncio

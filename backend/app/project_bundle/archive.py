@@ -12,6 +12,7 @@ class BundleFormatError(ValueError):
 MAX_TOTAL_UNCOMPRESSED = 50 * 1024 * 1024
 MAX_FILE_UNCOMPRESSED = 5 * 1024 * 1024
 MAX_FILES = 5000
+_READ_CHUNK_SIZE = 64 * 1024
 _DRIVE = re.compile(r"^[A-Za-z]:")
 
 
@@ -74,6 +75,11 @@ def read_zip(data: bytes) -> dict[str, bytes]:
             file_infos = [info for info in infos if not info.is_dir()]
             if len(file_infos) > MAX_FILES:
                 raise BundleFormatError("archive contains too many files")
+            declared_total = sum(info.file_size for info in file_infos)
+            if any(info.file_size > MAX_FILE_UNCOMPRESSED for info in file_infos):
+                raise BundleFormatError("archive file exceeds uncompressed size limit")
+            if declared_total > MAX_TOTAL_UNCOMPRESSED:
+                raise BundleFormatError("archive exceeds uncompressed size limit")
             for info in infos:
                 if info.is_dir():
                     if not info.filename.endswith("/"):
@@ -91,14 +97,22 @@ def read_zip(data: bytes) -> dict[str, bytes]:
                 if path in seen_paths:
                     raise BundleFormatError(f"duplicate archive path: {path!r}")
                 seen_paths.add(path)
-                file_data = archive.read(info)
-                if len(file_data) > MAX_FILE_UNCOMPRESSED:
-                    raise BundleFormatError(
-                        "archive file exceeds uncompressed size limit"
-                    )
+                chunks: list[bytes] = []
+                file_size = 0
+                with archive.open(info) as source:
+                    while chunk := source.read(_READ_CHUNK_SIZE):
+                        file_size += len(chunk)
+                        if file_size > MAX_FILE_UNCOMPRESSED:
+                            raise BundleFormatError(
+                                "archive file exceeds uncompressed size limit"
+                            )
+                        if total + file_size > MAX_TOTAL_UNCOMPRESSED:
+                            raise BundleFormatError(
+                                "archive exceeds uncompressed size limit"
+                            )
+                        chunks.append(chunk)
+                file_data = b"".join(chunks)
                 total += len(file_data)
-                if total > MAX_TOTAL_UNCOMPRESSED:
-                    raise BundleFormatError("archive exceeds uncompressed size limit")
                 result[path] = file_data
     except (zipfile.BadZipFile, zipfile.LargeZipFile) as exc:
         raise BundleFormatError("invalid ZIP archive") from exc

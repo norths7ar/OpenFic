@@ -364,7 +364,7 @@ async def compile_canonical_mentions(
             compiled.append(part)
             continue
 
-        if _is_expanded_mention(part) and not await resolver.mention_is_available(part):
+        if not await resolver.mention_is_available(part):
             compiled.append(" [引用不在当前上下文范围内] ")
             continue
 
