@@ -161,6 +161,7 @@ function transformModel(raw: ModelResponse): Model {
     cacheWritePrice: raw.cache_write_price ?? 0,
     dimensions: raw.dimensions,
     isBuiltin: raw.is_builtin ?? false,
+    isEnabled: raw.is_enabled ?? true,
     createdAt: raw.created_at,
     updatedAt: raw.updated_at,
   };
@@ -340,10 +341,15 @@ export async function fetchModelProviderCatalogModels(
 /**
  * 获取所有模型
  */
-export async function fetchModels(providerId?: string, taskType?: string): Promise<Model[]> {
+export async function fetchModels(
+  providerId?: string,
+  taskType?: string,
+  includeDisabled = false,
+): Promise<Model[]> {
   const params: Record<string, string> = {};
   if (providerId) params.provider_id = providerId;
   if (taskType) params.task_type = taskType;
+  if (includeDisabled) params.include_disabled = "true";
   const response = await apiClient.get<ModelResponse[]>("/models", { params });
   return response.data.map(transformModel);
 }

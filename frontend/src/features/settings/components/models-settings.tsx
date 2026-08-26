@@ -4,9 +4,17 @@
  * 模型设置面板，管理和配置 AI 模型。
  */
 
-import { Box, Flex, Text, Button, IconButton, Badge, Tabs } from "@radix-ui/themes";
+import {
+  Badge,
+  Box,
+  DropdownMenu,
+  Flex,
+  IconButton,
+  Tabs,
+  Text,
+} from "@radix-ui/themes";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Trash2, Edit } from "lucide-react";
+import { Edit, MoreHorizontal, Trash2 } from "lucide-react";
 import { useState, useCallback, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -408,15 +416,27 @@ export function ModelsSettings({
           </Flex>
         </Flex>
 
-        {/* 新建按钮 */}
-        <Flex>
-          <Button
-            onClick={handleCreate}
-            disabled={isAgentSettingsLocked || !hasProviders}
-          >
-            <Plus size={16} />
-            {t("models.newModel")}
-          </Button>
+        {/* 手动添加仅作为无法探测远端模型时的备用入口 */}
+        <Flex justify="end">
+          <DropdownMenu.Root>
+            <DropdownMenu.Trigger>
+              <IconButton
+                variant="ghost"
+                color="gray"
+                aria-label={t("models.moreActions")}
+              >
+                <MoreHorizontal size={18} />
+              </IconButton>
+            </DropdownMenu.Trigger>
+            <DropdownMenu.Content align="end">
+              <DropdownMenu.Item
+                onSelect={handleCreate}
+                disabled={isAgentSettingsLocked || !hasProviders}
+              >
+                {t("models.manualAddModel")}
+              </DropdownMenu.Item>
+            </DropdownMenu.Content>
+          </DropdownMenu.Root>
         </Flex>
 
         {/* Tab导航 */}
@@ -545,14 +565,27 @@ export function ModelsSettings({
                           >
                             <Edit size={16} />
                           </IconButton>
-                          <IconButton
-                            variant="ghost"
-                            color="red"
-                            onClick={() => handleDelete(model)}
-                            disabled={isAgentSettingsLocked}
-                          >
-                            <Trash2 size={16} />
-                          </IconButton>
+                          <DropdownMenu.Root>
+                            <DropdownMenu.Trigger>
+                              <IconButton
+                                variant="ghost"
+                                color="gray"
+                                aria-label={t("models.moreActions")}
+                                disabled={isAgentSettingsLocked}
+                              >
+                                <MoreHorizontal size={16} />
+                              </IconButton>
+                            </DropdownMenu.Trigger>
+                            <DropdownMenu.Content align="end">
+                              <DropdownMenu.Item
+                                color="red"
+                                onSelect={() => handleDelete(model)}
+                              >
+                                <Trash2 size={14} />
+                                {t("models.permanentDelete")}
+                              </DropdownMenu.Item>
+                            </DropdownMenu.Content>
+                          </DropdownMenu.Root>
                         </>
                       )}
                     </Flex>

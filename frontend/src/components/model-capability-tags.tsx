@@ -1,6 +1,7 @@
 /* oxlint-disable react-refresh/only-export-components */
-import { Box } from "@radix-ui/themes";
+import { Box, Tooltip } from "@radix-ui/themes";
 import { AudioLines, Brain, FileText, Image, Type, Video, Wrench } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 import type { AvailableModel } from "@/lib/model.types";
 
@@ -105,52 +106,60 @@ export function formatContextWindow(value: number | null | undefined): string | 
 }
 
 export function CapabilityIcon({ capability }: { capability: ModelCapabilityKey }) {
+  const { t } = useTranslation();
   const meta = CAPABILITY_ICON_META[capability];
   const Icon = meta.icon;
 
   return (
-    <Box
-      aria-hidden="true"
-      style={{
-        width: 18,
-        height: 18,
-        display: "inline-flex",
-        alignItems: "center",
-        justifyContent: "center",
-        borderRadius: 5,
-        color: meta.color,
-        background: meta.background,
-        flexShrink: 0,
-      }}
-    >
-      <Icon
-        size={12}
-        strokeWidth={2.2}
-      />
-    </Box>
+    <Tooltip content={t(`models.capabilities.${capability}`)}>
+      <Box
+        role="img"
+        aria-label={t(`models.capabilities.${capability}`)}
+        style={{
+          width: 18,
+          height: 18,
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          borderRadius: 5,
+          color: meta.color,
+          background: meta.background,
+          flexShrink: 0,
+        }}
+      >
+        <Icon
+          size={12}
+          strokeWidth={2.2}
+        />
+      </Box>
+    </Tooltip>
   );
 }
 
 export function ContextBadge({ label }: { label: string }) {
+  const { t } = useTranslation();
   return (
-    <Box
-      style={{
-        minWidth: 30,
-        height: 18,
-        display: "inline-flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: "0 7px",
-        borderRadius: 5,
-        color: "var(--gray-11)",
-        background: "var(--gray-a3)",
-        flexShrink: 0,
-        fontSize: "var(--font-size-xs)",
-        fontWeight: 600,
-        lineHeight: 1,
-      }}
-    >
-      {label}
-    </Box>
+    <Tooltip content={t("models.contextWindowTooltip", { value: label })}>
+      <Box
+        aria-label={t("models.contextWindowTooltip", { value: label })}
+        style={{
+          minWidth: 30,
+          height: 18,
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "0 7px",
+          borderRadius: 5,
+          color: "var(--gray-11)",
+          background: "var(--gray-a3)",
+          flexShrink: 0,
+          fontSize: "var(--font-size-xs)",
+          fontWeight: 600,
+          lineHeight: 1,
+        }}
+      >
+        {label}
+      </Box>
+    </Tooltip>
   );
 }

@@ -118,6 +118,7 @@ export interface Model {
   cacheWritePrice: number;
   dimensions: number | null;
   isBuiltin: boolean;
+  isEnabled: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -146,6 +147,7 @@ export interface ModelResponse {
   cache_write_price: number;
   dimensions: number | null;
   is_builtin?: boolean;
+  is_enabled?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -172,6 +174,7 @@ export interface ModelCreateRequest {
   cache_read_price?: number | null;
   cache_write_price?: number | null;
   dimensions?: number | null;
+  is_enabled?: boolean;
 }
 
 /** 更新模型请求 */
@@ -196,6 +199,7 @@ export interface ModelUpdateRequest {
   cache_read_price?: number | null;
   cache_write_price?: number | null;
   dimensions?: number | null;
+  is_enabled?: boolean;
 }
 
 export interface ModelProviderCatalogProvider {

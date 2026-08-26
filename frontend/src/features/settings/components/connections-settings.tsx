@@ -4,9 +4,9 @@
  * 外部连接设置面板，管理模型服务提供商连接。
  */
 
-import { Box, Flex, Text, Button, IconButton } from "@radix-ui/themes";
+import { Box, Flex, Text, Button, IconButton, Tooltip } from "@radix-ui/themes";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Trash2, Edit } from "lucide-react";
+import { Plus, Trash2, Edit, ListFilter } from "lucide-react";
 import { useState, useCallback, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -26,6 +26,7 @@ import { ProviderIcon } from "../lib/provider-icons";
 import { getProviderDisplayName, resolveProviderDisplayName } from "../lib/provider-utils";
 import { AgentSettingsLockNotice } from "./agent-settings-lock-notice";
 import { ConnectionFormDialog } from "./connection-form-dialog";
+import { ProviderModelsDialog } from "./provider-models-dialog";
 
 interface ConnectionsSettingsProps {
   isAgentSettingsLocked: boolean;
@@ -42,12 +43,14 @@ export function ConnectionsSettings({
   const [formOpen, setFormOpen] = useState(false);
   const [editingConnection, setEditingConnection] = useState<ModelProvider | null>(null);
   const [deletingConnection, setDeletingConnection] = useState<ModelProvider | null>(null);
+  const [modelsConnection, setModelsConnection] = useState<ModelProvider | null>(null);
 
   useEffect(() => {
     if (!isAgentSettingsLocked) return;
     setFormOpen(false);
     setEditingConnection(null);
     setDeletingConnection(null);
+    setModelsConnection(null);
   }, [isAgentSettingsLocked]);
 
   // 获取所有连接
@@ -286,6 +289,17 @@ export function ConnectionsSettings({
 
                   {/* 操作按钮 */}
                   <Flex gap="2">
+                    <Tooltip content={t("models.manageModels")}>
+                      <IconButton
+                        variant="ghost"
+                        color="gray"
+                        aria-label={t("models.manageModels")}
+                        onClick={() => setModelsConnection(connection)}
+                        disabled={isAgentSettingsLocked}
+                      >
+                        <ListFilter size={16} />
+                      </IconButton>
+                    </Tooltip>
                     <IconButton
                       variant="ghost"
                       color="gray"
@@ -344,6 +358,15 @@ export function ConnectionsSettings({
         isCatalogLoading={isCatalogProvidersLoading}
         onSubmit={handleSubmit}
         isSubmitting={createMutation.isPending || updateMutation.isPending}
+        isAgentSettingsLocked={isAgentSettingsLocked}
+      />
+
+      <ProviderModelsDialog
+        provider={modelsConnection}
+        open={Boolean(modelsConnection)}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) setModelsConnection(null);
+        }}
         isAgentSettingsLocked={isAgentSettingsLocked}
       />
 

@@ -1987,6 +1987,7 @@ function transformModel(raw: ModelResponse): Model {
     cacheWritePrice: raw.cache_write_price ?? 0,
     dimensions: raw.dimensions,
     isBuiltin: raw.is_builtin ?? false,
+    isEnabled: raw.is_enabled ?? true,
     createdAt: raw.created_at,
     updatedAt: raw.updated_at,
   };
