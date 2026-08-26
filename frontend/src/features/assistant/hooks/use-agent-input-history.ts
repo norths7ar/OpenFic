@@ -19,7 +19,7 @@ export function useAgentInputHistory(projectId: string) {
     createAgentInputHistoryState([]),
   );
   const [draft, setDraft] = useState("");
-  const [isDraftLoaded, setIsDraftLoaded] = useState(false);
+  const [loadedProjectId, setLoadedProjectId] = useState<string | null>(null);
   const historyStateRef = useRef(historyState);
   const draftRef = useRef("");
   const draftChangedRef = useRef(false);
@@ -85,10 +85,10 @@ export function useAgentInputHistory(projectId: string) {
     draftRef.current = "";
     draftChangedRef.current = false;
     setDraft("");
-    setIsDraftLoaded(false);
+    setLoadedProjectId(null);
 
     if (!projectId) {
-      setIsDraftLoaded(true);
+      setLoadedProjectId(projectId);
       return () => undefined;
     }
 
@@ -105,7 +105,7 @@ export function useAgentInputHistory(projectId: string) {
       draftRef.current = nextDraft;
       draftChangedRef.current = false;
       setDraft(nextDraft);
-      setIsDraftLoaded(true);
+      setLoadedProjectId(projectId);
 
       if (hasPendingDraft || mergedEntries.length !== storedState.entries.length) {
         persistState(projectId, mergedEntries, nextDraft);
@@ -167,7 +167,7 @@ export function useAgentInputHistory(projectId: string) {
   return {
     draft,
     handleInputChange,
-    isDraftLoaded,
+    isDraftLoaded: loadedProjectId === projectId,
     navigate,
     record,
     historyState,

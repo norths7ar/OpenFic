@@ -23,6 +23,7 @@ import {
   validateAgentImageFiles,
 } from "../../lib/agent-image-attachments";
 import type { AgentInputHistoryDirection } from "../../lib/agent-input-history-state";
+import { appendMentionMarkup, replaceAutomaticMentionMarkup } from "../../lib/mention-text";
 import { AgentComposerEditor, type AgentComposerSuggestionState } from "./agent-composer-editor";
 import { AgentIndexStatusIndicator } from "./agent-index-status-indicator";
 import { canSendAgentInput, getAgentInputBodyMode, isAgentInputLocked } from "./agent-input-state";
@@ -32,6 +33,7 @@ import { AgentPendingMessageCard } from "./pending-message-card";
 interface AgentInputProps {
   projectId: string;
   value: string;
+  automaticComposerMarkup?: string | null;
   attachments: PendingAgentImageAttachment[];
   modelId: string;
   models: ModelIdSelectOption[];
@@ -68,6 +70,7 @@ interface AgentInputProps {
 export function AgentInput({
   projectId,
   value,
+  automaticComposerMarkup = null,
   attachments,
   modelId,
   models,
@@ -137,6 +140,11 @@ export function AgentInput({
     [modelId, models],
   );
   const [isDraggingImages, setIsDraggingImages] = useState(false);
+  const getPersistableValue = useCallback(
+    (currentValue: string) =>
+      replaceAutomaticMentionMarkup(currentValue, automaticComposerMarkup, null),
+    [automaticComposerMarkup],
+  );
   const canAttachImages = modelAllowsAgentImages(
     selectedModel?.inputModalities,
     selectedModel?.isCatalogMatched === true,
@@ -165,10 +173,20 @@ export function AgentInput({
   }, [onChange, projectId]);
 
   useEffect(() => {
-    if (!isDraftLoaded || !persistedDraft || value !== "") return;
-    historyValueRef.current = persistedDraft;
-    onChange(persistedDraft);
-  }, [isDraftLoaded, onChange, persistedDraft, value]);
+    if (!isDraftLoaded || !persistedDraft || getPersistableValue(value) !== "") return;
+    const restoredValue = automaticComposerMarkup
+      ? appendMentionMarkup(persistedDraft, automaticComposerMarkup)
+      : persistedDraft;
+    historyValueRef.current = restoredValue;
+    onChange(restoredValue);
+  }, [
+    automaticComposerMarkup,
+    getPersistableValue,
+    isDraftLoaded,
+    onChange,
+    persistedDraft,
+    value,
+  ]);
 
   useEffect(() => {
     if (!isDraftLoaded) return;
@@ -177,16 +195,16 @@ export function AgentInput({
       return;
     }
     historyValueRef.current = null;
-    handleHistoryInputChange(value);
-  }, [handleHistoryInputChange, isDraftLoaded, value]);
+    handleHistoryInputChange(getPersistableValue(value));
+  }, [getPersistableValue, handleHistoryInputChange, isDraftLoaded, value]);
 
   const handleComposerChange = useCallback(
     (nextValue: string) => {
       historyValueRef.current = null;
-      handleHistoryInputChange(nextValue);
+      handleHistoryInputChange(getPersistableValue(nextValue));
       onChange(nextValue);
     },
-    [handleHistoryInputChange, onChange],
+    [getPersistableValue, handleHistoryInputChange, onChange],
   );
 
   const handleHistoryNavigate = useCallback(

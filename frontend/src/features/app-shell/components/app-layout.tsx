@@ -167,6 +167,7 @@ export function AppLayout({ appearance, version, onAppearanceChange }: AppLayout
               data-open={String(assistantSidebarHost.isOpen)}
             >
               <AssistantSidebar
+                key={assistantSidebarHost.projectId}
                 ref={assistantSidebarRef}
                 projectId={assistantSidebarHost.projectId}
                 preferredAgentKey={assistantSidebarHost.preferredAgentKey}

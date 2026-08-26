@@ -1845,6 +1845,7 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
                 )
               }
               value={inputValue}
+              automaticComposerMarkup={automaticComposerMarkupRef.current}
               attachments={pendingAttachments}
               projectId={projectId}
               modelId={effectiveModelId}
