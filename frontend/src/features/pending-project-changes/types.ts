@@ -23,6 +23,8 @@ export interface PendingProjectChange {
   source_message_id: string | null;
   model_id: string | null;
   status: PendingProjectChangeStatus;
+  is_applicable: boolean;
+  applicability_reason: string | null;
   applied_at: string | null;
   created_at: string;
   updated_at: string;

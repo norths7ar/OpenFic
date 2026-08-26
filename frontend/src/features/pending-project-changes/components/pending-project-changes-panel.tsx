@@ -17,50 +17,6 @@ import type { JsonValue, PendingProjectChange } from "../types";
 import "./pending-project-changes-dialog.css";
 
 const EMPTY_PENDING_PROJECT_CHANGES: PendingProjectChange[] = [];
-const APPLICABLE_TARGET_TYPES = new Set(["note", "note_category", "character", "world_entry"]);
-const CREATE_FIELDS: Record<string, string[]> = {
-  note: ["body", "category_id", "kind", "title", "writing_visible"],
-  note_category: ["kind", "parent_id", "title"],
-  character: ["body", "kind", "title", "writing_visible"],
-  world_entry: ["body", "kind", "section", "title", "writing_visible"],
-};
-const SNAPSHOT_FIELDS: Record<string, string[]> = {
-  note: [
-    "body",
-    "category_id",
-    "id",
-    "is_hidden",
-    "is_locked",
-    "kind",
-    "order",
-    "project_id",
-    "title",
-    "writing_visible",
-  ],
-  note_category: ["id", "kind", "order", "parent_id", "project_id", "title"],
-  character: [
-    "body",
-    "id",
-    "is_favorited",
-    "kind",
-    "order",
-    "project_id",
-    "title",
-    "writing_visible",
-  ],
-  world_entry: [
-    "body",
-    "id",
-    "kind",
-    "order",
-    "project_id",
-    "section",
-    "title",
-    "uid",
-    "world_info_id",
-    "writing_visible",
-  ],
-};
 
 function formatJson(value: JsonValue): string {
   return JSON.stringify(value, null, 2);
@@ -74,44 +30,6 @@ function formatCreatedAt(value: string, locale: string): string {
 
 function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "";
-}
-
-function isRecord(value: JsonValue): value is { [key: string]: JsonValue } {
-  return Boolean(value && typeof value === "object" && !Array.isArray(value));
-}
-
-function hasExactFields(
-  value: JsonValue,
-  expected: string[],
-): value is { [key: string]: JsonValue } {
-  return isRecord(value) && Object.keys(value).sort().join("\0") === expected.join("\0");
-}
-
-function isApplicable(change: PendingProjectChange): boolean {
-  if (!APPLICABLE_TARGET_TYPES.has(change.target_type) || change.status !== "pending") return false;
-  if (change.operation === "create") {
-    return (
-      change.target_id === null &&
-      hasExactFields(change.after, CREATE_FIELDS[change.target_type]) &&
-      change.after.kind === change.target_type
-    );
-  }
-  if (!change.target_id || !change.base_hash) return false;
-  if (
-    !hasExactFields(change.before, SNAPSHOT_FIELDS[change.target_type]) ||
-    change.before.kind !== change.target_type ||
-    change.before.project_id !== change.project_id
-  ) {
-    return false;
-  }
-  if (change.operation === "delete") {
-    return change.target_type !== "note_category" && change.after === null;
-  }
-  return (
-    hasExactFields(change.after, SNAPSHOT_FIELDS[change.target_type]) &&
-    change.after.kind === change.target_type &&
-    change.after.project_id === change.project_id
-  );
 }
 
 function ChangeMetadata({ label, value }: { label: string; value: string }) {
@@ -342,7 +260,7 @@ export function PendingProjectChangesPanel({
                       {selectedChange.target_type}
                     </Text>
                     <Flex gap="2">
-                      {isApplicable(selectedChange) ? (
+                      {selectedChange.is_applicable ? (
                         <Button
                           size="1"
                           color="green"
@@ -353,7 +271,12 @@ export function PendingProjectChangesPanel({
                           {t("pendingProjectChanges.apply")}
                         </Button>
                       ) : (
-                        <Badge color="gray">{t("pendingProjectChanges.notApplicable")}</Badge>
+                        <Badge
+                          color="gray"
+                          title={selectedChange.applicability_reason ?? undefined}
+                        >
+                          {t("pendingProjectChanges.notApplicable")}
+                        </Badge>
                       )}
                       <Button
                         size="1"

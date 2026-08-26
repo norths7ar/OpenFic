@@ -63,6 +63,8 @@ class PendingProjectChangeResponse(BaseModel):
     source_message_id: str | None
     model_id: str | None
     status: PendingProjectChangeStatus
+    is_applicable: bool = False
+    applicability_reason: str | None = None
     applied_at: datetime | None
     created_at: datetime
     updated_at: datetime

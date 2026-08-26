@@ -13,9 +13,27 @@ from app.api.schemas.pending_project_change import (
 )
 from app.core.errors import ConflictError, NotFoundError, ValidationError
 from app.storage.database import get_session
+from app.storage.models.pending_project_change import PendingProjectChange
 from app.storage.services import pending_project_change_service
 
 router = APIRouter(tags=["pending-project-changes"])
+
+
+async def _to_response(
+    session: AsyncSession,
+    change: PendingProjectChange,
+) -> PendingProjectChangeResponse:
+    from app.storage.services import pending_project_change_apply_service
+
+    applicability = await pending_project_change_apply_service.assess_pending_change(
+        session, change
+    )
+    return PendingProjectChangeResponse.model_validate(change).model_copy(
+        update={
+            "is_applicable": applicability.is_applicable,
+            "applicability_reason": applicability.reason,
+        }
+    )
 
 
 @router.post(
@@ -41,7 +59,7 @@ async def create_pending_change(
             source_message_id=data.source_message_id,
             model_id=data.model_id,
         )
-        return PendingProjectChangeResponse.model_validate(change)
+        return await _to_response(session, change)
     except NotFoundError as exc:
         raise HTTPException(
             status_code=http_status.HTTP_404_NOT_FOUND, detail=str(exc)
@@ -67,9 +85,7 @@ async def list_pending_changes(
         changes = await pending_project_change_service.list_pending_changes(
             session, project_id, status
         )
-        return [
-            PendingProjectChangeResponse.model_validate(change) for change in changes
-        ]
+        return [await _to_response(session, change) for change in changes]
     except NotFoundError as exc:
         raise HTTPException(
             status_code=http_status.HTTP_404_NOT_FOUND, detail=str(exc)
@@ -97,7 +113,7 @@ async def apply_pending_change(
             applied = await pending_project_change_apply_service.apply_pending_change(
                 session, change
             )
-        return PendingProjectChangeResponse.model_validate(applied)
+        return await _to_response(session, applied)
     except NotFoundError as exc:
         raise HTTPException(
             status_code=http_status.HTTP_404_NOT_FOUND,
@@ -165,7 +181,7 @@ async def get_pending_change(
         change = await pending_project_change_service.get_pending_change(
             session, project_id, change_id
         )
-        return PendingProjectChangeResponse.model_validate(change)
+        return await _to_response(session, change)
     except NotFoundError as exc:
         raise HTTPException(
             status_code=http_status.HTTP_404_NOT_FOUND, detail=str(exc)
@@ -186,7 +202,7 @@ async def reject_pending_change(
         change = await pending_project_change_service.reject_pending_change(
             session, project_id, change_id
         )
-        return PendingProjectChangeResponse.model_validate(change)
+        return await _to_response(session, change)
     except NotFoundError as exc:
         raise HTTPException(
             status_code=http_status.HTTP_404_NOT_FOUND, detail=str(exc)

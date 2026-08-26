@@ -103,6 +103,8 @@ async def test_pending_change_create_list_and_detail(client: AsyncClient) -> Non
     assert created["base_hash"] is None
     assert created["before"] is None
     assert created["after"]["kind"] == "note"
+    assert created["is_applicable"] is True
+    assert created["applicability_reason"] is None
 
     list_response = await client.get(f"/api/v1/projects/{project_id}/pending-changes")
     detail_response = await client.get(
@@ -301,7 +303,38 @@ async def test_apply_update_captures_base_and_rejects_stale_target(
     )
     note = await client.get(f"/api/v1/notes/{note_id}")
     assert detail.json()["status"] == "pending"
+    assert detail.json()["is_applicable"] is False
+    assert "发生变化" in detail.json()["applicability_reason"]
     assert note.json()["content"] == "用户随后修改的正文"
+
+
+@pytest.mark.asyncio
+async def test_locked_note_change_reports_not_applicable(
+    client: AsyncClient,
+) -> None:
+    project_id = await _create_project(client, "锁定候审项目")
+    note_response = await client.post(
+        f"/api/v1/projects/{project_id}/notes",
+        json={"title": "原笔记", "content": "原正文"},
+    )
+    note_id = note_response.json()["id"]
+    lock_response = await client.patch(
+        f"/api/v1/notes/{note_id}/lock",
+        json={"is_locked": True},
+    )
+    change = await _post_change(
+        client,
+        project_id,
+        _update_payload("note", note_id, {"body": "候审正文"}),
+    )
+    detail_response = await client.get(
+        f"/api/v1/projects/{project_id}/pending-changes/{change['id']}"
+    )
+
+    assert lock_response.status_code == 200
+    assert detail_response.status_code == 200
+    assert detail_response.json()["is_applicable"] is False
+    assert "锁定" in detail_response.json()["applicability_reason"]
 
 
 @pytest.mark.asyncio

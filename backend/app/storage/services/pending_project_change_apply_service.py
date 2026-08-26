@@ -71,6 +71,12 @@ class PreparedPendingChange:
     after: dict[str, Any] | None
 
 
+@dataclass(frozen=True)
+class PendingChangeApplicability:
+    is_applicable: bool
+    reason: str | None = None
+
+
 class PendingChangeConflictError(ConflictError):
     """The target changed, disappeared, or cannot be applied without ambiguity."""
 
@@ -522,6 +528,61 @@ async def _apply_delete(
     if not isinstance(entry, WorldInfoEntry):
         raise ValidationError("待审变更目标类型错误")
     await world_info_entry_service.delete_entry(session, entry.id)
+
+
+async def assess_pending_change(
+    session: AsyncSession,
+    change: PendingProjectChange,
+) -> PendingChangeApplicability:
+    """Validate whether a stored proposal can currently enter the apply path."""
+    if change.status != "pending":
+        return PendingChangeApplicability(False, "只有待审状态的变更可以采用")
+    if change.target_type not in {"note", "note_category", "character", "world_entry"}:
+        return PendingChangeApplicability(False, "不支持的待审变更目标")
+    target_type = cast(PendingTargetType, change.target_type)
+    try:
+        if change.operation == "create":
+            if (
+                change.target_id is not None
+                or change.base_hash is not None
+                or change.before is not None
+            ):
+                raise ValidationError("create 候审变更的基础状态无效")
+            stored_after = _validate_stored_after(
+                target_type,
+                change.operation,
+                change.after,
+                None,
+            )
+            if stored_after is None:
+                raise ValidationError("create 缺少 after")
+            return PendingChangeApplicability(True)
+
+        if change.operation not in {"update", "delete"}:
+            raise ValidationError(f"不支持的待审变更操作: {change.operation}")
+        if not change.target_id or not change.base_hash:
+            raise ValidationError(f"{change.operation} 缺少目标或 base_hash")
+        target, current = await _resolve_snapshot(
+            session,
+            change.project_id,
+            target_type,
+            change.target_id,
+        )
+        if _snapshot_hash(current) != change.base_hash:
+            return PendingChangeApplicability(False, "正式资料已在候审后发生变化")
+        _validate_stored_after(
+            target_type,
+            change.operation,
+            change.after,
+            current,
+        )
+        if target_type == "note" and isinstance(target, Note) and target.is_locked:
+            return PendingChangeApplicability(False, "笔记已锁定，请先解锁")
+        return PendingChangeApplicability(True)
+    except NotFoundError:
+        return PendingChangeApplicability(False, "候审目标已不存在")
+    except ValidationError as exc:
+        return PendingChangeApplicability(False, str(exc))
 
 
 async def apply_pending_change(
