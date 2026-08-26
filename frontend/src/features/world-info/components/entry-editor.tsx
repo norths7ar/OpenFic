@@ -18,6 +18,7 @@ import {
   MAX_EDITOR_CONTENT_CHARACTERS,
   MAX_EDITOR_CONTENT_LINES,
 } from "@/lib/editor-content-limits";
+import { projectDataQueryKeys } from "@/lib/project-data-query-keys";
 import { countTokens } from "@/lib/tiktoken-utils";
 import type {
   WorldInfoEntry,
@@ -89,9 +90,9 @@ export function EntryEditor({
 
   const updateCaches = useCallback(
     (updated: WorldInfoEntry) => {
-      queryClient.setQueryData(["world-info-entry-detail", entry.id], updated);
+      queryClient.setQueryData(projectDataQueryKeys.worldInfo.entryDetail(entry.id), updated);
       queryClient.setQueryData(
-        ["world-info-entries", worldInfoId],
+        projectDataQueryKeys.worldInfo.entries(worldInfoId),
         (old: WorldInfoEntryBriefListResponse | undefined) => {
           if (!old) return old;
           return {

@@ -28,6 +28,7 @@ import type {
   NoteTreeResponse,
   NoteCategoryItem,
 } from "@/lib/note.types";
+import { projectDataQueryKeys } from "@/lib/project-data-query-keys";
 
 function cloneCategoryItem(cat: NoteCategoryItem): NoteCategoryItem {
   return {
@@ -239,7 +240,7 @@ function countCategoryNotes(cats: NoteCategoryItem[]): number {
 
 export function useNoteTree(projectId: string) {
   return useQuery({
-    queryKey: ["note-tree", projectId],
+    queryKey: projectDataQueryKeys.notes.tree(projectId),
     queryFn: () => fetchNoteTree(projectId),
     enabled: !!projectId,
     staleTime: 5 * 60 * 1000,
@@ -248,7 +249,7 @@ export function useNoteTree(projectId: string) {
 
 export function useNote(noteId: string | null) {
   return useQuery({
-    queryKey: ["note", noteId],
+    queryKey: projectDataQueryKeys.notes.detail(noteId),
     queryFn: () => fetchNote(noteId!),
     enabled: !!noteId,
     staleTime: 0,
@@ -262,7 +263,7 @@ export function useCreateNote(projectId: string) {
   return useMutation({
     mutationFn: (data: NoteCreate) => createNote(projectId, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["note-tree", projectId] });
+      queryClient.invalidateQueries({ queryKey: projectDataQueryKeys.notes.tree(projectId) });
       toast.success(t("writing.noteCreated"));
     },
     onError: () => {
@@ -279,25 +280,32 @@ export function useUpdateNote(projectId: string) {
     mutationFn: ({ noteId, data }: { noteId: string; data: NoteUpdate }) =>
       updateNote(noteId, data),
     onMutate: async ({ noteId, data }) => {
-      await queryClient.cancelQueries({ queryKey: ["note-tree", projectId] });
-      const previous = queryClient.getQueryData<NoteTreeResponse>(["note-tree", projectId]);
+      await queryClient.cancelQueries({ queryKey: projectDataQueryKeys.notes.tree(projectId) });
+      const previous = queryClient.getQueryData<NoteTreeResponse>(
+        projectDataQueryKeys.notes.tree(projectId),
+      );
       if (previous && data.title !== undefined) {
-        queryClient.setQueryData<NoteTreeResponse>(["note-tree", projectId], (tree) => {
-          if (!tree) return tree;
-          return applyToNote(tree, noteId, (note) => ({ ...note, title: data.title! }));
-        });
+        queryClient.setQueryData<NoteTreeResponse>(
+          projectDataQueryKeys.notes.tree(projectId),
+          (tree) => {
+            if (!tree) return tree;
+            return applyToNote(tree, noteId, (note) => ({ ...note, title: data.title! }));
+          },
+        );
       }
       return { previous };
     },
     onError: (_err, _vars, context) => {
       if (context?.previous) {
-        queryClient.setQueryData(["note-tree", projectId], context.previous);
+        queryClient.setQueryData(projectDataQueryKeys.notes.tree(projectId), context.previous);
       }
       toast.error(t("writing.noteRenameFailed"));
     },
     onSuccess: (updatedNote) => {
-      queryClient.setQueryData(["note", updatedNote.id], updatedNote);
-      queryClient.invalidateQueries({ queryKey: ["note-tree", updatedNote.projectId] });
+      queryClient.setQueryData(projectDataQueryKeys.notes.detail(updatedNote.id), updatedNote);
+      queryClient.invalidateQueries({
+        queryKey: projectDataQueryKeys.notes.tree(updatedNote.projectId),
+      });
     },
   });
 }
@@ -309,24 +317,29 @@ export function useDeleteNote(projectId: string) {
   return useMutation({
     mutationFn: (noteId: string) => deleteNote(noteId),
     onMutate: async (noteId) => {
-      await queryClient.cancelQueries({ queryKey: ["note-tree", projectId] });
-      const previous = queryClient.getQueryData<NoteTreeResponse>(["note-tree", projectId]);
+      await queryClient.cancelQueries({ queryKey: projectDataQueryKeys.notes.tree(projectId) });
+      const previous = queryClient.getQueryData<NoteTreeResponse>(
+        projectDataQueryKeys.notes.tree(projectId),
+      );
       if (previous) {
-        queryClient.setQueryData<NoteTreeResponse>(["note-tree", projectId], (tree) => {
-          if (!tree) return tree;
-          return removeNoteFromTree(tree, noteId);
-        });
+        queryClient.setQueryData<NoteTreeResponse>(
+          projectDataQueryKeys.notes.tree(projectId),
+          (tree) => {
+            if (!tree) return tree;
+            return removeNoteFromTree(tree, noteId);
+          },
+        );
       }
       return { previous };
     },
     onError: (_err, _vars, context) => {
       if (context?.previous) {
-        queryClient.setQueryData(["note-tree", projectId], context.previous);
+        queryClient.setQueryData(projectDataQueryKeys.notes.tree(projectId), context.previous);
       }
       toast.error(t("writing.deleteNoteFailed"));
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["note-tree", projectId] });
+      queryClient.invalidateQueries({ queryKey: projectDataQueryKeys.notes.tree(projectId) });
       toast.success(t("writing.deleteNoteSuccess"));
     },
   });
@@ -340,25 +353,32 @@ export function useToggleNoteLock(projectId: string) {
     mutationFn: ({ noteId, isLocked }: { noteId: string; isLocked: boolean }) =>
       toggleNoteLock(noteId, isLocked),
     onMutate: async ({ noteId, isLocked }) => {
-      await queryClient.cancelQueries({ queryKey: ["note-tree", projectId] });
-      const previous = queryClient.getQueryData<NoteTreeResponse>(["note-tree", projectId]);
+      await queryClient.cancelQueries({ queryKey: projectDataQueryKeys.notes.tree(projectId) });
+      const previous = queryClient.getQueryData<NoteTreeResponse>(
+        projectDataQueryKeys.notes.tree(projectId),
+      );
       if (previous) {
-        queryClient.setQueryData<NoteTreeResponse>(["note-tree", projectId], (tree) => {
-          if (!tree) return tree;
-          return applyToNote(tree, noteId, (note) => ({ ...note, isLocked }));
-        });
+        queryClient.setQueryData<NoteTreeResponse>(
+          projectDataQueryKeys.notes.tree(projectId),
+          (tree) => {
+            if (!tree) return tree;
+            return applyToNote(tree, noteId, (note) => ({ ...note, isLocked }));
+          },
+        );
       }
       return { previous };
     },
     onError: (_err, _vars, context) => {
       if (context?.previous) {
-        queryClient.setQueryData(["note-tree", projectId], context.previous);
+        queryClient.setQueryData(projectDataQueryKeys.notes.tree(projectId), context.previous);
       }
       toast.error(t("writing.noteLockToggleFailed"));
     },
     onSuccess: (updatedNote) => {
-      queryClient.setQueryData(["note", updatedNote.id], updatedNote);
-      queryClient.invalidateQueries({ queryKey: ["note-tree", updatedNote.projectId] });
+      queryClient.setQueryData(projectDataQueryKeys.notes.detail(updatedNote.id), updatedNote);
+      queryClient.invalidateQueries({
+        queryKey: projectDataQueryKeys.notes.tree(updatedNote.projectId),
+      });
       toast.success(
         updatedNote.isLocked ? t("writing.noteLockedToast") : t("writing.noteUnlockedToast"),
       );
@@ -374,25 +394,32 @@ export function useToggleNoteHidden(projectId: string) {
     mutationFn: ({ noteId, isHidden }: { noteId: string; isHidden: boolean }) =>
       toggleNoteHidden(noteId, isHidden),
     onMutate: async ({ noteId, isHidden }) => {
-      await queryClient.cancelQueries({ queryKey: ["note-tree", projectId] });
-      const previous = queryClient.getQueryData<NoteTreeResponse>(["note-tree", projectId]);
+      await queryClient.cancelQueries({ queryKey: projectDataQueryKeys.notes.tree(projectId) });
+      const previous = queryClient.getQueryData<NoteTreeResponse>(
+        projectDataQueryKeys.notes.tree(projectId),
+      );
       if (previous) {
-        queryClient.setQueryData<NoteTreeResponse>(["note-tree", projectId], (tree) => {
-          if (!tree) return tree;
-          return applyToNote(tree, noteId, (note) => ({ ...note, isHidden }));
-        });
+        queryClient.setQueryData<NoteTreeResponse>(
+          projectDataQueryKeys.notes.tree(projectId),
+          (tree) => {
+            if (!tree) return tree;
+            return applyToNote(tree, noteId, (note) => ({ ...note, isHidden }));
+          },
+        );
       }
       return { previous };
     },
     onError: (_err, _vars, context) => {
       if (context?.previous) {
-        queryClient.setQueryData(["note-tree", projectId], context.previous);
+        queryClient.setQueryData(projectDataQueryKeys.notes.tree(projectId), context.previous);
       }
       toast.error(t("writing.noteHiddenToggleFailed"));
     },
     onSuccess: (updatedNote) => {
-      queryClient.setQueryData(["note", updatedNote.id], updatedNote);
-      queryClient.invalidateQueries({ queryKey: ["note-tree", updatedNote.projectId] });
+      queryClient.setQueryData(projectDataQueryKeys.notes.detail(updatedNote.id), updatedNote);
+      queryClient.invalidateQueries({
+        queryKey: projectDataQueryKeys.notes.tree(updatedNote.projectId),
+      });
       toast.success(updatedNote.isHidden ? t("writing.noteHiddenOn") : t("writing.noteHiddenOff"));
     },
   });
@@ -405,7 +432,7 @@ export function useCreateNoteCategory(projectId: string) {
   return useMutation({
     mutationFn: (data: NoteCategoryCreate) => createNoteCategory(projectId, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["note-tree", projectId] });
+      queryClient.invalidateQueries({ queryKey: projectDataQueryKeys.notes.tree(projectId) });
       toast.success(t("writing.categoryCreated"));
     },
     onError: () => {
@@ -422,24 +449,29 @@ export function useUpdateNoteCategory(projectId: string) {
     mutationFn: ({ categoryId, data }: { categoryId: string; data: NoteCategoryUpdate }) =>
       updateNoteCategory(categoryId, data),
     onMutate: async ({ categoryId, data }) => {
-      await queryClient.cancelQueries({ queryKey: ["note-tree", projectId] });
-      const previous = queryClient.getQueryData<NoteTreeResponse>(["note-tree", projectId]);
+      await queryClient.cancelQueries({ queryKey: projectDataQueryKeys.notes.tree(projectId) });
+      const previous = queryClient.getQueryData<NoteTreeResponse>(
+        projectDataQueryKeys.notes.tree(projectId),
+      );
       if (previous && data.title !== undefined) {
-        queryClient.setQueryData<NoteTreeResponse>(["note-tree", projectId], (tree) => {
-          if (!tree) return tree;
-          return applyToCategory(tree, categoryId, (cat) => ({ ...cat, title: data.title! }));
-        });
+        queryClient.setQueryData<NoteTreeResponse>(
+          projectDataQueryKeys.notes.tree(projectId),
+          (tree) => {
+            if (!tree) return tree;
+            return applyToCategory(tree, categoryId, (cat) => ({ ...cat, title: data.title! }));
+          },
+        );
       }
       return { previous };
     },
     onError: (_err, _vars, context) => {
       if (context?.previous) {
-        queryClient.setQueryData(["note-tree", projectId], context.previous);
+        queryClient.setQueryData(projectDataQueryKeys.notes.tree(projectId), context.previous);
       }
       toast.error(t("writing.categoryRenameFailed"));
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["note-tree", projectId] });
+      queryClient.invalidateQueries({ queryKey: projectDataQueryKeys.notes.tree(projectId) });
       toast.success(t("writing.categoryRenamed"));
     },
   });
@@ -452,24 +484,29 @@ export function useDeleteNoteCategory(projectId: string) {
   return useMutation({
     mutationFn: (categoryId: string) => deleteNoteCategory(categoryId),
     onMutate: async (categoryId) => {
-      await queryClient.cancelQueries({ queryKey: ["note-tree", projectId] });
-      const previous = queryClient.getQueryData<NoteTreeResponse>(["note-tree", projectId]);
+      await queryClient.cancelQueries({ queryKey: projectDataQueryKeys.notes.tree(projectId) });
+      const previous = queryClient.getQueryData<NoteTreeResponse>(
+        projectDataQueryKeys.notes.tree(projectId),
+      );
       if (previous) {
-        queryClient.setQueryData<NoteTreeResponse>(["note-tree", projectId], (tree) => {
-          if (!tree) return tree;
-          return removeCategoryFromTree(tree, categoryId);
-        });
+        queryClient.setQueryData<NoteTreeResponse>(
+          projectDataQueryKeys.notes.tree(projectId),
+          (tree) => {
+            if (!tree) return tree;
+            return removeCategoryFromTree(tree, categoryId);
+          },
+        );
       }
       return { previous };
     },
     onError: (_err, _vars, context) => {
       if (context?.previous) {
-        queryClient.setQueryData(["note-tree", projectId], context.previous);
+        queryClient.setQueryData(projectDataQueryKeys.notes.tree(projectId), context.previous);
       }
       toast.error(t("writing.deleteCategoryFailed"));
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["note-tree", projectId] });
+      queryClient.invalidateQueries({ queryKey: projectDataQueryKeys.notes.tree(projectId) });
       toast.success(t("writing.deleteNoteSuccess"));
     },
   });
@@ -482,27 +519,32 @@ export function useMoveNoteItem(projectId: string) {
   return useMutation({
     mutationFn: (data: NoteItemMove) => moveNoteItem(data),
     onMutate: async ({ kind, itemId, targetCategoryId }) => {
-      await queryClient.cancelQueries({ queryKey: ["note-tree", projectId] });
-      const previous = queryClient.getQueryData<NoteTreeResponse>(["note-tree", projectId]);
+      await queryClient.cancelQueries({ queryKey: projectDataQueryKeys.notes.tree(projectId) });
+      const previous = queryClient.getQueryData<NoteTreeResponse>(
+        projectDataQueryKeys.notes.tree(projectId),
+      );
       if (previous) {
-        queryClient.setQueryData<NoteTreeResponse>(["note-tree", projectId], (tree) => {
-          if (!tree) return tree;
-          if (kind === "note") {
-            return moveNoteInTree(tree, itemId, targetCategoryId ?? null);
-          }
-          return moveCategoryInTree(tree, itemId, targetCategoryId ?? null);
-        });
+        queryClient.setQueryData<NoteTreeResponse>(
+          projectDataQueryKeys.notes.tree(projectId),
+          (tree) => {
+            if (!tree) return tree;
+            if (kind === "note") {
+              return moveNoteInTree(tree, itemId, targetCategoryId ?? null);
+            }
+            return moveCategoryInTree(tree, itemId, targetCategoryId ?? null);
+          },
+        );
       }
       return { previous };
     },
     onError: (_err, _vars, context) => {
       if (context?.previous) {
-        queryClient.setQueryData(["note-tree", projectId], context.previous);
+        queryClient.setQueryData(projectDataQueryKeys.notes.tree(projectId), context.previous);
       }
       toast.error(t("writing.noteMoveFailed"));
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["note-tree", projectId] });
+      queryClient.invalidateQueries({ queryKey: projectDataQueryKeys.notes.tree(projectId) });
     },
   });
 }
@@ -514,7 +556,7 @@ export function useReorderNoteItems(projectId: string) {
   return useMutation({
     mutationFn: (data: NoteItemReorder) => reorderNoteItems(projectId, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["note-tree", projectId] });
+      queryClient.invalidateQueries({ queryKey: projectDataQueryKeys.notes.tree(projectId) });
       toast.success(t("writing.orderSaved"));
     },
     onError: () => {
@@ -537,7 +579,7 @@ export function useDuplicateNote(projectId: string) {
       });
     },
     onSuccess: (newNote) => {
-      queryClient.invalidateQueries({ queryKey: ["note-tree", projectId] });
+      queryClient.invalidateQueries({ queryKey: projectDataQueryKeys.notes.tree(projectId) });
       toast.success(t("writing.noteDuplicated"));
       return newNote;
     },

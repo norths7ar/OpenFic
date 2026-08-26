@@ -1,5 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
+import { projectDataQueryKeys } from "@/lib/project-data-query-keys";
+
 import {
   applyPendingProjectChange,
   countPendingProjectChanges,
@@ -68,13 +70,21 @@ export function useApplyPendingProjectChange(projectId: string) {
       void queryClient.invalidateQueries({
         queryKey: pendingProjectChangesQueryKeys.countRoot(projectId),
       });
-      void queryClient.invalidateQueries({ queryKey: ["note-tree", projectId] });
-      void queryClient.invalidateQueries({ queryKey: ["note"] });
-      void queryClient.invalidateQueries({ queryKey: ["characters", projectId] });
-      void queryClient.invalidateQueries({ queryKey: ["character"] });
-      void queryClient.invalidateQueries({ queryKey: ["world-info-by-project", projectId] });
-      void queryClient.invalidateQueries({ queryKey: ["world-info-entries"] });
-      void queryClient.invalidateQueries({ queryKey: ["world-info-entry-detail"] });
+      void queryClient.invalidateQueries({ queryKey: projectDataQueryKeys.notes.tree(projectId) });
+      void queryClient.invalidateQueries({ queryKey: projectDataQueryKeys.notes.details });
+      void queryClient.invalidateQueries({
+        queryKey: projectDataQueryKeys.characters.list(projectId),
+      });
+      void queryClient.invalidateQueries({ queryKey: projectDataQueryKeys.characters.details });
+      void queryClient.invalidateQueries({
+        queryKey: projectDataQueryKeys.worldInfo.byProject(projectId),
+      });
+      void queryClient.invalidateQueries({
+        queryKey: projectDataQueryKeys.worldInfo.entriesLists,
+      });
+      void queryClient.invalidateQueries({
+        queryKey: projectDataQueryKeys.worldInfo.entryDetails,
+      });
     },
   });
 }

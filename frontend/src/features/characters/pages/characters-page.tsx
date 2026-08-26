@@ -25,6 +25,7 @@ import {
 } from "@/lib/api-client";
 import type { Character, CharacterListItem, CharacterListResponse } from "@/lib/character.types";
 import { getPreference, setPreference } from "@/lib/local-db";
+import { projectDataQueryKeys } from "@/lib/project-data-query-keys";
 import { countTokens } from "@/lib/tiktoken-utils";
 
 import { CharacterEditor } from "../components/character-editor";
@@ -136,7 +137,7 @@ export function CharactersPage() {
   }, [currentProjectId]);
 
   const { data: charactersData, isLoading: isCharactersLoading } = useQuery({
-    queryKey: ["characters", currentProjectId],
+    queryKey: projectDataQueryKeys.characters.list(currentProjectId),
     queryFn: () => fetchCharactersByProject(currentProjectId!),
     enabled: !!currentProjectId,
     staleTime: 0,
@@ -176,7 +177,10 @@ export function CharactersPage() {
   }, [characters, currentCharacterId, setCurrentCharacter]);
 
   const { data: selectedCharacter, isLoading: isCharacterLoading } = useQuery({
-    queryKey: ["character", currentCharacterId, selectedCharacterLoadVersion],
+    queryKey: projectDataQueryKeys.characters.loadedDetail(
+      currentCharacterId,
+      selectedCharacterLoadVersion,
+    ),
     queryFn: () => fetchCharacter(currentCharacterId!),
     enabled: !!currentCharacterId,
     staleTime: 0,
@@ -186,7 +190,7 @@ export function CharactersPage() {
   const upsertCharacterCache = useCallback(
     (updated: CharacterListItem) => {
       queryClient.setQueryData(
-        ["characters", updated.projectId],
+        projectDataQueryKeys.characters.list(updated.projectId),
         (old: CharacterListResponse | undefined) => {
           if (!old) return old;
           const exists = old.items.some((character) => character.id === updated.id);
@@ -207,14 +211,19 @@ export function CharactersPage() {
   const removeCharacterCaches = useCallback(
     async (projectId: string, characterIds: string[]) => {
       const deletedCharacterIds = new Set(characterIds);
-      await queryClient.cancelQueries({ queryKey: ["characters", projectId], exact: true });
+      await queryClient.cancelQueries({
+        queryKey: projectDataQueryKeys.characters.list(projectId),
+        exact: true,
+      });
       await Promise.all(
         characterIds.map((characterId) =>
-          queryClient.cancelQueries({ queryKey: ["character", characterId] }),
+          queryClient.cancelQueries({
+            queryKey: projectDataQueryKeys.characters.detail(characterId),
+          }),
         ),
       );
       queryClient.setQueryData(
-        ["characters", projectId],
+        projectDataQueryKeys.characters.list(projectId),
         (old: CharacterListResponse | undefined) => {
           if (!old) return old;
           const items = old.items.filter((character) => !deletedCharacterIds.has(character.id));
@@ -227,7 +236,9 @@ export function CharactersPage() {
         },
       );
       characterIds.forEach((characterId) => {
-        queryClient.removeQueries({ queryKey: ["character", characterId] });
+        queryClient.removeQueries({
+          queryKey: projectDataQueryKeys.characters.detail(characterId),
+        });
       });
     },
     [queryClient],
@@ -241,10 +252,12 @@ export function CharactersPage() {
     onSuccess: (character) => {
       upsertCharacterCache(toCharacterListItem(character));
       queryClient.setQueryData(
-        ["character", character.id, selectedCharacterLoadVersion],
+        projectDataQueryKeys.characters.loadedDetail(character.id, selectedCharacterLoadVersion),
         character,
       );
-      queryClient.invalidateQueries({ queryKey: ["characters", currentProjectId] });
+      queryClient.invalidateQueries({
+        queryKey: projectDataQueryKeys.characters.list(currentProjectId),
+      });
       setCurrentCharacter(character.id);
       toast.success(t("characters.created"));
     },
@@ -270,10 +283,12 @@ export function CharactersPage() {
     onSuccess: (character) => {
       upsertCharacterCache(toCharacterListItem(character));
       queryClient.setQueryData(
-        ["character", character.id, selectedCharacterLoadVersion],
+        projectDataQueryKeys.characters.loadedDetail(character.id, selectedCharacterLoadVersion),
         character,
       );
-      queryClient.invalidateQueries({ queryKey: ["characters", character.projectId] });
+      queryClient.invalidateQueries({
+        queryKey: projectDataQueryKeys.characters.list(character.projectId),
+      });
       setProfileCharacter(null);
     },
     onError: (error) => {
@@ -299,7 +314,9 @@ export function CharactersPage() {
     },
     onSuccess: (character) => {
       upsertCharacterCache(toCharacterListItem(character));
-      queryClient.invalidateQueries({ queryKey: ["characters", character.projectId] });
+      queryClient.invalidateQueries({
+        queryKey: projectDataQueryKeys.characters.list(character.projectId),
+      });
       toast.success(
         character.isFavorited ? t("characters.favorited") : t("characters.unfavorited"),
       );
@@ -327,7 +344,9 @@ export function CharactersPage() {
     },
     onSuccess: (character) => {
       upsertCharacterCache(toCharacterListItem(character));
-      queryClient.invalidateQueries({ queryKey: ["characters", character.projectId] });
+      queryClient.invalidateQueries({
+        queryKey: projectDataQueryKeys.characters.list(character.projectId),
+      });
       toast.success(
         character.isWritingVisible
           ? t("characters.writingVisibilityOn")
@@ -349,7 +368,9 @@ export function CharactersPage() {
         setCurrentCharacter(null);
       }
       await removeCharacterCaches(currentProjectId, [characterId]);
-      queryClient.invalidateQueries({ queryKey: ["characters", currentProjectId] });
+      queryClient.invalidateQueries({
+        queryKey: projectDataQueryKeys.characters.list(currentProjectId),
+      });
       setDeleteCharacterTarget(null);
       toast.success(t("characters.deleted"));
     },
@@ -365,7 +386,9 @@ export function CharactersPage() {
         setCurrentCharacter(null);
       }
       await removeCharacterCaches(currentProjectId, characterIds);
-      queryClient.invalidateQueries({ queryKey: ["characters", currentProjectId] });
+      queryClient.invalidateQueries({
+        queryKey: projectDataQueryKeys.characters.list(currentProjectId),
+      });
       toast.success(t("characters.deleted"));
     },
   });
@@ -385,11 +408,15 @@ export function CharactersPage() {
         });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["characters", currentProjectId] });
+      queryClient.invalidateQueries({
+        queryKey: projectDataQueryKeys.characters.list(currentProjectId),
+      });
       toast.success(t("characters.favoriteUpdated"));
     },
     onError: () => {
-      queryClient.invalidateQueries({ queryKey: ["characters", currentProjectId] });
+      queryClient.invalidateQueries({
+        queryKey: projectDataQueryKeys.characters.list(currentProjectId),
+      });
       toast.error(t("characters.favoriteFailed"));
     },
   });
@@ -399,37 +426,43 @@ export function CharactersPage() {
     onMutate: async (orderedIds) => {
       if (!currentProjectId) return {};
       await queryClient.cancelQueries({
-        queryKey: ["characters", currentProjectId],
+        queryKey: projectDataQueryKeys.characters.list(currentProjectId),
         exact: true,
       });
-      const previous = queryClient.getQueryData<CharacterListResponse>([
-        "characters",
-        currentProjectId,
-      ]);
+      const previous = queryClient.getQueryData<CharacterListResponse>(
+        projectDataQueryKeys.characters.list(currentProjectId),
+      );
       const orderById = new Map(orderedIds.map((id, index) => [id, index]));
-      queryClient.setQueryData<CharacterListResponse>(["characters", currentProjectId], (old) =>
-        old
-          ? {
-              ...old,
-              items: sortCharacters(
-                old.items.map((character) => ({
-                  ...character,
-                  order: orderById.get(character.id) ?? character.order,
-                })),
-              ),
-            }
-          : old,
+      queryClient.setQueryData<CharacterListResponse>(
+        projectDataQueryKeys.characters.list(currentProjectId),
+        (old) =>
+          old
+            ? {
+                ...old,
+                items: sortCharacters(
+                  old.items.map((character) => ({
+                    ...character,
+                    order: orderById.get(character.id) ?? character.order,
+                  })),
+                ),
+              }
+            : old,
       );
       return { previous };
     },
     onError: (_error, _orderedIds, context) => {
       if (currentProjectId && context?.previous) {
-        queryClient.setQueryData(["characters", currentProjectId], context.previous);
+        queryClient.setQueryData(
+          projectDataQueryKeys.characters.list(currentProjectId),
+          context.previous,
+        );
       }
       toast.error(t("writing.orderSaveFailed"));
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["characters", currentProjectId] });
+      queryClient.invalidateQueries({
+        queryKey: projectDataQueryKeys.characters.list(currentProjectId),
+      });
       toast.success(t("writing.orderSaved"));
     },
   });
@@ -440,7 +473,9 @@ export function CharactersPage() {
   };
 
   const handleSelectCharacter = (characterId: string) => {
-    queryClient.removeQueries({ queryKey: ["character", characterId] });
+    queryClient.removeQueries({
+      queryKey: projectDataQueryKeys.characters.detail(characterId),
+    });
     setCurrentCharacter(characterId);
     setSelectedCharacterLoadVersion((prev) => prev + 1);
     setListOpen(false);

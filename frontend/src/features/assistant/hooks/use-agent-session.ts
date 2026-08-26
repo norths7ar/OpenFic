@@ -39,6 +39,7 @@ import {
   submitAgentToolApproval,
 } from "@/lib/api-client";
 import type { CharacterListResponse } from "@/lib/character.types";
+import { projectDataQueryKeys } from "@/lib/project-data-query-keys";
 import type { WorldInfoEntryBriefListResponse } from "@/lib/world-info.types";
 
 import type { ClarificationAnswerItem } from "../components/agent/message-blocks/messages/special/clarification-flow-state";
@@ -348,11 +349,13 @@ export function useAgentSession({
 
   const invalidateNoteQueries = useCallback(
     (targetNoteId?: string, operation?: string) => {
-      queryClient.invalidateQueries({ queryKey: ["note-tree", projectId] });
+      queryClient.invalidateQueries({ queryKey: projectDataQueryKeys.notes.tree(projectId) });
       if (operation === "delete") return;
 
       if (targetNoteId) {
-        queryClient.invalidateQueries({ queryKey: ["note", targetNoteId] });
+        queryClient.invalidateQueries({
+          queryKey: projectDataQueryKeys.notes.detail(targetNoteId),
+        });
       }
       invalidateWritingEditorEntityQueries(queryClient, "note", targetNoteId);
     },
@@ -362,27 +365,31 @@ export function useAgentSession({
   const invalidateWorldEntryQueries = useCallback(
     (targetWorldInfoId?: string, targetEntryId?: string, operation?: string) => {
       if (targetWorldInfoId) {
-        queryClient.invalidateQueries({ queryKey: ["world-info-entries", targetWorldInfoId] });
+        queryClient.invalidateQueries({
+          queryKey: projectDataQueryKeys.worldInfo.entries(targetWorldInfoId),
+        });
       } else {
-        queryClient.invalidateQueries({ queryKey: ["world-info-entries"] });
+        queryClient.invalidateQueries({
+          queryKey: projectDataQueryKeys.worldInfo.entriesLists,
+        });
       }
       if (!targetEntryId) return;
 
       if (operation === "delete") {
         void queryClient.cancelQueries({
-          queryKey: ["world-info-entry-detail", targetEntryId],
+          queryKey: projectDataQueryKeys.worldInfo.entryDetail(targetEntryId),
           exact: true,
         });
         return;
       }
 
       const detailQuery = queryClient.getQueryCache().find({
-        queryKey: ["world-info-entry-detail", targetEntryId],
+        queryKey: projectDataQueryKeys.worldInfo.entryDetail(targetEntryId),
         exact: true,
       });
       if (detailQuery?.getObserversCount()) {
         queryClient.invalidateQueries({
-          queryKey: ["world-info-entry-detail", targetEntryId],
+          queryKey: projectDataQueryKeys.worldInfo.entryDetail(targetEntryId),
           exact: true,
         });
       }
@@ -392,18 +399,20 @@ export function useAgentSession({
 
   const invalidateCharacterQueries = useCallback(
     (targetCharacterId?: string, operation?: string) => {
-      queryClient.invalidateQueries({ queryKey: ["characters", projectId] });
+      queryClient.invalidateQueries({
+        queryKey: projectDataQueryKeys.characters.list(projectId),
+      });
       if (!targetCharacterId) return;
 
       if (operation === "delete") {
         void queryClient.cancelQueries({
-          queryKey: ["character", targetCharacterId],
+          queryKey: projectDataQueryKeys.characters.detail(targetCharacterId),
         });
         return;
       }
 
       queryClient.invalidateQueries({
-        queryKey: ["character", targetCharacterId],
+        queryKey: projectDataQueryKeys.characters.detail(targetCharacterId),
       });
     },
     [projectId, queryClient],
@@ -683,7 +692,7 @@ export function useAgentSession({
         ) {
           if (targetWorldInfoId) {
             queryClient.setQueryData(
-              ["world-info-entries", targetWorldInfoId],
+              projectDataQueryKeys.worldInfo.entries(targetWorldInfoId),
               (data: WorldInfoEntryBriefListResponse | undefined) =>
                 removeListItemFromCache(data, targetEntryId),
             );
@@ -707,7 +716,7 @@ export function useAgentSession({
           useCharactersStore.getState().currentCharacterId === targetCharacterId
         ) {
           queryClient.setQueryData(
-            ["characters", projectId],
+            projectDataQueryKeys.characters.list(projectId),
             (data: CharacterListResponse | undefined) =>
               removeListItemFromCache(data, targetCharacterId),
           );

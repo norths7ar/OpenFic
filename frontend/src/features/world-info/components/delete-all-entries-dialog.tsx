@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 
 import { toast } from "@/components/toast";
 import { deleteAllWorldInfoEntries } from "@/lib/api-client";
+import { projectDataQueryKeys } from "@/lib/project-data-query-keys";
 
 interface DeleteAllEntriesDialogProps {
   open: boolean;
@@ -27,7 +28,7 @@ export function DeleteAllEntriesDialog({
     onSuccess: () => {
       toast.success(t("worldInfo.allEntriesDeleted"));
       queryClient.invalidateQueries({
-        queryKey: ["world-info-entries", worldInfoId],
+        queryKey: projectDataQueryKeys.worldInfo.entries(worldInfoId),
       });
       onOpenChange(false);
       onSuccess?.();

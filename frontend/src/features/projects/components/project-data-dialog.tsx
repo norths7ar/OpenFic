@@ -22,6 +22,7 @@ import {
   previewProjectBundleImport,
 } from "@/lib/api-client";
 import type { ProjectBundlePreviewResponse } from "@/lib/api-client";
+import { projectDataQueryKeys } from "@/lib/project-data-query-keys";
 
 interface ProjectDataDialogProps {
   open: boolean;
@@ -126,15 +127,15 @@ export function ProjectDataDialog({ open, projectId, onOpenChange }: ProjectData
       ["volume-tree", projectId],
       ["chapter"],
       ["chapters-search", projectId],
-      ["note-tree", projectId],
-      ["note"],
+      projectDataQueryKeys.notes.tree(projectId),
+      projectDataQueryKeys.notes.details,
       ["notes-search", projectId],
-      ["characters", projectId],
-      ["character"],
+      projectDataQueryKeys.characters.list(projectId),
+      projectDataQueryKeys.characters.details,
       ["characters-search", projectId],
-      ["world-info-by-project", projectId],
-      ["world-info-entries"],
-      ["world-info-entry-detail"],
+      projectDataQueryKeys.worldInfo.byProject(projectId),
+      projectDataQueryKeys.worldInfo.entriesLists,
+      projectDataQueryKeys.worldInfo.entryDetails,
       ["tasks", projectId],
       ["task"],
       ["chapter-summary-list", projectId],

@@ -33,6 +33,7 @@ import {
   batchToggleWorldInfoEntries,
 } from "@/lib/api-client";
 import { getPreference, setPreference } from "@/lib/local-db";
+import { projectDataQueryKeys } from "@/lib/project-data-query-keys";
 import type {
   WorldInfoEntry,
   WorldInfoEntryBrief,
@@ -158,7 +159,7 @@ export function WorldInfoPage() {
   }, [currentProjectId]);
 
   const { data: projectWorldInfo } = useQuery({
-    queryKey: ["world-info-by-project", currentProjectId],
+    queryKey: projectDataQueryKeys.worldInfo.byProject(currentProjectId),
     queryFn: () => fetchWorldInfoByProject(currentProjectId!),
     enabled: !!currentProjectId,
   });
@@ -186,7 +187,7 @@ export function WorldInfoPage() {
 
   // 获取条目列表（轻量，不含 content）
   const { data: entriesData, isLoading: entriesLoading } = useQuery({
-    queryKey: ["world-info-entries", currentWorldInfoId],
+    queryKey: projectDataQueryKeys.worldInfo.entries(currentWorldInfoId),
     queryFn: () => fetchWorldInfoEntries(currentWorldInfoId!),
     enabled: !!currentWorldInfoId,
     staleTime: 0,
@@ -194,7 +195,7 @@ export function WorldInfoPage() {
 
   // 获取当前选中条目的完整数据
   const { data: selectedEntry, isLoading: isEntryLoading } = useQuery({
-    queryKey: ["world-info-entry-detail", currentEntryId],
+    queryKey: projectDataQueryKeys.worldInfo.entryDetail(currentEntryId),
     queryFn: () => fetchWorldInfoEntry(currentEntryId!),
     enabled: !!currentEntryId,
     staleTime: 0,
@@ -248,19 +249,19 @@ export function WorldInfoPage() {
     async (worldInfoId: string, entryIds: string[]) => {
       const deletedEntryIds = new Set(entryIds);
       await queryClient.cancelQueries({
-        queryKey: ["world-info-entries", worldInfoId],
+        queryKey: projectDataQueryKeys.worldInfo.entries(worldInfoId),
         exact: true,
       });
       await Promise.all(
         entryIds.map((entryId) =>
           queryClient.cancelQueries({
-            queryKey: ["world-info-entry-detail", entryId],
+            queryKey: projectDataQueryKeys.worldInfo.entryDetail(entryId),
             exact: true,
           }),
         ),
       );
       queryClient.setQueryData(
-        ["world-info-entries", worldInfoId],
+        projectDataQueryKeys.worldInfo.entries(worldInfoId),
         (oldData: WorldInfoEntryBriefListResponse | undefined) => {
           if (!oldData) return oldData;
           const items = oldData.items.filter((entry) => !deletedEntryIds.has(entry.id));
@@ -274,7 +275,7 @@ export function WorldInfoPage() {
       );
       entryIds.forEach((entryId) => {
         queryClient.removeQueries({
-          queryKey: ["world-info-entry-detail", entryId],
+          queryKey: projectDataQueryKeys.worldInfo.entryDetail(entryId),
           exact: true,
         });
       });
@@ -291,7 +292,7 @@ export function WorldInfoPage() {
     onSuccess: (newEntry) => {
       const brief = extractBrief(newEntry);
       queryClient.setQueryData(
-        ["world-info-entries", currentWorldInfoId],
+        projectDataQueryKeys.worldInfo.entries(currentWorldInfoId),
         (oldData: WorldInfoEntryBriefListResponse | undefined) => {
           if (!oldData) {
             return {
@@ -307,7 +308,7 @@ export function WorldInfoPage() {
           };
         },
       );
-      queryClient.setQueryData(["world-info-entry-detail", newEntry.id], newEntry);
+      queryClient.setQueryData(projectDataQueryKeys.worldInfo.entryDetail(newEntry.id), newEntry);
       setCurrentEntry(newEntry.id);
     },
     onError: () => {
@@ -324,7 +325,7 @@ export function WorldInfoPage() {
     mutationKey: ["world-info-entry-toggle", currentWorldInfoId],
     scope: { id: `world-info-entry-state-${currentWorldInfoId ?? ""}` },
     onMutate: async (entryId) => {
-      const queryKey = ["world-info-entries", currentWorldInfoId] as const;
+      const queryKey = projectDataQueryKeys.worldInfo.entries(currentWorldInfoId);
       await queryClient.cancelQueries({ queryKey });
       const previousEntries = queryClient.getQueryData<WorldInfoEntryBriefListResponse>(queryKey);
 
@@ -346,7 +347,10 @@ export function WorldInfoPage() {
           return updateWorldInfoEntryBrief(oldData, updatedEntry.id, () => brief);
         },
       );
-      queryClient.setQueryData(["world-info-entry-detail", updatedEntry.id], updatedEntry);
+      queryClient.setQueryData(
+        projectDataQueryKeys.worldInfo.entryDetail(updatedEntry.id),
+        updatedEntry,
+      );
     },
     onError: (_error, _entryId, context) => {
       toast.error(t("worldInfo.entryStatusUpdateFailed"));
@@ -369,7 +373,7 @@ export function WorldInfoPage() {
       }
       await removeEntryCaches(currentWorldInfoId, [entryId]);
       queryClient.invalidateQueries({
-        queryKey: ["world-info-entries", currentWorldInfoId],
+        queryKey: projectDataQueryKeys.worldInfo.entries(currentWorldInfoId),
       });
       toast.success(t("worldInfo.entryDeleted"));
       setEntryToDelete(null);
@@ -438,7 +442,7 @@ export function WorldInfoPage() {
   const handleReorderEntries = useCallback(
     (reorderedEntries: WorldInfoEntryBrief[]) => {
       queryClient.setQueryData(
-        ["world-info-entries", currentWorldInfoId],
+        projectDataQueryKeys.worldInfo.entries(currentWorldInfoId),
         (oldData: WorldInfoEntryBriefListResponse | undefined) => {
           if (!oldData) {
             return {
@@ -466,7 +470,7 @@ export function WorldInfoPage() {
         console.error("Failed to save drag order:", error);
         toast.error(t("worldInfo.entryOrderUpdateFailed"));
         queryClient.invalidateQueries({
-          queryKey: ["world-info-entries", currentWorldInfoId],
+          queryKey: projectDataQueryKeys.worldInfo.entries(currentWorldInfoId),
         });
       }
     },
@@ -521,7 +525,7 @@ export function WorldInfoPage() {
         }
         await removeEntryCaches(currentWorldInfoId, entryIds);
         queryClient.invalidateQueries({
-          queryKey: ["world-info-entries", currentWorldInfoId],
+          queryKey: projectDataQueryKeys.worldInfo.entries(currentWorldInfoId),
         });
         toast.success(t("worldInfo.batchDeleted", { count }));
       } catch {
@@ -537,7 +541,7 @@ export function WorldInfoPage() {
     mutationKey: ["world-info-entry-batch-toggle", currentWorldInfoId],
     scope: { id: `world-info-entry-state-${currentWorldInfoId ?? ""}` },
     onMutate: async ({ entryIds, isEnabled }) => {
-      const queryKey = ["world-info-entries", currentWorldInfoId] as const;
+      const queryKey = projectDataQueryKeys.worldInfo.entries(currentWorldInfoId);
       await queryClient.cancelQueries({ queryKey });
       const previousEntries = queryClient.getQueryData<WorldInfoEntryBriefListResponse>(queryKey);
 
@@ -920,7 +924,9 @@ export function WorldInfoPage() {
         worldInfoId={currentWorldInfoId}
         onOpenChange={setImportDialogOpen}
         onSuccess={() => {
-          queryClient.invalidateQueries({ queryKey: ["world-info-entries", currentWorldInfoId] });
+          queryClient.invalidateQueries({
+            queryKey: projectDataQueryKeys.worldInfo.entries(currentWorldInfoId),
+          });
         }}
       />
 

@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { searchWorldInfoEntries } from "@/lib/api-client";
+import { projectDataQueryKeys } from "@/lib/project-data-query-keys";
 import type { WorldInfoEntrySearchResult } from "@/lib/world-info.types";
 
 interface EntrySearchPopoverProps {
@@ -227,7 +228,7 @@ export function EntrySearchPopover({
   }, [query, open]);
 
   const { data, isLoading } = useQuery({
-    queryKey: ["world-info-entries-search", worldInfoId, debouncedQuery],
+    queryKey: projectDataQueryKeys.worldInfo.search(worldInfoId, debouncedQuery),
     queryFn: () => searchWorldInfoEntries(worldInfoId, debouncedQuery),
     enabled: !!worldInfoId && debouncedQuery.trim().length > 0 && open,
     staleTime: 0,

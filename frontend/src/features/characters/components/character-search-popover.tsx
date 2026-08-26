@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 
 import { searchCharacters } from "@/lib/api-client";
 import type { CharacterSearchResult } from "@/lib/character.types";
+import { projectDataQueryKeys } from "@/lib/project-data-query-keys";
 
 interface CharacterSearchPopoverProps {
   projectId: string;
@@ -221,7 +222,7 @@ export function CharacterSearchPopover({
   }, [open, query]);
 
   const { data, isLoading } = useQuery({
-    queryKey: ["characters-search", projectId, debouncedQuery],
+    queryKey: projectDataQueryKeys.characters.search(projectId, debouncedQuery),
     queryFn: () => searchCharacters(projectId, debouncedQuery),
     enabled: !!projectId && debouncedQuery.trim().length > 0 && open,
     staleTime: 0,
