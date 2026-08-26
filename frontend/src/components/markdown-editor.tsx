@@ -93,6 +93,7 @@ export function MarkdownEditor({
 
   useEffect(() => {
     if (!editor) return;
+    contentSyncedRef.current = editor.getMarkdown();
     const onUpdate = () => {
       const markdown = editorRef.current?.getMarkdown();
       if (markdown !== undefined && markdown !== contentSyncedRef.current) {
