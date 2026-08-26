@@ -6,7 +6,6 @@ Model Service - 模型业务逻辑层。
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import NotFoundError
-from app.models.entities.model import Model
 from app.models.clients.model_params import (
     DEFAULT_CONTEXT_LENGTH,
     DEFAULT_FREQUENCY_PENALTY,
@@ -19,14 +18,17 @@ from app.models.clients.model_params import (
     DEFAULT_TOP_P,
     with_default,
 )
+from app.models.entities.model import Model
 from app.models.repos import model_repo
-from app.storage.repos import retrieval_index_repo
+from app.storage.repos import agent_definition_repo, retrieval_index_repo, setting_repo
 
 
 class ModelService:
     """模型 Service。"""
 
-    async def get_all_models(self, session: AsyncSession) -> list[Model]:
+    async def get_all_models(
+        self, session: AsyncSession, *, include_disabled: bool = False
+    ) -> list[Model]:
         """
         获取所有模型。
 
@@ -36,10 +38,15 @@ class ModelService:
         Returns:
             模型列表。
         """
-        return await model_repo.get_all(session)
+        return await model_repo.get_all(session, include_disabled=include_disabled)
 
     async def get_models_by_provider(
-        self, session: AsyncSession, provider_id: str, task_type: str | None = None
+        self,
+        session: AsyncSession,
+        provider_id: str,
+        task_type: str | None = None,
+        *,
+        include_disabled: bool = False,
     ) -> list[Model]:
         """
         根据提供商 ID 获取模型列表，可选按task_type过滤。
@@ -52,7 +59,9 @@ class ModelService:
         Returns:
             模型列表。
         """
-        models = await model_repo.get_by_provider_id(session, provider_id)
+        models = await model_repo.get_by_provider_id(
+            session, provider_id, include_disabled=include_disabled
+        )
         if task_type:
             models = [m for m in models if m.task_type == task_type]
         return models
@@ -99,6 +108,7 @@ class ModelService:
         cache_read_price: float = 0.0,
         cache_write_price: float = 0.0,
         dimensions: int | None = None,
+        is_enabled: bool = True,
     ) -> Model:
         """
         创建模型。
@@ -171,6 +181,7 @@ class ModelService:
             cache_read_price=cache_read_price,
             cache_write_price=cache_write_price,
             dimensions=dimensions,
+            is_enabled=is_enabled,
         )
         await session.commit()
         return model
@@ -199,6 +210,7 @@ class ModelService:
         cache_read_price: float | None = None,
         cache_write_price: float | None = None,
         dimensions: int | None = None,
+        is_enabled: bool | None = None,
     ) -> Model:
         """
         更新模型。
@@ -230,6 +242,12 @@ class ModelService:
         existing = await self.get_model_by_id(session, model_id)
         if existing.is_builtin:
             raise ValueError("内置模型不允许编辑")
+        if is_enabled is False and existing.is_enabled:
+            usage_labels = await self._get_model_usage_labels(session, model_id)
+            if usage_labels:
+                raise ValueError(
+                    "模型正在被以下配置使用，不能停用：" + "、".join(usage_labels)
+                )
         if name is not None and await model_repo.exists_by_name(
             session, name, exclude_model_id=model_id
         ):
@@ -271,6 +289,7 @@ class ModelService:
             cache_read_price=cache_read_price,
             cache_write_price=cache_write_price,
             dimensions=dimensions,
+            is_enabled=is_enabled,
         )
 
         if not model:
@@ -278,6 +297,32 @@ class ModelService:
 
         await session.commit()
         return model
+
+    async def _get_model_usage_labels(
+        self, session: AsyncSession, model_id: str
+    ) -> list[str]:
+        setting_labels = {
+            "default_model": "默认模型",
+            "light_model": "轻量模型",
+            "default_embedding_model": "默认 Embedding 模型",
+            "default_rerank_model": "默认 Rerank 模型",
+        }
+        usage_labels: list[str] = []
+        for key, label in setting_labels.items():
+            setting = await setting_repo.get_by_key(session, key)
+            if setting and setting.value == model_id:
+                usage_labels.append(label)
+
+        definitions = await agent_definition_repo.list_all(session)
+        usage_labels.extend(
+            f"Agent：{definition.display_name}"
+            for definition in definitions
+            if definition.model_id == model_id
+        )
+
+        if await retrieval_index_repo.exists_by_embedding_model_ref_id(session, model_id):
+            usage_labels.append("章节检索索引")
+        return usage_labels
 
     async def delete_model(self, session: AsyncSession, model_id: str) -> None:
         """

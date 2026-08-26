@@ -11,7 +11,6 @@ from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col
 
-from app.models.entities.model import Model
 from app.models.clients.model_params import (
     DEFAULT_CONTEXT_LENGTH,
     DEFAULT_FREQUENCY_PENALTY,
@@ -23,10 +22,13 @@ from app.models.clients.model_params import (
     DEFAULT_TOP_K,
     DEFAULT_TOP_P,
 )
+from app.models.entities.model import Model
 from app.models.entities.model_provider import ModelProvider
 
 
-async def get_all(session: AsyncSession) -> list[Model]:
+async def get_all(
+    session: AsyncSession, *, include_disabled: bool = False
+) -> list[Model]:
     """
     获取所有模型。
 
@@ -36,11 +38,16 @@ async def get_all(session: AsyncSession) -> list[Model]:
     Returns:
         模型列表。
     """
-    result = await session.execute(select(Model))
+    statement = select(Model)
+    if not include_disabled:
+        statement = statement.where(col(Model.is_enabled).is_(True))
+    result = await session.execute(statement)
     return list(result.scalars().all())
 
 
-async def get_by_provider_id(session: AsyncSession, provider_id: str) -> list[Model]:
+async def get_by_provider_id(
+    session: AsyncSession, provider_id: str, *, include_disabled: bool = False
+) -> list[Model]:
     """
     根据提供商 ID 获取模型列表。
 
@@ -51,9 +58,10 @@ async def get_by_provider_id(session: AsyncSession, provider_id: str) -> list[Mo
     Returns:
         模型列表。
     """
-    result = await session.execute(
-        select(Model).where(col(Model.provider_id) == provider_id)
-    )
+    statement = select(Model).where(col(Model.provider_id) == provider_id)
+    if not include_disabled:
+        statement = statement.where(col(Model.is_enabled).is_(True))
+    result = await session.execute(statement)
     return list(result.scalars().all())
 
 
@@ -126,6 +134,7 @@ async def create(
     cache_read_price: float = 0.0,
     cache_write_price: float = 0.0,
     dimensions: int | None = None,
+    is_enabled: bool = True,
 ) -> Model:
     """
     创建模型。
@@ -171,6 +180,7 @@ async def create(
         cache_read_price=cache_read_price,
         cache_write_price=cache_write_price,
         dimensions=dimensions,
+        is_enabled=is_enabled,
     )
     session.add(model)
     await session.flush()
@@ -201,6 +211,7 @@ async def update(
     cache_read_price: float | None = None,
     cache_write_price: float | None = None,
     dimensions: int | None = None,
+    is_enabled: bool | None = None,
 ) -> Model | None:
     """
     更新模型。
@@ -270,6 +281,8 @@ async def update(
         model.cache_write_price = cache_write_price
     if dimensions is not None:
         model.dimensions = dimensions
+    if is_enabled is not None:
+        model.is_enabled = is_enabled
 
     model.updated_at = datetime.now(UTC)
     session.add(model)

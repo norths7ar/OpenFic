@@ -9,16 +9,16 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from loguru import logger
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.agent_settings_lock import require_agent_settings_unlocked
 from app.api.schemas.model import (
     ModelCreateRequest,
     ModelResponse,
     ModelUpdateRequest,
     TaskType,
 )
-from app.api.agent_settings_lock import require_agent_settings_unlocked
 from app.core.errors import NotFoundError
-from app.storage.database import get_session
 from app.models.services import ModelService
+from app.storage.database import get_session
 
 router = APIRouter(prefix="/models", tags=["models"])
 _SUPPORTED_TASK_TYPES = frozenset({"llm", "embedding", "rerank"})
@@ -59,6 +59,7 @@ def _to_response(m) -> ModelResponse:
         cache_write_price=m.cache_write_price,
         dimensions=m.dimensions,
         is_builtin=m.is_builtin,
+        is_enabled=m.is_enabled,
         created_at=m.created_at.isoformat(),
         updated_at=m.updated_at.isoformat(),
     )
@@ -74,6 +75,7 @@ async def get_models(
     service: Annotated[ModelService, Depends(get_model_service)],
     provider_id: str | None = None,
     task_type: str | None = None,
+    include_disabled: bool = False,
 ) -> list[ModelResponse]:
     """
     获取所有模型或按条件过滤。
@@ -88,9 +90,16 @@ async def get_models(
         模型列表。
     """
     if provider_id:
-        models = await service.get_models_by_provider(session, provider_id, task_type)
+        models = await service.get_models_by_provider(
+            session,
+            provider_id,
+            task_type,
+            include_disabled=include_disabled,
+        )
     else:
-        all_models = await service.get_all_models(session)
+        all_models = await service.get_all_models(
+            session, include_disabled=include_disabled
+        )
         # 如果指定task_type，进行过滤
         if task_type:
             models = [m for m in all_models if m.task_type == task_type]
@@ -178,6 +187,7 @@ async def create_model(
             cache_read_price=request.cache_read_price,
             cache_write_price=request.cache_write_price,
             dimensions=request.dimensions,
+            is_enabled=request.is_enabled,
         )
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
@@ -238,6 +248,7 @@ async def update_model(
             cache_read_price=request.cache_read_price,
             cache_write_price=request.cache_write_price,
             dimensions=request.dimensions,
+            is_enabled=request.is_enabled,
         )
 
         return _to_response(model)

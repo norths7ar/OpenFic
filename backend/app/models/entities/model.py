@@ -78,6 +78,7 @@ class Model(SQLModel, table=True):
     dimensions: int | None = Field(default=None, ge=1, description="Embedding dimensions")
 
     is_builtin: bool = Field(default=False, description="是否为内置模型（不可删除/编辑）")
+    is_enabled: bool = Field(default=True, index=True, description="是否在模型选择器中启用")
 
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))

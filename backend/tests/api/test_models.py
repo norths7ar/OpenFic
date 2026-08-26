@@ -52,6 +52,7 @@ async def test_create_model(client: AsyncClient, session: AsyncSession):
     assert data["output_price"] == 8.0
     assert data["cache_read_price"] == 0.5
     assert data["cache_write_price"] == 1.0
+    assert data["is_enabled"] is True
     assert "tags" not in data
 
 
@@ -190,6 +191,74 @@ async def test_get_all_models(client: AsyncClient, session: AsyncSession):
     data = response.json()
     assert isinstance(data, list)
     assert len(data) >= 1
+
+
+@pytest.mark.asyncio
+async def test_disabled_models_are_hidden_by_default(
+    client: AsyncClient, session: AsyncSession
+):
+    from app.core.encryption import EncryptionService
+    from app.settings import settings
+
+    provider = await model_provider_repo.create(
+        session=session,
+        name="Toggle Provider",
+        url="https://api.example.com",
+        api_key_encrypted=EncryptionService(settings.encryption_key).encrypt("test-key"),
+        provider_type="openai",
+    )
+    model = await model_repo.create(
+        session=session,
+        name="Toggle Model",
+        provider_id=provider.id,
+        model_id="toggle-model",
+    )
+    await session.commit()
+
+    response = await client.put(
+        f"/api/v1/models/{model.id}", json={"is_enabled": False}
+    )
+    assert response.status_code == 200
+    assert response.json()["is_enabled"] is False
+
+    enabled_response = await client.get("/api/v1/models")
+    assert model.id not in {item["id"] for item in enabled_response.json()}
+
+    all_response = await client.get("/api/v1/models?include_disabled=true")
+    disabled = next(item for item in all_response.json() if item["id"] == model.id)
+    assert disabled["is_enabled"] is False
+
+
+@pytest.mark.asyncio
+async def test_disable_model_rejects_default_model_reference(
+    client: AsyncClient, session: AsyncSession
+):
+    from app.core.encryption import EncryptionService
+    from app.settings import settings
+    from app.storage.repos import setting_repo
+
+    provider = await model_provider_repo.create(
+        session=session,
+        name="Referenced Provider",
+        url="https://api.example.com",
+        api_key_encrypted=EncryptionService(settings.encryption_key).encrypt("test-key"),
+        provider_type="openai",
+    )
+    model = await model_repo.create(
+        session=session,
+        name="Referenced Model",
+        provider_id=provider.id,
+        model_id="referenced-model",
+    )
+    await setting_repo.upsert(session, "default_model", model.id)
+    await session.commit()
+
+    response = await client.put(
+        f"/api/v1/models/{model.id}", json={"is_enabled": False}
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "模型正在被以下配置使用，不能停用：默认模型"
 
 
 @pytest.mark.asyncio
