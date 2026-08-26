@@ -1,11 +1,10 @@
-import { IconButton, Text, Tooltip } from "@radix-ui/themes";
+import { Box, Text, Tooltip } from "@radix-ui/themes";
 import { Settings } from "lucide-react";
 import { motion } from "motion/react";
 
 import {
-  SIDEBAR_ICON_COLOR,
   SIDEBAR_ICON_SIZE,
-  sidebarActionButtonStyle,
+  SIDEBAR_ITEM_HEIGHT,
 } from "./app-sidebar.constants";
 
 interface SidebarActionsProps {
@@ -19,43 +18,55 @@ export function SidebarActions({
   settingsLabel,
   onOpenSettings,
 }: SidebarActionsProps) {
-  const tooltipSide = isExpanded ? "top" : "right";
-
-  return (
-      <motion.div
-        layout
-        transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
+  const action = (
+    <motion.button
+      type="button"
+      className="app-sidebar-nav-item app-sidebar-action-button"
+      onClick={onOpenSettings}
+      aria-label={settingsLabel}
+      whileTap={{ scale: 0.97 }}
+      transition={{ duration: 0.15 }}
+      style={{ width: "100%" }}
+    >
+      <Box
+        className="app-sidebar-nav-item__icon-box"
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          width: SIDEBAR_ITEM_HEIGHT,
+          height: SIDEBAR_ITEM_HEIGHT,
+          flexShrink: 0,
+        }}
       >
-        <Tooltip
-          content={settingsLabel}
-          side={tooltipSide}
+        <Settings
+          size={SIDEBAR_ICON_SIZE}
+          color="currentColor"
+        />
+      </Box>
+      <motion.div
+        initial={false}
+        animate={{ opacity: isExpanded ? 1 : 0, width: isExpanded ? 132 : 0 }}
+        transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+        className="app-sidebar-nav-item__label"
+        style={{ pointerEvents: isExpanded ? "auto" : "none" }}
+      >
+        <Text
+          size="2"
+          weight="medium"
         >
-          <IconButton
-            variant="ghost"
-            size="2"
-            onClick={onOpenSettings}
-            aria-label={settingsLabel}
-            style={{
-              ...sidebarActionButtonStyle,
-              ...(isExpanded ? { width: "100%", justifyContent: "flex-start" } : undefined),
-              color: SIDEBAR_ICON_COLOR,
-            }}
-          >
-            <Settings
-              size={SIDEBAR_ICON_SIZE}
-              color="currentColor"
-            />
-            {isExpanded && (
-              <Text
-                size="2"
-                weight="medium"
-                ml="2"
-              >
-                {settingsLabel}
-              </Text>
-            )}
-          </IconButton>
-        </Tooltip>
+          {settingsLabel}
+        </Text>
       </motion.div>
+    </motion.button>
+  );
+
+  return isExpanded ? action : (
+    <Tooltip
+      content={settingsLabel}
+      side="right"
+    >
+      {action}
+    </Tooltip>
   );
 }

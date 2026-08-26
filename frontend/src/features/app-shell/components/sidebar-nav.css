@@ -11,6 +11,67 @@
     color 0.15s ease;
 }
 
+.app-sidebar-bookshelf-row {
+  height: 40px;
+  flex: 0 0 40px;
+  overflow: hidden;
+  border-radius: var(--radius-3);
+  color: var(--gray-11);
+  background: transparent;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.app-sidebar-bookshelf-row:hover,
+.app-sidebar-bookshelf-row[data-active="true"] {
+  color: var(--gray-12);
+  background: var(--gray-a3);
+}
+
+.app-sidebar-bookshelf-main,
+.app-sidebar-bookshelf-toggle,
+.app-sidebar-action-button {
+  appearance: none;
+  border: 0;
+  margin: 0;
+  padding: 0;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+}
+
+.app-sidebar-bookshelf-main {
+  display: flex;
+  align-items: center;
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 40px;
+  text-align: left;
+}
+
+.app-sidebar-bookshelf-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  border-radius: var(--radius-3);
+}
+
+.app-sidebar-bookshelf-toggle:hover {
+  background: var(--gray-a4);
+}
+
+.app-sidebar-action-button {
+  display: flex;
+  align-items: center;
+  height: 40px;
+  text-align: left;
+}
+
 .app-sidebar-nav-item:hover,
 .app-sidebar-nav-item[data-active="true"] {
   color: var(--gray-12);

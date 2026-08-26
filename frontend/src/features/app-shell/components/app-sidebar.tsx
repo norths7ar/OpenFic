@@ -1,4 +1,4 @@
-import { Box, Button, Flex, IconButton, Text } from "@radix-ui/themes";
+import { Box, Button, Flex, Text } from "@radix-ui/themes";
 import { useQuery } from "@tanstack/react-query";
 import axios from "axios";
 import {
@@ -34,7 +34,7 @@ import { SidebarBrand } from "./sidebar-brand";
 import { SidebarNav } from "./sidebar-nav";
 
 const MotionBox = motion.create(Box);
-const MotionFlex = motion.create(Flex);
+const LAST_PROJECT_ID_KEY = "openfic.appSidebar.lastProjectId";
 
 export function AppSidebar() {
   const { t } = useTranslation();
@@ -46,6 +46,9 @@ export function AppSidebar() {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isProjectListOpen, setIsProjectListOpen] = useState(false);
   const [isLogoHovered, setIsLogoHovered] = useState(false);
+  const [lastProjectId, setLastProjectId] = useState<string | null>(() =>
+    window.localStorage.getItem(LAST_PROJECT_ID_KEY),
+  );
   const logoPointerInsideRef = useRef(false);
   const prevPathnameRef = useRef(location.pathname);
 
@@ -74,7 +77,21 @@ export function AppSidebar() {
     queryKey: ["projects", "app-sidebar"],
     queryFn: () => fetchProjects({ page: 1, pageSize: 100 }),
   });
-  const projects = projectsData?.items ?? [];
+  const projects = useMemo(() => projectsData?.items ?? [], [projectsData?.items]);
+  const sidebarProjectId = projectId ?? lastProjectId;
+
+  useEffect(() => {
+    if (!projectId) return;
+    setLastProjectId(projectId);
+    window.localStorage.setItem(LAST_PROJECT_ID_KEY, projectId);
+  }, [projectId]);
+
+  useEffect(() => {
+    if (!projectsData || !lastProjectId) return;
+    if (projects.some((project) => project.id === lastProjectId)) return;
+    setLastProjectId(null);
+    window.localStorage.removeItem(LAST_PROJECT_ID_KEY);
+  }, [lastProjectId, projects, projectsData]);
 
   const { error: currentProjectError } = useQuery({
     queryKey: ["project", projectId],
@@ -94,55 +111,55 @@ export function AppSidebar() {
     const pathname = location.pathname;
     const items: AppSidebarNavItem[] = [];
 
-    if (projectId) {
+    if (sidebarProjectId) {
       items.push(
         {
           label: t("topbar.writing"),
-          href: `/projects/${projectId}/write`,
+          href: `/projects/${sidebarProjectId}/write`,
           icon: BookOpen,
-          active: pathname === `/projects/${projectId}/write`,
+          active: pathname === `/projects/${sidebarProjectId}/write`,
         },
         {
           label: t("sidebar.discuss"),
-          href: `/projects/${projectId}/discuss`,
+          href: `/projects/${sidebarProjectId}/discuss`,
           icon: MessageCircle,
-          active: pathname === `/projects/${projectId}/discuss`,
+          active: pathname === `/projects/${sidebarProjectId}/discuss`,
         },
         {
           label: t("topbar.workspace"),
-          href: `/projects/${projectId}/world-info`,
+          href: `/projects/${sidebarProjectId}/world-info`,
           icon: Globe,
-          active: pathname === `/projects/${projectId}/world-info`,
+          active: pathname === `/projects/${sidebarProjectId}/world-info`,
         },
         {
           label: t("topbar.characters"),
-          href: `/projects/${projectId}/characters`,
+          href: `/projects/${sidebarProjectId}/characters`,
           icon: UserRound,
-          active: pathname === `/projects/${projectId}/characters`,
+          active: pathname === `/projects/${sidebarProjectId}/characters`,
         },
         {
           label: t("sidebar.outlines"),
-          href: `/projects/${projectId}/outlines`,
+          href: `/projects/${sidebarProjectId}/outlines`,
           icon: ListTree,
-          active: pathname === `/projects/${projectId}/outlines`,
+          active: pathname === `/projects/${sidebarProjectId}/outlines`,
         },
         {
           label: t("sidebar.notes"),
-          href: `/projects/${projectId}/notes`,
+          href: `/projects/${sidebarProjectId}/notes`,
           icon: FileText,
-          active: pathname === `/projects/${projectId}/notes`,
+          active: pathname === `/projects/${sidebarProjectId}/notes`,
         },
         {
           label: t("pendingProjectChanges.navLabel"),
-          href: `/projects/${projectId}/changes`,
+          href: `/projects/${sidebarProjectId}/changes`,
           icon: FileClock,
-          active: pathname === `/projects/${projectId}/changes`,
+          active: pathname === `/projects/${sidebarProjectId}/changes`,
         },
       );
     }
 
     return items;
-  }, [location.pathname, projectId, t]);
+  }, [location.pathname, sidebarProjectId, t]);
 
   const toolNavItems = useMemo<AppSidebarNavItem[]>(
     () => [
@@ -221,6 +238,8 @@ export function AppSidebar() {
 
   const handleProjectChange = useCallback(
     (nextProjectId: string) => {
+      setLastProjectId(nextProjectId);
+      window.localStorage.setItem(LAST_PROJECT_ID_KEY, nextProjectId);
       navigate(`/projects/${nextProjectId}/${projectSection}`);
       setIsProjectListOpen(false);
     },
@@ -322,13 +341,14 @@ export function AppSidebar() {
                 align="center"
                 width="100%"
                 mb="1"
+                className="app-sidebar-bookshelf-row"
+                data-active={location.pathname === "/" ? "true" : "false"}
               >
-                <Button
-                  variant="ghost"
-                  color="gray"
+                <button
+                  type="button"
+                  className="app-sidebar-bookshelf-main"
                   onClick={navigateToProjects}
                   aria-current={location.pathname === "/" ? "page" : undefined}
-                  style={{ flex: 1, height: 40, justifyContent: "flex-start", padding: 0 }}
                 >
                   <Flex
                     align="center"
@@ -346,17 +366,17 @@ export function AppSidebar() {
                       {t("sidebar.bookshelf")}
                     </Text>
                   )}
-                </Button>
+                </button>
                 {(isMobile || isExpanded) && (
-                  <IconButton
-                    variant="ghost"
-                    color="gray"
-                    size="2"
+                  <button
+                    type="button"
+                    className="app-sidebar-bookshelf-toggle"
                     aria-label={t("topbar.currentProject")}
+                    aria-expanded={isProjectListOpen}
                     onClick={() => setIsProjectListOpen((open) => !open)}
                   >
                     {isProjectListOpen ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
-                  </IconButton>
+                  </button>
                 )}
               </Flex>
 
@@ -388,29 +408,22 @@ export function AppSidebar() {
                 isExpanded={isMobile || isExpanded}
               />
 
-              <Box mt="auto">
+              <Flex
+                mt="auto"
+                direction="column"
+                gap="1"
+                width="100%"
+              >
                 <SidebarNav
                   items={toolNavItems}
                   isExpanded={isMobile || isExpanded}
                 />
-              </Box>
-
-              <MotionFlex
-                layout
-                mt="auto"
-                direction={isMobile || isExpanded ? "row" : "column"}
-                align="center"
-                justify={isMobile || isExpanded ? "end" : "center"}
-                gap="1"
-                width="100%"
-                transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
-              >
                 <SidebarActions
                   isExpanded={isMobile || isExpanded}
                   settingsLabel={t("topbar.settings")}
                   onOpenSettings={handleOpenSettings}
                 />
-              </MotionFlex>
+              </Flex>
             </Flex>
           </MotionBox>
         )}
