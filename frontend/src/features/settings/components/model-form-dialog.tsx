@@ -18,11 +18,7 @@ import type {
   TaskType,
 } from "@/lib/model.types";
 
-import {
-  fetchModelProviderCatalogModels,
-  fetchProviders,
-  fetchProviderModels,
-} from "../lib/model-api";
+import { fetchProviders, fetchProviderModels } from "../lib/model-api";
 import {
   isSelectableModelProvider,
   resolveProviderCatalogType,
@@ -216,33 +212,6 @@ export function ModelFormDialog({
     return provider.name || provider.url || resolveProviderDisplayName(provider);
   }, []);
 
-  const loadCatalogModelsForProvider = useCallback(
-    async (provider: ModelProvider, currentTaskType: TaskType) => {
-      const catalogProviderType = resolveProviderCatalogType(provider);
-
-      setLoadingModels(true);
-      setAvailableModels([]);
-      setModelsError("");
-      setModelOptionsSource("catalog");
-
-      if (!catalogProviderType) {
-        setLoadingModels(false);
-        return;
-      }
-
-      try {
-        const result = await fetchModelProviderCatalogModels(catalogProviderType, currentTaskType);
-        setAvailableModels(result.models);
-      } catch (error) {
-        setAvailableModels([]);
-        setModelsError(error instanceof Error ? error.message : t("models.loadModelsFailed"));
-      } finally {
-        setLoadingModels(false);
-      }
-    },
-    [t],
-  );
-
   // 加载提供商的模型列表
   const loadModelsForProvider = useCallback(
     async (provId: string, currentTaskType: TaskType) => {
@@ -284,16 +253,16 @@ export function ModelFormDialog({
     void loadModelsForProvider(providerId, taskType as TaskType);
   }, [loadModelsForProvider, providerId, taskType]);
 
-  // 提供商或任务类型变化时，使用 catalog 模型作为默认候选来源
+  // 已保存的连接应直接探测远端模型；后端会用 catalog 补全可用元数据。
   useEffect(() => {
     if (!open || !selectedProvider) {
       return;
     }
 
     queueMicrotask(() => {
-      void loadCatalogModelsForProvider(selectedProvider, taskType as TaskType);
+      void loadModelsForProvider(selectedProvider.id, taskType as TaskType);
     });
-  }, [loadCatalogModelsForProvider, open, selectedProvider, taskType]);
+  }, [loadModelsForProvider, open, selectedProvider, taskType]);
 
   // 仅在创建表单没有提供商时清空模型选择。
   // 编辑表单的 reset() 会在 watch 值同步前触发，不能据此清空已保存的模型 ID。
