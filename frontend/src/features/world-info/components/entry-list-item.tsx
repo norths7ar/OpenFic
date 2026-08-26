@@ -421,7 +421,16 @@ function EntryListItemComponent({
               <Switch
                 size="1"
                 checked={entry.isEnabled}
-                aria-label={t("worldInfo.toggleWritingVisibility")}
+                color={entry.isEnabled ? "green" : "gray"}
+                highContrast={entry.isEnabled}
+                style={{
+                  backgroundColor: entry.isEnabled ? "var(--green-9)" : "var(--gray-a6)",
+                }}
+                aria-label={
+                  entry.isEnabled
+                    ? t("worldInfo.visibleToWritingAgent")
+                    : t("worldInfo.notVisibleToWritingAgent")
+                }
                 onClick={(e) => e.stopPropagation()}
                 onCheckedChange={() => onToggle(entry.id)}
               />
