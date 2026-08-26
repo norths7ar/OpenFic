@@ -35,7 +35,7 @@ class _Heading:
     ancestors: tuple[_Heading, ...] = ()
 
 
-_TARGETS = {"worldbook", "characters", "notes", "discussions"}
+_TARGETS = {"worldbook", "characters", "notes", "outlines", "discussions"}
 _RULE_KEYS = {
     "id",
     "target",
@@ -145,8 +145,10 @@ def _validate_rule(rule: Any) -> dict[str, Any]:
         if section_level < 1 or section_level >= min(levels):
             _fail("section_level must be below all item levels")
     if "category_levels" in rule:
-        if target != "notes" or not isinstance(rule["category_levels"], list):
-            _fail("category_levels is only valid as a list for notes")
+        if target not in {"notes", "outlines"} or not isinstance(
+            rule["category_levels"], list
+        ):
+            _fail("category_levels is only valid as a list for notes or outlines")
         category_levels = [
             _int(level, "category_levels") for level in rule["category_levels"]
         ]
@@ -158,20 +160,20 @@ def _validate_rule(rule: Any) -> dict[str, Any]:
         ):
             _fail("category_levels must be ascending, at most two, and ancestors")
     if "category_path" in rule and (
-        target != "notes"
+        target not in {"notes", "outlines"}
         or not isinstance(rule["category_path"], list)
         or any(
             not isinstance(value, str) or not value for value in rule["category_path"]
         )
     ):
-        _fail("category_path must be a list of non-empty strings for notes")
+        _fail("category_path must be a list of non-empty strings for notes or outlines")
     if "writing_visible" in rule and (
-        target not in {"worldbook", "characters", "notes"}
+        target not in {"worldbook", "characters", "notes", "outlines"}
         or not isinstance(rule["writing_visible"], bool)
     ):
         _fail("writing_visible is only a boolean for content targets")
     if "disabled_title_suffix" in rule and (
-        target not in {"worldbook", "characters", "notes"}
+        target not in {"worldbook", "characters", "notes", "outlines"}
         or not isinstance(rule["disabled_title_suffix"], str)
         or not rule["disabled_title_suffix"]
         or "\n" in rule["disabled_title_suffix"]

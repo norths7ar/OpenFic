@@ -13,6 +13,7 @@ from app.api.schemas.chapter import (
     MentionCandidateSearchResponse,
 )
 from app.api.schemas.note import (
+    DocumentType,
     NoteCategoryCreate,
     NoteCategoryItem,
     NoteCategoryResponse,
@@ -46,6 +47,7 @@ def _build_category_item(node) -> NoteCategoryItem:
         project_id=node.category.project_id,
         parent_id=node.category.parent_id,
         title=node.category.title,
+        document_type=node.category.document_type,
         order=node.category.order,
         created_at=node.category.created_at,
         updated_at=node.category.updated_at,
@@ -72,6 +74,7 @@ async def create_category(
             project_id=project_id,
             parent_id=data.parent_id,
             title=data.title,
+            document_type=data.document_type,
         )
         await background_service.commit_and_notify(session)
         return NoteCategoryResponse.model_validate(category)
@@ -176,6 +179,7 @@ async def reorder_note_items(
             item_kind=data.kind,
             parent_id=data.parent_id,
             ordered_ids=data.ordered_ids,
+            document_type=data.document_type,
         )
         await background_service.commit_and_notify(session)
         return ReorderResponse(updated_count=updated_count)
@@ -208,6 +212,7 @@ async def create_note(
             category_id=data.category_id,
             title=data.title,
             content=data.content,
+            document_type=data.document_type,
         )
         await background_service.commit_and_notify(session)
         return NoteResponse.model_validate(note)
@@ -225,9 +230,10 @@ async def create_note(
 async def list_notes(
     project_id: str,
     session: Annotated[AsyncSession, Depends(get_session)],
+    document_type: Annotated[DocumentType, Query(description="文档类型")] = "note",
 ) -> NoteTreeResponse:
     try:
-        result = await note_service.list_notes(session, project_id)
+        result = await note_service.list_notes(session, project_id, document_type)
         return NoteTreeResponse(
             categories=[_build_category_item(node) for node in result.categories],
             root_notes=[NoteListItem.model_validate(n) for n in result.root_notes],
@@ -389,10 +395,11 @@ async def search_notes(
     project_id: str,
     q: Annotated[str, Query(description="搜索关键词")],
     session: Annotated[AsyncSession, Depends(get_session)],
+    document_type: Annotated[DocumentType, Query(description="文档类型")] = "note",
 ) -> NoteSearchResponse:
     """按内容搜索笔记，返回匹配的笔记及匹配行。"""
     try:
-        result = await note_service.search_notes(session, project_id, q)
+        result = await note_service.search_notes(session, project_id, q, document_type)
         return NoteSearchResponse(
             results=[
                 NoteSearchResult(

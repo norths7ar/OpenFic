@@ -21,6 +21,7 @@ class NoteCategory(SQLModel, table=True):
         foreign_key="note_categories.id",
     )
     title: str = Field(max_length=200)
+    document_type: str = Field(default="note", max_length=20, index=True)
     order: int = Field(default=0, index=True)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
@@ -37,6 +38,7 @@ class Note(SQLModel, table=True):
         foreign_key="note_categories.id",
     )
     title: str = Field(max_length=200)
+    document_type: str = Field(default="note", max_length=20, index=True)
     order: int = Field(default=0, index=True)
     content: str = Field(default="")
     is_locked: bool = Field(default=False)

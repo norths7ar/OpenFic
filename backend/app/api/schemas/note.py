@@ -7,10 +7,13 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+DocumentType = Literal["note", "outline"]
+
 
 class NoteCategoryCreate(BaseModel):
     parent_id: str | None = Field(default=None, description="父分类 ID")
     title: str = Field(min_length=1, max_length=200, description="分类标题")
+    document_type: DocumentType = Field(default="note", description="文档类型")
 
 
 class NoteCategoryUpdate(BaseModel):
@@ -23,6 +26,7 @@ class NoteCreate(BaseModel):
     category_id: str | None = Field(default=None, description="所属分类 ID")
     title: str = Field(min_length=1, max_length=200, description="笔记标题")
     content: str = Field(default="", description="笔记内容")
+    document_type: DocumentType = Field(default="note", description="文档类型")
 
 
 class NoteUpdate(BaseModel):
@@ -54,6 +58,7 @@ class NoteItemsReorderRequest(BaseModel):
     kind: Literal["category", "note"]
     parent_id: str | None = None
     ordered_ids: list[str]
+    document_type: DocumentType = "note"
 
 
 class ReorderResponse(BaseModel):
@@ -66,6 +71,7 @@ class NoteResponse(BaseModel):
     category_id: str | None = Field(description="所属分类 ID")
     order: int = Field(description="同级手动排序")
     title: str = Field(description="笔记标题")
+    document_type: DocumentType = Field(description="文档类型")
     content: str = Field(description="笔记内容")
     is_locked: bool = Field(description="是否锁定")
     is_hidden: bool = Field(description="是否隐藏")
@@ -82,6 +88,7 @@ class NoteListItem(BaseModel):
     category_id: str | None = Field(description="所属分类 ID")
     order: int = Field(description="同级手动排序")
     title: str = Field(description="笔记标题")
+    document_type: DocumentType = Field(description="文档类型")
     is_locked: bool = Field(description="是否锁定")
     is_hidden: bool = Field(description="是否隐藏")
     is_writing_visible: bool = Field(description="是否对写作 Agent 可见")
@@ -96,6 +103,7 @@ class NoteCategoryResponse(BaseModel):
     project_id: str = Field(description="所属项目 ID")
     parent_id: str | None = Field(description="父分类 ID")
     title: str = Field(description="分类标题")
+    document_type: DocumentType = Field(description="文档类型")
     order: int = Field(description="同级手动排序")
     created_at: datetime = Field(description="创建时间")
     updated_at: datetime = Field(description="上次修改时间")
@@ -108,6 +116,7 @@ class NoteCategoryItem(BaseModel):
     project_id: str = Field(description="所属项目 ID")
     parent_id: str | None = Field(description="父分类 ID")
     title: str = Field(description="分类标题")
+    document_type: DocumentType = Field(description="文档类型")
     order: int = Field(description="同级手动排序")
     created_at: datetime = Field(description="创建时间")
     updated_at: datetime = Field(description="上次修改时间")

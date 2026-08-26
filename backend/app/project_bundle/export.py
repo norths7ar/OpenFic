@@ -62,12 +62,15 @@ def _category_paths(categories: Iterable[NoteCategory]) -> dict[str, str]:
             raise BundleFormatError("note category hierarchy contains a cycle")
         category = by_id[category_id]
         if category.parent_id is None:
-            parent = PurePosixPath("notes")
+            parent = PurePosixPath(
+                "outlines" if category.document_type == "outline" else "notes"
+            )
         else:
             parent_category = by_id.get(category.parent_id)
             if (
                 parent_category is None
                 or parent_category.project_id != category.project_id
+                or parent_category.document_type != category.document_type
             ):
                 raise BundleFormatError(
                     "note category parent is missing or cross-project"
@@ -212,6 +215,7 @@ async def export_project_bundle(session: AsyncSession, project_id: str) -> bytes
             "id": note.id,
             "project_id": project_id,
             "category_id": note.category_id,
+            "document_type": note.document_type,
             "order": note.order,
             "writing_visible": note.is_writing_visible,
             "is_locked": note.is_locked,
@@ -219,7 +223,10 @@ async def export_project_bundle(session: AsyncSession, project_id: str) -> bytes
         }
         if note.category_id is not None and note.category_id not in category_paths:
             raise BundleFormatError("note category is missing or cross-project")
-        directory = category_paths.get(note.category_id, "notes/_uncategorized")
+        root_directory = "outlines" if note.document_type == "outline" else "notes"
+        directory = category_paths.get(
+            note.category_id, f"{root_directory}/_uncategorized"
+        )
         path = (
             f"{directory}/{note.order:06d}-{slugify_filename(note.title, note.id)}"
             f"--{note.id}.md"
@@ -358,6 +365,7 @@ async def export_project_bundle(session: AsyncSession, project_id: str) -> bytes
             "project_id": c.project_id,
             "parent_id": c.parent_id,
             "title": c.title,
+            "document_type": c.document_type,
             "order": c.order,
             "base_hash": semantic_hash(
                 {
@@ -366,6 +374,7 @@ async def export_project_bundle(session: AsyncSession, project_id: str) -> bytes
                     "project_id": c.project_id,
                     "parent_id": c.parent_id,
                     "title": c.title,
+                    "document_type": c.document_type,
                     "order": c.order,
                 }
             ),

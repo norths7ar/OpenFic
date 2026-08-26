@@ -241,6 +241,34 @@ async def test_export_rejects_category_cycle_and_missing_project(
 
 
 @pytest.mark.asyncio
+async def test_export_places_outlines_in_their_own_directory(session) -> None:
+    project = Project(id="outline-export", title="提纲导出")
+    category = NoteCategory(
+        id="outline-category",
+        project_id=project.id,
+        title="第一卷",
+        document_type="outline",
+        order=1,
+    )
+    outline = Note(
+        id="outline-note",
+        project_id=project.id,
+        category_id=category.id,
+        title="开篇",
+        document_type="outline",
+        order=1,
+    )
+    session.add_all([project, category, outline])
+    await session.flush()
+
+    files = read_zip(await export_project_bundle(session, project.id))
+    path = next(path for path in files if path.startswith("outlines/"))
+    parsed = parse_markdown_document(files[path].decode())
+
+    assert parsed.frontmatter["document_type"] == "outline"
+
+
+@pytest.mark.asyncio
 async def test_export_rejects_note_with_missing_category(session) -> None:
     project = Project(id="orphan-project", title="孤儿分类")
     session.add_all(

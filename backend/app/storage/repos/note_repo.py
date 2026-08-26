@@ -27,9 +27,11 @@ async def get_max_order(
     session: AsyncSession,
     project_id: str,
     category_id: str | None,
+    document_type: str = "note",
 ) -> int:
     statement = select(func.max(col(Note.order))).where(
-        col(Note.project_id) == project_id
+        col(Note.project_id) == project_id,
+        col(Note.document_type) == document_type,
     )
     if category_id is None:
         statement = statement.where(col(Note.category_id).is_(None))
@@ -44,6 +46,7 @@ async def list_by_project(
     project_id: str,
     *,
     include_hidden: bool = True,
+    document_type: str | None = None,
 ) -> list[Note]:
     stmt = (
         select(Note)
@@ -52,6 +55,8 @@ async def list_by_project(
     )
     if not include_hidden:
         stmt = stmt.where(col(Note.is_hidden) == False)  # noqa: E712
+    if document_type is not None:
+        stmt = stmt.where(col(Note.document_type) == document_type)
     result = await session.execute(stmt)
     return list(result.scalars().all())
 
@@ -95,19 +100,23 @@ async def search_by_content(
     session: AsyncSession,
     project_id: str,
     query: str,
+    document_type: str | None = None,
 ) -> list[Note]:
     """按笔记内容搜索笔记。"""
     normalized_query = query.strip()
     if not normalized_query:
         return []
 
+    statement = select(Note).where(
+        col(Note.project_id) == project_id,
+        col(Note.content).ilike(f"%{normalized_query}%"),
+    )
+    if document_type is not None:
+        statement = statement.where(col(Note.document_type) == document_type)
     result = await session.execute(
-        select(Note)
-        .where(
-            col(Note.project_id) == project_id,
-            col(Note.content).ilike(f"%{normalized_query}%"),
+        statement.order_by(
+            col(Note.order).asc(), col(Note.title).asc(), col(Note.id).asc()
         )
-        .order_by(col(Note.order).asc(), col(Note.title).asc(), col(Note.id).asc())
     )
     return list(result.scalars().all())
 

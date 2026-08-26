@@ -175,6 +175,60 @@ async def test_list_notes(client: AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
+async def test_notes_and_outlines_are_isolated(client: AsyncClient) -> None:
+    project_id, _ = await _create_project(client)
+    outline_category = await client.post(
+        f"/api/v1/projects/{project_id}/note-categories",
+        json={"title": "主线", "document_type": "outline"},
+    )
+    outline = await client.post(
+        f"/api/v1/projects/{project_id}/notes",
+        json={
+            "title": "第一卷总纲",
+            "category_id": outline_category.json()["id"],
+            "document_type": "outline",
+        },
+    )
+    note = await client.post(
+        f"/api/v1/projects/{project_id}/notes",
+        json={"title": "零散备忘"},
+    )
+
+    notes = await client.get(f"/api/v1/projects/{project_id}/notes")
+    outlines = await client.get(
+        f"/api/v1/projects/{project_id}/notes",
+        params={"document_type": "outline"},
+    )
+
+    assert outline_category.status_code == 201
+    assert outline.status_code == 201
+    assert outline.json()["document_type"] == "outline"
+    assert note.json()["document_type"] == "note"
+    assert notes.json()["total_notes"] == 1
+    assert [item["title"] for item in notes.json()["root_notes"]] == ["零散备忘"]
+    assert outlines.json()["total_notes"] == 1
+    assert outlines.json()["categories"][0]["title"] == "主线"
+    assert outlines.json()["categories"][0]["notes"][0]["title"] == "第一卷总纲"
+
+
+@pytest.mark.asyncio
+async def test_note_cannot_use_outline_category(client: AsyncClient) -> None:
+    project_id, _ = await _create_project(client)
+    category = await client.post(
+        f"/api/v1/projects/{project_id}/note-categories",
+        json={"title": "提纲分类", "document_type": "outline"},
+    )
+
+    response = await client.post(
+        f"/api/v1/projects/{project_id}/notes",
+        json={"title": "错放的笔记", "category_id": category.json()["id"]},
+    )
+
+    assert response.status_code == 400
+    assert "文档类型不一致" in response.json()["detail"]
+
+
+@pytest.mark.asyncio
 async def test_list_notes_project_404(client: AsyncClient) -> None:
     resp = await client.get("/api/v1/projects/nonexistent/notes")
     assert resp.status_code == 404

@@ -148,6 +148,9 @@ def _document_fields(
             is_favorited=_bool(frontmatter.get("is_favorited"), "is_favorited"),
         )
     elif kind == "note":
+        document_type = frontmatter.get("document_type", "note")
+        if document_type not in {"note", "outline"}:
+            raise BundleFormatError("note document_type is invalid")
         fields.update(
             category_id=_nullable_text(frontmatter.get("category_id"), "category_id"),
             order=_nonnegative_int(frontmatter.get("order"), "order"),
@@ -156,6 +159,7 @@ def _document_fields(
             ),
             is_locked=_bool(frontmatter.get("is_locked"), "is_locked"),
             is_hidden=_bool(frontmatter.get("is_hidden"), "is_hidden"),
+            document_type=document_type,
         )
     elif kind == "discussion":
         context_mode = frontmatter.get("context_mode")
@@ -292,8 +296,11 @@ def parse_project_bundle(data: bytes, target_project_id: str) -> ParsedProjectBu
             "project_id": target_project_id,
             "parent_id": parent_id,
             "title": title,
+            "document_type": item.get("document_type", "note"),
             "order": order,
         }
+        if fields["document_type"] not in {"note", "outline"}:
+            raise BundleFormatError("note category document_type is invalid")
         category_ids.add(category_id)
         parsed_categories.append(
             ParsedBundleCategory(category_id, title, base_hash, fields)
@@ -302,6 +309,13 @@ def parse_project_bundle(data: bytes, target_project_id: str) -> ParsedProjectBu
         parent_id = category.semantic_fields["parent_id"]
         if parent_id is not None and parent_id not in category_ids:
             raise BundleFormatError("category parent is missing")
+        if parent_id is not None:
+            parent = next(c for c in parsed_categories if c.id == parent_id)
+            if (
+                parent.semantic_fields["document_type"]
+                != category.semantic_fields["document_type"]
+            ):
+                raise BundleFormatError("category document types do not match")
     for category in parsed_categories:
         seen: set[str] = set()
         current: str | None = category.id
@@ -323,7 +337,11 @@ def parse_project_bundle(data: bytes, target_project_id: str) -> ParsedProjectBu
             )
     category_names: set[tuple[str | None, str]] = set()
     for category in parsed_categories:
-        name_key = (category.semantic_fields["parent_id"], category.title)
+        name_key = (
+            category.semantic_fields["document_type"],
+            category.semantic_fields["parent_id"],
+            category.title,
+        )
         if name_key in category_names:
             raise BundleFormatError("note category name is duplicated among siblings")
         category_names.add(name_key)
@@ -341,6 +359,17 @@ def parse_project_bundle(data: bytes, target_project_id: str) -> ParsedProjectBu
             and doc.semantic_fields["category_id"] not in category_ids
         ):
             raise BundleFormatError("note category is missing")
+        if doc.kind == "note" and doc.semantic_fields["category_id"] is not None:
+            category = next(
+                c
+                for c in parsed_categories
+                if c.id == doc.semantic_fields["category_id"]
+            )
+            if (
+                category.semantic_fields["document_type"]
+                != doc.semantic_fields["document_type"]
+            ):
+                raise BundleFormatError("note and category document types do not match")
         if (
             doc.kind == "discussion_message"
             and doc.semantic_fields["discussion_id"] not in discussions
@@ -410,6 +439,7 @@ async def preview_project_bundle(
                         "project_id": current.project_id,
                         "parent_id": current.parent_id,
                         "title": current.title,
+                        "document_type": current.document_type,
                         "order": current.order,
                     }
                 )
@@ -582,6 +612,7 @@ async def _has_name_conflict(
         )
         statement = select(col(Note.id)).where(
             col(Note.project_id) == project_id,
+            col(Note.document_type) == fields["document_type"],
             category_filter,
             col(Note.title) == title,
             col(Note.id) != entity_id,
@@ -595,6 +626,7 @@ async def _has_name_conflict(
         )
         statement = select(col(NoteCategory.id)).where(
             col(NoteCategory.project_id) == project_id,
+            col(NoteCategory.document_type) == fields["document_type"],
             parent_filter,
             col(NoteCategory.title) == title,
             col(NoteCategory.id) != entity_id,
@@ -690,6 +722,7 @@ async def _current_hash(
             "id": current.id,
             "project_id": project_id,
             "category_id": current.category_id,
+            "document_type": current.document_type,
             "order": current.order,
             "writing_visible": current.is_writing_visible,
             "is_locked": current.is_locked,

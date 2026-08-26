@@ -27,6 +27,7 @@ import type {
   NoteItemReorder,
   NoteTreeResponse,
   NoteCategoryItem,
+  DocumentType,
 } from "@/lib/note.types";
 import { projectDataQueryKeys } from "@/lib/project-data-query-keys";
 
@@ -238,10 +239,10 @@ function countCategoryNotes(cats: NoteCategoryItem[]): number {
   return cats.reduce((sum, cat) => sum + cat.notes.length + countCategoryNotes(cat.categories), 0);
 }
 
-export function useNoteTree(projectId: string) {
+export function useNoteTree(projectId: string, documentType: DocumentType = "note") {
   return useQuery({
-    queryKey: projectDataQueryKeys.notes.tree(projectId),
-    queryFn: () => fetchNoteTree(projectId),
+    queryKey: projectDataQueryKeys.notes.tree(projectId, documentType),
+    queryFn: () => fetchNoteTree(projectId, documentType),
     enabled: !!projectId,
     staleTime: 5 * 60 * 1000,
   });
@@ -256,14 +257,16 @@ export function useNote(noteId: string | null) {
   });
 }
 
-export function useCreateNote(projectId: string) {
+export function useCreateNote(projectId: string, documentType: DocumentType = "note") {
   const queryClient = useQueryClient();
   const { t } = useTranslation();
 
   return useMutation({
-    mutationFn: (data: NoteCreate) => createNote(projectId, data),
+    mutationFn: (data: NoteCreate) => createNote(projectId, { ...data, documentType }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: projectDataQueryKeys.notes.tree(projectId) });
+      queryClient.invalidateQueries({
+        queryKey: projectDataQueryKeys.notes.tree(projectId, documentType),
+      });
       toast.success(t("writing.noteCreated"));
     },
     onError: () => {
@@ -425,14 +428,17 @@ export function useToggleNoteHidden(projectId: string) {
   });
 }
 
-export function useCreateNoteCategory(projectId: string) {
+export function useCreateNoteCategory(projectId: string, documentType: DocumentType = "note") {
   const queryClient = useQueryClient();
   const { t } = useTranslation();
 
   return useMutation({
-    mutationFn: (data: NoteCategoryCreate) => createNoteCategory(projectId, data),
+    mutationFn: (data: NoteCategoryCreate) =>
+      createNoteCategory(projectId, { ...data, documentType }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: projectDataQueryKeys.notes.tree(projectId) });
+      queryClient.invalidateQueries({
+        queryKey: projectDataQueryKeys.notes.tree(projectId, documentType),
+      });
       toast.success(t("writing.categoryCreated"));
     },
     onError: () => {
@@ -549,12 +555,12 @@ export function useMoveNoteItem(projectId: string) {
   });
 }
 
-export function useReorderNoteItems(projectId: string) {
+export function useReorderNoteItems(projectId: string, documentType: DocumentType = "note") {
   const queryClient = useQueryClient();
   const { t } = useTranslation();
 
   return useMutation({
-    mutationFn: (data: NoteItemReorder) => reorderNoteItems(projectId, data),
+    mutationFn: (data: NoteItemReorder) => reorderNoteItems(projectId, { ...data, documentType }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: projectDataQueryKeys.notes.tree(projectId) });
       toast.success(t("writing.orderSaved"));

@@ -1,8 +1,11 @@
+export type DocumentType = "note" | "outline";
+
 export interface Note {
   id: string;
   projectId: string;
   categoryId: string | null;
   title: string;
+  documentType: DocumentType;
   content: string;
   order: number;
   isLocked: boolean;
@@ -17,6 +20,7 @@ export interface NoteListItem {
   projectId: string;
   categoryId: string | null;
   title: string;
+  documentType: DocumentType;
   order: number;
   isLocked: boolean;
   isHidden: boolean;
@@ -30,6 +34,7 @@ export interface NoteCategory {
   projectId: string;
   parentId: string | null;
   title: string;
+  documentType: DocumentType;
   order: number;
   createdAt: string;
   updatedAt: string;
@@ -50,6 +55,7 @@ export interface NoteCreate {
   categoryId?: string | null;
   title: string;
   content?: string;
+  documentType?: DocumentType;
 }
 
 export interface NoteUpdate {
@@ -61,6 +67,7 @@ export interface NoteUpdate {
 export interface NoteCategoryCreate {
   parentId?: string | null;
   title: string;
+  documentType?: DocumentType;
 }
 
 export interface NoteCategoryUpdate {
@@ -77,6 +84,7 @@ export interface NoteItemReorder {
   kind: "category" | "note";
   parentId: string | null;
   orderedIds: string[];
+  documentType?: DocumentType;
 }
 
 export interface NoteMoveResult {

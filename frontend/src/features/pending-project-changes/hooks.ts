@@ -70,7 +70,9 @@ export function useApplyPendingProjectChange(projectId: string) {
       void queryClient.invalidateQueries({
         queryKey: pendingProjectChangesQueryKeys.countRoot(projectId),
       });
-      void queryClient.invalidateQueries({ queryKey: projectDataQueryKeys.notes.tree(projectId) });
+      void queryClient.invalidateQueries({
+        queryKey: projectDataQueryKeys.notes.projectTrees(projectId),
+      });
       void queryClient.invalidateQueries({ queryKey: projectDataQueryKeys.notes.details });
       void queryClient.invalidateQueries({
         queryKey: projectDataQueryKeys.characters.list(projectId),

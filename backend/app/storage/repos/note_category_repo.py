@@ -29,9 +29,11 @@ async def get_max_order(
     session: AsyncSession,
     project_id: str,
     parent_id: str | None,
+    document_type: str = "note",
 ) -> int:
     statement = select(func.max(col(NoteCategory.order))).where(
-        col(NoteCategory.project_id) == project_id
+        col(NoteCategory.project_id) == project_id,
+        col(NoteCategory.document_type) == document_type,
     )
     if parent_id is None:
         statement = statement.where(col(NoteCategory.parent_id).is_(None))
@@ -44,11 +46,21 @@ async def get_max_order(
 async def list_by_project(
     session: AsyncSession,
     project_id: str,
+    document_type: str | None = None,
 ) -> list[NoteCategory]:
+    statement = select(NoteCategory).where(
+        col(NoteCategory.project_id) == project_id
+    )
+    if document_type is not None:
+        statement = statement.where(
+            col(NoteCategory.document_type) == document_type
+        )
     result = await session.execute(
-        select(NoteCategory)
-        .where(col(NoteCategory.project_id) == project_id)
-        .order_by(col(NoteCategory.order).asc(), col(NoteCategory.title).asc(), col(NoteCategory.id).asc())
+        statement.order_by(
+            col(NoteCategory.order).asc(),
+            col(NoteCategory.title).asc(),
+            col(NoteCategory.id).asc(),
+        )
     )
     return list(result.scalars().all())
 

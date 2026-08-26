@@ -2724,6 +2724,7 @@ import type {
   NoteItemMove,
   NoteItemReorder,
   NoteMoveResult,
+  DocumentType,
 } from "./note.types";
 
 function transformNote(raw: Record<string, unknown>): Note {
@@ -2732,6 +2733,7 @@ function transformNote(raw: Record<string, unknown>): Note {
     projectId: raw.project_id as string,
     categoryId: (raw.category_id as string | null | undefined) ?? null,
     title: raw.title as string,
+    documentType: raw.document_type as DocumentType,
     content: raw.content as string,
     order: raw.order as number,
     isLocked: raw.is_locked as boolean,
@@ -2748,6 +2750,7 @@ function transformNoteListItem(raw: Record<string, unknown>): NoteListItem {
     projectId: raw.project_id as string,
     categoryId: (raw.category_id as string | null | undefined) ?? null,
     title: raw.title as string,
+    documentType: raw.document_type as DocumentType,
     order: raw.order as number,
     isLocked: raw.is_locked as boolean,
     isHidden: raw.is_hidden as boolean,
@@ -2763,6 +2766,7 @@ function transformNoteCategory(raw: Record<string, unknown>): NoteCategory {
     projectId: raw.project_id as string,
     parentId: (raw.parent_id as string | null | undefined) ?? null,
     title: raw.title as string,
+    documentType: raw.document_type as DocumentType,
     order: raw.order as number,
     createdAt: raw.created_at as string,
     updatedAt: raw.updated_at as string,
@@ -2799,8 +2803,13 @@ function transformNoteMoveResult(raw: Record<string, unknown>): NoteMoveResult {
   };
 }
 
-export async function fetchNoteTree(projectId: string): Promise<NoteTreeResponse> {
-  const response = await apiClient.get(`/projects/${projectId}/notes`);
+export async function fetchNoteTree(
+  projectId: string,
+  documentType: DocumentType = "note",
+): Promise<NoteTreeResponse> {
+  const response = await apiClient.get(`/projects/${projectId}/notes`, {
+    params: { document_type: documentType },
+  });
   return transformNoteTree(response.data);
 }
 
@@ -2809,6 +2818,7 @@ export async function reorderNoteItems(projectId: string, data: NoteItemReorder)
     kind: data.kind,
     parent_id: data.parentId,
     ordered_ids: data.orderedIds,
+    document_type: data.documentType ?? "note",
   });
   return response.data.updated_count as number;
 }
@@ -2823,6 +2833,7 @@ export async function createNote(projectId: string, data: NoteCreate): Promise<N
     category_id: data.categoryId,
     title: data.title,
     content: data.content,
+    document_type: data.documentType ?? "note",
   });
   return transformNote(response.data);
 }
@@ -2861,6 +2872,7 @@ export async function createNoteCategory(
   const response = await apiClient.post(`/projects/${projectId}/note-categories`, {
     parent_id: data.parentId,
     title: data.title,
+    document_type: data.documentType ?? "note",
   });
   return transformNoteCategory(response.data);
 }

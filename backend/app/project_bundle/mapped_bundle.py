@@ -123,8 +123,8 @@ class _Builder:
         self.categories: list[dict[str, Any]] = []
         self.specs: dict[str, MappedBindingSpec] = {}
         self.target_owners: dict[tuple[str, str], str] = {}
-        self.category_ids: dict[tuple[str, ...], str] = {}
-        self.category_sibling_orders: dict[tuple[str, ...], int] = {}
+        self.category_ids: dict[tuple[str, tuple[str, ...]], str] = {}
+        self.category_sibling_orders: dict[tuple[str, tuple[str, ...]], int] = {}
 
     def world_uid_for(self, item: MappedSourceItem) -> int:
         _, target_id, _ = self.resolve(
@@ -203,22 +203,25 @@ class _Builder:
         self.specs[key] = spec
         return spec
 
-    def add_category_path(self, path: list[str]) -> str | None:
+    def add_category_path(
+        self, path: list[str], document_type: str
+    ) -> str | None:
         parent_id: str | None = None
         for depth in range(1, len(path) + 1):
             current_path = tuple(path[:depth])
-            existing_id = self.category_ids.get(current_path)
+            category_key = (document_type, current_path)
+            existing_id = self.category_ids.get(category_key)
             if existing_id is not None:
                 parent_id = existing_id
                 continue
-            anchor = "/".join(current_path)
+            anchor = f"{document_type}/" + "/".join(current_path)
             key, category_id, binding = self.resolve(
                 rule_id=_CATEGORY_RULE_ID,
                 source_path="",
                 source_anchor=anchor,
                 target_kind="note_category",
             )
-            parent_path = current_path[:-1]
+            parent_path = (document_type, current_path[:-1])
             order = self.category_sibling_orders.get(parent_path, 0)
             self.category_sibling_orders[parent_path] = order + 1
             fields = {
@@ -227,6 +230,7 @@ class _Builder:
                 "project_id": self.project.id,
                 "parent_id": parent_id,
                 "title": current_path[-1],
+                "document_type": document_type,
                 "order": order,
             }
             incoming_hash = semantic_hash(fields)
@@ -236,6 +240,7 @@ class _Builder:
                     "project_id": self.project.id,
                     "parent_id": parent_id,
                     "title": current_path[-1],
+                    "document_type": document_type,
                     "order": order,
                     "base_hash": _base_hash(binding, incoming_hash),
                 }
@@ -249,7 +254,7 @@ class _Builder:
                 target_id=category_id,
                 incoming_hash=incoming_hash,
             )
-            self.category_ids[current_path] = category_id
+            self.category_ids[category_key] = category_id
             parent_id = category_id
         return parent_id
 
@@ -412,13 +417,17 @@ async def build_mapped_project_bundle(
                 body=item.body,
                 path=f"characters/{item.order:06d}-{slug}--{{id}}.md",
             )
-        elif item.target == "notes":
-            category_id = builder.add_category_path(item.category_path)
+        elif item.target in {"notes", "outlines"}:
+            document_type = "outline" if item.target == "outlines" else "note"
+            category_id = builder.add_category_path(
+                item.category_path, document_type
+            )
             builder.add_document(
                 item=item,
                 target_kind="note",
                 fields={
                     "category_id": category_id,
+                    "document_type": document_type,
                     "order": item.order,
                     "writing_visible": item.writing_visible,
                     "is_locked": False,
@@ -426,7 +435,9 @@ async def build_mapped_project_bundle(
                 },
                 title=item.title,
                 body=item.body,
-                path=f"notes/_mapped/{item.order:06d}-{slug}--{{id}}.md",
+                path=(
+                    f"{item.target}/_mapped/{item.order:06d}-{slug}--{{id}}.md"
+                ),
             )
         else:
             discussion_index += 1

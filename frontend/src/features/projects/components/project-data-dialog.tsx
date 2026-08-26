@@ -127,7 +127,7 @@ export function ProjectDataDialog({ open, projectId, onOpenChange }: ProjectData
       ["volume-tree", projectId],
       ["chapter"],
       ["chapters-search", projectId],
-      projectDataQueryKeys.notes.tree(projectId),
+      projectDataQueryKeys.notes.projectTrees(projectId),
       projectDataQueryKeys.notes.details,
       ["notes-search", projectId],
       projectDataQueryKeys.characters.list(projectId),

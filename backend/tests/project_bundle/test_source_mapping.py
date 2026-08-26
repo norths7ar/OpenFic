@@ -164,6 +164,27 @@ def test_mixed_outline_levels_use_only_current_ancestor_category() -> None:
     assert items[1].body == "卷内容"
 
 
+def test_outlines_are_a_distinct_mapping_target() -> None:
+    data = bundle(
+        "p",
+        [
+            {
+                "id": "outline",
+                "target": "outlines",
+                "source": "outline.md",
+                "split": {"type": "headings", "item_levels": [3]},
+                "category_levels": [2],
+            }
+        ],
+        **{"outline.md": "# 总纲\n## 第一卷\n### 开篇\n内容"},
+    )
+
+    item = parse_source_mapping(data, "p")[0]
+
+    assert item.target == "outlines"
+    assert item.category_path == ["第一卷"]
+
+
 @pytest.mark.parametrize(
     "mutator",
     [

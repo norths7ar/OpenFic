@@ -349,7 +349,9 @@ export function useAgentSession({
 
   const invalidateNoteQueries = useCallback(
     (targetNoteId?: string, operation?: string) => {
-      queryClient.invalidateQueries({ queryKey: projectDataQueryKeys.notes.tree(projectId) });
+      queryClient.invalidateQueries({
+        queryKey: projectDataQueryKeys.notes.projectTrees(projectId),
+      });
       if (operation === "delete") return;
 
       if (targetNoteId) {

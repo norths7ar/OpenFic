@@ -1,7 +1,9 @@
 export const projectDataQueryKeys = {
   notes: {
     trees: ["note-tree"] as const,
-    tree: (projectId: string) => ["note-tree", projectId] as const,
+    projectTrees: (projectId: string) => ["note-tree", projectId] as const,
+    tree: (projectId: string, documentType: "note" | "outline" = "note") =>
+      ["note-tree", projectId, documentType] as const,
     details: ["note"] as const,
     detail: (noteId: string | null) => ["note", noteId] as const,
   },

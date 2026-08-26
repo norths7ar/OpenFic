@@ -18,6 +18,8 @@ from app.storage.repos import (
 )
 from app.storage.services import writing_activity_service
 
+DocumentType = Literal["note", "outline"]
+
 
 @dataclass
 class NoteCategoryNode:
@@ -66,6 +68,7 @@ async def create_note(
     category_id: str | None,
     title: str,
     content: str = "",
+    document_type: DocumentType = "note",
 ) -> Note:
     validate_editor_content(content)
     project = await project_repo.get_by_id(session, project_id)
@@ -78,8 +81,15 @@ async def create_note(
             raise NotFoundError(f"分类不存在: {category_id}")
         if category.project_id != project_id:
             raise ValueError("分类不属于当前项目")
+        if category.document_type != document_type:
+            raise ValueError("条目与分类的文档类型不一致")
 
-    notes = await note_repo.list_by_project(session, project_id, include_hidden=True)
+    notes = await note_repo.list_by_project(
+        session,
+        project_id,
+        include_hidden=True,
+        document_type=document_type,
+    )
     siblings = {n.title for n in notes if n.category_id == category_id}
     unique_title = title
     counter = 1
@@ -92,7 +102,11 @@ async def create_note(
         category_id=category_id,
         title=unique_title,
         content=content,
-        order=await note_repo.get_max_order(session, project_id, category_id) + 1,
+        document_type=document_type,
+        order=await note_repo.get_max_order(
+            session, project_id, category_id, document_type
+        )
+        + 1,
         is_writing_visible=True,
     )
     note = await note_repo.create(session, note)
@@ -120,13 +134,21 @@ async def get_note(session: AsyncSession, note_id: str) -> Note:
 async def list_notes(
     session: AsyncSession,
     project_id: str,
+    document_type: DocumentType = "note",
 ) -> NoteTreeResult:
     project = await project_repo.get_by_id(session, project_id)
     if project is None:
         raise NotFoundError(f"项目不存在: {project_id}")
 
-    categories = await note_category_repo.list_by_project(session, project_id)
-    notes = await note_repo.list_by_project(session, project_id, include_hidden=True)
+    categories = await note_category_repo.list_by_project(
+        session, project_id, document_type
+    )
+    notes = await note_repo.list_by_project(
+        session,
+        project_id,
+        include_hidden=True,
+        document_type=document_type,
+    )
 
     cat_by_parent: dict[str | None, list[NoteCategory]] = {}
     for cat in categories:
@@ -160,6 +182,7 @@ async def reorder_items(
     item_kind: Literal["category", "note"],
     parent_id: str | None,
     ordered_ids: list[str],
+    document_type: DocumentType = "note",
 ) -> int:
     project = await project_repo.get_by_id(session, project_id)
     if project is None:
@@ -170,19 +193,23 @@ async def reorder_items(
         parent = await note_category_repo.get_by_id(session, parent_id)
         if parent is None or parent.project_id != project_id:
             raise ValueError("父分类不存在或不属于当前项目")
+        if parent.document_type != document_type:
+            raise ValueError("父分类与当前文档类型不一致")
 
     if item_kind == "category":
         siblings = [
             category
             for category in await note_category_repo.list_by_project(
-                session, project_id
+                session, project_id, document_type
             )
             if category.parent_id == parent_id
         ]
     else:
         siblings = [
             note
-            for note in await note_repo.list_by_project(session, project_id)
+            for note in await note_repo.list_by_project(
+                session, project_id, document_type=document_type
+            )
             if note.category_id == parent_id
         ]
     expected = {item.id for item in siblings}
@@ -326,6 +353,7 @@ async def create_category(
     project_id: str,
     parent_id: str | None,
     title: str,
+    document_type: DocumentType = "note",
 ) -> NoteCategory:
     project = await project_repo.get_by_id(session, project_id)
     if project is None:
@@ -334,8 +362,13 @@ async def create_category(
     if parent_id is not None:
         await _assert_category_depth(session, parent_id)
         await _assert_parent_belongs_to_project(session, parent_id, project_id)
+        parent = await note_category_repo.get_by_id(session, parent_id)
+        if parent is None or parent.document_type != document_type:
+            raise ValueError("父分类与当前文档类型不一致")
 
-    cats = await note_category_repo.list_by_project(session, project_id)
+    cats = await note_category_repo.list_by_project(
+        session, project_id, document_type
+    )
     siblings = {c.title for c in cats if c.parent_id == parent_id}
     unique_title = title
     counter = 1
@@ -347,7 +380,10 @@ async def create_category(
         project_id=project_id,
         parent_id=parent_id,
         title=unique_title,
-        order=await note_category_repo.get_max_order(session, project_id, parent_id)
+        document_type=document_type,
+        order=await note_category_repo.get_max_order(
+            session, project_id, parent_id, document_type
+        )
         + 1,
     )
     return await note_category_repo.create(session, category)
@@ -406,6 +442,8 @@ async def move_item(
             target = await note_category_repo.get_by_id(session, target_category_id)
             if target is None or target.project_id != category.project_id:
                 raise ValueError("目标分类不存在或不属于当前项目")
+            if target.document_type != category.document_type:
+                raise ValueError("不能跨文档类型移动分类")
             await _assert_not_descendant(session, item_id, target_category_id)
             if target.parent_id is not None:
                 raise ValueError("分类层级不能超过两级")
@@ -414,7 +452,10 @@ async def move_item(
             category.parent_id = target_category_id
             category.order = (
                 await note_category_repo.get_max_order(
-                    session, category.project_id, target_category_id
+                    session,
+                    category.project_id,
+                    target_category_id,
+                    category.document_type,
                 )
                 + 1
             )
@@ -444,12 +485,17 @@ async def move_item(
             target = await note_category_repo.get_by_id(session, target_category_id)
             if target is None or target.project_id != note.project_id:
                 raise ValueError("目标分类不存在或不属于当前项目")
+            if target.document_type != note.document_type:
+                raise ValueError("不能跨文档类型移动条目")
 
         if note.category_id != target_category_id:
             note.category_id = target_category_id
             note.order = (
                 await note_repo.get_max_order(
-                    session, note.project_id, target_category_id
+                    session,
+                    note.project_id,
+                    target_category_id,
+                    note.document_type,
                 )
                 + 1
             )
@@ -535,6 +581,7 @@ async def search_notes(
     session: AsyncSession,
     project_id: str,
     query: str,
+    document_type: DocumentType = "note",
 ) -> NoteSearchResponse:
     """按内容搜索笔记。"""
     project = await project_repo.get_by_id(session, project_id)
@@ -544,7 +591,9 @@ async def search_notes(
     if not query.strip():
         return NoteSearchResponse(results=[], total_notes=0, total_matches=0)
 
-    notes = await note_repo.search_by_content(session, project_id, query)
+    notes = await note_repo.search_by_content(
+        session, project_id, query, document_type
+    )
 
     results: list[NoteSearchResult] = []
     total_matches = 0

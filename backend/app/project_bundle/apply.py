@@ -75,6 +75,7 @@ async def _apply_categories(
                     project_id=fields["project_id"],
                     parent_id=fields["parent_id"],
                     title=category.title,
+                    document_type=fields["document_type"],
                     order=fields["order"],
                     created_at=now,
                     updated_at=now,
@@ -86,6 +87,7 @@ async def _apply_categories(
                 raise BundleFormatError("category disappeared during apply")
             current.parent_id = fields["parent_id"]
             current.title = category.title
+            current.document_type = fields["document_type"]
             current.order = fields["order"]
             current.updated_at = now
             session.add(current)
@@ -218,6 +220,7 @@ async def _apply_note(
                 title=document.title,
                 order=fields["order"],
                 content=document.body,
+                document_type=fields["document_type"],
                 is_locked=fields["is_locked"],
                 is_hidden=fields["is_hidden"],
                 is_writing_visible=fields["writing_visible"],
@@ -233,6 +236,7 @@ async def _apply_note(
     current.title = document.title
     current.order = fields["order"]
     current.content = document.body
+    current.document_type = fields["document_type"]
     current.is_locked = fields["is_locked"]
     current.is_hidden = fields["is_hidden"]
     current.is_writing_visible = fields["writing_visible"]

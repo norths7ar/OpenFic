@@ -43,11 +43,13 @@ class _NotePayload(_StrictPayload):
     body: str = ""
     category_id: str | None = None
     writing_visible: bool = True
+    document_type: Literal["note", "outline"] = "note"
 
 
 class _NoteCategoryPayload(_StrictPayload):
     title: str = Field(min_length=1, max_length=200)
     parent_id: None = None
+    document_type: Literal["note", "outline"] = "note"
 
 
 class _CharacterPayload(_StrictPayload):
@@ -102,6 +104,7 @@ def _note_snapshot(note: Note) -> dict[str, Any]:
         "id": note.id,
         "project_id": note.project_id,
         "category_id": note.category_id,
+        "document_type": note.document_type,
         "order": note.order,
         "writing_visible": note.is_writing_visible,
         "is_locked": note.is_locked,
@@ -117,6 +120,7 @@ def _note_category_snapshot(category: NoteCategory) -> dict[str, Any]:
         "id": category.id,
         "project_id": category.project_id,
         "parent_id": category.parent_id,
+        "document_type": category.document_type,
         "title": category.title,
         "order": category.order,
     }
@@ -202,10 +206,15 @@ def _editable_payload(
             "title": snapshot["title"],
             "body": snapshot["body"],
             "category_id": snapshot["category_id"],
+            "document_type": snapshot["document_type"],
             "writing_visible": snapshot["writing_visible"],
         }
     if target_type == "note_category":
-        return {"title": snapshot["title"], "parent_id": snapshot["parent_id"]}
+        return {
+            "title": snapshot["title"],
+            "parent_id": snapshot["parent_id"],
+            "document_type": snapshot["document_type"],
+        }
     if target_type == "character":
         return {
             "title": snapshot["title"],
@@ -250,6 +259,10 @@ def _prepare_after(
         return {"kind": target_type, **payload}
     if target_type == "note" and payload["category_id"] != current["category_id"]:
         raise ValidationError("待审变更不能移动笔记分类")
+    if target_type in {"note", "note_category"} and (
+        payload["document_type"] != current["document_type"]
+    ):
+        raise ValidationError("待审变更不能改变文档类型")
     if target_type == "note_category" and payload["parent_id"] != current["parent_id"]:
         raise ValidationError("待审变更不能移动笔记分类")
     return {**current, **payload}
@@ -396,6 +409,7 @@ async def _apply_create(
             after["category_id"],
             after["title"],
             after["body"],
+            after["document_type"],
         )
         if not after["writing_visible"]:
             note = await note_service.update_note(
@@ -408,6 +422,7 @@ async def _apply_create(
             project_id,
             None,
             after["title"],
+            after["document_type"],
         )
         return category.id, _note_category_snapshot(category)
     if target_type == "character":
