@@ -16,6 +16,8 @@ def test_local_discussion_scope_treats_hidden_knowledge_as_unknown() -> None:
 
     assert message.role == "system"
     assert "局部讨论" in message.content
+    assert "仍是 Discuss 讨论 Agent" in message.content
+    assert "并不切换身份" in message.content
     assert "视为未知" in message.content
     assert "不得尝试推断" in message.content
     assert "不可切换" in message.content

@@ -583,6 +583,68 @@ async def test_read_world_entry_reads_content_by_title() -> None:
 
 
 @pytest.mark.asyncio
+async def test_read_world_entry_prefers_visible_entry_id() -> None:
+    from app.agent_runtime.tools.impls.context.world_entry import ReadWorldEntryTool
+
+    tool = ReadWorldEntryTool(_state=_make_state())
+    entries = [
+        SimpleNamespace(
+            id="e1",
+            name="经脉回路投影（视觉化“变强”）",
+            uid=1,
+            order=1,
+            content="内容",
+        ),
+    ]
+    with patch(
+        "app.agent_runtime.tools.impls.context.world_entry.create_session"
+    ) as mock_cs, patch(
+        "app.agent_runtime.tools.impls.context.world_entry.world_info_repo"
+    ) as mock_world_repo, patch(
+        "app.agent_runtime.tools.impls.context.world_entry.world_info_entry_repo"
+    ) as mock_entry_repo:
+        mock_session = AsyncMock()
+        mock_cs.return_value = mock_session
+        mock_world_repo.get_by_project_id = AsyncMock(return_value=SimpleNamespace(id="world-1"))
+        mock_entry_repo.list_enabled_by_world_info = AsyncMock(return_value=entries)
+
+        result = await tool.ainvoke({"entry_id": "e1"})
+
+    assert json.loads(result)["title"] == "经脉回路投影（视觉化“变强”）"
+
+
+@pytest.mark.asyncio
+async def test_read_world_entry_normalizes_quote_punctuation_in_legacy_title() -> None:
+    from app.agent_runtime.tools.impls.context.world_entry import ReadWorldEntryTool
+
+    tool = ReadWorldEntryTool(_state=_make_state())
+    entries = [
+        SimpleNamespace(
+            id="e1",
+            name="经脉回路投影（视觉化“变强”）",
+            uid=1,
+            order=1,
+            content="内容",
+        ),
+    ]
+    with patch(
+        "app.agent_runtime.tools.impls.context.world_entry.create_session"
+    ) as mock_cs, patch(
+        "app.agent_runtime.tools.impls.context.world_entry.world_info_repo"
+    ) as mock_world_repo, patch(
+        "app.agent_runtime.tools.impls.context.world_entry.world_info_entry_repo"
+    ) as mock_entry_repo:
+        mock_session = AsyncMock()
+        mock_cs.return_value = mock_session
+        mock_world_repo.get_by_project_id = AsyncMock(return_value=SimpleNamespace(id="world-1"))
+        mock_entry_repo.list_enabled_by_world_info = AsyncMock(return_value=entries)
+
+        result = await tool.ainvoke({"title": '经脉回路投影（视觉化"变强"）'})
+
+    assert json.loads(result)["id"] == "e1"
+
+
+@pytest.mark.asyncio
 async def test_read_world_entry_rejects_duplicate_titles() -> None:
     from app.agent_runtime.tools.impls.context.world_entry import ReadWorldEntryTool
 
@@ -635,6 +697,30 @@ async def test_read_world_entry_rejects_disabled_entry_by_title() -> None:
     assert payload["success"] is False
     assert payload["message"] == "世界书条目不存在: 已关闭"
     mock_entry_repo.list_enabled_by_world_info.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_read_world_entry_rejects_disabled_entry_by_id() -> None:
+    from app.agent_runtime.tools.impls.context.world_entry import ReadWorldEntryTool
+
+    tool = ReadWorldEntryTool(_state=_make_state())
+    with patch(
+        "app.agent_runtime.tools.impls.context.world_entry.create_session"
+    ) as mock_cs, patch(
+        "app.agent_runtime.tools.impls.context.world_entry.world_info_repo"
+    ) as mock_world_repo, patch(
+        "app.agent_runtime.tools.impls.context.world_entry.world_info_entry_repo"
+    ) as mock_entry_repo:
+        mock_session = AsyncMock()
+        mock_cs.return_value = mock_session
+        mock_world_repo.get_by_project_id = AsyncMock(return_value=SimpleNamespace(id="world-1"))
+        mock_entry_repo.list_enabled_by_world_info = AsyncMock(return_value=[])
+
+        result = await tool.ainvoke({"entry_id": "disabled-id"})
+
+    payload = json.loads(result)
+    assert payload["type"] == "fail"
+    assert payload["message"] == "世界书条目不存在: disabled-id"
 
 
 @pytest.mark.asyncio

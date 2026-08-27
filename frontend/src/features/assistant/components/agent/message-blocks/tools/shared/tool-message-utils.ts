@@ -637,6 +637,7 @@ export function getRangeSummaryList(message: AgentMessage): RangeSummaryPayload[
 export function getWorldEntryPayload(message: AgentMessage): WorldInfoEntryPayload {
   const resultData = getToolResultData(message);
   const data = getToolData(message);
+  const toolArgs = message.toolArgs ?? {};
   const entryData =
     isRecord(resultData) && isRecord(resultData.world_entry) ? resultData.world_entry : data;
   const metadata =
@@ -649,7 +650,8 @@ export function getWorldEntryPayload(message: AgentMessage): WorldInfoEntryPaylo
       asString(entryData.name) ??
       asString(diff?.entry_title) ??
       asString(data.title) ??
-      asString(data.new_title),
+      asString(data.new_title) ??
+      asString(toolArgs.title),
     content: asString(entryData.content) ?? asString(data.content) ?? asString(data.new_content),
     uid: asNumber(entryData.uid),
     order: asNumber(entryData.order),

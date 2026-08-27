@@ -86,7 +86,10 @@ async def test_primary_tool_names_forward_explicit_skill_references() -> None:
     ), patch(
         "app.agent_runtime.graph.orchestrator.graph.skill_tool_names_for_definition",
         AsyncMock(return_value=("activate_skill", "reference_skill")),
-    ) as skill_tools:
+    ) as skill_tools, patch(
+        "app.agent_runtime.graph.orchestrator.graph.setting_repo.get_by_key",
+        AsyncMock(return_value=None),
+    ):
         result = await _primary_tool_names(
             {"configurable": {"db_session": object()}},
             referenced_skill_ids=("skill-explicit",),
@@ -99,6 +102,58 @@ async def test_primary_tool_names_forward_explicit_skill_references() -> None:
         referenced_skill_ids=("skill-explicit",),
         allow_runtime_skill_references=False,
     )
+
+
+@pytest.mark.asyncio
+async def test_primary_tool_names_hides_unconfigured_embedding_tools() -> None:
+    from app.agent_runtime.graph.orchestrator.graph import _primary_tool_names
+
+    definition = SimpleNamespace(
+        enabled_tool_categories=("chapter_read",),
+        enabled_skills=[],
+    )
+    with patch(
+        "app.agent_runtime.graph.orchestrator.graph.load_agent_definition",
+        AsyncMock(return_value=definition),
+    ), patch(
+        "app.agent_runtime.graph.orchestrator.graph.get_tool_names_for_categories",
+        return_value=("list_chapters", "search_chapters", "update_index"),
+    ), patch(
+        "app.agent_runtime.graph.orchestrator.graph.skill_tool_names_for_definition",
+        AsyncMock(return_value=()),
+    ), patch(
+        "app.agent_runtime.graph.orchestrator.graph.setting_repo.get_by_key",
+        AsyncMock(return_value=None),
+    ):
+        result = await _primary_tool_names({"configurable": {"db_session": object()}})
+
+    assert result == ["list_chapters"]
+
+
+@pytest.mark.asyncio
+async def test_primary_tool_names_keeps_configured_embedding_tools() -> None:
+    from app.agent_runtime.graph.orchestrator.graph import _primary_tool_names
+
+    definition = SimpleNamespace(
+        enabled_tool_categories=("chapter_read",),
+        enabled_skills=[],
+    )
+    with patch(
+        "app.agent_runtime.graph.orchestrator.graph.load_agent_definition",
+        AsyncMock(return_value=definition),
+    ), patch(
+        "app.agent_runtime.graph.orchestrator.graph.get_tool_names_for_categories",
+        return_value=("list_chapters", "search_chapters", "update_index"),
+    ), patch(
+        "app.agent_runtime.graph.orchestrator.graph.skill_tool_names_for_definition",
+        AsyncMock(return_value=()),
+    ), patch(
+        "app.agent_runtime.graph.orchestrator.graph.setting_repo.get_by_key",
+        AsyncMock(return_value=SimpleNamespace(value="embedding-model-1")),
+    ):
+        result = await _primary_tool_names({"configurable": {"db_session": object()}})
+
+    assert result == ["list_chapters", "search_chapters", "update_index"]
 
 
 def test_session_runner_constructor_no_longer_accepts_mode():

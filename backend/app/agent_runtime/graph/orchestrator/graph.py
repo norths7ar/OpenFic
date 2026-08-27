@@ -36,6 +36,7 @@ from app.agent_runtime.tools.hooks.note_refresh import note_refresh_post_hook
 from app.agent_runtime.tools.hooks.world_entry_refresh import world_entry_refresh_post_hook
 from app.agent_runtime.types import ReactAgentConfig, TerminationCondition
 from app.models.clients.model_factory import ModelConfig, create_chat_model
+from app.storage.repos import setting_repo
 
 DEFAULT_PRIMARY_TOOL_CATEGORIES = (
     "orchestration",
@@ -45,6 +46,22 @@ DEFAULT_PRIMARY_TOOL_CATEGORIES = (
     "summary_read",
     "world_read",
 )
+
+_DEFAULT_EMBEDDING_MODEL_KEY = "default_embedding_model"
+_EMBEDDING_DEPENDENT_TOOL_NAMES = frozenset({"search_chapters", "update_index"})
+
+
+async def _filter_unavailable_tool_names(
+    names: list[str],
+    db_session: Any,
+) -> list[str]:
+    embedding_setting = await setting_repo.get_by_key(
+        db_session,
+        _DEFAULT_EMBEDDING_MODEL_KEY,
+    )
+    if embedding_setting is not None and embedding_setting.value.strip():
+        return names
+    return [name for name in names if name not in _EMBEDDING_DEPENDENT_TOOL_NAMES]
 
 
 async def _primary_tool_names(
@@ -60,7 +77,11 @@ async def _primary_tool_names(
         names = list(get_tool_names_for_categories(DEFAULT_PRIMARY_TOOL_CATEGORIES))
         return [*names, *SKILL_TOOL_NAMES] if allow_runtime_skill_references else names
     definition = await load_agent_definition(db_session, agent_key)
-    return list(get_tool_names_for_categories(definition.enabled_tool_categories)) + list(
+    names = await _filter_unavailable_tool_names(
+        list(get_tool_names_for_categories(definition.enabled_tool_categories)),
+        db_session,
+    )
+    return names + list(
         await skill_tool_names_for_definition(
             definition,
             db_session,

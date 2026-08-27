@@ -234,7 +234,7 @@ export function ToolMessage({ message }: ToolMessageProps) {
     hasContent: Boolean(content),
     hasDetail: Boolean(detail),
     errorMessage,
-    showDetailOnError: descriptor?.group === "orchestration",
+    showDetailOnError: Boolean(descriptor),
   });
   const titleClassName = joinClassNames(
     "agent-tool-title",

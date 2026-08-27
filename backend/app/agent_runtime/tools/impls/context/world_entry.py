@@ -1,8 +1,9 @@
 import json
+import unicodedata
 from dataclasses import dataclass
 from typing import Any
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.agent_runtime.context.knowledge_visibility import (
     includes_all_knowledge,
@@ -33,7 +34,17 @@ class ListWorldEntriesInput(BaseModel):
 
 
 class ReadWorldEntryInput(BaseModel):
-    title: str = Field(description="条目标题")
+    entry_id: str | None = Field(
+        default=None,
+        description="条目 ID；优先使用 list_world_entries 返回的 id",
+    )
+    title: str | None = Field(default=None, description="条目标题；兼容未提供 ID 的调用")
+
+    @model_validator(mode="after")
+    def require_reference(self):
+        if not (self.entry_id or self.title):
+            raise ValueError("entry_id 和 title 至少需要提供一个")
+        return self
 
 
 class CreateWorldEntryInput(BaseModel):
@@ -157,17 +168,31 @@ async def _get_project_world_info(session, project_id: str):
     return world_info
 
 
-async def _resolve_enabled_entry_by_title(
+_TITLE_PUNCTUATION_TRANSLATION = str.maketrans(
+    {
+        "“": '"',
+        "”": '"',
+        "‘": "'",
+        "’": "'",
+    }
+)
+
+
+def _normalize_lookup_title(title: str) -> str:
+    normalized = unicodedata.normalize("NFKC", title)
+    normalized = normalized.translate(_TITLE_PUNCTUATION_TRANSLATION)
+    return " ".join(normalized.split())
+
+
+async def _resolve_visible_entry(
     session,
     world_info_id: str,
-    title: str,
     *,
+    entry_id: str | None = None,
+    title: str | None = None,
     include_all: bool = False,
 ) -> WorldInfoEntry:
-    """Resolve a title using the immutable session visibility boundary."""
-    normalized_title = title.strip()
-    if not normalized_title:
-        raise ToolExecutionError("世界书条目标题不能为空")
+    """Resolve an entry without crossing the immutable session visibility boundary."""
     entries = (
         await world_info_entry_repo.list_all_by_world_info(session, world_info_id)
         if include_all
@@ -176,12 +201,43 @@ async def _resolve_enabled_entry_by_title(
             world_info_id,
         )
     )
-    matches = [entry for entry in entries if entry.name == normalized_title]
+
+    normalized_id = entry_id.strip() if entry_id else ""
+    if normalized_id:
+        matches = [entry for entry in entries if entry.id == normalized_id]
+        if not matches:
+            raise ToolExecutionError(f"世界书条目不存在: {normalized_id}")
+        return matches[0]
+
+    normalized_title = _normalize_lookup_title(title or "")
+    if not normalized_title:
+        raise ToolExecutionError("世界书条目标题不能为空")
+    matches = [
+        entry
+        for entry in entries
+        if _normalize_lookup_title(entry.name) == normalized_title
+    ]
     if not matches:
         raise ToolExecutionError(f"世界书条目不存在: {normalized_title}")
     if len(matches) > 1:
         raise ToolExecutionError(f"世界书条目标题不唯一: {normalized_title}")
     return matches[0]
+
+
+async def _resolve_enabled_entry_by_title(
+    session,
+    world_info_id: str,
+    title: str,
+    *,
+    include_all: bool = False,
+) -> WorldInfoEntry:
+    """Backward-compatible title lookup for boundary tests and legacy callers."""
+    return await _resolve_visible_entry(
+        session,
+        world_info_id,
+        title=title,
+        include_all=include_all,
+    )
 
 
 async def _resolve_writable_entry_by_title(
@@ -276,18 +332,23 @@ class ListWorldEntriesTool(AgentTool):
 @ToolRegistry.register
 class ReadWorldEntryTool(AgentTool):
     name: str = "read_world_entry"
-    description: str = "读取项目世界书中指定的设定条目内容"
+    description: str = "读取项目世界书中指定的设定条目内容；应优先传入列表返回的条目 ID"
     access_level: str = "readonly"
     args_schema: type[BaseModel] = ReadWorldEntryInput
 
-    async def _execute(self, title: str) -> str:
+    async def _execute(
+        self,
+        entry_id: str | None = None,
+        title: str | None = None,
+    ) -> str:
         session = await create_session()
         try:
             world_info = await _get_project_world_info(session, self.project_id)
-            entry = await _resolve_enabled_entry_by_title(
+            entry = await _resolve_visible_entry(
                 session,
                 world_info.id,
-                title,
+                entry_id=entry_id,
+                title=title,
                 include_all=includes_all_knowledge(self._state),
             )
             return json.dumps(
