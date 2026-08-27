@@ -185,6 +185,30 @@ def test_outlines_are_a_distinct_mapping_target() -> None:
     assert item.category_path == ["第一卷"]
 
 
+def test_optional_rule_may_have_no_matching_source_and_project_id_is_optional() -> None:
+    data = build_zip(
+        {
+            "openfic-import.yaml": yaml.safe_dump(
+                {
+                    "schema": "openfic.import-map",
+                    "version": 1,
+                    "rules": [
+                        {
+                            "id": "optional-outline",
+                            "target": "outlines",
+                            "source": "missing.md",
+                            "split": {"type": "file"},
+                            "required": False,
+                        }
+                    ],
+                }
+            )
+        }
+    )
+
+    assert parse_source_mapping(data, "any-project") == []
+
+
 @pytest.mark.parametrize(
     "mutator",
     [

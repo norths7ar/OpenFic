@@ -131,6 +131,7 @@
     "title": "Project data",
     "description": "Export or import an OpenFic project data bundle, or import from a Markdown document repository. Imports are previewed first.",
     "exportBackup": "Export OpenFic project data",
+    "exportSource": "Export Markdown source bundle",
     "importBackup": "Import OpenFic project data",
     "importSource": "Import from Markdown repository",
     "changeAction": "Change action",

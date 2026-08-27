@@ -352,14 +352,16 @@ export async function applyProjectBundleImport(
   );
 }
 
-export async function downloadProjectBundle(projectId: string): Promise<void> {
-  const response = await apiClient.get<Blob>(`/projects/${projectId}/bundle/export`, {
+export async function downloadProjectBundle(projectId: string, source = false): Promise<void> {
+  const endpoint = source ? "bundle/source/export" : "bundle/export";
+  const response = await apiClient.get<Blob>(`/projects/${projectId}/${endpoint}`, {
     responseType: "blob",
   });
   const contentDisposition = response.headers["content-disposition"] as string | undefined;
   const encodedFilename = contentDisposition?.match(/filename\*=UTF-8''([^;]+)/i)?.[1];
   const plainFilename = contentDisposition?.match(/filename="?([^";]+)"?/i)?.[1];
-  let filename = plainFilename ?? "openfic-project-bundle.zip";
+  let filename =
+    plainFilename ?? (source ? "openfic-markdown-source.zip" : "openfic-project-bundle.zip");
   if (encodedFilename) {
     try {
       filename = decodeURIComponent(encodedFilename);

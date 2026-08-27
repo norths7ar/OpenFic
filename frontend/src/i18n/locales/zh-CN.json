@@ -131,6 +131,7 @@
     "title": "项目数据",
     "description": "导出或导入 OpenFic 项目资料包，也可从 Markdown 文档仓库导入。导入会先生成预览。",
     "exportBackup": "导出 OpenFic 项目资料包",
+    "exportSource": "导出 Markdown 源包",
     "importBackup": "导入 OpenFic 项目资料包",
     "importSource": "从 Markdown 文档仓库导入",
     "changeAction": "更换操作",

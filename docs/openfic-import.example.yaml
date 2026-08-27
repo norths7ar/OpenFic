@@ -1,0 +1,42 @@
+# Copy this file to the root of a Markdown repository ZIP as
+# openfic-import.yaml, then adjust source paths and heading levels.
+# project_id is optional. When present, OpenFic refuses to import the bundle
+# into a different project.
+schema: openfic.import-map
+version: 1
+rules:
+  # Each H2 below the single H1 becomes one background entry.
+  - id: background
+    target: worldbook
+    source: 背景设定.md
+    split:
+      type: headings
+      item_levels: [2]
+    required: false
+
+  # Each H2 below the single H1 becomes one character.
+  - id: characters
+    target: characters
+    source: 人物.md
+    split:
+      type: headings
+      item_levels: [2]
+    required: false
+
+  # Outlines are distinct from general notes inside OpenFic.
+  - id: outlines
+    target: outlines
+    source: 提纲.md
+    split:
+      type: headings
+      item_levels: [2]
+    required: false
+
+  # Every matching file becomes one note. Add project-specific rules in the
+  # same way for folders such as 讨论记录 or 写作护栏.
+  - id: notes
+    target: notes
+    glob: 笔记/*.md
+    split:
+      type: file
+    required: false

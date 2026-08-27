@@ -21,6 +21,7 @@ from app.project_bundle.names import slugify_filename
 from app.project_bundle.source_mapping import MappedSourceItem, parse_source_mapping
 from app.storage.models.project import Project
 from app.storage.models.project_import_binding import ProjectImportBinding
+from app.storage.models.project_import_profile import ProjectImportProfile
 from app.storage.models.world_info import WorldInfo
 from app.storage.models.world_info_entry import WorldInfoEntry
 
@@ -129,6 +130,7 @@ class _Builder:
             source_path=item.source,
             source_anchor=item.anchor,
             target_kind="world_entry",
+            target_id_hint=item.target_id,
         )
         current_uid = self.existing_world_uids.get(target_id)
         if current_uid is not None:
@@ -147,6 +149,7 @@ class _Builder:
         source_path: str,
         source_anchor: str,
         target_kind: str,
+        target_id_hint: str | None = None,
     ) -> tuple[str, str, ProjectImportBinding | None]:
         key = _identity_key(
             self.project.id, rule_id, source_path, source_anchor, target_kind
@@ -160,11 +163,12 @@ class _Builder:
             target_kind=target_kind,
         ):
             raise BundleFormatError("stored import binding identity is inconsistent")
-        target_id = (
-            binding.target_id
-            if binding is not None
-            else _generated_id(target_kind, key)
-        )
+        if binding is not None and (
+            target_id_hint is not None and binding.target_id != target_id_hint
+        ):
+            raise BundleFormatError("stored import target differs from source hint")
+        target_id = binding.target_id if binding is not None else target_id_hint
+        target_id = target_id or _generated_id(target_kind, key)
         if _TARGET_ID.fullmatch(target_id) is None:
             raise BundleFormatError("stored import target id is invalid")
         owner_key = (target_kind, target_id)
@@ -200,7 +204,17 @@ class _Builder:
         self.specs[key] = spec
         return spec
 
-    def add_category_path(self, path: list[str], document_type: str) -> str | None:
+    def add_category_path(
+        self,
+        path: list[str],
+        document_type: str,
+        target_id_hints: list[str] | None = None,
+        order_hints: list[int] | None = None,
+    ) -> str | None:
+        if target_id_hints and len(target_id_hints) != len(path):
+            raise BundleFormatError("category target hints do not match category path")
+        if order_hints and len(order_hints) != len(path):
+            raise BundleFormatError("category order hints do not match category path")
         parent_id: str | None = None
         for depth in range(1, len(path) + 1):
             current_path = tuple(path[:depth])
@@ -215,10 +229,14 @@ class _Builder:
                 source_path="",
                 source_anchor=anchor,
                 target_kind="note_category",
+                target_id_hint=(target_id_hints or [])[depth - 1]
+                if target_id_hints
+                else None,
             )
             parent_path = (document_type, current_path[:-1])
-            order = self.category_sibling_orders.get(parent_path, 0)
-            self.category_sibling_orders[parent_path] = order + 1
+            next_order = self.category_sibling_orders.get(parent_path, 0)
+            order = order_hints[depth - 1] if order_hints else next_order
+            self.category_sibling_orders[parent_path] = max(next_order, order + 1)
             fields = {
                 "kind": "note_category",
                 "id": category_id,
@@ -270,6 +288,7 @@ class _Builder:
             source_path=item.source,
             source_anchor=source_anchor,
             target_kind=target_kind,
+            target_id_hint=item.target_id,
         )
         complete_fields = {
             "kind": target_kind,
@@ -406,7 +425,12 @@ async def build_mapped_project_bundle(
             )
         elif item.target in {"notes", "outlines"}:
             document_type = "outline" if item.target == "outlines" else "note"
-            category_id = builder.add_category_path(item.category_path, document_type)
+            category_id = builder.add_category_path(
+                item.category_path,
+                document_type,
+                item.category_target_ids,
+                item.category_orders,
+            )
             builder.add_document(
                 item=item,
                 target_kind="note",
@@ -473,4 +497,29 @@ async def persist_mapped_import_bindings(
         row.last_applied_hash = spec.incoming_hash
         row.updated_at = now
         session.add(row)
+    await session.flush()
+
+
+async def persist_source_mapping_profile(
+    session: AsyncSession,
+    project_id: str,
+    mapping_yaml: str,
+) -> None:
+    """Save the source map only after its corresponding import was applied."""
+
+    now = datetime.now(UTC)
+    profile = await session.get(ProjectImportProfile, project_id)
+    if profile is None:
+        session.add(
+            ProjectImportProfile(
+                project_id=project_id,
+                mapping_yaml=mapping_yaml,
+                created_at=now,
+                updated_at=now,
+            )
+        )
+    else:
+        profile.mapping_yaml = mapping_yaml
+        profile.updated_at = now
+        session.add(profile)
     await session.flush()

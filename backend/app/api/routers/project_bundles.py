@@ -13,9 +13,14 @@ from app.project_bundle.importer import preview_project_bundle
 from app.project_bundle.mapped_bundle import (
     build_mapped_project_bundle,
     persist_mapped_import_bindings,
+    persist_source_mapping_profile,
 )
 from app.project_bundle.names import slugify_filename
-from app.project_bundle.source_mapping import MappedSourceItem
+from app.project_bundle.source_export import export_markdown_source_bundle
+from app.project_bundle.source_mapping import (
+    MappedSourceItem,
+    read_source_mapping_manifest,
+)
 from app.storage.database import get_session
 from app.storage.models.project import Project
 
@@ -45,7 +50,6 @@ def _source_item_response(item: MappedSourceItem) -> dict:
         "section": item.section,
         "category_path": item.category_path,
         "writing_visible": item.writing_visible,
-        "context_mode": item.context_mode,
         "order": item.order,
     }
 
@@ -78,6 +82,40 @@ async def export_bundle(
         headers={
             "Content-Disposition": (
                 'attachment; filename="openfic-project-bundle.zip"; '
+                f"filename*=UTF-8''{quote(display_filename, safe='')}"
+            )
+        },
+    )
+
+
+@router.get("/projects/{project_id}/bundle/source/export")
+async def export_source_bundle(
+    project_id: str,
+    session: AsyncSession = Depends(get_session),  # noqa: B008
+) -> Response:
+    try:
+        project = await session.get(Project, project_id)
+        if project is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="项目不存在"
+            )
+        data = await export_markdown_source_bundle(session, project_id)
+    except BundleFormatError as exc:
+        if str(exc).startswith("project not found:"):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
+            ) from exc
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
+        ) from exc
+    project_name = slugify_filename(project.title, project_id)
+    display_filename = f"{project_name}.markdown.zip"
+    return Response(
+        content=data,
+        media_type="application/zip",
+        headers={
+            "Content-Disposition": (
+                'attachment; filename="openfic-markdown-source.zip"; '
                 f"filename*=UTF-8''{quote(display_filename, safe='')}"
             )
         },
@@ -203,6 +241,8 @@ async def apply_source_bundle_import(
             cast(Literal["append", "update", "merge"], mode),
         )
         await persist_mapped_import_bindings(session, project_id, mapped.bindings)
+        _, mapping_yaml = read_source_mapping_manifest(data, project_id)
+        await persist_source_mapping_profile(session, project_id, mapping_yaml)
         await session.commit()
     except BundleApplyConflictError as exc:
         await session.rollback()

@@ -24,6 +24,9 @@ class MappedSourceItem:
     category_path: list[str]
     writing_visible: bool
     order: int
+    target_id: str | None
+    category_target_ids: list[str]
+    category_orders: list[int]
 
 
 @dataclass(frozen=True)
@@ -46,10 +49,16 @@ _RULE_KEYS = {
     "category_path",
     "writing_visible",
     "disabled_title_suffix",
+    "required",
+    "target_id",
+    "category_target_ids",
+    "order",
+    "category_orders",
 }
 _SPLIT_KEYS = {"type", "item_levels"}
 _FENCE = re.compile(r"^ {0,3}(`{3,}|~{3,})")
 _HEADING = re.compile(r"^ {0,3}(#{1,6})[ \t]+(.+?)[ \t]*$")
+_TARGET_ID = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 
 
 def _fail(message: str) -> None:
@@ -178,6 +187,50 @@ def _validate_rule(rule: Any) -> dict[str, Any]:
         or "\r" in rule["disabled_title_suffix"]
     ):
         _fail("disabled_title_suffix must be a non-empty content-target string")
+    if "required" in rule and not isinstance(rule["required"], bool):
+        _fail("required must be a boolean")
+    if "target_id" in rule and (
+        split_type != "file"
+        or not has_source
+        or not isinstance(rule["target_id"], str)
+        or _TARGET_ID.fullmatch(rule["target_id"]) is None
+    ):
+        _fail("target_id is only valid for one file-split source")
+    if "order" in rule and (
+        split_type != "file"
+        or not has_source
+        or _int(rule["order"], "order") < 0
+    ):
+        _fail("order is only valid as a non-negative file rule integer")
+    if "category_target_ids" in rule:
+        category_ids = rule["category_target_ids"]
+        category_path = rule.get("category_path")
+        if (
+            target not in {"notes", "outlines"}
+            or split_type != "file"
+            or not has_source
+            or not isinstance(category_ids, list)
+            or not isinstance(category_path, list)
+            or len(category_ids) != len(category_path)
+            or any(
+                not isinstance(value, str) or _TARGET_ID.fullmatch(value) is None
+                for value in category_ids
+            )
+        ):
+            _fail("category_target_ids must match a file rule category_path")
+    if "category_orders" in rule:
+        category_orders = rule["category_orders"]
+        category_path = rule.get("category_path")
+        if (
+            target not in {"notes", "outlines"}
+            or split_type != "file"
+            or not has_source
+            or not isinstance(category_orders, list)
+            or not isinstance(category_path, list)
+            or len(category_orders) != len(category_path)
+            or any(_int(value, "category order") < 0 for value in category_orders)
+        ):
+            _fail("category_orders must match a file rule category_path")
     return rule
 
 
@@ -210,7 +263,10 @@ def _mapped_items(path: str, text: str, rule: dict[str, Any]) -> list[MappedSour
                 None,
                 list(rule.get("category_path", [])),
                 item_visible,
-                0,
+                rule.get("order", -1),
+                rule.get("target_id"),
+                list(rule.get("category_target_ids", [])),
+                list(rule.get("category_orders", [])),
             )
         ]
     item_levels = set(rule["split"]["item_levels"])
@@ -257,14 +313,18 @@ def _mapped_items(path: str, text: str, rule: dict[str, Any]) -> list[MappedSour
                 section,
                 categories,
                 item_visible,
-                0,
+                rule.get("order", -1),
+                rule.get("target_id"),
+                list(rule.get("category_target_ids", [])),
+                list(rule.get("category_orders", [])),
             )
         )
     return results
 
 
-def parse_source_mapping(data: bytes, target_project_id: str) -> list[MappedSourceItem]:
-    files = read_zip(data)
+def _read_source_mapping_manifest(
+    files: dict[str, bytes], target_project_id: str
+) -> tuple[dict[str, Any], str]:
     config_bytes = files.get("openfic-import.yaml")
     if config_bytes is None:
         _fail("openfic-import.yaml is required")
@@ -280,15 +340,32 @@ def parse_source_mapping(data: bytes, target_project_id: str) -> list[MappedSour
         "rules",
     }:
         _fail("invalid import map fields")
+    configured_project_id = config.get("project_id")
     if (
         config.get("schema") != "openfic.import-map"
         or config.get("version") != 1
-        or config.get("project_id") != target_project_id
+        or (
+            configured_project_id is not None
+            and configured_project_id != target_project_id
+        )
     ):
         _fail("invalid import map identity")
     rules = config.get("rules")
     if not isinstance(rules, list) or not rules:
         _fail("rules must be non-empty")
+    return config, config_bytes.decode("utf-8")
+
+
+def read_source_mapping_manifest(
+    data: bytes, target_project_id: str
+) -> tuple[dict[str, Any], str]:
+    return _read_source_mapping_manifest(read_zip(data), target_project_id)
+
+
+def parse_source_mapping(data: bytes, target_project_id: str) -> list[MappedSourceItem]:
+    files = read_zip(data)
+    config, _ = _read_source_mapping_manifest(files, target_project_id)
+    rules = config["rules"]
     seen_rules: set[str] = set()
     seen_logic: set[tuple[str, str, str]] = set()
     output: list[MappedSourceItem] = []
@@ -298,15 +375,16 @@ def parse_source_mapping(data: bytes, target_project_id: str) -> list[MappedSour
         if rule["id"] in seen_rules:
             _fail("duplicate rule id")
         seen_rules.add(rule["id"])
-        matches = (
-            [rule["source"]]
-            if isinstance(rule.get("source"), str) and rule["source"]
-            else sorted(
+        if isinstance(rule.get("source"), str) and rule["source"]:
+            matches = [rule["source"]] if rule["source"] in files else []
+        else:
+            matches = sorted(
                 path for path in files if fnmatch.fnmatchcase(path, rule["glob"])
             )
-        )
         if not matches:
-            _fail("source rule has no matching files")
+            if rule.get("required", True):
+                _fail("source rule has no matching files")
+            continue
         for path in matches:
             if (
                 not isinstance(path, str)
@@ -324,7 +402,8 @@ def parse_source_mapping(data: bytes, target_project_id: str) -> list[MappedSour
                 if logic in seen_logic:
                     _fail("duplicate logical object")
                 seen_logic.add(logic)
-                order = orders.get(item.target, 0)
+                next_order = orders.get(item.target, 0)
+                order = item.order if item.order >= 0 else next_order
                 output.append(replace(item, order=order))
-                orders[item.target] = order + 1
+                orders[item.target] = max(next_order, order + 1)
     return output

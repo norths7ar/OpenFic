@@ -6,6 +6,7 @@ from app.project_bundle.archive import build_zip
 from app.storage.models.character import Character
 from app.storage.models.note import Note
 from app.storage.models.project import Project
+from app.storage.models.project_import_profile import ProjectImportProfile
 from app.storage.models.world_info_entry import WorldInfoEntry
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -164,6 +165,9 @@ async def test_source_apply_succeeds_and_repeated_source_is_unchanged(
         )
     ).all()
     assert len(characters) == 1
+    profile = await session.get(ProjectImportProfile, project.id)
+    assert profile is not None
+    assert "schema: openfic.import-map" in profile.mapping_yaml
 
 
 @pytest.mark.asyncio

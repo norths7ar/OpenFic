@@ -92,18 +92,21 @@ export function ProjectDataDialog({ open, projectId, onOpenChange }: ProjectData
     [onOpenChange, reset],
   );
 
-  const handleExport = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      await downloadProjectBundle(projectId);
-      toast.success(t("projectData.exportSuccess"));
-    } catch (exportError) {
-      setError(errorMessage(exportError, t("projectData.exportFailed")));
-    } finally {
-      setIsLoading(false);
-    }
-  }, [projectId, t]);
+  const handleExport = useCallback(
+    async (source = false) => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        await downloadProjectBundle(projectId, source);
+        toast.success(t("projectData.exportSuccess"));
+      } catch (exportError) {
+        setError(errorMessage(exportError, t("projectData.exportFailed")));
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [projectId, t],
+  );
 
   const handlePreview = useCallback(async () => {
     if (!file || !importKind) return;
@@ -203,6 +206,15 @@ export function ProjectDataDialog({ open, projectId, onOpenChange }: ProjectData
               >
                 <Archive size={17} />
                 {t("projectData.exportBackup")}
+              </Button>
+              <Button
+                size="3"
+                variant="soft"
+                onClick={() => void handleExport(true)}
+                disabled={isLoading}
+              >
+                <FileText size={17} />
+                {t("projectData.exportSource")}
               </Button>
               <Button
                 size="3"
