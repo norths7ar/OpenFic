@@ -157,7 +157,7 @@ export function AgentInput({
       iconPath={selectedModel.providerIconPath}
     />
   ) : null;
-  const shouldShowReasoningEffort = Boolean(selectedModel);
+  const shouldShowReasoningEffort = selectedModel?.reasoning === true;
   const reasoningEffortOptions: SelectOption[] = [
     { value: "off", label: "Off" },
     { value: "low", label: "Low" },

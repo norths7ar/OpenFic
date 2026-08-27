@@ -159,7 +159,11 @@ function createSessionTotalUsageState(
   };
 }
 
-function getStoredReasoningEffort(modelId: string): ReasoningEffort {
+function getStoredReasoningEffort(
+  modelId: string,
+  supportsReasoning: boolean,
+): ReasoningEffort {
+  if (!supportsReasoning) return "off";
   if (typeof window === "undefined" || !modelId) return "medium";
   try {
     const stored = JSON.parse(
@@ -410,7 +414,7 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
       [effectiveModelId, llmModelOptions],
     );
     const [reasoningEffort, setReasoningEffort] = useState<ReasoningEffort>(() =>
-      getStoredReasoningEffort(effectiveModelId),
+      getStoredReasoningEffort(effectiveModelId, currentModel?.reasoning === true),
     );
     const isToolApprovalBypassEnabled = settings?.agentBypassToolApproval ?? false;
     const agentSidebarRef = useRef<ReturnType<typeof useAgentSidebar> | null>(null);
@@ -440,8 +444,10 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
     }, [selectedAgentKey]);
 
     useEffect(() => {
-      setReasoningEffort(getStoredReasoningEffort(effectiveModelId));
-    }, [effectiveModelId]);
+      setReasoningEffort(
+        getStoredReasoningEffort(effectiveModelId, currentModel?.reasoning === true),
+      );
+    }, [currentModel?.reasoning, effectiveModelId]);
 
     const handleAgentTaskTitleUpdated = useCallback(
       (taskId: string, title: string, updatedAt?: string) => {
@@ -989,6 +995,9 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
             llmModelOptions.some((model) => getModelValue(model) === restoredModelRecordId)
               ? restoredModelRecordId
               : undefined;
+          const restoredModel = restoredModelId
+            ? llmModelOptions.find((model) => getModelValue(model) === restoredModelId)
+            : undefined;
           if (restoredModelId) {
             setSelectedModelId(restoredModelId);
           }
@@ -1005,10 +1014,12 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
                   | undefined) ?? "off")
               : undefined;
           if (restoredReasoningEffort) {
+            const normalizedReasoningEffort =
+              restoredModel?.reasoning === true ? restoredReasoningEffort : "off";
             if (restoredModelId) {
-              storeReasoningEffort(restoredModelId, restoredReasoningEffort);
+              storeReasoningEffort(restoredModelId, normalizedReasoningEffort);
             }
-            setReasoningEffort(restoredReasoningEffort);
+            setReasoningEffort(normalizedReasoningEffort);
           }
 
           agentSidebar.loadSession(sessionId, agentMessages, {
