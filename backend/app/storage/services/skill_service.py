@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 """Skill Service - Skill 业务逻辑层。"""
 
-from dataclasses import dataclass
-from datetime import UTC, datetime
 from collections.abc import Sequence
+from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 from typing import Protocol
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -158,7 +158,9 @@ async def fork_skill(session: AsyncSession, skill_db_id: str) -> Skill:
         content=source.content,
     )
     reference_docs = await list_reference_docs(session, skill_db_id)
-    for reference_doc in reference_docs:
+    forked_at = datetime.now(UTC)
+    for index, reference_doc in enumerate(reference_docs):
+        created_at = forked_at + timedelta(microseconds=index)
         await skill_reference_doc_repo.create(
             session,
             SkillReferenceDoc(
@@ -166,6 +168,8 @@ async def fork_skill(session: AsyncSession, skill_db_id: str) -> Skill:
                 title=reference_doc.title,
                 content=reference_doc.content,
                 tokens=reference_doc.tokens,
+                created_at=created_at,
+                updated_at=created_at,
             ),
         )
     return fork
