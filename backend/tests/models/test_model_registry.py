@@ -12,7 +12,6 @@ def test_registry_lists_only_current_first_class_provider_types() -> None:
         "anthropic",
         "google-genai",
         "ollama",
-        "ollama-local",
         "groq",
         "huggingface",
         "mistral",

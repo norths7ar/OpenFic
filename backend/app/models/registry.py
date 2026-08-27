@@ -38,7 +38,6 @@ class AdapterRegistry:
         "anthropic-compatible": AnthropicCompatibleAdapter,
         "google-genai": GoogleGenAIAdapter,
         "ollama": OpenAICompatibleAdapter,
-        "ollama-local": OpenAICompatibleAdapter,
         "groq": GroqAdapter,
         "huggingface": HuggingFaceAdapter,
         "deepseek": DeepSeekAdapter,

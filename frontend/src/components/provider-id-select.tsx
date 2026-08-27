@@ -4,10 +4,6 @@ import { startTransition, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { ProviderIcon } from "@/features/settings/lib/provider-icons";
-import {
-  OLLAMA_LOCAL_DISPLAY_NAME,
-  OLLAMA_LOCAL_PROVIDER_TYPE,
-} from "@/features/settings/lib/provider-utils";
 import type { ModelProviderCatalogProvider } from "@/lib/model.types";
 
 import { Spinner } from "./spinner";
@@ -27,12 +23,6 @@ interface ProviderIdSelectOption {
   label: string;
   iconPath: string | null;
 }
-
-const OLLAMA_LOCAL_OPTION: ProviderIdSelectOption = {
-  value: OLLAMA_LOCAL_PROVIDER_TYPE,
-  label: OLLAMA_LOCAL_DISPLAY_NAME,
-  iconPath: "/icons/model/catalog/ollama-cloud.svg",
-};
 
 const OPENAI_COMPATIBLE_OPTION: ProviderIdSelectOption = {
   value: "openai-compatible",
@@ -72,7 +62,6 @@ export function ProviderIdSelect({
     }));
 
     for (const compatibleOption of [
-      OLLAMA_LOCAL_OPTION,
       OPENAI_COMPATIBLE_OPTION,
       OPENAI_RESPONSES_COMPATIBLE_OPTION,
       ANTHROPIC_COMPATIBLE_OPTION,
