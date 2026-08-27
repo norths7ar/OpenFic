@@ -11,7 +11,13 @@ import type { ModelProvider, ModelProviderCatalogProvider } from "@/lib/model.ty
 
 import { validateProvider } from "../lib/model-api";
 import { ProviderIcon } from "../lib/provider-icons";
-import { getProviderUrl, isCustomProviderType } from "../lib/provider-utils";
+import {
+  getProviderUrl,
+  isCustomProviderType,
+  isLocalOllamaProvider,
+  OLLAMA_LOCAL_DEFAULT_URL,
+  OLLAMA_LOCAL_DISPLAY_NAME,
+} from "../lib/provider-utils";
 
 import "./connection-form-dialog.css";
 
@@ -123,6 +129,7 @@ export function ConnectionFormDialog({
   const providerType = useWatch({ control, name: "providerType" });
   const url = useWatch({ control, name: "url" });
   const apiKey = useWatch({ control, name: "apiKey" });
+  const isLocalOllama = isLocalOllamaProvider(providerType);
   const selectedCatalogProvider = useMemo(
     () => catalogProviders?.find((provider) => provider.providerType === providerType),
     [catalogProviders, providerType],
@@ -134,7 +141,7 @@ export function ConnectionFormDialog({
 
     if (requiresProviderUrl(providerType, catalogProviders)) {
       if (!isEditing || connection?.providerType !== providerType) {
-        setValue("url", "");
+        setValue("url", isLocalOllamaProvider(providerType) ? OLLAMA_LOCAL_DEFAULT_URL : "");
       }
     }
   }, [providerType, catalogProviders, setValue, isEditing, connection]);
@@ -189,7 +196,7 @@ export function ConnectionFormDialog({
     }
 
     // 如果没有apiKey且是新建模式，显示错误
-    if (!isEditing && !formData.apiKey) {
+    if (!isEditing && !formData.apiKey && !isLocalOllamaProvider(formData.providerType)) {
       setValidationStatus("error");
       return;
     }
@@ -201,7 +208,7 @@ export function ConnectionFormDialog({
       const result = await validateProvider({
         provider_type: formData.providerType,
         url: validateUrl,
-        api_key: formData.apiKey || "", // 编辑时可以为空
+        api_key: isLocalOllamaProvider(formData.providerType) ? "ollama" : formData.apiKey || "", // 编辑时可以为空
         custom_headers: isCustomProviderType(formData.providerType)
           ? serializeCustomHeaders(formData.customHeaders)
           : [],
@@ -222,7 +229,10 @@ export function ConnectionFormDialog({
     async (data: ConnectionFormData) => {
       const formData = new FormData();
 
-      formData.append("name", data.name || "");
+      formData.append(
+        "name",
+        data.name || (isLocalOllamaProvider(data.providerType) ? OLLAMA_LOCAL_DISPLAY_NAME : ""),
+      );
 
       // 确定要使用的 URL
       let finalUrl = data.url;
@@ -244,7 +254,9 @@ export function ConnectionFormDialog({
       formData.append("provider_type", data.providerType);
 
       // 只有在提供了 API Key 时才包含它
-      if (data.apiKey) {
+      if (isLocalOllamaProvider(data.providerType)) {
+        formData.append("api_key", "ollama");
+      } else if (data.apiKey) {
         formData.append("api_key", data.apiKey);
       }
 
@@ -275,9 +287,9 @@ export function ConnectionFormDialog({
   const canValidate = useMemo(() => {
     if (!providerType) return false;
     if (requiresProviderUrl(providerType, catalogProviders) && (!url || !url.trim())) return false;
-    if (!isEditing && !apiKey) return false;
+    if (!isEditing && !apiKey && !isLocalOllama) return false;
     return true;
-  }, [providerType, catalogProviders, url, isEditing, apiKey]);
+  }, [providerType, catalogProviders, url, isEditing, apiKey, isLocalOllama]);
 
   return (
     <Dialog.Root
@@ -439,75 +451,77 @@ export function ConnectionFormDialog({
               </Flex>
             )}
 
-            {/* API Key */}
-            <Flex
-              direction="column"
-              gap="2"
-            >
-              <Text
-                size="2"
-                weight="medium"
-                color="gray"
+            {/* 本地 Ollama 不需要用户维护占位 API Key。 */}
+            {!isLocalOllama && (
+              <Flex
+                direction="column"
+                gap="2"
               >
-                {t("connections.apiKey")}
-                {!isEditing && (
-                  <Text
-                    color="red"
-                    style={{ display: "inline" }}
-                  >
-                    {" "}
-                    *
-                  </Text>
-                )}
-              </Text>
-              {isEditing ? (
-                <Box>
-                  <TextField.Root
-                    value={apiKey || ""}
-                    onChange={(e) => {
-                      const form = getValues();
-                      reset({
-                        ...form,
-                        apiKey: e.target.value,
-                      });
-                    }}
-                    type="password"
-                    placeholder={
-                      apiKey ? t("connections.apiKeyPlaceholderEdit") : "••••••••••••••••"
-                    }
-                    disabled={isAgentSettingsLocked}
-                  />
-                  <Text
-                    size="1"
-                    color="gray"
-                    mt="1"
-                  >
-                    {t("connections.apiKeyEditHint")}
-                  </Text>
-                </Box>
-              ) : (
-                <Controller
-                  name="apiKey"
-                  control={control}
-                  render={({ field }) => (
+                <Text
+                  size="2"
+                  weight="medium"
+                  color="gray"
+                >
+                  {t("connections.apiKey")}
+                  {!isEditing && (
+                    <Text
+                      color="red"
+                      style={{ display: "inline" }}
+                    >
+                      {" "}
+                      *
+                    </Text>
+                  )}
+                </Text>
+                {isEditing ? (
+                  <Box>
                     <TextField.Root
-                      {...field}
+                      value={apiKey || ""}
+                      onChange={(e) => {
+                        const form = getValues();
+                        reset({
+                          ...form,
+                          apiKey: e.target.value,
+                        });
+                      }}
                       type="password"
-                      placeholder={t("connections.apiKeyPlaceholder")}
+                      placeholder={
+                        apiKey ? t("connections.apiKeyPlaceholderEdit") : "••••••••••••••••"
+                      }
                       disabled={isAgentSettingsLocked}
                     />
-                  )}
-                />
-              )}
-              {errors.apiKey && (
-                <Text
-                  size="1"
-                  color="red"
-                >
-                  {t(`connections.${errors.apiKey.message}`)}
-                </Text>
-              )}
-            </Flex>
+                    <Text
+                      size="1"
+                      color="gray"
+                      mt="1"
+                    >
+                      {t("connections.apiKeyEditHint")}
+                    </Text>
+                  </Box>
+                ) : (
+                  <Controller
+                    name="apiKey"
+                    control={control}
+                    render={({ field }) => (
+                      <TextField.Root
+                        {...field}
+                        type="password"
+                        placeholder={t("connections.apiKeyPlaceholder")}
+                        disabled={isAgentSettingsLocked}
+                      />
+                    )}
+                  />
+                )}
+                {errors.apiKey && (
+                  <Text
+                    size="1"
+                    color="red"
+                  >
+                    {t(`connections.${errors.apiKey.message}`)}
+                  </Text>
+                )}
+              </Flex>
+            )}
 
             {isCustomProviderType(providerType) && (
               <Flex

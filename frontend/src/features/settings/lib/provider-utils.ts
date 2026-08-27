@@ -6,11 +6,20 @@
 
 import type { ModelProvider, ModelProviderCatalogProvider, ProviderType } from "@/lib/model.types";
 
+export const OLLAMA_LOCAL_PROVIDER_TYPE = "ollama-local";
+export const OLLAMA_LOCAL_DISPLAY_NAME = "Ollama本地";
+export const OLLAMA_LOCAL_DEFAULT_URL = "http://host.docker.internal:11434/v1";
+
+export function isLocalOllamaProvider(providerType: string): boolean {
+  return providerType === OLLAMA_LOCAL_PROVIDER_TYPE;
+}
+
 const EMBEDDING_DIMENSIONS_SUPPORTED_PROVIDER_TYPES = new Set<ProviderType>([
   "openai",
   "openrouter",
   "openai-compatible",
   "ollama",
+  "ollama-local",
   "nvidia-ai-endpoints",
 ]);
 
@@ -47,6 +56,7 @@ export function getProviderDisplayName(providerType: string): string {
     anthropic: "Anthropic",
     "google-genai": "Google Generative AI",
     ollama: "Ollama",
+    "ollama-local": OLLAMA_LOCAL_DISPLAY_NAME,
     groq: "Groq",
     huggingface: "Hugging Face",
     mistral: "Mistral AI",
