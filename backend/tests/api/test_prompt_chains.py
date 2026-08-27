@@ -104,10 +104,10 @@ class TestPromptChainAPI:
         data = response.json()
         assert data["version"]["prompt_id"] == "builtin-agent--discuss"
         content = "\n".join(entry["content"] for entry in data["entries"])
-        assert "项目级设定与剧情讨论空间" in content
-        assert "不得把未确认讨论直接写入长期资料" in content
+        assert "负责与用户探索、比较和推演当前项目" in content
+        assert "默认只讨论，不直接修改" in content
         assert "propose_project_change" in content
-        assert "待审页采用" in content
+        assert "待审页确认" in content
 
     async def test_get_default_version_returns_yaml_after_creating_version(
         self,

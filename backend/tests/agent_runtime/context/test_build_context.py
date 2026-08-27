@@ -100,6 +100,51 @@ async def test_assembles_messages_in_order(base_state: AgentRuntimeState) -> Non
 
 
 @pytest.mark.asyncio
+async def test_discuss_injects_fixed_scope_after_agent_prompt(
+    base_state: AgentRuntimeState,
+) -> None:
+    base_state["context_mode"] = "global"
+
+    with (
+        patch(
+            "app.agent_runtime.context.build_context.build_system_prompt",
+            new=AsyncMock(
+                return_value=[
+                    ContextMessage(
+                        role="system",
+                        content="discuss-prompt",
+                        metadata={"part": "system_prompt"},
+                    )
+                ]
+            ),
+        ),
+        patch(
+            "app.agent_runtime.context.build_context.build_rules",
+            new=AsyncMock(return_value=None),
+        ),
+        patch(
+            "app.agent_runtime.context.build_context.build_skills",
+            new=AsyncMock(return_value=None),
+        ),
+        patch(
+            "app.agent_runtime.context.build_context.compaction_repo.list_by_session",
+            new=AsyncMock(return_value=[]),
+        ),
+    ):
+        out = await build_context(
+            state=base_state,
+            agent_name="discuss",
+            node_messages=[{"role": "user", "content": "讨论剧情"}],
+            db_session=AsyncMock(),
+        )
+
+    assert [message.type for message in out] == ["system", "system", "human"]
+    assert out[0].content == "discuss-prompt"
+    assert "全局讨论" in out[1].content
+    assert out[2].content == "讨论剧情"
+
+
+@pytest.mark.asyncio
 async def test_build_context_applies_persisted_compaction_overlay_to_history_only(
     base_state: AgentRuntimeState,
 ) -> None:
