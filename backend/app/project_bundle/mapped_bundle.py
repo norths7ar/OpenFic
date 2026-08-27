@@ -24,7 +24,6 @@ from app.storage.models.project_import_binding import ProjectImportBinding
 from app.storage.models.world_info import WorldInfo
 from app.storage.models.world_info_entry import WorldInfoEntry
 
-_EPOCH = datetime(1970, 1, 1, tzinfo=UTC).isoformat()
 _HASH = re.compile(r"^sha256:[0-9a-f]{64}$")
 _TARGET_ID = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 _CATEGORY_RULE_ID = "__mapped_categories__"
@@ -69,8 +68,6 @@ def _generated_id(target_kind: str, binding_key: str) -> str:
         "character": "map-ch",
         "note": "map-no",
         "note_category": "map-nc",
-        "discussion": "map-di",
-        "discussion_message": "map-dm",
     }
     return f"{prefixes[target_kind]}-{binding_key[:24]}"
 
@@ -203,9 +200,7 @@ class _Builder:
         self.specs[key] = spec
         return spec
 
-    def add_category_path(
-        self, path: list[str], document_type: str
-    ) -> str | None:
+    def add_category_path(self, path: list[str], document_type: str) -> str | None:
         parent_id: str | None = None
         for depth in range(1, len(path) + 1):
             current_path = tuple(path[:depth])
@@ -282,14 +277,7 @@ class _Builder:
             "project_id": self.project.id,
             **fields,
         }
-        hash_fields = complete_fields
-        if target_kind == "discussion_message":
-            hash_fields = {
-                key: value
-                for key, value in complete_fields.items()
-                if key not in {"created_at", "updated_at"}
-            }
-        incoming_hash = document_semantic_hash(hash_fields, title, body)
+        incoming_hash = document_semantic_hash(complete_fields, title, body)
         base_hash = _base_hash(binding, incoming_hash)
         rendered_path = path.format(id=target_id)
         if rendered_path in self.files:
@@ -386,7 +374,6 @@ async def build_mapped_project_bundle(
         existing_world_uids={entry.id: entry.uid for entry in existing_world_entries},
     )
 
-    discussion_index = 0
     for item in source_items:
         slug = slugify_filename(item.title, item.rule_id)
         if item.target == "worldbook":
@@ -419,9 +406,7 @@ async def build_mapped_project_bundle(
             )
         elif item.target in {"notes", "outlines"}:
             document_type = "outline" if item.target == "outlines" else "note"
-            category_id = builder.add_category_path(
-                item.category_path, document_type
-            )
+            category_id = builder.add_category_path(item.category_path, document_type)
             builder.add_document(
                 item=item,
                 target_kind="note",
@@ -435,41 +420,8 @@ async def build_mapped_project_bundle(
                 },
                 title=item.title,
                 body=item.body,
-                path=(
-                    f"{item.target}/_mapped/{item.order:06d}-{slug}--{{id}}.md"
-                ),
+                path=(f"{item.target}/_mapped/{item.order:06d}-{slug}--{{id}}.md"),
             )
-        else:
-            discussion_index += 1
-            directory = f"discussions/{discussion_index:06d}-{slug}--{{id}}"
-            discussion_id = builder.add_document(
-                item=item,
-                target_kind="discussion",
-                fields={"context_mode": item.context_mode or "global"},
-                title=item.title,
-                body="",
-                path=f"{directory}/discussion.md",
-            )
-            if item.body:
-                message_directory = (
-                    f"discussions/{discussion_index:06d}-{slug}--{discussion_id}"
-                )
-                builder.add_document(
-                    item=item,
-                    target_kind="discussion_message",
-                    fields={
-                        "discussion_id": discussion_id,
-                        "seq": 0,
-                        "role": "assistant",
-                        "status": "completed",
-                        "created_at": _EPOCH,
-                        "updated_at": _EPOCH,
-                    },
-                    title="助手 000000",
-                    body=item.body,
-                    path=(f"{message_directory}/messages/000000-assistant--{{id}}.md"),
-                    anchor_suffix="/message:0",
-                )
     return builder.finish(source_items)
 
 

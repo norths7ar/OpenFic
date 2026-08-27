@@ -23,7 +23,6 @@ class MappedSourceItem:
     section: str | None
     category_path: list[str]
     writing_visible: bool
-    context_mode: str | None
     order: int
 
 
@@ -35,7 +34,7 @@ class _Heading:
     ancestors: tuple[_Heading, ...] = ()
 
 
-_TARGETS = {"worldbook", "characters", "notes", "outlines", "discussions"}
+_TARGETS = {"worldbook", "characters", "notes", "outlines"}
 _RULE_KEYS = {
     "id",
     "target",
@@ -47,7 +46,6 @@ _RULE_KEYS = {
     "category_path",
     "writing_visible",
     "disabled_title_suffix",
-    "context_mode",
 }
 _SPLIT_KEYS = {"type", "item_levels"}
 _FENCE = re.compile(r"^ {0,3}(`{3,}|~{3,})")
@@ -180,10 +178,6 @@ def _validate_rule(rule: Any) -> dict[str, Any]:
         or "\r" in rule["disabled_title_suffix"]
     ):
         _fail("disabled_title_suffix must be a non-empty content-target string")
-    if "context_mode" in rule and (
-        target != "discussions" or rule["context_mode"] not in {"global", "local"}
-    ):
-        _fail("context_mode is only valid for discussions")
     return rule
 
 
@@ -192,7 +186,6 @@ def _mapped_items(path: str, text: str, rule: dict[str, Any]) -> list[MappedSour
     headings = _scan(text)
     target = rule["target"]
     visible = rule.get("writing_visible", True)
-    context = rule.get("context_mode", "global") if target == "discussions" else None
     h1 = next(heading for heading in headings if heading.level == 1)
 
     def item_title_and_visibility(title: str) -> tuple[str, bool]:
@@ -217,7 +210,6 @@ def _mapped_items(path: str, text: str, rule: dict[str, Any]) -> list[MappedSour
                 None,
                 list(rule.get("category_path", [])),
                 item_visible,
-                context,
                 0,
             )
         ]
@@ -265,7 +257,6 @@ def _mapped_items(path: str, text: str, rule: dict[str, Any]) -> list[MappedSour
                 section,
                 categories,
                 item_visible,
-                context,
                 0,
             )
         )

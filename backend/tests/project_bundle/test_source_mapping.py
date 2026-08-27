@@ -190,19 +190,34 @@ def test_outlines_are_a_distinct_mapping_target() -> None:
     [
         lambda r: {**r, "target": "bad"},
         lambda r: {**r, "extra": 1},
-        lambda r: {**r, "writing_visible": True},
+        lambda r: {**r, "context_mode": "global"},
         lambda r: {**r, "split": {"type": "file", "item_levels": [2]}},
     ],
 )
 def test_invalid_rule_options(mutator) -> None:
     rule = {
         "id": "r",
-        "target": "discussions",
+        "target": "notes",
         "source": "a.md",
         "split": {"type": "file"},
     }
     with pytest.raises(BundleFormatError):
         parse_source_mapping(bundle("p", [mutator(rule)], **{"a.md": "# A"}), "p")
+
+
+def test_markdown_source_cannot_create_agent_sessions() -> None:
+    rule = {
+        "id": "discussion",
+        "target": "discussions",
+        "source": "discussion.md",
+        "split": {"type": "file"},
+    }
+
+    with pytest.raises(BundleFormatError, match="target is invalid"):
+        parse_source_mapping(
+            bundle("p", [rule], **{"discussion.md": "# 讨论记录\n\n提取后的笔记"}),
+            "p",
+        )
 
 
 def test_rejects_structure_errors_and_isolates_project() -> None:

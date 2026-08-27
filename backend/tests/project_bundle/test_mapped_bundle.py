@@ -13,7 +13,6 @@ from app.project_bundle.mapped_bundle import (
 from app.storage.models.note import Note
 from app.storage.models.project import Project
 from app.storage.models.project_import_binding import ProjectImportBinding
-from app.storage.models.task import Task
 from app.storage.models.world_info import WorldInfo
 from app.storage.models.world_info_entry import WorldInfoEntry
 
@@ -51,13 +50,6 @@ def _source_bundle(
                 "category_path": ["提纲"],
                 "category_levels": [2],
             },
-            {
-                "id": "discussion",
-                "target": "discussions",
-                "source": "discussion.md",
-                "split": {"type": "file"},
-                "context_mode": "global",
-            },
         ],
     }
     return build_zip(
@@ -71,7 +63,6 @@ def _source_bundle(
                 "# 总纲\n## 第一阶段\n阶段序言\n### 第一卷\n"
                 f"{volume_body}\n## 第二阶段\n第二阶段内容"
             ),
-            "discussion.md": "# 旧讨论\n\n讨论正文",
         }
     )
 
@@ -85,20 +76,18 @@ async def test_mapped_bundle_round_trip_and_three_way_baseline(session) -> None:
     source = _source_bundle(project.id)
     mapped = await build_mapped_project_bundle(session, project.id, source)
     parsed = parse_project_bundle(mapped.data, project.id)
-    assert len(parsed.documents) == 7
+    assert len(parsed.documents) == 5
     assert len(parsed.note_categories) == 2
     assert {document.kind for document in parsed.documents} == {
         "world_entry",
         "character",
         "note",
-        "discussion",
-        "discussion_message",
     }
     assert all(spec.incoming_hash.startswith("sha256:") for spec in mapped.bindings)
 
     preview = await preview_project_bundle(session, project.id, mapped.data, "merge")
     assert preview.summary == {
-        "create": 9,
+        "create": 7,
         "update": 0,
         "unchanged": 0,
         "conflict": 0,
@@ -111,19 +100,9 @@ async def test_mapped_bundle_round_trip_and_three_way_baseline(session) -> None:
     assert unchanged.summary == {
         "create": 0,
         "update": 0,
-        "unchanged": 9,
+        "unchanged": 7,
         "conflict": 0,
     }
-    archive_task = (
-        await session.execute(
-            select(Task).where(
-                col(Task.project_id) == project.id,
-                col(Task.is_imported_archive).is_(True),
-            )
-        )
-    ).scalar_one()
-    assert archive_task.agent_session_id is None
-
     changed_source = _source_bundle(project.id, volume_body="卷内容 v2")
     changed = await build_mapped_project_bundle(session, project.id, changed_source)
     changed_preview = await preview_project_bundle(
@@ -159,7 +138,7 @@ async def test_mapped_bundle_round_trip_and_three_way_baseline(session) -> None:
             )
         ).scalars()
     )
-    assert len(bindings) == 9
+    assert len(bindings) == 7
 
 
 @pytest.mark.asyncio
