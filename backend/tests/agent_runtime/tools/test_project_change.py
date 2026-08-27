@@ -42,10 +42,29 @@ def test_project_change_tool_is_registered_for_discuss_with_allow_permission() -
 @pytest.mark.parametrize(
     "payload",
     [
-        {"target_type": "note", "operation": "create", "target_id": "n1", "after": {}},
+        {
+            "target_type": "note",
+            "operation": "create",
+            "target_id": "n1",
+            "after": {"kind": "note", "title": "笔记"},
+        },
         {"target_type": "note", "operation": "create", "after": None},
-        {"target_type": "note", "operation": "update", "after": {}},
-        {"target_type": "note", "operation": "delete", "target_id": "n1", "after": {}},
+        {
+            "target_type": "note",
+            "operation": "update",
+            "after": {"kind": "note", "title": "笔记"},
+        },
+        {
+            "target_type": "note",
+            "operation": "delete",
+            "target_id": "n1",
+            "after": {"kind": "note", "title": "笔记"},
+        },
+        {
+            "target_type": "character",
+            "operation": "create",
+            "after": {"kind": "note", "title": "类型不一致"},
+        },
     ],
 )
 def test_project_change_input_validates_operation_shape(payload: dict) -> None:
@@ -88,7 +107,7 @@ async def test_project_change_creates_pending_record_without_writing_formal_mate
             {
                 "target_type": "note",
                 "operation": "create",
-                "after": {"title": "新笔记", "body": "正文"},
+                "after": {"kind": "note", "title": "新笔记", "body": "正文"},
             }
         )
 
@@ -102,7 +121,14 @@ async def test_project_change_creates_pending_record_without_writing_formal_mate
         target_type="note",
         target_id=None,
         operation="create",
-        after={"title": "新笔记", "body": "正文"},
+        after={
+            "kind": "note",
+            "title": "新笔记",
+            "body": "正文",
+            "category_id": None,
+            "writing_visible": True,
+            "document_type": "note",
+        },
         source_task_id="task-1",
         source_message_id="message-1",
         model_id="model-a",
@@ -119,7 +145,7 @@ async def test_project_change_uses_state_project_and_rejects_missing_project() -
         {
             "target_type": "note",
             "operation": "create",
-            "after": {"title": "新笔记"},
+            "after": {"kind": "note", "title": "新笔记"},
         }
     )
 
@@ -163,7 +189,7 @@ async def test_project_change_preserves_project_isolation() -> None:
                 "target_type": "character",
                 "target_id": "char-b",
                 "operation": "update",
-                "after": {"title": "新名", "body": "描述"},
+                "after": {"kind": "character", "title": "新名", "body": "描述"},
             }
         )
 

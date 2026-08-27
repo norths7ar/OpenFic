@@ -8,6 +8,7 @@ import {
   UserRoundPen,
   UserRoundX,
   FilePenLine,
+  FileClock,
   FileXCorner,
   FolderPen,
   FolderX,
@@ -51,6 +52,7 @@ import {
 } from "../orchestration/recycle-subagent-tool-message";
 import { PlanToolMessage } from "../plan/plan-tool-message";
 import { getPlanToolDisplayConfig } from "../plan/plan-tool-message.utils";
+import { ProjectChangeToolMessage } from "../project-change/project-change-tool-message";
 import { WorldEntryToolMessage } from "../world-entry/world-entry-tool-message";
 import {
   getExploreToolNames as getCatalogExploreToolNames,
@@ -648,6 +650,22 @@ const TOOL_REGISTRY = {
       if (skillName && refName) return `${skillName}/${refName}`;
       return skillName ?? refName;
     },
+  },
+  propose_project_change: {
+    toolName: "propose_project_change",
+    group: "project",
+    tag: "proposal",
+    isExplore: false,
+    contentMode: "expandable",
+    icon: FileClock,
+    getTitle: () => i18n.t("assistant.tools.projectChangeProposed"),
+    getDetail: (message) => {
+      const args = getStreamingData(message);
+      const after = isRecord(args.after) ? args.after : null;
+      return asString(after?.title) ?? asString(args.target_type);
+    },
+    defaultExpanded: () => true,
+    render: (message) => <ProjectChangeToolMessage message={message} />,
   },
 } satisfies Record<RegisteredToolName, ToolDescriptor>;
 

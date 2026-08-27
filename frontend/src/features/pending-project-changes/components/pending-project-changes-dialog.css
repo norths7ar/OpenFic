@@ -79,22 +79,34 @@
   white-space: pre-wrap;
 }
 
-.pending-project-changes-json-section {
+.pending-project-changes-content-section {
   min-width: 0;
 }
 
-.pending-project-changes-json-section pre {
-  max-height: 220px;
+.pending-project-changes-markdown {
+  max-height: 360px;
   margin: var(--space-2) 0 0;
   padding: var(--space-3);
   overflow: auto;
+  border: 1px solid var(--gray-a4);
   border-radius: var(--radius-2);
-  background: var(--gray-a3);
-  font-family: var(--font-mono);
+  background: var(--color-panel-solid);
+}
+
+.pending-project-changes-technical-details {
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--gray-a4);
+  color: var(--gray-11);
+}
+
+.pending-project-changes-technical-details > summary {
+  width: fit-content;
+  cursor: pointer;
   font-size: var(--font-size-1);
-  line-height: 1.5;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
+}
+
+.pending-project-changes-technical-details[open] > summary {
+  margin-bottom: var(--space-3);
 }
 
 .pending-project-changes-state {

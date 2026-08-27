@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.agent_runtime.tools.base import AgentTool
 from app.agent_runtime.tools.errors import ToolExecutionError
@@ -18,6 +18,50 @@ PendingTargetType = Literal["note", "note_category", "character", "world_entry"]
 PendingOperation = Literal["create", "update", "delete"]
 
 
+class _ProposedPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+
+class ProposedNotePayload(_ProposedPayload):
+    kind: Literal["note"]
+    title: str = Field(min_length=1, max_length=200)
+    body: str = ""
+    category_id: str | None = None
+    writing_visible: bool = True
+    document_type: Literal["note", "outline"] = "note"
+
+
+class ProposedNoteCategoryPayload(_ProposedPayload):
+    kind: Literal["note_category"]
+    title: str = Field(min_length=1, max_length=200)
+    parent_id: None = None
+    document_type: Literal["note", "outline"] = "note"
+
+
+class ProposedCharacterPayload(_ProposedPayload):
+    kind: Literal["character"]
+    title: str = Field(min_length=1, max_length=200)
+    body: str = ""
+    writing_visible: bool = True
+
+
+class ProposedWorldEntryPayload(_ProposedPayload):
+    kind: Literal["world_entry"]
+    title: str = Field(min_length=1, max_length=200)
+    body: str = ""
+    section: str = Field(default="", max_length=500)
+    writing_visible: bool = True
+
+
+ProposedPayload = Annotated[
+    ProposedNotePayload
+    | ProposedNoteCategoryPayload
+    | ProposedCharacterPayload
+    | ProposedWorldEntryPayload,
+    Field(discriminator="kind"),
+]
+
+
 class ProposeProjectChangeInput(BaseModel):
     target_type: PendingTargetType = Field(description="正式资料类型")
     target_id: str | None = Field(
@@ -25,9 +69,11 @@ class ProposeProjectChangeInput(BaseModel):
         description="要更新或删除的资料 ID；创建时不填写",
     )
     operation: PendingOperation = Field(description="候审操作")
-    after: dict[str, Any] | None = Field(
+    after: ProposedPayload | None = Field(
         default=None,
-        description="创建或更新后的资料内容；删除时必须为空",
+        description=(
+            "创建或更新后的资料内容；kind 必须与 target_type 一致，删除时必须为空"
+        ),
     )
 
     @model_validator(mode="after")
@@ -47,6 +93,8 @@ class ProposeProjectChangeInput(BaseModel):
                 raise ValueError("delete 必须指定 target_id")
             if self.after is not None:
                 raise ValueError("delete 的 after 必须为空")
+        if self.after is not None and self.after.kind != self.target_type:
+            raise ValueError("after.kind 必须与 target_type 一致")
         return self
 
 
@@ -81,7 +129,7 @@ class ProposeProjectChangeTool(AgentTool):
         target_type: PendingTargetType,
         target_id: str | None = None,
         operation: PendingOperation = "create",
-        after: dict[str, Any] | None = None,
+        after: ProposedPayload | dict[str, Any] | None = None,
     ) -> str:
         project_id = self._state.get("project_id")
         if not isinstance(project_id, str) or not project_id:
@@ -96,6 +144,10 @@ class ProposeProjectChangeTool(AgentTool):
             if isinstance(configured_model_id, str) and configured_model_id:
                 model_id = configured_model_id
 
+        serialized_after = (
+            after.model_dump(mode="json") if isinstance(after, BaseModel) else after
+        )
+
         session = await create_session()
         try:
             change = await pending_project_change_service.create_pending_change(
@@ -104,7 +156,7 @@ class ProposeProjectChangeTool(AgentTool):
                 target_type=target_type,
                 target_id=target_id,
                 operation=operation,
-                after=after,
+                after=serialized_after,
                 source_task_id=self._state.get("task_id"),
                 source_message_id=_source_message_id(self),
                 model_id=model_id,

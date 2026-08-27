@@ -1,10 +1,10 @@
-import { Badge, Button, Flex, ScrollArea, Text } from "@radix-ui/themes";
+import { Badge, Box, Button, Flex, ScrollArea, Text } from "@radix-ui/themes";
 import axios from "axios";
 import { CheckCircle2, FileClock, XCircle } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { ConfirmDialog, Spinner, toast } from "@/components";
+import { ConfirmDialog, Spinner, StreamingMarkdown, toast } from "@/components";
 
 import {
   useApplyPendingProjectChange,
@@ -18,14 +18,47 @@ import "./pending-project-changes-dialog.css";
 
 const EMPTY_PENDING_PROJECT_CHANGES: PendingProjectChange[] = [];
 
-function formatJson(value: JsonValue): string {
-  return JSON.stringify(value, null, 2);
-}
-
 function formatCreatedAt(value: string, locale: string): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
   return new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "medium" }).format(date);
+}
+
+type ChangeRecord = { [key: string]: JsonValue };
+
+function asRecord(value: JsonValue): ChangeRecord | null {
+  return value !== null && typeof value === "object" && !Array.isArray(value) ? value : null;
+}
+
+function asString(value: JsonValue | undefined): string | null {
+  return typeof value === "string" && value.trim() ? value : null;
+}
+
+function getChangeRecord(
+  change: PendingProjectChange,
+  side: "before" | "after",
+): ChangeRecord | null {
+  return asRecord(change[side]);
+}
+
+function getMaterialKind(change: PendingProjectChange): string {
+  const after = getChangeRecord(change, "after");
+  const before = getChangeRecord(change, "before");
+  const documentType = asString(after?.document_type) ?? asString(before?.document_type);
+  if (change.target_type === "note") return documentType === "outline" ? "outline" : "note";
+  if (change.target_type === "note_category") {
+    return documentType === "outline" ? "outlineCategory" : "noteCategory";
+  }
+  if (change.target_type === "character") return "character";
+  if (change.target_type === "world_entry") return "worldEntry";
+  return "material";
+}
+
+function getChangeTitle(change: PendingProjectChange): string | null {
+  return (
+    asString(getChangeRecord(change, "after")?.title) ??
+    asString(getChangeRecord(change, "before")?.title)
+  );
 }
 
 function getErrorMessage(error: unknown): string {
@@ -51,16 +84,36 @@ function ChangeMetadata({ label, value }: { label: string; value: string }) {
   );
 }
 
-function JsonSection({ label, value }: { label: string; value: JsonValue }) {
+function MaterialContent({
+  label,
+  record,
+  emptyLabel,
+}: {
+  label: string;
+  record: ChangeRecord;
+  emptyLabel: string;
+}) {
+  const body = asString(record.body);
   return (
-    <section className="pending-project-changes-json-section">
+    <section className="pending-project-changes-content-section">
       <Text
         size="2"
         weight="medium"
       >
         {label}
       </Text>
-      <pre>{formatJson(value)}</pre>
+      {body ? (
+        <Box className="pending-project-changes-markdown">
+          <StreamingMarkdown content={body} />
+        </Box>
+      ) : (
+        <Text
+          size="2"
+          color="gray"
+        >
+          {emptyLabel}
+        </Text>
+      )}
     </section>
   );
 }
@@ -134,6 +187,24 @@ export function PendingProjectChangesPanel({
 
   const pendingCount = countQuery.data?.count ?? 0;
   const panelClassName = ["pending-project-changes-panel", className].filter(Boolean).join(" ");
+  const selectedBefore = selectedChange ? getChangeRecord(selectedChange, "before") : null;
+  const selectedAfter = selectedChange ? getChangeRecord(selectedChange, "after") : null;
+  const selectedMaterialKind = selectedChange ? getMaterialKind(selectedChange) : "material";
+  const selectedMaterialLabel = t(`pendingProjectChanges.materialTypes.${selectedMaterialKind}`);
+  const selectedOperationLabel = selectedChange
+    ? t(`pendingProjectChanges.operations.${selectedChange.operation}`)
+    : "";
+  const selectedTitle = selectedChange ? getChangeTitle(selectedChange) : null;
+  const selectedHeading = selectedTitle
+    ? t("pendingProjectChanges.changeHeading", {
+        operation: selectedOperationLabel,
+        material: selectedMaterialLabel,
+        title: selectedTitle,
+      })
+    : t("pendingProjectChanges.changeHeadingWithoutTitle", {
+        operation: selectedOperationLabel,
+        material: selectedMaterialLabel,
+      });
 
   return (
     <>
@@ -233,13 +304,26 @@ export function PendingProjectChangesPanel({
                       size="2"
                       weight="medium"
                     >
-                      {change.target_type}
+                      {getChangeTitle(change)
+                        ? t("pendingProjectChanges.changeHeading", {
+                            operation: t(`pendingProjectChanges.operations.${change.operation}`),
+                            material: t(
+                              `pendingProjectChanges.materialTypes.${getMaterialKind(change)}`,
+                            ),
+                            title: getChangeTitle(change),
+                          })
+                        : t("pendingProjectChanges.changeHeadingWithoutTitle", {
+                            operation: t(`pendingProjectChanges.operations.${change.operation}`),
+                            material: t(
+                              `pendingProjectChanges.materialTypes.${getMaterialKind(change)}`,
+                            ),
+                          })}
                     </Text>
                     <Text
                       size="1"
                       color="gray"
                     >
-                      {change.operation} · {formatCreatedAt(change.created_at, i18n.language)}
+                      {formatCreatedAt(change.created_at, i18n.language)}
                     </Text>
                   </button>
                 ))}
@@ -257,7 +341,7 @@ export function PendingProjectChangesPanel({
                       size="3"
                       weight="medium"
                     >
-                      {selectedChange.target_type}
+                      {selectedHeading}
                     </Text>
                     <Flex gap="2">
                       {selectedChange.is_applicable ? (
@@ -293,41 +377,79 @@ export function PendingProjectChangesPanel({
                   <div className="pending-project-changes-metadata">
                     <ChangeMetadata
                       label={t("pendingProjectChanges.targetType")}
-                      value={selectedChange.target_type}
-                    />
-                    <ChangeMetadata
-                      label={t("pendingProjectChanges.targetId")}
-                      value={selectedChange.target_id ?? t("pendingProjectChanges.none")}
+                      value={selectedMaterialLabel}
                     />
                     <ChangeMetadata
                       label={t("pendingProjectChanges.operation")}
-                      value={selectedChange.operation}
+                      value={selectedOperationLabel}
                     />
                     <ChangeMetadata
                       label={t("pendingProjectChanges.createdAt")}
                       value={formatCreatedAt(selectedChange.created_at, i18n.language)}
                     />
-                    <ChangeMetadata
-                      label={t("pendingProjectChanges.model")}
-                      value={selectedChange.model_id ?? t("pendingProjectChanges.none")}
-                    />
-                    <ChangeMetadata
-                      label={t("pendingProjectChanges.sourceTask")}
-                      value={selectedChange.source_task_id ?? t("pendingProjectChanges.none")}
-                    />
-                    <ChangeMetadata
-                      label={t("pendingProjectChanges.sourceMessage")}
-                      value={selectedChange.source_message_id ?? t("pendingProjectChanges.none")}
-                    />
+                    {selectedAfter && typeof selectedAfter.writing_visible === "boolean" ? (
+                      <ChangeMetadata
+                        label={t("pendingProjectChanges.writingVisibility")}
+                        value={
+                          selectedAfter.writing_visible
+                            ? t("pendingProjectChanges.visibleToWritingAgent")
+                            : t("pendingProjectChanges.hiddenFromWritingAgent")
+                        }
+                      />
+                    ) : null}
+                    {asString(selectedAfter?.section) ? (
+                      <ChangeMetadata
+                        label={t("pendingProjectChanges.section")}
+                        value={asString(selectedAfter?.section) ?? ""}
+                      />
+                    ) : null}
                   </div>
-                  <JsonSection
-                    label={t("pendingProjectChanges.before")}
-                    value={selectedChange.before}
-                  />
-                  <JsonSection
-                    label={t("pendingProjectChanges.after")}
-                    value={selectedChange.after}
-                  />
+                  {selectedChange.operation === "update" && selectedBefore ? (
+                    <MaterialContent
+                      label={t("pendingProjectChanges.before")}
+                      record={selectedBefore}
+                      emptyLabel={t("pendingProjectChanges.noBody")}
+                    />
+                  ) : null}
+                  {selectedChange.operation !== "delete" && selectedAfter ? (
+                    <MaterialContent
+                      label={
+                        selectedChange.operation === "create"
+                          ? t("pendingProjectChanges.proposedContent")
+                          : t("pendingProjectChanges.after")
+                      }
+                      record={selectedAfter}
+                      emptyLabel={t("pendingProjectChanges.noBody")}
+                    />
+                  ) : null}
+                  {selectedChange.operation === "delete" && selectedBefore ? (
+                    <MaterialContent
+                      label={t("pendingProjectChanges.contentToDelete")}
+                      record={selectedBefore}
+                      emptyLabel={t("pendingProjectChanges.noBody")}
+                    />
+                  ) : null}
+                  <details className="pending-project-changes-technical-details">
+                    <summary>{t("pendingProjectChanges.technicalDetails")}</summary>
+                    <div className="pending-project-changes-metadata">
+                      <ChangeMetadata
+                        label={t("pendingProjectChanges.targetId")}
+                        value={selectedChange.target_id ?? t("pendingProjectChanges.none")}
+                      />
+                      <ChangeMetadata
+                        label={t("pendingProjectChanges.model")}
+                        value={selectedChange.model_id ?? t("pendingProjectChanges.none")}
+                      />
+                      <ChangeMetadata
+                        label={t("pendingProjectChanges.sourceTask")}
+                        value={selectedChange.source_task_id ?? t("pendingProjectChanges.none")}
+                      />
+                      <ChangeMetadata
+                        label={t("pendingProjectChanges.sourceMessage")}
+                        value={selectedChange.source_message_id ?? t("pendingProjectChanges.none")}
+                      />
+                    </div>
+                  </details>
                 </div>
               </ScrollArea>
             ) : null}

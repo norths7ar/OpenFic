@@ -1,5 +1,5 @@
 import { Box, Flex, Text, Tooltip } from "@radix-ui/themes";
-import { AlertTriangle, CircleAlert } from "lucide-react";
+import { CircleAlert, Wrench } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useState } from "react";
 
@@ -24,7 +24,7 @@ import {
 } from "../../shared/message-shell";
 import { joinClassNames } from "../../shared/message-shell-utils";
 import { getToolDescriptor } from "../../tools/shared/tool-message-registry";
-import { UnregisteredToolMessage } from "../../tools/shared/tool-message-status";
+import { GenericToolMessage } from "../../tools/shared/tool-message-status";
 import {
   getChapterPayload,
   getNotePayload,
@@ -190,19 +190,19 @@ export function ToolMessage({ message }: ToolMessageProps) {
     ? getWorldEntryDiffPreview(message)
     : null;
   const usesDiffHeader = Boolean(chapterDiffPreview || noteDiffPreview || worldEntryDiffPreview);
-  const contentMode = usesDiffHeader ? "expandable" : (descriptor?.contentMode ?? "static");
+  const contentMode = usesDiffHeader ? "expandable" : (descriptor?.contentMode ?? "expandable");
   const defaultExpanded = descriptor?.defaultExpanded?.(message) ?? false;
   const [isExpanded, setIsExpanded] = useState(() => defaultExpanded);
   const content = !descriptor ? (
-    <UnregisteredToolMessage
-      toolName={message.toolName}
+    <GenericToolMessage
+      message={message}
       errorMessage={errorMessage}
     />
   ) : contentMode === "hidden" ? null : !descriptor.render ? null : (
     descriptor.render(message)
   );
-  const Icon = descriptor?.icon ?? AlertTriangle;
-  const title = descriptor?.getTitle(message) ?? i18n.t("assistant.tools.unregisteredTool");
+  const Icon = descriptor?.icon ?? Wrench;
+  const title = descriptor?.getTitle(message) ?? i18n.t("assistant.tools.genericTool");
   const detail = descriptor
     ? descriptor.getDetail?.(message)
     : (message.toolName ?? i18n.t("assistant.tools.unknown"));

@@ -39,6 +39,7 @@ export const REGISTERED_TOOL_NAMES = [
   "write_plan",
   "activate_skill",
   "reference_skill",
+  "propose_project_change",
 ] as const;
 
 export type RegisteredToolName = (typeof REGISTERED_TOOL_NAMES)[number];
@@ -51,7 +52,8 @@ export type ToolGroup =
   | "volume"
   | "context"
   | "plan"
-  | "skill";
+  | "skill"
+  | "project";
 
 export interface ToolDescriptorMeta {
   toolName: RegisteredToolName;
@@ -343,6 +345,13 @@ export const TOOL_DESCRIPTOR_META = {
     tag: "reference",
     isExplore: false,
     contentMode: "hidden",
+  },
+  propose_project_change: {
+    toolName: "propose_project_change",
+    group: "project",
+    tag: "proposal",
+    isExplore: false,
+    contentMode: "expandable",
   },
 } satisfies Record<RegisteredToolName, ToolDescriptorMeta>;
 
