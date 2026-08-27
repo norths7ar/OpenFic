@@ -93,6 +93,8 @@ class AgentSendMessageResponse(BaseModel):
     message: str = Field(..., description="结果消息")
     queued: bool = Field(default=False, description="是否进入 pending 队列")
     model_updated: bool = Field(default=False, description="是否已更新下一轮执行模型")
+    task_id: str = Field(..., description="所属任务 ID")
+    task_title: str = Field(..., description="当前任务标题")
     pending_message: AgentPendingMessageResponse | None = Field(
         default=None,
         description="进入 pending 的消息负载",

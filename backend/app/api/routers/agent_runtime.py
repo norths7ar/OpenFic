@@ -154,6 +154,18 @@ def _is_pending_agent_session_title(title: str) -> bool:
         DEFAULT_AGENT_SESSION_TITLE_PATTERN.fullmatch(title)
     )
 
+
+def _build_fallback_agent_session_title(seed_message: str) -> str:
+    """Build an immediate local title; the optional title job may refine it later."""
+    first_line = seed_message.strip().splitlines()[0] if seed_message.strip() else ""
+    plain_text = re.sub(r"<[^>]+>", " ", first_line)
+    plain_text = re.sub(r"\s+", " ", plain_text).strip(" \t\r\n#-*`_，,。.!！?？")
+    if not plain_text:
+        return "新讨论"
+    if len(plain_text) > 40:
+        return plain_text[:40].rstrip() + "…"
+    return plain_text
+
 _SESSION_RUNNERS: dict[str, SessionRunner] = {}
 
 
@@ -963,6 +975,9 @@ async def send_agent_message(
     task = await task_service.get_task(session, runner.task_id)
     status_session_factory = _make_status_session_factory(session)
     if _is_pending_agent_session_title(task.title):
+        task.title = _build_fallback_agent_session_title(body.message)
+        task.updated_at = datetime.now(UTC)
+        session.add(task)
         await enqueue_session_title_job(session, task, body.message)
         await background_service.commit_and_notify(session)
     async with _agent_session_lifecycle_lock(registry, session_id):
@@ -975,6 +990,8 @@ async def send_agent_message(
                 message="Agent 消息已排队",
                 queued=True,
                 model_updated=False,
+                task_id=task.id,
+                task_title=task.title,
                 pending_message=AgentPendingMessageResponse(**pending_message),
             )
     model_updated = False
@@ -1026,6 +1043,8 @@ async def send_agent_message(
         message="Agent 任务已启动",
         queued=False,
         model_updated=model_updated,
+        task_id=task.id,
+        task_title=task.title,
         pending_message=None,
     )
 

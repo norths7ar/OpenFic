@@ -1160,6 +1160,7 @@ class TestAgentAPI:
             )
 
         assert response.status_code == status.HTTP_200_OK
+        assert response.json()["task_title"] == "帮我写一个场景"
         enqueue_mock.assert_awaited_once()
         commit_and_notify_mock.assert_awaited_once()
 

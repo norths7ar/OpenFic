@@ -886,7 +886,7 @@ export function useAgentSession({
               ),
             )
           : undefined;
-        await sendAgentMessage(
+        const response = await sendAgentMessage(
           createResponse.session_id,
           userRequest,
           undefined,
@@ -894,6 +894,7 @@ export function useAgentSession({
           undefined,
           uploadedAttachments,
         );
+        onTaskTitleUpdated?.(response.task_id, response.task_title);
       } catch (error) {
         if (projectIdRef.current !== projectId) return;
         console.error("Failed to start agent session:", error);
@@ -914,6 +915,7 @@ export function useAgentSession({
       maxIterations,
       modelId,
       onSessionCreated,
+      onTaskTitleUpdated,
       projectId,
       queryClient,
       reasoningEffort,
@@ -978,6 +980,7 @@ export function useAgentSession({
           agentKey,
           messageAttachments.length > 0 ? messageAttachments : undefined,
         );
+        onTaskTitleUpdated?.(response.task_id, response.task_title);
         if (response.model_updated && nextModelId) activeModelIdRef.current = nextModelId;
         if (response.queued && response.pending_message) {
           syncPendingMessageState(createPendingUserMessage(response.pending_message));
@@ -1000,6 +1003,7 @@ export function useAgentSession({
       agentKey,
       attachAgentSocket,
       modelId,
+      onTaskTitleUpdated,
       reasoningEffort,
       sessionId,
       syncPendingMessageState,

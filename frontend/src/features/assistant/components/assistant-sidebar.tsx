@@ -1422,6 +1422,10 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
               activeTaskId={currentTaskId}
               showBack={false}
               title={t("assistant.discussionHistory")}
+              onNew={backToTaskList}
+              newLabel={t("assistant.newDiscussion")}
+              searchPlaceholder={t("assistant.searchDiscussions")}
+              emptyLabel={t("assistant.noDiscussions")}
             />
           </Box>
         ) : null}

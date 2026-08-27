@@ -300,6 +300,8 @@ export interface AgentSendMessageResponse {
   message: string;
   queued: boolean;
   model_updated: boolean;
+  task_id: string;
+  task_title: string;
   pending_message: AgentPendingMessage | null;
 }
 

@@ -2548,6 +2548,8 @@ export async function sendAgentMessage(
     message: String(data.message ?? ""),
     queued: data.queued === true,
     model_updated: data.model_updated === true,
+    task_id: String(data.task_id ?? ""),
+    task_title: String(data.task_title ?? ""),
     pending_message: transformPendingAgentMessage(data.pending_message),
   };
 }

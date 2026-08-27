@@ -4,10 +4,10 @@
  * 查看全部任务页面组件。
  */
 
-import { Box, Flex, Text, IconButton, Tooltip, TextField } from "@radix-ui/themes";
+import { Box, DropdownMenu, Flex, Text, IconButton, Tooltip, TextField } from "@radix-ui/themes";
 import { formatDistanceToNow } from "date-fns";
 import { zhCN } from "date-fns/locale";
-import { ArrowLeft, Pencil, Star, Trash2, Search, ListX } from "lucide-react";
+import { ArrowLeft, MoreHorizontal, Pencil, Plus, Star, Trash2, Search, ListX } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -24,6 +24,10 @@ interface AllTasksPageProps {
   activeTaskId?: string | null;
   showBack?: boolean;
   title?: string;
+  onNew?: () => void;
+  newLabel?: string;
+  searchPlaceholder?: string;
+  emptyLabel?: string;
 }
 
 export function AllTasksPage({
@@ -33,6 +37,10 @@ export function AllTasksPage({
   activeTaskId = null,
   showBack = true,
   title,
+  onNew,
+  newLabel,
+  searchPlaceholder,
+  emptyLabel,
 }: AllTasksPageProps) {
   const { t } = useTranslation();
   const [searchQuery, setSearchQuery] = useState("");
@@ -161,9 +169,32 @@ export function AllTasksPage({
         <Text
           size="3"
           weight="medium"
+          style={{ flex: 1 }}
         >
           {title ?? t("writing.aiSidebar.allTasks")}
         </Text>
+        {hasAnyTasks ? (
+          <DropdownMenu.Root>
+            <DropdownMenu.Trigger>
+              <IconButton
+                variant="ghost"
+                size="2"
+                aria-label={t("common.more")}
+              >
+                <MoreHorizontal size={18} />
+              </IconButton>
+            </DropdownMenu.Trigger>
+            <DropdownMenu.Content align="end">
+              <DropdownMenu.Item
+                color="red"
+                onClick={() => setDeleteAllDialogOpen(true)}
+              >
+                <ListX size={16} />
+                {t("writing.aiSidebar.deleteAllTasks")}
+              </DropdownMenu.Item>
+            </DropdownMenu.Content>
+          </DropdownMenu.Root>
+        ) : null}
       </Flex>
 
       {/* 搜索栏 */}
@@ -174,7 +205,7 @@ export function AllTasksPage({
         align="center"
       >
         <TextField.Root
-          placeholder={t("writing.aiSidebar.searchTasks")}
+          placeholder={searchPlaceholder ?? t("writing.aiSidebar.searchTasks")}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           size="2"
@@ -184,18 +215,18 @@ export function AllTasksPage({
             <Search size={16} />
           </TextField.Slot>
         </TextField.Root>
-        {hasAnyTasks && (
-          <Tooltip content={t("writing.aiSidebar.deleteAllTasks")}>
+        {onNew ? (
+          <Tooltip content={newLabel ?? t("assistant.newTask")}>
             <IconButton
-              variant="ghost"
+              variant="soft"
               size="2"
-              onClick={() => setDeleteAllDialogOpen(true)}
-              style={{ color: "var(--red-9)" }}
+              onClick={onNew}
+              aria-label={newLabel ?? t("assistant.newTask")}
             >
-              <ListX size={18} />
+              <Plus size={18} />
             </IconButton>
           </Tooltip>
-        )}
+        ) : null}
       </Flex>
 
       {/* 任务列表 */}
@@ -223,7 +254,7 @@ export function AllTasksPage({
             <Text size="2">
               {searchQuery
                 ? t("writing.aiSidebar.noSearchResults")
-                : t("writing.aiSidebar.noTasks")}
+                : (emptyLabel ?? t("writing.aiSidebar.noTasks"))}
             </Text>
           </Flex>
         ) : (
