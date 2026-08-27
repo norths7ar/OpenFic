@@ -23,34 +23,40 @@ class _ProposedPayload(BaseModel):
 
 
 class ProposedNotePayload(_ProposedPayload):
-    kind: Literal["note"]
-    title: str = Field(min_length=1, max_length=200)
-    body: str = ""
-    category_id: str | None = None
-    writing_visible: bool = True
-    document_type: Literal["note", "outline"] = "note"
+    kind: Literal["note"] = Field(description="资料类型，固定为 note")
+    title: str = Field(description="笔记或提纲标题", min_length=1, max_length=200)
+    body: str = Field(default="", description="笔记或提纲正文")
+    category_id: str | None = Field(default=None, description="所属分类 ID")
+    writing_visible: bool = Field(default=True, description="写作 Agent 是否可见")
+    document_type: Literal["note", "outline"] = Field(
+        default="note", description="文档类型：普通笔记或提纲"
+    )
 
 
 class ProposedNoteCategoryPayload(_ProposedPayload):
-    kind: Literal["note_category"]
-    title: str = Field(min_length=1, max_length=200)
-    parent_id: None = None
-    document_type: Literal["note", "outline"] = "note"
+    kind: Literal["note_category"] = Field(
+        description="资料类型，固定为 note_category"
+    )
+    title: str = Field(description="分类名称", min_length=1, max_length=200)
+    parent_id: None = Field(default=None, description="当前只允许创建顶级分类")
+    document_type: Literal["note", "outline"] = Field(
+        default="note", description="分类所包含的文档类型"
+    )
 
 
 class ProposedCharacterPayload(_ProposedPayload):
-    kind: Literal["character"]
-    title: str = Field(min_length=1, max_length=200)
-    body: str = ""
-    writing_visible: bool = True
+    kind: Literal["character"] = Field(description="资料类型，固定为 character")
+    title: str = Field(description="角色名称", min_length=1, max_length=200)
+    body: str = Field(default="", description="角色设定正文")
+    writing_visible: bool = Field(default=True, description="写作 Agent 是否可见")
 
 
 class ProposedWorldEntryPayload(_ProposedPayload):
-    kind: Literal["world_entry"]
-    title: str = Field(min_length=1, max_length=200)
-    body: str = ""
-    section: str = Field(default="", max_length=500)
-    writing_visible: bool = True
+    kind: Literal["world_entry"] = Field(description="资料类型，固定为 world_entry")
+    title: str = Field(description="背景设定条目名称", min_length=1, max_length=200)
+    body: str = Field(default="", description="背景设定正文")
+    section: str = Field(default="", description="背景设定分区", max_length=500)
+    writing_visible: bool = Field(default=True, description="写作 Agent 是否可见")
 
 
 ProposedPayload = Annotated[

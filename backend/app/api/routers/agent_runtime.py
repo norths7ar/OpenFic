@@ -990,7 +990,7 @@ async def send_agent_message(
                 message="Agent 消息已排队",
                 queued=True,
                 model_updated=False,
-                task_id=task.id,
+                task_id=runner.task_id,
                 task_title=task.title,
                 pending_message=AgentPendingMessageResponse(**pending_message),
             )
@@ -1043,7 +1043,7 @@ async def send_agent_message(
         message="Agent 任务已启动",
         queued=False,
         model_updated=model_updated,
-        task_id=task.id,
+        task_id=runner.task_id,
         task_title=task.title,
         pending_message=None,
     )

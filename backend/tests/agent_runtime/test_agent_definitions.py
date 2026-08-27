@@ -47,7 +47,9 @@ def test_default_agent_definitions_include_three_primary_agents_and_six_subagent
 
     discuss = get_default_agent_definition("discuss")
     assert discuss.display_name == "Discuss"
-    assert discuss.description == "项目级设定/剧情讨论"
+    assert discuss.description == (
+        "围绕当前项目讨论设定与剧情，按所选范围读取资料，并保持信息边界"
+    )
     assert discuss.kind == "primary"
     assert discuss.prompt_agent_name == "discuss"
     assert discuss.model_id is None
