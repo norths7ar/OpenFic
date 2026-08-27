@@ -664,6 +664,10 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
       onTaskTitleUpdated: handleAgentTaskTitleUpdated,
       onForkCreated: handleAgentForkCreated,
       onSessionCreated: handleAgentSessionCreated,
+      onAgentConfirmed: (confirmedAgentKey) => {
+        setSelectedAgentKey(confirmedAgentKey);
+        window.localStorage.setItem(ASSISTANT_AGENT_STORAGE_KEY, confirmedAgentKey);
+      },
       projectedSpecialPanels: projectedSubagentSpecialPanels,
       onAtBottomChange: setIsMessagesAtBottom,
       scrollToBottomFnRef,
@@ -1233,6 +1237,11 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
     const hasActiveSession = Boolean(parentConversationSessionId);
     const handleAgentChange = useCallback(
       (nextAgentKey: string) => {
+        if (nextAgentKey === effectiveAgentKey) return;
+        if (agentSidebar.isRunning || agentSidebar.pendingMessage) {
+          toast.error(t("assistant.agentSwitchWhileRunning"));
+          return;
+        }
         if (hasActiveSession && contextMode === "global" && nextAgentKey !== "discuss") {
           toast.error(t("assistant.globalDiscussionAgentLocked"));
           return;
@@ -1240,8 +1249,20 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
         if (!hasActiveSession) setContextMode("local");
         setSelectedAgentKey(nextAgentKey);
         window.localStorage.setItem(ASSISTANT_AGENT_STORAGE_KEY, nextAgentKey);
+        if (hasActiveSession) {
+          const agentName = primaryAgents.find((agent) => agent.key === nextAgentKey)?.display_name;
+          toast.success(t("assistant.agentSwitchNextTurn", { agent: agentName || nextAgentKey }));
+        }
       },
-      [contextMode, hasActiveSession, t],
+      [
+        agentSidebar.isRunning,
+        agentSidebar.pendingMessage,
+        contextMode,
+        effectiveAgentKey,
+        hasActiveSession,
+        primaryAgents,
+        t,
+      ],
     );
 
     const hasDiscussionAgent = primaryAgents.some((agent) => agent.key === "discuss");
@@ -1882,6 +1903,11 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
               onReasoningEffortChange={handleReasoningEffortChange}
               agentKey={effectiveAgentKey}
               agentOptions={agentSelectorOptions}
+              agentChangeDisabled={
+                isSendingMessage ||
+                Boolean(agentSidebar.pendingMessage) ||
+                (hasActiveSession && contextMode === "global")
+              }
               onAgentChange={handleAgentChange}
               onGoToSettings={handleGoToSettings}
               agentStatus={isViewingSubagent ? subagentSession.status : agentSidebar.status}

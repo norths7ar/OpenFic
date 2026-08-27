@@ -242,6 +242,7 @@ export interface AgentSessionCreateResponse {
   session_id: string;
   project_id: string;
   status: string;
+  agent_key: string;
   task_id: string;
   task_title: string;
   task_created_at: string;
@@ -298,6 +299,7 @@ export interface AgentSendMessageResponse {
   success: boolean;
   session_id: string;
   message: string;
+  agent_key: string;
   queued: boolean;
   model_updated: boolean;
   task_id: string;

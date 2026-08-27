@@ -2548,6 +2548,7 @@ export async function sendAgentMessage(
     success: data.success === true,
     session_id: String(data.session_id ?? sessionId),
     message: String(data.message ?? ""),
+    agent_key: String(data.agent_key ?? ""),
     queued: data.queued === true,
     model_updated: data.model_updated === true,
     task_id: String(data.task_id ?? ""),

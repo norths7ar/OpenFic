@@ -1835,6 +1835,8 @@
     "globalContextLocked": "全局上下文 · 创建后不可切换",
     "localContextLocked": "局部上下文 · 创建后不可切换",
     "globalDiscussionAgentLocked": "全局讨论会话不能切换为写作 Agent",
+    "agentSwitchWhileRunning": "当前轮仍在运行，请在回复结束后切换 Agent",
+    "agentSwitchNextTurn": "已选择 {{agent}}，从下一条消息开始生效",
     "tokens": "Tokens",
     "totalOutputTokens": "总输出 Tokens：{{count}}",
     "totalInputTokens": "总输入 Tokens：{{count}}",

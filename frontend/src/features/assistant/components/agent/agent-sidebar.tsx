@@ -51,6 +51,7 @@ interface AgentSidebarProps {
   onTaskTitleUpdated?: (taskId: string, title: string, updatedAt?: string) => void;
   onForkCreated?: (response: AgentForkResponse) => void | Promise<void>;
   onSessionCreated?: (response: AgentSessionCreateResponse) => void;
+  onAgentConfirmed?: (agentKey: string) => void;
   projectedSpecialPanels?: AgentSpecialPanel[];
   onAtBottomChange?: (isAtBottom: boolean) => void;
   scrollToBottomFnRef?: React.MutableRefObject<(() => void) | null>;
@@ -76,6 +77,7 @@ export function useAgentSidebar({
   onTaskTitleUpdated,
   onForkCreated,
   onSessionCreated,
+  onAgentConfirmed,
   projectedSpecialPanels = [],
   onAtBottomChange,
   scrollToBottomFnRef,
@@ -115,6 +117,7 @@ export function useAgentSidebar({
     onTaskUsageDelta,
     onTaskTitleUpdated,
     onSessionCreated,
+    onAgentConfirmed,
   });
 
   const handleSend = useCallback(async () => {

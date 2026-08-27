@@ -91,6 +91,7 @@ class AgentSendMessageResponse(BaseModel):
     success: bool = Field(..., description="是否成功")
     session_id: str = Field(..., description="会话ID")
     message: str = Field(..., description="结果消息")
+    agent_key: str = Field(..., description="后端实际采用的主智能体标识")
     queued: bool = Field(default=False, description="是否进入 pending 队列")
     model_updated: bool = Field(default=False, description="是否已更新下一轮执行模型")
     task_id: str = Field(..., description="所属任务 ID")

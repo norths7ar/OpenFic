@@ -973,6 +973,9 @@ async def send_agent_message(
     attachment_metadata = [serialize_agent_attachment(attachment) for attachment in attachments]
     registry = get_agent_run_registry()
     task = await task_service.get_task(session, runner.task_id)
+    active_agent_key = getattr(runner, "agent_key", "build")
+    if not isinstance(active_agent_key, str) or not active_agent_key:
+        active_agent_key = "build"
     status_session_factory = _make_status_session_factory(session)
     if _is_pending_agent_session_title(task.title):
         task.title = _build_fallback_agent_session_title(body.message)
@@ -982,12 +985,18 @@ async def send_agent_message(
         await background_service.commit_and_notify(session)
     async with _agent_session_lifecycle_lock(registry, session_id):
         if await registry.is_running(session_id) and not await registry.is_cancelled(session_id):
+            if body.agent_key and body.agent_key != active_agent_key:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="当前轮仍在运行，请在回复结束后切换 Agent",
+                )
             queue_kwargs = {"attachments": attachment_metadata} if attachment_metadata else {}
             pending_message = await runner.queue_pending_user_message(body.message, **queue_kwargs)
             return AgentSendMessageResponse(
                 success=True,
                 session_id=session_id,
                 message="Agent 消息已排队",
+                agent_key=active_agent_key,
                 queued=True,
                 model_updated=False,
                 task_id=runner.task_id,
@@ -1028,6 +1037,7 @@ async def send_agent_message(
             )
         await _validate_primary_agent(session, body.agent_key)
         runner.agent_key = body.agent_key
+        active_agent_key = body.agent_key
     run_kwargs = {"attachments": attachment_metadata} if attachment_metadata else {}
     coro = runner.run(user_request=body.message, **run_kwargs)
     await _launch_task(
@@ -1041,6 +1051,7 @@ async def send_agent_message(
         success=True,
         session_id=session_id,
         message="Agent 任务已启动",
+        agent_key=active_agent_key,
         queued=False,
         model_updated=model_updated,
         task_id=runner.task_id,

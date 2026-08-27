@@ -40,6 +40,7 @@ interface AgentInputProps {
   reasoningEffort?: ReasoningEffort;
   agentKey?: string;
   agentOptions: SelectOption[];
+  agentChangeDisabled?: boolean;
   isSending: boolean;
   disabled: boolean;
   isModelsLoading: boolean;
@@ -77,6 +78,7 @@ export function AgentInput({
   reasoningEffort,
   agentKey,
   agentOptions,
+  agentChangeDisabled = false,
   isSending,
   disabled,
   isModelsLoading,
@@ -559,6 +561,7 @@ export function AgentInput({
                       value={agentKey ?? ""}
                       options={agentOptions}
                       onChange={onAgentChange}
+                      disabled={disabled || readOnly || agentChangeDisabled}
                       size="1"
                       hideTriggerChevron
                       contentClassName="ai-sidebar-agent-select-content"

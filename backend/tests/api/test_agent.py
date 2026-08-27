@@ -546,6 +546,7 @@ class TestAgentAPI:
             )
 
         assert response.status_code == status.HTTP_200_OK
+        assert response.json()["agent_key"] == "custom-primary"
         assert runner.agent_key == "custom-primary"
         runner.run.assert_called_once_with(user_request="切换主智能体继续")
 
@@ -867,6 +868,42 @@ class TestAgentAPI:
         assert response.json()["model_updated"] is False
         resolve_model_config.assert_not_awaited()
         runner.queue_pending_user_message.assert_awaited_once_with("排队消息")
+
+    async def test_send_agent_message_rejects_agent_switch_while_running(
+        self,
+        client: AsyncClient,
+        session,
+    ) -> None:
+        target = await _seed_agent_target(client)
+        session.add(
+            Task(
+                id="task-running-agent-switch",
+                project_id=target["project_id"],
+                title="运行中切换主智能体",
+                mode="agent",
+                agent_session_id="session-running-agent-switch",
+            )
+        )
+        await session.commit()
+
+        runner = MagicMock()
+        runner.task_id = "task-running-agent-switch"
+        runner.project_id = target["project_id"]
+        runner.agent_key = "discuss"
+        runner.queue_pending_user_message = AsyncMock()
+        _SESSION_RUNNERS["session-running-agent-switch"] = runner
+
+        with patch("app.api.routers.agent_runtime.get_agent_run_registry") as get_registry:
+            get_registry.return_value.is_running = AsyncMock(return_value=True)
+            get_registry.return_value.is_cancelled = AsyncMock(return_value=False)
+            response = await client.post(
+                "/api/v1/agent/sessions/session-running-agent-switch/message",
+                json={"message": "切换为写作", "agent_key": "build"},
+            )
+
+        assert response.status_code == status.HTTP_409_CONFLICT
+        assert response.json()["detail"] == "当前轮仍在运行，请在回复结束后切换 Agent"
+        runner.queue_pending_user_message.assert_not_awaited()
 
     async def test_create_agent_session_rejects_mode_field(self, client: AsyncClient) -> None:
         target = await _seed_agent_target(client)

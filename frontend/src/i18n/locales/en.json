@@ -1713,6 +1713,8 @@
     "globalContextLocked": "Global context · locked after creation",
     "localContextLocked": "Local context · locked after creation",
     "globalDiscussionAgentLocked": "A global discussion cannot switch to a writing agent",
+    "agentSwitchWhileRunning": "The current turn is still running. Switch agents after it finishes",
+    "agentSwitchNextTurn": "{{agent}} selected and will apply to the next message",
     "tokens": "Tokens",
     "totalOutputTokens": "Total Output Tokens: {{count}}",
     "totalInputTokens": "Total Input Tokens: {{count}}",

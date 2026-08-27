@@ -270,6 +270,7 @@ interface UseAgentSessionOptions {
   }) => void;
   onTaskTitleUpdated?: (taskId: string, title: string, updatedAt?: string) => void;
   onSessionCreated?: (session: AgentSessionCreateResponse) => void;
+  onAgentConfirmed?: (agentKey: string) => void;
 }
 
 export function useAgentSession({
@@ -284,6 +285,7 @@ export function useAgentSession({
   onTaskUsageDelta,
   onTaskTitleUpdated,
   onSessionCreated,
+  onAgentConfirmed,
 }: UseAgentSessionOptions) {
   const queryClient = useQueryClient();
   const socketUnsubscribeRef = useRef<(() => void) | null>(null);
@@ -870,6 +872,7 @@ export function useAgentSession({
 
         if (projectIdRef.current !== projectId) return;
         onSessionCreated?.(createResponse);
+        onAgentConfirmed?.(createResponse.agent_key);
         sessionIdRef.current = createResponse.session_id;
         activeModelIdRef.current = modelId;
         setSessionId(createResponse.session_id);
@@ -894,6 +897,7 @@ export function useAgentSession({
           undefined,
           uploadedAttachments,
         );
+        if (response.agent_key) onAgentConfirmed?.(response.agent_key);
         onTaskTitleUpdated?.(response.task_id, response.task_title);
       } catch (error) {
         if (projectIdRef.current !== projectId) return;
@@ -914,6 +918,7 @@ export function useAgentSession({
       commitTranscriptState,
       maxIterations,
       modelId,
+      onAgentConfirmed,
       onSessionCreated,
       onTaskTitleUpdated,
       projectId,
@@ -980,6 +985,7 @@ export function useAgentSession({
           agentKey,
           messageAttachments.length > 0 ? messageAttachments : undefined,
         );
+        if (response.agent_key) onAgentConfirmed?.(response.agent_key);
         onTaskTitleUpdated?.(response.task_id, response.task_title);
         if (response.model_updated && nextModelId) activeModelIdRef.current = nextModelId;
         if (response.queued && response.pending_message) {
@@ -1003,6 +1009,7 @@ export function useAgentSession({
       agentKey,
       attachAgentSocket,
       modelId,
+      onAgentConfirmed,
       onTaskTitleUpdated,
       reasoningEffort,
       sessionId,

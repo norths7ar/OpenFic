@@ -787,6 +787,7 @@ async def test_initial_state_does_not_include_context_anchor_state():
             "max_context_tokens": 8000,
         },
         project_id="proj_001",
+        agent_key="plan",
     )
     captured: dict = {}
     captured_config: dict = {}
@@ -826,6 +827,7 @@ async def test_initial_state_does_not_include_context_anchor_state():
     assert "context_anchor_order" not in captured
     assert captured.get("current_revision_id") == "rev_1"
     assert captured.get("task_id") == "task_ctx_001"
+    assert captured.get("agent_key") == "plan"
     assert "message_checkpoints" not in captured
     assert "handoff_context" not in captured
     configurable = captured_config.get("configurable", {})
