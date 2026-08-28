@@ -8,6 +8,7 @@ from app.agent_runtime.context.parts.history import build_history
 from app.agent_runtime.context.parts.rules import build_rules
 from app.agent_runtime.context.parts.skills import build_skills
 from app.agent_runtime.context.parts.system_prompt import build_system_prompt
+from app.agent_runtime.context.parts.writing_scope import build_writing_scope
 from app.agent_runtime.context.processors.compress import (
     compress_system_prompts_if_enabled,
 )
@@ -48,6 +49,8 @@ async def build_context_parts(
         parts.extend(prompt_messages)
     if agent_name == "discuss":
         parts.append(build_discussion_scope(state.get("context_mode", "local")))
+    if agent_name == "draft":
+        parts.append(build_writing_scope(state.get("context_mode", "local")))
     if (m := await build_rules(db_session, state.get("project_id"))) is not None:
         parts.append(m)
     if (m := await build_skills(state, agent_name, db_session, node_messages)) is not None:

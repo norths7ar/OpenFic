@@ -4,7 +4,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlmodel import SQLModel
 
 
-def test_default_agent_definitions_include_three_primary_agents_and_six_subagents():
+def test_default_agent_definitions_include_scene_draft_workflow_agent():
     from app.agent_runtime.agents.definitions import (
         DEFAULT_AGENT_KEYS,
         get_default_agent_definition,
@@ -14,6 +14,7 @@ def test_default_agent_definitions_include_three_primary_agents_and_six_subagent
         "build",
         "plan",
         "discuss",
+        "draft",
         "explore",
         "composer",
         "auditor",
@@ -67,6 +68,15 @@ def test_default_agent_definitions_include_three_primary_agents_and_six_subagent
     assert discuss.delegatable_agents == ()
     assert not any(
         category.endswith("_write") for category in discuss.enabled_tool_categories
+    )
+
+    draft = get_default_agent_definition("draft")
+    assert draft.kind == "primary"
+    assert draft.prompt_agent_name == "draft"
+    assert draft.metadata["workflow_only"] is True
+    assert draft.metadata["supports_global_context"] is True
+    assert not any(
+        category.endswith("_write") for category in draft.enabled_tool_categories
     )
 
     for key in DEFAULT_AGENT_KEYS[2:]:

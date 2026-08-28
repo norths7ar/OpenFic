@@ -75,6 +75,11 @@ import {
 } from "../lib/assistant-conversation-state";
 import type { AssistantSidebarState } from "../lib/assistant-state.types";
 import type { AssistantView } from "../lib/assistant.types";
+import type {
+  SceneDraftApplyRequest,
+  SceneDraftRequest,
+  SceneDraftTarget,
+} from "../lib/scene-draft";
 import { formatSubagentDisplayLabel } from "../lib/subagent-display";
 import { createPendingApprovalMessage } from "../lib/subagent-session-approval";
 import { joinSubagentStatusStream, subscribeSubagentStatusEvents } from "../lib/subagent-socket";
@@ -93,12 +98,14 @@ interface AssistantSidebarProps {
   discussionWorkspace?: boolean;
   onStateChange?: (state: AssistantSidebarState) => void;
   onOpenMentionChapter?: (chapterId: string, chapterTitle: string) => void;
+  onApplySceneDraft?: (request: SceneDraftApplyRequest) => Promise<boolean>;
   onClose?: () => void;
   isMobileOverlay?: boolean;
 }
 
 export interface AssistantSidebarHandle {
   appendToComposer: (markup: string) => void;
+  prepareSceneDraft: (request: SceneDraftRequest) => void;
 }
 
 const ASSISTANT_MODEL_STORAGE_KEY = "openfic.agent.selectedModelId";
@@ -159,10 +166,7 @@ function createSessionTotalUsageState(
   };
 }
 
-function getStoredReasoningEffort(
-  modelId: string,
-  supportsReasoning: boolean,
-): ReasoningEffort {
+function getStoredReasoningEffort(modelId: string, supportsReasoning: boolean): ReasoningEffort {
   if (!supportsReasoning) return "off";
   if (typeof window === "undefined" || !modelId) return "medium";
   try {
@@ -296,6 +300,7 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
       discussionWorkspace = false,
       onStateChange,
       onOpenMentionChapter,
+      onApplySceneDraft,
       onClose,
       isMobileOverlay = false,
     }: AssistantSidebarProps,
@@ -324,6 +329,7 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
     const [currentTaskTitle, setCurrentTaskTitle] = useState<string>("");
     const [currentTaskId, setCurrentTaskId] = useState<string | null>(null);
     const [contextMode, setContextMode] = useState<"global" | "local">("local");
+    const [sceneDraftTarget, setSceneDraftTarget] = useState<SceneDraftTarget | null>(null);
     const [summaryWarningOpen, setSummaryWarningOpen] = useState(false);
     const [sessionTotalUsage, setSessionTotalUsage] = useState<SessionTotalUsageState>(() =>
       createSessionTotalUsageState(),
@@ -337,6 +343,7 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
     const handledInitialComposerMarkupRef = useRef<string | null>(null);
     const automaticComposerMarkupRef = useRef<string | null>(null);
     const scrollToBottomFnRef = useRef<(() => void) | null>(null);
+    const prepareSceneDraftActionRef = useRef<(request: SceneDraftRequest) => void>(() => {});
 
     const { data: tasksData, refetch: refetchRecentTasks } = useTasks(projectId, { limit: 3 });
     const updateTaskMutation = useUpdateTask();
@@ -427,6 +434,9 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
           setView("tasks");
           setInputValue((current) => appendMentionMarkup(current, markup));
         },
+        prepareSceneDraft(request: SceneDraftRequest) {
+          prepareSceneDraftActionRef.current(request);
+        },
       }),
       [],
     );
@@ -438,10 +448,11 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
     }, [selectedModelId]);
 
     useEffect(() => {
-      if (selectedAgentKey) {
+      const selectedAgent = primaryAgents.find((agent) => agent.key === selectedAgentKey);
+      if (selectedAgentKey && !selectedAgent?.metadata.workflow_only) {
         window.localStorage.setItem(ASSISTANT_AGENT_STORAGE_KEY, selectedAgentKey);
       }
-    }, [selectedAgentKey]);
+    }, [primaryAgents, selectedAgentKey]);
 
     useEffect(() => {
       setReasoningEffort(
@@ -664,6 +675,8 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
       },
       onSetInputValue: (value) => setInputValue(value),
       onOpenMentionChapter,
+      sceneDraftTarget,
+      onApplySceneDraft,
       onTokenUsage: handleConversationTokenUsage,
       onTaskUsageSnapshot: handleTaskUsageSnapshot,
       onTaskUsageDelta: handleTaskUsageDelta,
@@ -672,7 +685,10 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
       onSessionCreated: handleAgentSessionCreated,
       onAgentConfirmed: (confirmedAgentKey) => {
         setSelectedAgentKey(confirmedAgentKey);
-        window.localStorage.setItem(ASSISTANT_AGENT_STORAGE_KEY, confirmedAgentKey);
+        const confirmedAgent = primaryAgents.find((agent) => agent.key === confirmedAgentKey);
+        if (!confirmedAgent?.metadata.workflow_only) {
+          window.localStorage.setItem(ASSISTANT_AGENT_STORAGE_KEY, confirmedAgentKey);
+        }
       },
       projectedSpecialPanels: projectedSubagentSpecialPanels,
       onAtBottomChange: setIsMessagesAtBottom,
@@ -1119,8 +1135,29 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
       setCurrentTaskId(null);
       setCurrentTaskTitle("");
       setContextMode("local");
+      setSceneDraftTarget(null);
       void refetchRecentTasks();
     }, [agentSidebar, refetchRecentTasks]);
+
+    const prepareSceneDraft = useCallback(
+      (request: SceneDraftRequest) => {
+        if (agentSidebar.isRunning || agentSidebar.pendingMessage) {
+          toast.error(t("writing.sceneDraft.busy"));
+          return;
+        }
+        backToTaskList();
+        setSceneDraftTarget(request);
+        setContextMode(request.contextMode);
+        setSelectedAgentKey("draft");
+        setInputValue(request.prompt);
+        setView("tasks");
+      },
+      [agentSidebar.isRunning, agentSidebar.pendingMessage, backToTaskList, t],
+    );
+
+    useEffect(() => {
+      prepareSceneDraftActionRef.current = prepareSceneDraft;
+    }, [prepareSceneDraft]);
 
     const openAllTasks = useCallback(() => {
       queryClient.invalidateQueries({ queryKey: ["tasks", projectId], exact: false });
@@ -1253,7 +1290,12 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
           toast.error(t("assistant.agentSwitchWhileRunning"));
           return;
         }
-        if (hasActiveSession && contextMode === "global" && nextAgentKey !== "discuss") {
+        if (
+          hasActiveSession &&
+          contextMode === "global" &&
+          !primaryAgents.find((agent) => agent.key === nextAgentKey)?.metadata
+            .supports_global_context
+        ) {
           toast.error(t("assistant.globalDiscussionAgentLocked"));
           return;
         }
@@ -1337,20 +1379,25 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
 
     const agentSelectorOptions = useMemo(
       () =>
-        primaryAgents.map((d) => ({
-          value: d.key,
-          label: d.display_name || d.key,
-          description: getAgentDisplayDescription(d.key, d.description || "") || undefined,
-          labelColor: getAgentIconColor(d.color),
-          prefix: (
-            <AgentBrandIcon
-              color={d.color}
-              icon={d.icon}
-              size={14}
-            />
-          ),
-        })),
-      [primaryAgents],
+        primaryAgents
+          .filter(
+            (definition) =>
+              !definition.metadata.workflow_only || definition.key === effectiveAgentKey,
+          )
+          .map((d) => ({
+            value: d.key,
+            label: d.display_name || d.key,
+            description: getAgentDisplayDescription(d.key, d.description || "") || undefined,
+            labelColor: getAgentIconColor(d.color),
+            prefix: (
+              <AgentBrandIcon
+                color={d.color}
+                icon={d.icon}
+                size={14}
+              />
+            ),
+          })),
+      [effectiveAgentKey, primaryAgents],
     );
 
     const handleGoToSettings = useCallback(() => {
@@ -1917,7 +1964,8 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
               agentChangeDisabled={
                 isSendingMessage ||
                 Boolean(agentSidebar.pendingMessage) ||
-                (hasActiveSession && contextMode === "global")
+                (hasActiveSession && contextMode === "global") ||
+                effectiveAgentKey === "draft"
               }
               onAgentChange={handleAgentChange}
               onGoToSettings={handleGoToSettings}

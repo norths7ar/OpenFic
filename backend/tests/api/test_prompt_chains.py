@@ -43,6 +43,9 @@ class TestPromptChainAPI:
         assert "builtin-agent--discuss" in {
             prompt["id"] for prompt in categories["builtin-agents"]["prompts"]
         }
+        assert "builtin-agent--draft" in {
+            prompt["id"] for prompt in categories["builtin-agents"]["prompts"]
+        }
         assert categories["custom-agents"]["prompts"] == []
 
         prompts = {
@@ -52,6 +55,8 @@ class TestPromptChainAPI:
         }
         assert prompts["builtin-agent--discuss"]["visibility"] == "user"
         assert prompts["builtin-agent--discuss"]["editable"] is True
+        assert prompts["builtin-agent--draft"]["visibility"] == "internal"
+        assert prompts["builtin-agent--draft"]["editable"] is False
         assert prompts["builtin-agent--explore"]["visibility"] == "internal"
         assert prompts["builtin-agent--explore"]["editable"] is False
         assert prompts["session-title"]["visibility"] == "advanced"

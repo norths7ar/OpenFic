@@ -13,6 +13,7 @@ import type {
 
 import { useAgentSession } from "../../hooks/use-agent-session";
 import type { PendingAgentImageAttachment } from "../../lib/agent-image-attachments";
+import type { SceneDraftApplyRequest, SceneDraftTarget } from "../../lib/scene-draft";
 import { AgentMessages } from "./agent-messages";
 import { AgentSpecialPanels } from "./agent-special-panels";
 import { getAgentSpecialPanels, type AgentSpecialPanel } from "./agent-special-panels-state";
@@ -31,6 +32,8 @@ interface AgentSidebarProps {
   onRestoreAttachments?: (attachments: AgentImageAttachment[]) => void;
   onSetInputValue?: (value: string) => void;
   onOpenMentionChapter?: (chapterId: string, chapterTitle: string) => void;
+  sceneDraftTarget?: SceneDraftTarget | null;
+  onApplySceneDraft?: (request: SceneDraftApplyRequest) => Promise<boolean>;
   onTokenUsage?: (sessionId: string, usage: TokenUsageState) => void;
   onTaskUsageSnapshot?: (payload: {
     sessionId: string;
@@ -71,6 +74,8 @@ export function useAgentSidebar({
   onRestoreAttachments,
   onSetInputValue,
   onOpenMentionChapter,
+  sceneDraftTarget,
+  onApplySceneDraft,
   onTokenUsage,
   onTaskUsageSnapshot,
   onTaskUsageDelta,
@@ -222,6 +227,8 @@ export function useAgentSidebar({
         onRollback={handleRollback}
         onFork={handleFork}
         onOpenMentionChapter={onOpenMentionChapter}
+        sceneDraftTarget={agentKey === "draft" ? sceneDraftTarget : null}
+        onApplySceneDraft={onApplySceneDraft}
         onAbortRetry={abortAgentSession}
         onAtBottomChange={onAtBottomChange}
         scrollToBottomFnRef={scrollToBottomFnRef}

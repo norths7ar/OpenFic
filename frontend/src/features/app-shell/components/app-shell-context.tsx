@@ -1,5 +1,6 @@
 import { createContext, useContext } from "react";
 
+import type { SceneDraftRequest } from "@/features/assistant/lib/scene-draft";
 import type { SettingsDialogRoute } from "@/features/settings/lib/settings-route";
 
 import type { AssistantSidebarHostRegistration } from "./assistant-sidebar-host-state";
@@ -14,6 +15,7 @@ interface AppShellContextValue {
   openSettings: (route?: SettingsDialogRoute) => void;
   closeSettings: () => void;
   appendToAssistant: (markup: string) => void;
+  prepareSceneDraft: (request: SceneDraftRequest) => void;
   isAssistantSidebarOpen: boolean;
   openAssistantSidebar: () => void;
   closeAssistantSidebar: () => void;

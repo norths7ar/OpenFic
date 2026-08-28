@@ -21,6 +21,13 @@ interface AgentMessageRendererProps {
   onToggleNode?: () => void;
   onOpenMentionChapter?: (chapterId: string, chapterTitle: string) => void;
   onAbortRetry?: () => void;
+  sceneDraft?: {
+    content: string;
+    status: "active" | "applied" | "discarded";
+    onChange: (content: string) => void;
+    onApply: () => void;
+    onDiscard: () => void;
+  };
 }
 
 interface AgentMessageComponentProps {
@@ -48,6 +55,7 @@ function AgentMessageRendererView({
   onToggleNode,
   onOpenMentionChapter,
   onAbortRetry,
+  sceneDraft,
 }: AgentMessageRendererProps) {
   if (message.type === "node_start") {
     return (
@@ -72,7 +80,12 @@ function AgentMessageRendererView({
   }
 
   if (message.type === "agent_output") {
-    return <AgentOutputMessage message={message} />;
+    return (
+      <AgentOutputMessage
+        message={message}
+        sceneDraft={sceneDraft}
+      />
+    );
   }
 
   if (message.type === "tool") {
@@ -102,7 +115,8 @@ function areAgentMessageRendererPropsEqual(
     prev.isNodeCollapsed === next.isNodeCollapsed &&
     Boolean(prev.onToggleNode) === Boolean(next.onToggleNode) &&
     prev.onOpenMentionChapter === next.onOpenMentionChapter &&
-    prev.onAbortRetry === next.onAbortRetry
+    prev.onAbortRetry === next.onAbortRetry &&
+    prev.sceneDraft === next.sceneDraft
   );
 }
 

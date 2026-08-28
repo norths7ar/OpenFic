@@ -11,6 +11,7 @@ import "./writing-page.css";
 import { PanelLayoutLoading } from "@/components";
 import { AssistantSidebarHost, MobileAppSidebarTrigger, useAppShell } from "@/features/app-shell";
 import type { AssistantSidebarState } from "@/features/assistant";
+import type { SceneDraftApplyRequest } from "@/features/assistant";
 import { usePersistedPanelLayout } from "@/hooks/use-persisted-panel-layout";
 import { getLastChapterId, setLastChapterId } from "@/lib/local-db";
 
@@ -43,8 +44,13 @@ interface WritingPageProps {
 export function WritingPage({ workspaceView = "write" }: WritingPageProps) {
   const { t } = useTranslation();
   const { projectId } = useParams<{ projectId: string }>();
-  const { appendToAssistant, isAssistantSidebarOpen, isMobile, openAssistantSidebar } =
-    useAppShell();
+  const {
+    appendToAssistant,
+    isAssistantSidebarOpen,
+    isMobile,
+    openAssistantSidebar,
+    prepareSceneDraft,
+  } = useAppShell();
 
   const { setCurrentChapter, hydrateSidebarView, setSidebarView } = useWritingStore();
   const {
@@ -86,6 +92,9 @@ export function WritingPage({ workspaceView = "write" }: WritingPageProps) {
   const [hasOpenedSummary, setHasOpenedSummary] = useState(false);
   const [hasEditorSelection, setHasEditorSelection] = useState(false);
   const addSelectionToConversationRef = useRef<(() => void) | null>(null);
+  const applySceneDraftRef = useRef<((request: SceneDraftApplyRequest) => Promise<boolean>) | null>(
+    null,
+  );
   const [assistantState, setAssistantState] = useState<AssistantSidebarState>({
     agentStatus: "idle",
     isAgentRunning: false,
@@ -96,6 +105,9 @@ export function WritingPage({ workspaceView = "write" }: WritingPageProps) {
     [assistantState.isAgentRunning],
   );
   const isViewingSubagent = assistantState.conversationDescriptor?.kind === "subagent";
+  const handleApplySceneDraft = useCallback(async (request: SceneDraftApplyRequest) => {
+    return (await applySceneDraftRef.current?.(request)) ?? false;
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -446,6 +458,8 @@ export function WritingPage({ workspaceView = "write" }: WritingPageProps) {
                           isViewingSubagent ? undefined : handleAddToConversation
                         }
                         onOpenSummary={handleOpenSummary}
+                        onPrepareSceneDraft={prepareSceneDraft}
+                        applySceneDraftRef={applySceneDraftRef}
                       />
                     )
                   ) : (
@@ -473,6 +487,7 @@ export function WritingPage({ workspaceView = "write" }: WritingPageProps) {
                   preferredAgentKey={workspaceView === "discuss" ? "discuss" : undefined}
                   onStateChange={setAssistantState}
                   onOpenMentionChapter={handleChapterSelect}
+                  onApplySceneDraft={handleApplySceneDraft}
                   isMobileOverlay={false}
                 />
               </Box>
@@ -555,6 +570,8 @@ export function WritingPage({ workspaceView = "write" }: WritingPageProps) {
                       onAddToConversation={isViewingSubagent ? undefined : handleAddToConversation}
                       onSelectionChange={setHasEditorSelection}
                       addSelectionToConversationRef={addSelectionToConversationRef}
+                      onPrepareSceneDraft={prepareSceneDraft}
+                      applySceneDraftRef={applySceneDraftRef}
                     />
                   )
                 ) : (
@@ -612,6 +629,7 @@ export function WritingPage({ workspaceView = "write" }: WritingPageProps) {
           preferredAgentKey={workspaceView === "discuss" ? "discuss" : undefined}
           onStateChange={setAssistantState}
           onOpenMentionChapter={handleChapterSelect}
+          onApplySceneDraft={handleApplySceneDraft}
           isMobileOverlay
         />
       )}

@@ -16,6 +16,7 @@ export function AssistantSidebarHost({
   initialComposerMarkup,
   discussionWorkspace,
   onOpenMentionChapter,
+  onApplySceneDraft,
   onStateChange,
   preferredAgentKey,
   projectId,
@@ -28,8 +29,8 @@ export function AssistantSidebarHost({
     isAssistantSidebarOpen,
     registerAssistantSidebarHost,
   } = useAppShell();
-  const callbacksRef = useRef({ onOpenMentionChapter, onStateChange });
-  callbacksRef.current = { onOpenMentionChapter, onStateChange };
+  const callbacksRef = useRef({ onApplySceneDraft, onOpenMentionChapter, onStateChange });
+  callbacksRef.current = { onApplySceneDraft, onOpenMentionChapter, onStateChange };
 
   useLayoutEffect(() => {
     return () => clearAssistantSidebarHost(id);
@@ -48,6 +49,8 @@ export function AssistantSidebarHost({
       onStateChange: (state) => callbacksRef.current.onStateChange?.(state),
       onOpenMentionChapter: (chapterId, chapterTitle) =>
         callbacksRef.current.onOpenMentionChapter?.(chapterId, chapterTitle),
+      onApplySceneDraft: (request) =>
+        callbacksRef.current.onApplySceneDraft?.(request) ?? Promise.resolve(false),
       onClose: closeAssistantSidebar,
     });
   }, [

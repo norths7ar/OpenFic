@@ -34,6 +34,7 @@ DEFAULT_AGENT_KEYS: tuple[str, ...] = (
     "build",
     "plan",
     "discuss",
+    "draft",
     "explore",
     "composer",
     "auditor",
@@ -129,9 +130,32 @@ DEFAULT_AGENT_DEFINITIONS: Mapping[str, AgentDefinition] = MappingProxyType(
                 "character_read",
             ),
             enabled_skills=(),
-            metadata=MappingProxyType({}),
+            metadata=MappingProxyType({"supports_global_context": True}),
             color="purple",
             icon="lightbulb",
+            delegatable_agents=(),
+        ),
+        "draft": AgentDefinition(
+            key="draft",
+            display_name="Scene Draft",
+            description="根据当前章节与所选资料生成可编辑的场景初稿，不直接修改正式正文",
+            kind="primary",
+            prompt_agent_name="draft",
+            model_id=None,
+            enabled_tool_categories=(
+                "interaction",
+                "chapter_read",
+                "summary_read",
+                "world_read",
+                "note_read",
+                "character_read",
+            ),
+            enabled_skills=(),
+            metadata=MappingProxyType(
+                {"workflow_only": True, "supports_global_context": True}
+            ),
+            color="amber",
+            icon="file-pen-line",
             delegatable_agents=(),
         ),
         "explore": AgentDefinition(
@@ -256,6 +280,10 @@ DEFAULT_AGENT_DEFINITIONS: Mapping[str, AgentDefinition] = MappingProxyType(
 
 def get_default_agent_definition(key: str) -> AgentDefinition:
     return DEFAULT_AGENT_DEFINITIONS[key]
+
+
+def supports_global_context(definition: AgentDefinition) -> bool:
+    return bool(definition.metadata.get("supports_global_context"))
 
 
 def agent_definition_from_record(record: AgentDefinitionRecord) -> AgentDefinition:

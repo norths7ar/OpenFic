@@ -81,6 +81,25 @@ async def test_system_prompt_loads_discuss_builtin_prompt_chain_key(
 
 
 @pytest.mark.asyncio
+async def test_system_prompt_loads_draft_builtin_prompt_chain_key(
+    make_state, mock_session
+):
+    state = make_state()
+    version = SimpleNamespace(version=SimpleNamespace(id="v1"), entries=[])
+
+    with patch(
+        "app.agent_runtime.context.parts.system_prompt.prompt_chain_service.get_latest_version_with_entries_or_default",
+        AsyncMock(return_value=version),
+    ) as mocked_get:
+        await build_system_prompt(state, "draft", mock_session)
+
+    mocked_get.assert_awaited_once_with(
+        mock_session,
+        prompt_id="builtin-agent--draft",
+    )
+
+
+@pytest.mark.asyncio
 async def test_system_prompt_skips_disabled_entries(make_state, mock_session):
     state = make_state()
     version = SimpleNamespace(

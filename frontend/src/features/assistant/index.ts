@@ -8,3 +8,4 @@ export { AssistantSidebar, type AssistantSidebarHandle } from "./components/assi
 export { DiscussionPage } from "./pages/discussion-page";
 export * from "./lib/assistant.types";
 export * from "./lib/assistant-state.types";
+export * from "./lib/scene-draft";

@@ -15,7 +15,11 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from loguru import logger
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from app.agent_runtime.agents.definitions import load_agent_definition
+from app.agent_runtime.agents.definitions import (
+    AgentDefinition,
+    load_agent_definition,
+    supports_global_context,
+)
 from app.agent_runtime.attachments import (
     get_agent_attachment_url,
     load_session_attachments,
@@ -506,7 +510,9 @@ async def _build_model_config(
     return model_config
 
 
-async def _validate_primary_agent(session: AsyncSession, agent_key: str) -> None:
+async def _validate_primary_agent(
+    session: AsyncSession, agent_key: str
+) -> AgentDefinition:
     try:
         definition = await load_agent_definition(session, agent_key)
     except KeyError as exc:
@@ -524,6 +530,7 @@ async def _validate_primary_agent(session: AsyncSession, agent_key: str) -> None
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"智能体 '{agent_key}' 不是主智能体 (kind != primary)",
         )
+    return definition
 
 
 async def _resolve_model_config(
@@ -830,11 +837,6 @@ async def create_agent_session(
     session: AsyncSession = Depends(get_session),
 ) -> AgentSessionCreateResponse:
     try:
-        if request.context_mode == "global" and request.agent_key != "discuss":
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="全局上下文仅可用于讨论 Agent",
-            )
         definition = await load_agent_definition(session, request.agent_key)
         if not definition.enabled:
             raise HTTPException(
@@ -845,6 +847,11 @@ async def create_agent_session(
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"智能体 '{request.agent_key}' 不是主智能体 (kind != primary)",
+            )
+        if request.context_mode == "global" and not supports_global_context(definition):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="所选 Agent 不支持全局上下文",
             )
         model_config = await _resolve_model_config(
             session, request.model_id, request.reasoning_effort
@@ -1030,12 +1037,12 @@ async def send_agent_message(
                 )
             )
     if body.agent_key:
-        if runner.context_mode == "global" and body.agent_key != "discuss":
+        definition = await _validate_primary_agent(session, body.agent_key)
+        if runner.context_mode == "global" and not supports_global_context(definition):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="全局讨论会话不能切换为非讨论 Agent",
+                detail="全局上下文会话不能切换为普通 Agent",
             )
-        await _validate_primary_agent(session, body.agent_key)
         runner.agent_key = body.agent_key
         active_agent_key = body.agent_key
     run_kwargs = {"attachments": attachment_metadata} if attachment_metadata else {}

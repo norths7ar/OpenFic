@@ -2,6 +2,7 @@ from typing import Literal, cast
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.agent_runtime.agents.definitions import DEFAULT_AGENT_KEYS
 from app.agent_runtime.context.errors import ContextBuildError
 from app.agent_runtime.context.types import ContextMessage
 from app.agent_runtime.graph.state import AgentRuntimeState
@@ -15,20 +16,9 @@ async def build_system_prompt(
     db_session: AsyncSession,
 ) -> list[ContextMessage]:
     """构建 p1 PromptChain，并保留各 entry 的原始 role。"""
-    builtin_agent_names = {
-        "build",
-        "plan",
-        "discuss",
-        "explore",
-        "composer",
-        "auditor",
-        "writer",
-        "actor",
-        "reviewer",
-    }
     prompt_id = (
         f"builtin-agent--{agent_name}"
-        if agent_name in builtin_agent_names
+        if agent_name in DEFAULT_AGENT_KEYS
         else f"custom-agent--{agent_name}"
     )
 

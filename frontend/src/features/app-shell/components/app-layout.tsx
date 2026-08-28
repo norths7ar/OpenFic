@@ -3,6 +3,7 @@ import { Outlet } from "react-router";
 
 import { AssistantSidebar } from "@/features/assistant";
 import type { AssistantSidebarHandle } from "@/features/assistant";
+import type { SceneDraftRequest } from "@/features/assistant";
 import { SettingsDialog } from "@/features/settings";
 import type { SettingsDialogRoute } from "@/features/settings/lib/settings-route";
 
@@ -72,6 +73,11 @@ export function AppLayout({ appearance, version, onAppearanceChange }: AppLayout
     assistantSidebarRef.current?.appendToComposer(markup);
   }, []);
 
+  const prepareSceneDraft = useCallback((request: SceneDraftRequest) => {
+    assistantSidebarRef.current?.prepareSceneDraft(request);
+    setIsAssistantSidebarOpen(true);
+  }, []);
+
   const openAssistantSidebar = useCallback(() => setIsAssistantSidebarOpen(true), []);
   const closeAssistantSidebar = useCallback(() => setIsAssistantSidebarOpen(false), []);
 
@@ -128,6 +134,7 @@ export function AppLayout({ appearance, version, onAppearanceChange }: AppLayout
       },
       closeSettings: () => setIsSettingsOpen(false),
       appendToAssistant,
+      prepareSceneDraft,
       isAssistantSidebarOpen,
       openAssistantSidebar,
       closeAssistantSidebar,
@@ -136,6 +143,7 @@ export function AppLayout({ appearance, version, onAppearanceChange }: AppLayout
     }),
     [
       appendToAssistant,
+      prepareSceneDraft,
       closeAssistantSidebar,
       clearAssistantSidebarHost,
       isAssistantSidebarOpen,
@@ -180,6 +188,9 @@ export function AppLayout({ appearance, version, onAppearanceChange }: AppLayout
                   assistantSidebarHost.isActive
                     ? assistantSidebarHost.onOpenMentionChapter
                     : undefined
+                }
+                onApplySceneDraft={
+                  assistantSidebarHost.isActive ? assistantSidebarHost.onApplySceneDraft : undefined
                 }
                 onClose={assistantSidebarHost.isActive ? assistantSidebarHost.onClose : undefined}
                 isMobileOverlay={assistantSidebarHost.isMobileOverlay}

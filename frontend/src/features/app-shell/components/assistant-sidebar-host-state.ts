@@ -1,4 +1,5 @@
 import type { AssistantSidebarState } from "@/features/assistant/lib/assistant-state.types";
+import type { SceneDraftApplyRequest } from "@/features/assistant/lib/scene-draft";
 
 export interface AssistantSidebarHostRegistration {
   id: string;
@@ -11,6 +12,7 @@ export interface AssistantSidebarHostRegistration {
   discussionWorkspace?: boolean;
   onStateChange?: (state: AssistantSidebarState) => void;
   onOpenMentionChapter?: (chapterId: string, chapterTitle: string) => void;
+  onApplySceneDraft?: (request: SceneDraftApplyRequest) => Promise<boolean>;
   onClose?: () => void;
 }
 
@@ -34,6 +36,7 @@ export function registerAssistantSidebarHost(
     current.discussionWorkspace === registration.discussionWorkspace &&
     current.onStateChange === registration.onStateChange &&
     current.onOpenMentionChapter === registration.onOpenMentionChapter &&
+    current.onApplySceneDraft === registration.onApplySceneDraft &&
     current.onClose === registration.onClose
   ) {
     return current;

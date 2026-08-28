@@ -7,20 +7,11 @@ from pathlib import Path
 import yaml
 from loguru import logger
 
+from app.agent_runtime.agents.definitions import DEFAULT_AGENT_KEYS
 from app.storage.services.prompt_chain_service import PromptEntryData
 
 PROMPTS_DIR = Path(__file__).parent
-_BUILTIN_AGENT_NAMES = (
-    "build",
-    "plan",
-    "discuss",
-    "explore",
-    "composer",
-    "auditor",
-    "writer",
-    "actor",
-    "reviewer",
-)
+_BUILTIN_AGENT_NAMES = DEFAULT_AGENT_KEYS
 
 
 @dataclass(frozen=True)
@@ -145,7 +136,11 @@ def get_prompt_chains_metadata(
             return definition.visibility, definition.editable
         agent_name = definition.prompt_id.removeprefix("builtin-agent--")
         agent = DEFAULT_AGENT_DEFINITIONS.get(agent_name)
-        is_primary = agent is not None and agent.kind == "primary"
+        is_primary = (
+            agent is not None
+            and agent.kind == "primary"
+            and not bool(agent.metadata.get("workflow_only"))
+        )
         return ("user", True) if is_primary else ("internal", False)
 
     prompts_by_category = {

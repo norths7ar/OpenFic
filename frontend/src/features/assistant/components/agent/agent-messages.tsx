@@ -13,6 +13,7 @@ import { Virtuoso } from "react-virtuoso";
 import { ConfirmDialog, toast } from "@/components";
 import type { AgentMessage as AgentMessageType } from "@/lib/agent.types";
 
+import type { SceneDraftApplyRequest, SceneDraftTarget } from "../../lib/scene-draft";
 import { AgentMessageRenderer } from "./agent-message-renderer";
 import {
   getStreamingFollowSignal,
@@ -103,6 +104,8 @@ interface AgentMessagesProps {
   onAbortRetry?: () => void;
   onAtBottomChange?: (isAtBottom: boolean) => void;
   scrollToBottomFnRef?: React.MutableRefObject<(() => void) | null>;
+  sceneDraftTarget?: SceneDraftTarget | null;
+  onApplySceneDraft?: (request: SceneDraftApplyRequest) => Promise<boolean>;
 }
 
 function isRollbackableUserMessage(message: AgentMessageType): boolean {
@@ -146,6 +149,12 @@ interface AgentBlockContentProps {
   messages: BlockDisplayMessage[];
   onOpenMentionChapter?: (chapterId: string, chapterTitle: string) => void;
   onAbortRetry?: () => void;
+  sceneDraftTarget?: SceneDraftTarget | null;
+  sceneDraftEdits: Record<string, string>;
+  sceneDraftStatuses: Record<string, "active" | "applied" | "discarded">;
+  onSceneDraftChange: (messageId: string, content: string) => void;
+  onSceneDraftApply: (message: AgentMessageType) => void;
+  onSceneDraftDiscard: (messageId: string) => void;
 }
 
 const AgentBlockContent = memo(
@@ -153,6 +162,12 @@ const AgentBlockContent = memo(
     messages,
     onOpenMentionChapter,
     onAbortRetry,
+    sceneDraftTarget,
+    sceneDraftEdits,
+    sceneDraftStatuses,
+    onSceneDraftChange,
+    onSceneDraftApply,
+    onSceneDraftDiscard,
   }: AgentBlockContentProps) {
     const agentMessages = useMemo(() => messages.filter(isAgentBlockDisplayMessage), [messages]);
     const displayItems = useMemo(() => buildAgentDisplayItems(agentMessages), [agentMessages]);
@@ -176,6 +191,17 @@ const AgentBlockContent = memo(
               message={item.message}
               onOpenMentionChapter={onOpenMentionChapter}
               onAbortRetry={onAbortRetry}
+              sceneDraft={
+                sceneDraftTarget && item.message.type === "agent_output"
+                  ? {
+                      content: sceneDraftEdits[item.message.id] ?? item.message.content ?? "",
+                      status: sceneDraftStatuses[item.message.id] ?? "active",
+                      onChange: (content) => onSceneDraftChange(item.message.id, content),
+                      onApply: () => onSceneDraftApply(item.message),
+                      onDiscard: () => onSceneDraftDiscard(item.message.id),
+                    }
+                  : undefined
+              }
             />
           ),
         )}
@@ -185,7 +211,13 @@ const AgentBlockContent = memo(
   (prev, next) =>
     areBlockMessageListsEqual(prev.messages, next.messages) &&
     prev.onOpenMentionChapter === next.onOpenMentionChapter &&
-    prev.onAbortRetry === next.onAbortRetry,
+    prev.onAbortRetry === next.onAbortRetry &&
+    prev.sceneDraftTarget === next.sceneDraftTarget &&
+    prev.sceneDraftEdits === next.sceneDraftEdits &&
+    prev.sceneDraftStatuses === next.sceneDraftStatuses &&
+    prev.onSceneDraftChange === next.onSceneDraftChange &&
+    prev.onSceneDraftApply === next.onSceneDraftApply &&
+    prev.onSceneDraftDiscard === next.onSceneDraftDiscard,
 );
 
 interface AgentMessagesFooterContext {
@@ -227,6 +259,8 @@ export function AgentMessages({
   onFork,
   onOpenMentionChapter,
   onAbortRetry,
+  sceneDraftTarget,
+  onApplySceneDraft,
   onAtBottomChange,
   scrollToBottomFnRef,
 }: AgentMessagesProps) {
@@ -253,6 +287,10 @@ export function AgentMessages({
   );
   const [pendingForkTarget, setPendingForkTarget] = useState<AgentRoundToolbarTarget | null>(null);
   const [collapsedNodeIds, setCollapsedNodeIds] = useState<Set<string>>(() => new Set());
+  const [sceneDraftEdits, setSceneDraftEdits] = useState<Record<string, string>>({});
+  const [sceneDraftStatuses, setSceneDraftStatuses] = useState<
+    Record<string, "active" | "applied" | "discarded">
+  >({});
   const streamFollowSignal = getStreamingFollowSignal(messages);
   const runningStatus = useMemo(() => getAgentRunningStatus(messages), [messages]);
   const roundStartedAt = useMemo(() => getCurrentRoundStartedAt(messages), [messages]);
@@ -555,6 +593,19 @@ export function AgentMessages({
     await onFork(sourceRevisionId);
   }, [onFork, pendingForkTarget]);
 
+  const applySceneDraft = useCallback(
+    async (message: AgentMessageType) => {
+      if (!sceneDraftTarget || !onApplySceneDraft) return;
+      const content = (sceneDraftEdits[message.id] ?? message.content ?? "").trim();
+      if (!content) return;
+      const applied = await onApplySceneDraft({ ...sceneDraftTarget, content });
+      if (applied) {
+        setSceneDraftStatuses((current) => ({ ...current, [message.id]: "applied" }));
+      }
+    },
+    [onApplySceneDraft, sceneDraftEdits, sceneDraftTarget],
+  );
+
   const renderAgentRoundToolbar = (target: AgentRoundToolbarTarget) => {
     const actionId = `copy:${target.id}`;
     const isCopied = copiedActionId === actionId;
@@ -722,6 +773,16 @@ export function AgentMessages({
             messages={block.messages}
             onOpenMentionChapter={onOpenMentionChapter}
             onAbortRetry={onAbortRetry}
+            sceneDraftTarget={sceneDraftTarget}
+            sceneDraftEdits={sceneDraftEdits}
+            sceneDraftStatuses={sceneDraftStatuses}
+            onSceneDraftChange={(messageId, content) =>
+              setSceneDraftEdits((current) => ({ ...current, [messageId]: content }))
+            }
+            onSceneDraftApply={(message) => void applySceneDraft(message)}
+            onSceneDraftDiscard={(messageId) =>
+              setSceneDraftStatuses((current) => ({ ...current, [messageId]: "discarded" }))
+            }
           />
         </Box>
         {toolbarTarget ? renderAgentRoundToolbar(toolbarTarget) : null}

@@ -451,6 +451,28 @@ class TestAgentAPI:
         assert created_task.context_mode == "global"
         assert _SESSION_RUNNERS[data["session_id"]].context_mode == "global"
 
+    async def test_create_scene_draft_session_supports_global_context(
+        self, client: AsyncClient
+    ) -> None:
+        target = await _seed_agent_target(client)
+
+        response = await client.post(
+            "/api/v1/agent/sessions",
+            json={
+                "project_id": target["project_id"],
+                "model_id": target["model_id"],
+                "max_iterations": 5,
+                "agent_key": "draft",
+                "context_mode": "global",
+            },
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert data["agent_key"] == "draft"
+        assert data["context_mode"] == "global"
+        assert _SESSION_RUNNERS[data["session_id"]].agent_key == "draft"
+
     async def test_send_agent_message_uses_requested_model_for_next_run(
         self,
         client: AsyncClient,

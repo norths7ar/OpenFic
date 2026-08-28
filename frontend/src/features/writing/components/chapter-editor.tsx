@@ -1,7 +1,7 @@
 import { Box, Flex, Text, IconButton } from "@radix-ui/themes";
 import { useQuery } from "@tanstack/react-query";
 import { useEditor, EditorContent } from "@tiptap/react";
-import { AtSign, Globe, FileText } from "lucide-react";
+import { AtSign, FilePenLine, Globe, FileText } from "lucide-react";
 import { AnimatePresence } from "motion/react";
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
@@ -16,6 +16,10 @@ import {
   buildChapterMentionTag,
   buildLineRangeMentionTag,
 } from "@/features/assistant/lib/mention-text";
+import type {
+  SceneDraftApplyRequest,
+  SceneDraftRequest,
+} from "@/features/assistant/lib/scene-draft";
 import { fetchSettings } from "@/features/settings/lib/settings-api";
 import { useScrollbarAutoHide } from "@/hooks/use-scrollbar-auto-hide";
 import { fetchChapter } from "@/lib/api-client";
@@ -47,6 +51,7 @@ import {
 } from "../lib/writing-working-copy";
 import { useTabsStore } from "../store/use-tabs-store";
 import { FindReplacePanel } from "./find-replace-panel";
+import { SceneDraftDialog } from "./scene-draft-dialog";
 
 const MANUAL_SAVE_EVENT = "openfic:chapter-editor-manual-save";
 
@@ -67,6 +72,10 @@ interface ChapterEditorProps {
   onOpenSummary?: () => void;
   onSelectionChange?: (hasSelection: boolean) => void;
   addSelectionToConversationRef?: React.MutableRefObject<(() => void) | null>;
+  onPrepareSceneDraft?: (request: SceneDraftRequest) => void;
+  applySceneDraftRef?: React.MutableRefObject<
+    ((request: SceneDraftApplyRequest) => Promise<boolean>) | null
+  >;
 }
 
 interface ChapterEditorContentProps {
@@ -83,6 +92,10 @@ interface ChapterEditorContentProps {
   onOpenSummary?: () => void;
   onSelectionChange?: (hasSelection: boolean) => void;
   addSelectionToConversationRef?: React.MutableRefObject<(() => void) | null>;
+  onPrepareSceneDraft?: (request: SceneDraftRequest) => void;
+  applySceneDraftRef?: React.MutableRefObject<
+    ((request: SceneDraftApplyRequest) => Promise<boolean>) | null
+  >;
 }
 
 function ChapterEditorContent({
@@ -99,6 +112,8 @@ function ChapterEditorContent({
   onOpenSummary,
   onSelectionChange,
   addSelectionToConversationRef,
+  onPrepareSceneDraft,
+  applySceneDraftRef,
 }: ChapterEditorContentProps) {
   const { t } = useTranslation();
   const updateMutation = useUpdateChapter();
@@ -142,6 +157,7 @@ function ChapterEditorContent({
   );
   const [isSaving, setIsSaving] = useState(false);
   const [findReplaceMode, setFindReplaceMode] = useState<"closed" | "find" | "replace">("closed");
+  const [isSceneDraftDialogOpen, setIsSceneDraftDialogOpen] = useState(false);
   const [wordCount, setWordCount] = useState(() => wordsCount(initialDraft.content));
   const saveStatus = isSaving ? "saving" : hasChanges ? "unsaved" : "saved";
   const latestDraftRef = useRef(initialDraft);
@@ -199,6 +215,22 @@ function ChapterEditorContent({
 
     return (
       <>
+        {onPrepareSceneDraft ? (
+          <IconButton
+            variant="ghost"
+            size="2"
+            aria-label={t("writing.sceneDraft.action")}
+            onClick={() => {
+              if (hasChangesRef.current) {
+                toast.error(t("writing.sceneDraft.saveFirst"));
+                return;
+              }
+              setIsSceneDraftDialogOpen(true);
+            }}
+          >
+            <FilePenLine size={18} />
+          </IconButton>
+        ) : null}
         <IconButton
           variant="ghost"
           size="2"
@@ -209,7 +241,7 @@ function ChapterEditorContent({
         </IconButton>
       </>
     );
-  }, [projectId, chapter.id, onOpenSummary, t]);
+  }, [projectId, chapter.id, onOpenSummary, onPrepareSceneDraft, t]);
 
   const openFind = useCallback(() => {
     if (isAgentLocked) {
@@ -607,6 +639,42 @@ function ChapterEditorContent({
     };
   }, [addSelectionToConversation, addSelectionToConversationRef]);
 
+  const applySceneDraft = useCallback(
+    async (request: SceneDraftApplyRequest): Promise<boolean> => {
+      if (!editor || request.chapterId !== chapter.id) {
+        toast.error(t("writing.sceneDraft.targetMismatch"));
+        return false;
+      }
+      if (
+        isAgentLocked ||
+        hasChangesRef.current ||
+        request.baseUpdatedAt !== baseUpdatedAtRef.current
+      ) {
+        toast.error(t("writing.sceneDraft.chapterChanged"));
+        return false;
+      }
+      const content = request.content.trim();
+      if (!content || !getEditorContentLimit(content).isWithinLimit) {
+        if (content) showContentLimitToast(content);
+        return false;
+      }
+      editor.commands.setContent(newlinesToHtml(content), { emitUpdate: false });
+      updateDirtyState(titleRef.current, editor.getHTML());
+      setWordCount(wordsCount(editor.getText()));
+      toast.success(t("writing.sceneDraft.appliedToEditor"));
+      return true;
+    },
+    [chapter.id, editor, isAgentLocked, showContentLimitToast, t, updateDirtyState],
+  );
+
+  useEffect(() => {
+    if (!applySceneDraftRef) return;
+    applySceneDraftRef.current = applySceneDraft;
+    return () => {
+      applySceneDraftRef.current = null;
+    };
+  }, [applySceneDraft, applySceneDraftRef]);
+
   const editorExtraItems = useCallback(() => {
     if (!editor || !onAddToConversation) return [];
 
@@ -719,6 +787,17 @@ function ChapterEditorContent({
         />
       )}
 
+      {onPrepareSceneDraft ? (
+        <SceneDraftDialog
+          chapterId={chapter.id}
+          chapterTitle={chapter.title}
+          baseUpdatedAt={baseUpdatedAtRef.current}
+          open={isSceneDraftDialogOpen}
+          onOpenChange={setIsSceneDraftDialogOpen}
+          onPrepare={onPrepareSceneDraft}
+        />
+      ) : null}
+
       <Flex
         px="6"
         py="3"
@@ -759,6 +838,8 @@ export function ChapterEditor({
   onOpenSummary,
   onSelectionChange,
   addSelectionToConversationRef,
+  onPrepareSceneDraft,
+  applySceneDraftRef,
 }: ChapterEditorProps) {
   const { t } = useTranslation();
   const { data } = useWritingEditorEntity({
@@ -811,6 +892,8 @@ export function ChapterEditor({
       onOpenSummary={onOpenSummary}
       onSelectionChange={onSelectionChange}
       addSelectionToConversationRef={addSelectionToConversationRef}
+      onPrepareSceneDraft={onPrepareSceneDraft}
+      applySceneDraftRef={applySceneDraftRef}
     />
   );
 }
@@ -828,6 +911,8 @@ function ChapterEditorWorkingCopy({
   onOpenSummary,
   onSelectionChange,
   addSelectionToConversationRef,
+  onPrepareSceneDraft,
+  applySceneDraftRef,
 }: Omit<ChapterEditorContentProps, "workingCopy">) {
   const workingCopy = useWritingWorkingCopy({
     type: "chapter",
@@ -850,6 +935,8 @@ function ChapterEditorWorkingCopy({
       onOpenSummary={onOpenSummary}
       onSelectionChange={onSelectionChange}
       addSelectionToConversationRef={addSelectionToConversationRef}
+      onPrepareSceneDraft={onPrepareSceneDraft}
+      applySceneDraftRef={applySceneDraftRef}
     />
   );
 }
