@@ -254,7 +254,10 @@ def _prepare_after(
     base = _editable_payload(target_type, current) if current is not None else {}
     if not isinstance(patch, dict):
         raise ValidationError("after 必须是对象")
-    payload = _validate_payload(target_type, {**base, **patch})
+    if "kind" in patch and patch["kind"] != target_type:
+        raise ValidationError("after.kind 必须与 target_type 一致")
+    editable_patch = {key: value for key, value in patch.items() if key != "kind"}
+    payload = _validate_payload(target_type, {**base, **editable_patch})
     if current is None:
         return {"kind": target_type, **payload}
     if target_type == "note" and payload["category_id"] != current["category_id"]:

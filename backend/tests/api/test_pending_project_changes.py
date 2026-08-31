@@ -269,6 +269,41 @@ async def test_apply_create_supported_targets(
 
 
 @pytest.mark.asyncio
+async def test_pending_change_accepts_matching_tool_payload_kind(
+    client: AsyncClient,
+) -> None:
+    project_id = await _create_project(client, "工具判别字段项目")
+    note_response = await client.post(
+        f"/api/v1/projects/{project_id}/notes",
+        json={"title": "原笔记", "content": "原正文"},
+    )
+    note_id = note_response.json()["id"]
+
+    accepted = await client.post(
+        f"/api/v1/projects/{project_id}/pending-changes",
+        json=_update_payload(
+            "note",
+            note_id,
+            {"kind": "note", "title": "更新笔记", "body": "候审正文"},
+        ),
+    )
+    rejected = await client.post(
+        f"/api/v1/projects/{project_id}/pending-changes",
+        json=_update_payload(
+            "note",
+            note_id,
+            {"kind": "character", "title": "错误类型"},
+        ),
+    )
+
+    assert accepted.status_code == 201, accepted.text
+    assert accepted.json()["after"]["kind"] == "note"
+    assert accepted.json()["after"]["body"] == "候审正文"
+    assert rejected.status_code == 422
+    assert "after.kind 必须与 target_type 一致" in rejected.text
+
+
+@pytest.mark.asyncio
 async def test_apply_update_captures_base_and_rejects_stale_target(
     client: AsyncClient,
 ) -> None:
