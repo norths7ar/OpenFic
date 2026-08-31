@@ -273,9 +273,18 @@ async def test_pending_change_accepts_matching_tool_payload_kind(
     client: AsyncClient,
 ) -> None:
     project_id = await _create_project(client, "工具判别字段项目")
+    category_response = await client.post(
+        f"/api/v1/projects/{project_id}/note-categories",
+        json={"title": "原分类"},
+    )
+    category_id = category_response.json()["id"]
     note_response = await client.post(
         f"/api/v1/projects/{project_id}/notes",
-        json={"title": "原笔记", "content": "原正文"},
+        json={
+            "category_id": category_id,
+            "title": "原笔记",
+            "content": "原正文",
+        },
     )
     note_id = note_response.json()["id"]
 
@@ -299,6 +308,7 @@ async def test_pending_change_accepts_matching_tool_payload_kind(
     assert accepted.status_code == 201, accepted.text
     assert accepted.json()["after"]["kind"] == "note"
     assert accepted.json()["after"]["body"] == "候审正文"
+    assert accepted.json()["after"]["category_id"] == category_id
     assert rejected.status_code == 422
     assert "after.kind 必须与 target_type 一致" in rejected.text
 

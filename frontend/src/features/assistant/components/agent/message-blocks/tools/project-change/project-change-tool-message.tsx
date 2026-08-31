@@ -20,10 +20,18 @@ export function ProjectChangeToolMessage({ message }: { message: AgentMessage })
   const error = getToolErrorMessage(message);
   const args = getStreamingData(message);
   const change = getPendingChange(message);
-  const after = isRecord(change?.after) ? change.after : isRecord(args.after) ? args.after : null;
-  const title = asString(after?.title);
+  const after = isRecord(change?.after) ? change.after : null;
+  const title = asString(after?.title) ?? asString(args.title);
   const targetType = asString(change?.target_type) ?? asString(args.target_type);
-  const operation = asString(change?.operation) ?? asString(args.operation);
+  const operation =
+    asString(change?.operation) ??
+    (message.toolName === "propose_project_create"
+      ? "create"
+      : message.toolName === "propose_project_update"
+        ? "update"
+        : message.toolName === "propose_project_delete"
+          ? "delete"
+          : undefined);
 
   return (
     <ToolBody>

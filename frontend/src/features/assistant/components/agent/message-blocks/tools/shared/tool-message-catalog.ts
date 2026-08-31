@@ -39,7 +39,9 @@ export const REGISTERED_TOOL_NAMES = [
   "write_plan",
   "activate_skill",
   "reference_skill",
-  "propose_project_change",
+  "propose_project_create",
+  "propose_project_update",
+  "propose_project_delete",
 ] as const;
 
 export type RegisteredToolName = (typeof REGISTERED_TOOL_NAMES)[number];
@@ -346,10 +348,24 @@ export const TOOL_DESCRIPTOR_META = {
     isExplore: false,
     contentMode: "hidden",
   },
-  propose_project_change: {
-    toolName: "propose_project_change",
+  propose_project_create: {
+    toolName: "propose_project_create",
     group: "project",
-    tag: "proposal",
+    tag: "create-proposal",
+    isExplore: false,
+    contentMode: "expandable",
+  },
+  propose_project_update: {
+    toolName: "propose_project_update",
+    group: "project",
+    tag: "update-proposal",
+    isExplore: false,
+    contentMode: "expandable",
+  },
+  propose_project_delete: {
+    toolName: "propose_project_delete",
+    group: "project",
+    tag: "delete-proposal",
     isExplore: false,
     contentMode: "expandable",
   },

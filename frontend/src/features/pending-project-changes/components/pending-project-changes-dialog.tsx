@@ -38,7 +38,10 @@ export function PendingProjectChangesDialog({ projectId }: PendingProjectChanges
           <Box mb="3">
             <Dialog.Title>{t("pendingProjectChanges.title")}</Dialog.Title>
           </Box>
-          <PendingProjectChangesPanel projectId={projectId} />
+          <PendingProjectChangesPanel
+            projectId={projectId}
+            className="pending-project-changes-panel--dialog"
+          />
           <Flex
             mt="4"
             justify="end"

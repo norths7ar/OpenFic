@@ -1,5 +1,6 @@
 import { Badge, Box, Button, Flex, ScrollArea, Text } from "@radix-ui/themes";
 import axios from "axios";
+import { diffLines } from "diff";
 import { CheckCircle2, FileClock, XCircle } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -81,6 +82,96 @@ function ChangeMetadata({ label, value }: { label: string; value: string }) {
         {value}
       </Text>
     </div>
+  );
+}
+
+function formatFieldValue(
+  value: JsonValue | undefined,
+  emptyLabel: string,
+  visibleLabel: string,
+  hiddenLabel: string,
+): string {
+  if (typeof value === "boolean") return value ? visibleLabel : hiddenLabel;
+  if (typeof value === "string" && value.trim()) return value;
+  return emptyLabel;
+}
+
+function FieldComparison({
+  label,
+  before,
+  after,
+  emptyLabel,
+  visibleLabel,
+  hiddenLabel,
+}: {
+  label: string;
+  before: JsonValue | undefined;
+  after: JsonValue | undefined;
+  emptyLabel: string;
+  visibleLabel: string;
+  hiddenLabel: string;
+}) {
+  if (before === after) return null;
+  return (
+    <div className="pending-project-changes-field-comparison">
+      <Text
+        size="1"
+        color="gray"
+      >
+        {label}
+      </Text>
+      <div className="pending-project-changes-field-values">
+        <Text
+          size="2"
+          className="pending-project-changes-field-value pending-project-changes-field-value--before"
+        >
+          {formatFieldValue(before, emptyLabel, visibleLabel, hiddenLabel)}
+        </Text>
+        <span
+          className="pending-project-changes-field-arrow"
+          aria-hidden="true"
+        >
+          →
+        </span>
+        <Text
+          size="2"
+          className="pending-project-changes-field-value pending-project-changes-field-value--after"
+        >
+          {formatFieldValue(after, emptyLabel, visibleLabel, hiddenLabel)}
+        </Text>
+      </div>
+    </div>
+  );
+}
+
+function BodyDiff({ before, after, label }: { before: string; after: string; label: string }) {
+  const changes = diffLines(before, after);
+  return (
+    <section className="pending-project-changes-content-section">
+      <Text
+        size="2"
+        weight="medium"
+      >
+        {label}
+      </Text>
+      <pre className="pending-project-changes-body-diff">
+        {changes.map((change, index) => (
+          <span
+            key={index}
+            className={
+              change.added
+                ? "pending-project-changes-diff-line pending-project-changes-diff-line--added"
+                : change.removed
+                  ? "pending-project-changes-diff-line pending-project-changes-diff-line--removed"
+                  : "pending-project-changes-diff-line"
+            }
+          >
+            {change.added ? "+ " : change.removed ? "− " : "  "}
+            {change.value}
+          </span>
+        ))}
+      </pre>
+    </section>
   );
 }
 
@@ -205,28 +296,21 @@ export function PendingProjectChangesPanel({
         operation: selectedOperationLabel,
         material: selectedMaterialLabel,
       });
+  const hasSelectedFieldChanges = Boolean(
+    selectedBefore &&
+    selectedAfter &&
+    (selectedBefore.title !== selectedAfter.title ||
+      selectedBefore.writing_visible !== selectedAfter.writing_visible ||
+      selectedBefore.section !== selectedAfter.section),
+  );
+  const hasSelectedBodyChange = Boolean(
+    selectedBefore &&
+    selectedAfter &&
+    asString(selectedBefore.body) !== asString(selectedAfter.body),
+  );
 
   return (
     <>
-      <Flex
-        align="center"
-        justify="between"
-        gap="3"
-        mb="3"
-      >
-        <Text
-          size="2"
-          color="gray"
-        >
-          {t("pendingProjectChanges.description", { count: pendingCount })}
-        </Text>
-        <Badge
-          color="amber"
-          variant="soft"
-        >
-          {pendingCount}
-        </Badge>
-      </Flex>
       <div className={panelClassName}>
         {changesQuery.isLoading ? (
           <Flex
@@ -290,45 +374,77 @@ export function PendingProjectChangesPanel({
           </Flex>
         ) : (
           <div className="pending-project-changes-layout">
-            <ScrollArea className="pending-project-changes-list-scroll">
-              <div className="pending-project-changes-list">
-                {changes.map((change) => (
-                  <button
-                    type="button"
-                    className="pending-project-changes-list-item"
-                    data-selected={change.id === selectedChange?.id}
-                    key={change.id}
-                    onClick={() => setSelectedChangeId(change.id)}
+            <div className="pending-project-changes-list-column">
+              <Flex
+                className="pending-project-changes-list-header"
+                direction="column"
+                gap="1"
+              >
+                <Flex
+                  align="center"
+                  justify="between"
+                  gap="2"
+                >
+                  <Text
+                    size="3"
+                    weight="medium"
                   >
-                    <Text
-                      size="2"
-                      weight="medium"
+                    {t("pendingProjectChanges.title")}
+                  </Text>
+                  <Badge
+                    color="amber"
+                    variant="soft"
+                  >
+                    {pendingCount}
+                  </Badge>
+                </Flex>
+                <Text
+                  size="1"
+                  color="gray"
+                >
+                  {t("pendingProjectChanges.description", { count: pendingCount })}
+                </Text>
+              </Flex>
+              <ScrollArea className="pending-project-changes-list-scroll">
+                <div className="pending-project-changes-list">
+                  {changes.map((change) => (
+                    <button
+                      type="button"
+                      className="pending-project-changes-list-item"
+                      data-selected={change.id === selectedChange?.id}
+                      key={change.id}
+                      onClick={() => setSelectedChangeId(change.id)}
                     >
-                      {getChangeTitle(change)
-                        ? t("pendingProjectChanges.changeHeading", {
-                            operation: t(`pendingProjectChanges.operations.${change.operation}`),
-                            material: t(
-                              `pendingProjectChanges.materialTypes.${getMaterialKind(change)}`,
-                            ),
-                            title: getChangeTitle(change),
-                          })
-                        : t("pendingProjectChanges.changeHeadingWithoutTitle", {
-                            operation: t(`pendingProjectChanges.operations.${change.operation}`),
-                            material: t(
-                              `pendingProjectChanges.materialTypes.${getMaterialKind(change)}`,
-                            ),
-                          })}
-                    </Text>
-                    <Text
-                      size="1"
-                      color="gray"
-                    >
-                      {formatCreatedAt(change.created_at, i18n.language)}
-                    </Text>
-                  </button>
-                ))}
-              </div>
-            </ScrollArea>
+                      <Text
+                        size="2"
+                        weight="medium"
+                      >
+                        {getChangeTitle(change)
+                          ? t("pendingProjectChanges.changeHeading", {
+                              operation: t(`pendingProjectChanges.operations.${change.operation}`),
+                              material: t(
+                                `pendingProjectChanges.materialTypes.${getMaterialKind(change)}`,
+                              ),
+                              title: getChangeTitle(change),
+                            })
+                          : t("pendingProjectChanges.changeHeadingWithoutTitle", {
+                              operation: t(`pendingProjectChanges.operations.${change.operation}`),
+                              material: t(
+                                `pendingProjectChanges.materialTypes.${getMaterialKind(change)}`,
+                              ),
+                            })}
+                      </Text>
+                      <Text
+                        size="1"
+                        color="gray"
+                      >
+                        {formatCreatedAt(change.created_at, i18n.language)}
+                      </Text>
+                    </button>
+                  ))}
+                </div>
+              </ScrollArea>
+            </div>
             {selectedChange ? (
               <ScrollArea className="pending-project-changes-detail-scroll">
                 <div className="pending-project-changes-detail">
@@ -387,7 +503,9 @@ export function PendingProjectChangesPanel({
                       label={t("pendingProjectChanges.createdAt")}
                       value={formatCreatedAt(selectedChange.created_at, i18n.language)}
                     />
-                    {selectedAfter && typeof selectedAfter.writing_visible === "boolean" ? (
+                    {selectedChange.operation !== "update" &&
+                    selectedAfter &&
+                    typeof selectedAfter.writing_visible === "boolean" ? (
                       <ChangeMetadata
                         label={t("pendingProjectChanges.writingVisibility")}
                         value={
@@ -397,27 +515,63 @@ export function PendingProjectChangesPanel({
                         }
                       />
                     ) : null}
-                    {asString(selectedAfter?.section) ? (
+                    {selectedChange.operation !== "update" && asString(selectedAfter?.section) ? (
                       <ChangeMetadata
                         label={t("pendingProjectChanges.section")}
                         value={asString(selectedAfter?.section) ?? ""}
                       />
                     ) : null}
                   </div>
-                  {selectedChange.operation === "update" && selectedBefore ? (
-                    <MaterialContent
-                      label={t("pendingProjectChanges.before")}
-                      record={selectedBefore}
-                      emptyLabel={t("pendingProjectChanges.noBody")}
+                  {selectedChange.operation === "update" &&
+                  selectedBefore &&
+                  selectedAfter &&
+                  hasSelectedFieldChanges ? (
+                    <section className="pending-project-changes-field-changes">
+                      <Text
+                        size="2"
+                        weight="medium"
+                      >
+                        {t("pendingProjectChanges.changedFields")}
+                      </Text>
+                      <FieldComparison
+                        label={t("pendingProjectChanges.titleField")}
+                        before={selectedBefore.title}
+                        after={selectedAfter.title}
+                        emptyLabel={t("pendingProjectChanges.none")}
+                        visibleLabel={t("pendingProjectChanges.visibleToWritingAgent")}
+                        hiddenLabel={t("pendingProjectChanges.hiddenFromWritingAgent")}
+                      />
+                      <FieldComparison
+                        label={t("pendingProjectChanges.writingVisibility")}
+                        before={selectedBefore.writing_visible}
+                        after={selectedAfter.writing_visible}
+                        emptyLabel={t("pendingProjectChanges.none")}
+                        visibleLabel={t("pendingProjectChanges.visibleToWritingAgent")}
+                        hiddenLabel={t("pendingProjectChanges.hiddenFromWritingAgent")}
+                      />
+                      <FieldComparison
+                        label={t("pendingProjectChanges.section")}
+                        before={selectedBefore.section}
+                        after={selectedAfter.section}
+                        emptyLabel={t("pendingProjectChanges.none")}
+                        visibleLabel={t("pendingProjectChanges.visibleToWritingAgent")}
+                        hiddenLabel={t("pendingProjectChanges.hiddenFromWritingAgent")}
+                      />
+                    </section>
+                  ) : null}
+                  {selectedChange.operation === "update" &&
+                  selectedBefore &&
+                  selectedAfter &&
+                  hasSelectedBodyChange ? (
+                    <BodyDiff
+                      label={t("pendingProjectChanges.bodyDiff")}
+                      before={asString(selectedBefore.body) ?? ""}
+                      after={asString(selectedAfter.body) ?? ""}
                     />
                   ) : null}
-                  {selectedChange.operation !== "delete" && selectedAfter ? (
+                  {selectedChange.operation === "create" && selectedAfter ? (
                     <MaterialContent
-                      label={
-                        selectedChange.operation === "create"
-                          ? t("pendingProjectChanges.proposedContent")
-                          : t("pendingProjectChanges.after")
-                      }
+                      label={t("pendingProjectChanges.proposedContent")}
                       record={selectedAfter}
                       emptyLabel={t("pendingProjectChanges.noBody")}
                     />

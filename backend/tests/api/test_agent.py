@@ -414,7 +414,15 @@ class TestAgentAPI:
                 "is_readonly": True,
             },
             {
-                "key": "propose_project_change",
+                "key": "propose_project_create",
+                "is_readonly": False,
+            },
+            {
+                "key": "propose_project_update",
+                "is_readonly": False,
+            },
+            {
+                "key": "propose_project_delete",
                 "is_readonly": False,
             },
         ]

@@ -201,6 +201,23 @@ async def test_agent_tool_validation_error_omits_repeated_pydantic_help_urls():
     assert "https://errors.pydantic.dev" not in message
 
 
+async def test_agent_tool_validation_error_does_not_echo_long_document_body():
+    tool = ComplexValidationTool(_state=_make_state())
+    long_body = "待审正文" * 1000
+
+    result = await tool.ainvoke(
+        {
+            "volume_ref": long_body,
+            "chapter_ref": {"type": "title"},
+        }
+    )
+    message = json.loads(result)["message"]
+
+    assert long_body not in message
+    assert "<string length=" in message
+    assert len(message) < 800
+
+
 async def test_agent_tool_normalizes_legacy_error_result():
     tool = LegacyFailingTool(_state=_make_state())
     with patch("app.agent_runtime.tools.errors.logger") as logger:

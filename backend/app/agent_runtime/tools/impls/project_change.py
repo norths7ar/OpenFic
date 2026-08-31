@@ -1,12 +1,12 @@
-"""Agent tool for proposing project-material changes for later review."""
+"""Agent tools for proposing project-material changes for later review."""
 
 from __future__ import annotations
 
 import json
 from collections.abc import Mapping
-from typing import Annotated, Any, Literal
+from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.agent_runtime.tools.base import AgentTool
 from app.agent_runtime.tools.errors import ToolExecutionError
@@ -18,108 +18,88 @@ PendingTargetType = Literal["note", "note_category", "character", "world_entry"]
 PendingOperation = Literal["create", "update", "delete"]
 
 
-class _ProposedPayload(BaseModel):
+class _ProposalInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
-class ProposedNotePayload(_ProposedPayload):
-    kind: Literal["note"] = Field(description="资料类型，固定为 note")
-    title: str = Field(description="笔记或提纲标题", min_length=1, max_length=200)
-    body: str = Field(default="", description="笔记或提纲正文")
-    category_id: str | None = Field(default=None, description="所属分类 ID")
-    writing_visible: bool = Field(default=True, description="写作 Agent 是否可见")
-    document_type: Literal["note", "outline"] = Field(
-        default="note", description="文档类型：普通笔记或提纲"
+class ProposeProjectCreateInput(_ProposalInput):
+    target_type: PendingTargetType = Field(description="要创建的正式资料类型")
+    title: str = Field(description="资料标题", min_length=1, max_length=200)
+    body: str = Field(default="", description="资料正文；笔记分类不使用此字段")
+    writing_visible: bool = Field(
+        default=True,
+        description="写作 Agent 是否可见；笔记分类不使用此字段",
     )
-
-
-class ProposedNoteCategoryPayload(_ProposedPayload):
-    kind: Literal["note_category"] = Field(
-        description="资料类型，固定为 note_category"
-    )
-    title: str = Field(description="分类名称", min_length=1, max_length=200)
-    parent_id: None = Field(default=None, description="当前只允许创建顶级分类")
-    document_type: Literal["note", "outline"] = Field(
-        default="note", description="分类所包含的文档类型"
-    )
-
-
-class ProposedCharacterPayload(_ProposedPayload):
-    kind: Literal["character"] = Field(description="资料类型，固定为 character")
-    title: str = Field(description="角色名称", min_length=1, max_length=200)
-    body: str = Field(default="", description="角色设定正文")
-    writing_visible: bool = Field(default=True, description="写作 Agent 是否可见")
-
-
-class ProposedWorldEntryPayload(_ProposedPayload):
-    kind: Literal["world_entry"] = Field(description="资料类型，固定为 world_entry")
-    title: str = Field(description="背景设定条目名称", min_length=1, max_length=200)
-    body: str = Field(default="", description="背景设定正文")
-    section: str = Field(default="", description="背景设定分区", max_length=500)
-    writing_visible: bool = Field(default=True, description="写作 Agent 是否可见")
-
-
-ProposedPayload = Annotated[
-    ProposedNotePayload
-    | ProposedNoteCategoryPayload
-    | ProposedCharacterPayload
-    | ProposedWorldEntryPayload,
-    Field(discriminator="kind"),
-]
-
-
-class ProposeProjectChangeInput(BaseModel):
-    target_type: PendingTargetType = Field(description="正式资料类型")
-    target_id: str | None = Field(
+    category_id: str | None = Field(
         default=None,
-        description="要更新或删除的资料 ID；创建时不填写",
+        description="新笔记所属分类 ID；仅 target_type=note 时使用",
     )
-    operation: PendingOperation = Field(description="候审操作")
-    after: ProposedPayload | None = Field(
-        default=None,
-        description=(
-            "创建或更新后的资料对象；必须直接传入对象，不能把对象序列化为 JSON "
-            "字符串；kind 必须与 target_type 一致，删除时必须为空"
-        ),
+    document_type: Literal["note", "outline"] = Field(
+        default="note",
+        description="新笔记或分类的文档类型；仅 note/note_category 使用",
     )
-
-    @field_validator("after", mode="before")
-    @classmethod
-    def parse_stringified_after(cls, value: Any) -> Any:
-        """Accept one extra JSON encoding layer from imperfect tool callers."""
-
-        if not isinstance(value, str):
-            return value
-        try:
-            parsed = json.loads(value)
-        except json.JSONDecodeError as exc:
-            raise ValueError(
-                "after 必须直接传入对象；收到的字符串不是有效 JSON 对象"
-            ) from exc
-        if parsed is not None and not isinstance(parsed, dict):
-            raise ValueError("after 解析后必须是对象或 null")
-        return parsed
+    section: str = Field(
+        default="",
+        max_length=500,
+        description="背景设定分区；仅 target_type=world_entry 时使用",
+    )
 
     @model_validator(mode="after")
-    def validate_operation_shape(self) -> ProposeProjectChangeInput:
-        if self.operation == "create":
-            if self.target_id is not None:
-                raise ValueError("create 不能指定 target_id")
-            if self.after is None:
-                raise ValueError("create 必须提供 after")
-        elif self.operation == "update":
-            if not self.target_id:
-                raise ValueError("update 必须指定 target_id")
-            if self.after is None:
-                raise ValueError("update 必须提供 after")
-        else:
-            if not self.target_id:
-                raise ValueError("delete 必须指定 target_id")
-            if self.after is not None:
-                raise ValueError("delete 的 after 必须为空")
-        if self.after is not None and self.after.kind != self.target_type:
-            raise ValueError("after.kind 必须与 target_type 一致")
+    def validate_target_fields(self) -> ProposeProjectCreateInput:
+        supplied = self.model_fields_set
+        if self.target_type != "note" and "category_id" in supplied:
+            raise ValueError("category_id 只适用于新建笔记")
+        if self.target_type not in {"note", "note_category"} and (
+            "document_type" in supplied
+        ):
+            raise ValueError("document_type 只适用于新建笔记或笔记分类")
+        if self.target_type != "world_entry" and "section" in supplied:
+            raise ValueError("section 只适用于新建背景设定")
+        if self.target_type == "note_category" and (
+            {"body", "writing_visible"} & supplied
+        ):
+            raise ValueError("笔记分类只需要标题和文档类型")
         return self
+
+
+class ProposeProjectUpdateInput(_ProposalInput):
+    target_type: PendingTargetType = Field(description="要更新的正式资料类型")
+    target_id: str = Field(description="要更新的资料 ID", min_length=1, max_length=200)
+    title: str | None = Field(
+        default=None,
+        description="新标题；不修改时不要填写",
+        min_length=1,
+        max_length=200,
+    )
+    body: str | None = Field(default=None, description="新正文；不修改时不要填写")
+    writing_visible: bool | None = Field(
+        default=None,
+        description="新的写作 Agent 可见性；不修改时不要填写",
+    )
+    section: str | None = Field(
+        default=None,
+        max_length=500,
+        description="新的背景设定分区；仅 world_entry 可填写",
+    )
+
+    @model_validator(mode="after")
+    def validate_patch(self) -> ProposeProjectUpdateInput:
+        patch_fields = self.model_fields_set - {"target_type", "target_id"}
+        if not patch_fields:
+            raise ValueError("update 至少要提供一个需要修改的字段")
+        for field_name in patch_fields:
+            if getattr(self, field_name) is None:
+                raise ValueError(f"{field_name} 不允许为 null；不修改时请省略")
+        if self.target_type == "note_category" and patch_fields != {"title"}:
+            raise ValueError("笔记分类只能修改标题")
+        if self.target_type != "world_entry" and "section" in patch_fields:
+            raise ValueError("section 只适用于背景设定")
+        return self
+
+
+class ProposeProjectDeleteInput(_ProposalInput):
+    target_type: PendingTargetType = Field(description="要删除的正式资料类型")
+    target_id: str = Field(description="要删除的资料 ID", min_length=1, max_length=200)
 
 
 def _source_message_id(tool: AgentTool) -> str | None:
@@ -138,78 +118,201 @@ def _source_message_id(tool: AgentTool) -> str | None:
     return None
 
 
+def _model_id(tool: AgentTool) -> str | None:
+    model_config = tool._state.get("model_config")
+    if not isinstance(model_config, Mapping):
+        return None
+    configured_model_id = model_config.get("model_id")
+    if not isinstance(configured_model_id, str) or not configured_model_id:
+        configured_model_id = model_config.get("model_record_id")
+    return configured_model_id if isinstance(configured_model_id, str) else None
+
+
+def _create_after(
+    target_type: PendingTargetType,
+    *,
+    title: str,
+    body: str,
+    writing_visible: bool,
+    category_id: str | None,
+    document_type: Literal["note", "outline"],
+    section: str,
+) -> dict[str, Any]:
+    if target_type == "note":
+        return {
+            "title": title,
+            "body": body,
+            "category_id": category_id,
+            "writing_visible": writing_visible,
+            "document_type": document_type,
+        }
+    if target_type == "note_category":
+        return {
+            "title": title,
+            "parent_id": None,
+            "document_type": document_type,
+        }
+    if target_type == "character":
+        return {
+            "title": title,
+            "body": body,
+            "writing_visible": writing_visible,
+        }
+    return {
+        "title": title,
+        "body": body,
+        "section": section,
+        "writing_visible": writing_visible,
+    }
+
+
+async def _queue_pending_change(
+    tool: AgentTool,
+    *,
+    target_type: PendingTargetType,
+    target_id: str | None,
+    operation: PendingOperation,
+    after: dict[str, Any] | None,
+) -> str:
+    project_id = tool._state.get("project_id")
+    if not isinstance(project_id, str) or not project_id:
+        raise ToolExecutionError("缺少当前项目，无法创建候审变更")
+
+    session = await create_session()
+    try:
+        change = await pending_project_change_service.create_pending_change(
+            session,
+            project_id=project_id,
+            target_type=target_type,
+            target_id=target_id,
+            operation=operation,
+            after=after,
+            source_task_id=tool._state.get("task_id"),
+            source_message_id=_source_message_id(tool),
+            model_id=_model_id(tool),
+        )
+        await session.commit()
+        return json.dumps(
+            {
+                "success": True,
+                "pending_change_id": change.id,
+                "pending_change": {
+                    "id": change.id,
+                    "project_id": change.project_id,
+                    "target_type": change.target_type,
+                    "target_id": change.target_id,
+                    "operation": change.operation,
+                    "status": change.status,
+                    "base_hash": change.base_hash,
+                    "before": change.before,
+                    "after": change.after,
+                    "source_task_id": change.source_task_id,
+                    "source_message_id": change.source_message_id,
+                    "model_id": change.model_id,
+                },
+                "message": "已创建候审变更；正式资料尚未修改，请审核后采用。",
+            },
+            ensure_ascii=False,
+        )
+    except Exception:
+        await session.rollback()
+        raise
+    finally:
+        await session.close()
+
+
 @ToolRegistry.register
-class ProposeProjectChangeTool(AgentTool):
-    name: str = "propose_project_change"
+class ProposeProjectCreateTool(AgentTool):
+    name: str = "propose_project_create"
     description: str = (
-        "为当前项目创建一条待用户审核的资料变更提议；只写入候审队列，"
-        "不会直接修改正式资料。"
+        "为当前项目提议新建一项正式资料；只进入待审队列，不直接写入正式资料。"
     )
     access_level: str = "write"
-    args_schema: type[BaseModel] = ProposeProjectChangeInput
+    args_schema: type[BaseModel] = ProposeProjectCreateInput
 
     async def _execute(
         self,
         target_type: PendingTargetType,
-        target_id: str | None = None,
-        operation: PendingOperation = "create",
-        after: ProposedPayload | dict[str, Any] | None = None,
+        title: str,
+        body: str = "",
+        writing_visible: bool = True,
+        category_id: str | None = None,
+        document_type: Literal["note", "outline"] = "note",
+        section: str = "",
     ) -> str:
-        project_id = self._state.get("project_id")
-        if not isinstance(project_id, str) or not project_id:
-            raise ToolExecutionError("缺少当前项目，无法创建候审变更")
-
-        model_config = self._state.get("model_config")
-        model_id: str | None = None
-        if isinstance(model_config, Mapping):
-            configured_model_id = model_config.get("model_id")
-            if not isinstance(configured_model_id, str) or not configured_model_id:
-                configured_model_id = model_config.get("model_record_id")
-            if isinstance(configured_model_id, str) and configured_model_id:
-                model_id = configured_model_id
-
-        serialized_after = (
-            after.model_dump(mode="json") if isinstance(after, BaseModel) else after
+        return await _queue_pending_change(
+            self,
+            target_type=target_type,
+            target_id=None,
+            operation="create",
+            after=_create_after(
+                target_type,
+                title=title,
+                body=body,
+                writing_visible=writing_visible,
+                category_id=category_id,
+                document_type=document_type,
+                section=section,
+            ),
         )
 
-        session = await create_session()
-        try:
-            change = await pending_project_change_service.create_pending_change(
-                session,
-                project_id=project_id,
-                target_type=target_type,
-                target_id=target_id,
-                operation=operation,
-                after=serialized_after,
-                source_task_id=self._state.get("task_id"),
-                source_message_id=_source_message_id(self),
-                model_id=model_id,
-            )
-            await session.commit()
-            return json.dumps(
-                {
-                    "success": True,
-                    "pending_change_id": change.id,
-                    "pending_change": {
-                        "id": change.id,
-                        "project_id": change.project_id,
-                        "target_type": change.target_type,
-                        "target_id": change.target_id,
-                        "operation": change.operation,
-                        "status": change.status,
-                        "base_hash": change.base_hash,
-                        "before": change.before,
-                        "after": change.after,
-                        "source_task_id": change.source_task_id,
-                        "source_message_id": change.source_message_id,
-                        "model_id": change.model_id,
-                    },
-                    "message": "已创建候审变更；正式资料尚未修改，请审核后采用。",
-                },
-                ensure_ascii=False,
-            )
-        except Exception:
-            await session.rollback()
-            raise
-        finally:
-            await session.close()
+
+@ToolRegistry.register
+class ProposeProjectUpdateTool(AgentTool):
+    name: str = "propose_project_update"
+    description: str = (
+        "为当前项目提议修改一项正式资料；只填写真正要改的字段，"
+        "分类、文档类型、顺序等未暴露字段由服务端原样保留。"
+    )
+    access_level: str = "write"
+    args_schema: type[BaseModel] = ProposeProjectUpdateInput
+
+    async def _execute(
+        self,
+        target_type: PendingTargetType,
+        target_id: str,
+        title: str | None = None,
+        body: str | None = None,
+        writing_visible: bool | None = None,
+        section: str | None = None,
+    ) -> str:
+        patch = {
+            key: value
+            for key, value in {
+                "title": title,
+                "body": body,
+                "writing_visible": writing_visible,
+                "section": section,
+            }.items()
+            if value is not None
+        }
+        return await _queue_pending_change(
+            self,
+            target_type=target_type,
+            target_id=target_id,
+            operation="update",
+            after=patch,
+        )
+
+
+@ToolRegistry.register
+class ProposeProjectDeleteTool(AgentTool):
+    name: str = "propose_project_delete"
+    description: str = (
+        "为当前项目提议删除一项正式资料；只进入待审队列，不直接删除正式资料。"
+    )
+    access_level: str = "write"
+    args_schema: type[BaseModel] = ProposeProjectDeleteInput
+
+    async def _execute(
+        self,
+        target_type: PendingTargetType,
+        target_id: str,
+    ) -> str:
+        return await _queue_pending_change(
+            self,
+            target_type=target_type,
+            target_id=target_id,
+            operation="delete",
+            after=None,
+        )

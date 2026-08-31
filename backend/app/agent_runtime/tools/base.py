@@ -24,6 +24,24 @@ from app.agent_runtime.tools.errors import (
 _PYDANTIC_HELP_URL = re.compile(
     r"\s*For further information visit https://errors\.pydantic\.dev/\S+"
 )
+_MAX_VALIDATION_INPUT_PREVIEW = 160
+
+
+def _format_validation_input(value: Any) -> str:
+    """Keep tool feedback actionable without echoing entire documents."""
+
+    if isinstance(value, dict):
+        keys = ", ".join(sorted(str(key) for key in value))
+        return f"<object keys=[{keys}]>"
+    if isinstance(value, (list, tuple, set)):
+        return f"<{type(value).__name__} length={len(value)}>"
+    if isinstance(value, str) and len(value) > _MAX_VALIDATION_INPUT_PREVIEW:
+        preview = value[:_MAX_VALIDATION_INPUT_PREVIEW]
+        return f"<string length={len(value)} preview={preview!r}...>"
+    representation = repr(value)
+    if len(representation) > _MAX_VALIDATION_INPUT_PREVIEW:
+        representation = representation[:_MAX_VALIDATION_INPUT_PREVIEW] + "..."
+    return representation
 
 
 def _format_validation_error(error: object) -> str:
@@ -39,7 +57,7 @@ def _format_validation_error(error: object) -> str:
                 if "input" in item:
                     input_value = item["input"]
                     detail += (
-                        f", input_value={input_value!r},"
+                        f", input_value={_format_validation_input(input_value)},"
                         f" input_type={type(input_value).__name__}"
                     )
                 detail += "]"

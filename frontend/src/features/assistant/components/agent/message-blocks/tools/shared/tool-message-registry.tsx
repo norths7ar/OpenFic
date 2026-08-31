@@ -651,19 +651,45 @@ const TOOL_REGISTRY = {
       return skillName ?? refName;
     },
   },
-  propose_project_change: {
-    toolName: "propose_project_change",
+  propose_project_create: {
+    toolName: "propose_project_create",
     group: "project",
-    tag: "proposal",
+    tag: "create-proposal",
     isExplore: false,
     contentMode: "expandable",
     icon: FileClock,
     getTitle: () => i18n.t("assistant.tools.projectChangeProposed"),
     getDetail: (message) => {
       const args = getStreamingData(message);
-      const after = isRecord(args.after) ? args.after : null;
-      return asString(after?.title) ?? asString(args.target_type);
+      return asString(args.title) ?? asString(args.target_type);
     },
+    defaultExpanded: () => true,
+    render: (message) => <ProjectChangeToolMessage message={message} />,
+  },
+  propose_project_update: {
+    toolName: "propose_project_update",
+    group: "project",
+    tag: "update-proposal",
+    isExplore: false,
+    contentMode: "expandable",
+    icon: FileClock,
+    getTitle: () => i18n.t("assistant.tools.projectChangeProposed"),
+    getDetail: (message) => {
+      const args = getStreamingData(message);
+      return asString(args.title) ?? asString(args.target_type);
+    },
+    defaultExpanded: () => true,
+    render: (message) => <ProjectChangeToolMessage message={message} />,
+  },
+  propose_project_delete: {
+    toolName: "propose_project_delete",
+    group: "project",
+    tag: "delete-proposal",
+    isExplore: false,
+    contentMode: "expandable",
+    icon: FileClock,
+    getTitle: () => i18n.t("assistant.tools.projectChangeProposed"),
+    getDetail: (message) => asString(getStreamingData(message).target_type),
     defaultExpanded: () => true,
     render: (message) => <ProjectChangeToolMessage message={message} />,
   },

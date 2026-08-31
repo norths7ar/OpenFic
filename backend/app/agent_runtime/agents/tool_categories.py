@@ -12,7 +12,11 @@ TOOL_CATEGORIES: Mapping[str, tuple[str, ...]] = MappingProxyType(
         ),
         "interaction": ("ask_user",),
         "plan": ("write_plan",),
-        "project_change_proposal": ("propose_project_change",),
+        "project_change_proposal": (
+            "propose_project_create",
+            "propose_project_update",
+            "propose_project_delete",
+        ),
         "chapter_read": (
             "list_volumes",
             "list_chapters",

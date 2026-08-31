@@ -11,10 +11,19 @@ from app.agent_runtime.agents.tool_categories import (
     TOOL_CATEGORY_DISPLAY,
 )
 from app.agent_runtime.tools.impls.project_change import (
-    ProposeProjectChangeInput,
-    ProposeProjectChangeTool,
+    ProposeProjectCreateInput,
+    ProposeProjectCreateTool,
+    ProposeProjectDeleteTool,
+    ProposeProjectUpdateInput,
+    ProposeProjectUpdateTool,
 )
 from app.agent_runtime.tools.permission_metadata import get_default_tool_permission_mode
+
+PROPOSAL_TOOL_NAMES = (
+    "propose_project_create",
+    "propose_project_update",
+    "propose_project_delete",
+)
 
 
 def _state(**overrides: object) -> dict:
@@ -29,102 +38,101 @@ def _state(**overrides: object) -> dict:
     return state
 
 
-def test_project_change_tool_is_registered_for_discuss_with_allow_permission() -> None:
+def _change(**overrides: object) -> SimpleNamespace:
+    values = {
+        "id": "change-1",
+        "project_id": "project-a",
+        "target_type": "note",
+        "target_id": "note-1",
+        "operation": "update",
+        "status": "pending",
+        "base_hash": "sha256:base",
+        "before": {"kind": "note", "id": "note-1", "body": "原正文"},
+        "after": {"kind": "note", "id": "note-1", "body": "新正文"},
+        "source_task_id": "task-1",
+        "source_message_id": "message-1",
+        "model_id": "model-a",
+    }
+    values.update(overrides)
+    return SimpleNamespace(**values)
+
+
+def test_project_change_tools_are_registered_for_discuss_with_allow_permission(
+) -> None:
     discuss = get_default_agent_definition("discuss")
 
     assert "project_change_proposal" in discuss.enabled_tool_categories
-    assert TOOL_CATEGORIES["project_change_proposal"] == ("propose_project_change",)
+    assert TOOL_CATEGORIES["project_change_proposal"] == PROPOSAL_TOOL_NAMES
     assert TOOL_CATEGORY_DISPLAY["project_change_proposal"]
-    assert get_default_tool_permission_mode("propose_project_change") == "allow"
-    assert ProposeProjectChangeTool.model_fields["access_level"].default == "write"
+    for tool_name in PROPOSAL_TOOL_NAMES:
+        assert get_default_tool_permission_mode(tool_name) == "allow"
+
+
+def test_update_schema_exposes_only_mutable_fields() -> None:
+    properties = ProposeProjectUpdateInput.model_json_schema()["properties"]
+
+    assert set(properties) == {
+        "target_type",
+        "target_id",
+        "title",
+        "body",
+        "writing_visible",
+        "section",
+    }
+    assert {
+        "kind",
+        "category_id",
+        "document_type",
+        "order",
+        "project_id",
+        "is_locked",
+        "is_hidden",
+    }.isdisjoint(properties)
 
 
 @pytest.mark.parametrize(
     "payload",
     [
+        {"target_type": "note", "target_id": "note-1"},
+        {"target_type": "note", "target_id": "note-1", "title": None},
         {
             "target_type": "note",
-            "operation": "create",
-            "target_id": "n1",
-            "after": {"kind": "note", "title": "笔记"},
-        },
-        {"target_type": "note", "operation": "create", "after": None},
-        {
-            "target_type": "note",
-            "operation": "update",
-            "after": {"kind": "note", "title": "笔记"},
+            "target_id": "note-1",
+            "section": "不适用",
         },
         {
-            "target_type": "note",
-            "operation": "delete",
-            "target_id": "n1",
-            "after": {"kind": "note", "title": "笔记"},
-        },
-        {
-            "target_type": "character",
-            "operation": "create",
-            "after": {"kind": "note", "title": "类型不一致"},
+            "target_type": "note_category",
+            "target_id": "category-1",
+            "body": "不适用",
         },
     ],
 )
-def test_project_change_input_validates_operation_shape(payload: dict) -> None:
+def test_update_input_rejects_empty_null_or_target_incompatible_patches(
+    payload: dict,
+) -> None:
     with pytest.raises(ValidationError):
-        ProposeProjectChangeInput.model_validate(payload)
+        ProposeProjectUpdateInput.model_validate(payload)
 
 
-def test_project_change_input_accepts_one_stringified_after_layer() -> None:
-    payload = ProposeProjectChangeInput.model_validate(
-        {
-            "target_type": "note",
-            "operation": "create",
-            "after": json.dumps(
-                {
-                    "kind": "note",
-                    "title": "新笔记",
-                    "body": "保留正文中的 {JSON} 和换行\n原样内容",
-                },
-                ensure_ascii=False,
-            ),
-        }
-    )
-
-    assert payload.after is not None
-    assert payload.after.kind == "note"
-    assert payload.after.title == "新笔记"
-    assert payload.after.body == "保留正文中的 {JSON} 和换行\n原样内容"
-
-
-@pytest.mark.parametrize("after", ["not json", '"still a string"', "[]", "1"])
-def test_project_change_input_rejects_invalid_stringified_after(after: str) -> None:
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"target_type": "character", "title": "角色", "category_id": "category-1"},
+        {"target_type": "character", "title": "角色", "document_type": "outline"},
+        {"target_type": "note", "title": "笔记", "section": "不适用"},
+        {"target_type": "note_category", "title": "分类", "body": "不适用"},
+    ],
+)
+def test_create_input_rejects_target_incompatible_fields(payload: dict) -> None:
     with pytest.raises(ValidationError):
-        ProposeProjectChangeInput.model_validate(
-            {
-                "target_type": "note",
-                "operation": "create",
-                "after": after,
-            }
-        )
+        ProposeProjectCreateInput.model_validate(payload)
 
 
 @pytest.mark.asyncio
-async def test_project_change_creates_pending_record_without_writing_formal_material(
-) -> None:
-    tool = ProposeProjectChangeTool(_state=_state())
+async def test_project_update_sends_only_requested_patch_fields() -> None:
+    tool = ProposeProjectUpdateTool(_state=_state())
     db_session = AsyncMock()
-    change = SimpleNamespace(
-        id="change-1",
-        project_id="project-a",
-        target_type="note",
-        target_id=None,
-        operation="create",
-        status="pending",
-        base_hash=None,
-        before=None,
-        after={"kind": "note", "title": "新笔记", "body": "正文"},
-        source_task_id="task-1",
-        source_message_id="message-1",
-        model_id="model-a",
-    )
+    change = _change()
 
     with (
         patch(
@@ -139,29 +147,20 @@ async def test_project_change_creates_pending_record_without_writing_formal_mate
         result = await tool.ainvoke(
             {
                 "target_type": "note",
-                "operation": "create",
-                "after": {"kind": "note", "title": "新笔记", "body": "正文"},
+                "target_id": "note-1",
+                "body": "新正文",
             }
         )
 
     payload = json.loads(result)
     assert payload["success"] is True
-    assert payload["pending_change_id"] == "change-1"
-    assert payload["pending_change"]["status"] == "pending"
     create_change.assert_awaited_once_with(
         db_session,
         project_id="project-a",
         target_type="note",
-        target_id=None,
-        operation="create",
-        after={
-            "kind": "note",
-            "title": "新笔记",
-            "body": "正文",
-            "category_id": None,
-            "writing_visible": True,
-            "document_type": "note",
-        },
+        target_id="note-1",
+        operation="update",
+        after={"body": "新正文"},
         source_task_id="task-1",
         source_message_id="message-1",
         model_id="model-a",
@@ -171,40 +170,15 @@ async def test_project_change_creates_pending_record_without_writing_formal_mate
 
 
 @pytest.mark.asyncio
-async def test_project_change_uses_state_project_and_rejects_missing_project() -> None:
-    tool = ProposeProjectChangeTool(_state=_state(project_id=None))
-
-    result = await tool.ainvoke(
-        {
-            "target_type": "note",
-            "operation": "create",
-            "after": {"kind": "note", "title": "新笔记"},
-        }
-    )
-
-    payload = json.loads(result)
-    assert payload["type"] == "fail"
-    assert payload["success"] is False
-    assert "缺少当前项目" in payload["message"]
-
-
-@pytest.mark.asyncio
-async def test_project_change_preserves_project_isolation() -> None:
-    tool = ProposeProjectChangeTool(_state=_state(project_id="project-b"))
+async def test_project_create_builds_target_specific_payload() -> None:
+    tool = ProposeProjectCreateTool(_state=_state())
     db_session = AsyncMock()
-    change = SimpleNamespace(
-        id="change-2",
-        project_id="project-b",
-        target_type="character",
-        target_id="char-b",
-        operation="update",
-        status="pending",
-        base_hash="sha256:base",
-        before={"id": "char-b"},
-        after={"id": "char-b", "title": "新名", "body": "描述"},
-        source_task_id=None,
-        source_message_id=None,
-        model_id=None,
+    change = _change(
+        target_id=None,
+        operation="create",
+        base_hash=None,
+        before=None,
+        after={"kind": "note", "title": "新提纲"},
     )
 
     with (
@@ -219,11 +193,65 @@ async def test_project_change_preserves_project_isolation() -> None:
     ):
         await tool.ainvoke(
             {
-                "target_type": "character",
-                "target_id": "char-b",
-                "operation": "update",
-                "after": {"kind": "character", "title": "新名", "body": "描述"},
+                "target_type": "note",
+                "title": "新提纲",
+                "body": "正文",
+                "category_id": "category-1",
+                "document_type": "outline",
+                "writing_visible": False,
             }
         )
 
-    assert create_change.await_args.kwargs["project_id"] == "project-b"
+    create_change.assert_awaited_once_with(
+        db_session,
+        project_id="project-a",
+        target_type="note",
+        target_id=None,
+        operation="create",
+        after={
+            "title": "新提纲",
+            "body": "正文",
+            "category_id": "category-1",
+            "writing_visible": False,
+            "document_type": "outline",
+        },
+        source_task_id="task-1",
+        source_message_id="message-1",
+        model_id="model-a",
+    )
+
+
+@pytest.mark.asyncio
+async def test_project_delete_uses_server_snapshot_without_after_payload() -> None:
+    tool = ProposeProjectDeleteTool(_state=_state())
+    db_session = AsyncMock()
+    change = _change(operation="delete", after=None)
+
+    with (
+        patch(
+            "app.agent_runtime.tools.impls.project_change.create_session",
+            return_value=db_session,
+        ),
+        patch(
+            "app.agent_runtime.tools.impls.project_change.pending_project_change_service.create_pending_change",
+            new=AsyncMock(return_value=change),
+        ) as create_change,
+    ):
+        await tool.ainvoke({"target_type": "note", "target_id": "note-1"})
+
+    assert create_change.await_args.kwargs["operation"] == "delete"
+    assert create_change.await_args.kwargs["after"] is None
+
+
+@pytest.mark.asyncio
+async def test_project_change_rejects_missing_project() -> None:
+    tool = ProposeProjectUpdateTool(_state=_state(project_id=None))
+
+    result = await tool.ainvoke(
+        {"target_type": "note", "target_id": "note-1", "body": "新正文"}
+    )
+
+    payload = json.loads(result)
+    assert payload["type"] == "fail"
+    assert payload["success"] is False
+    assert "缺少当前项目" in payload["message"]

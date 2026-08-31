@@ -145,7 +145,9 @@ TOOL_DISPLAY_ORDER = {
     "delete_world_entry": 37,
     "activate_skill": 38,
     "reference_skill": 39,
-    "propose_project_change": 40,
+    "propose_project_create": 40,
+    "propose_project_update": 41,
+    "propose_project_delete": 42,
 }
 
 def _build_default_agent_session_title(created_at: datetime) -> str:

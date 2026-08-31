@@ -111,7 +111,9 @@ class TestPromptChainAPI:
         content = "\n".join(entry["content"] for entry in data["entries"])
         assert "负责与用户探索、比较和推演当前项目" in content
         assert "默认只讨论，不直接修改" in content
-        assert "propose_project_change" in content
+        assert "propose_project_create" in content
+        assert "propose_project_update" in content
+        assert "propose_project_delete" in content
         assert "待审页确认" in content
 
     async def test_get_default_version_returns_yaml_after_creating_version(
