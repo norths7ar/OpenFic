@@ -1,6 +1,5 @@
 import { Badge, Box, Button, Flex, ScrollArea, Text } from "@radix-ui/themes";
 import axios from "axios";
-import { diffLines } from "diff";
 import { CheckCircle2, FileClock, XCircle } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -144,8 +143,21 @@ function FieldComparison({
   );
 }
 
-function BodyDiff({ before, after, label }: { before: string; after: string; label: string }) {
-  const changes = diffLines(before, after);
+function BodyComparison({
+  before,
+  after,
+  label,
+  beforeLabel,
+  afterLabel,
+  emptyLabel,
+}: {
+  before: string;
+  after: string;
+  label: string;
+  beforeLabel: string;
+  afterLabel: string;
+  emptyLabel: string;
+}) {
   return (
     <section className="pending-project-changes-content-section">
       <Text
@@ -154,23 +166,50 @@ function BodyDiff({ before, after, label }: { before: string; after: string; lab
       >
         {label}
       </Text>
-      <pre className="pending-project-changes-body-diff">
-        {changes.map((change, index) => (
-          <span
-            key={index}
-            className={
-              change.added
-                ? "pending-project-changes-diff-line pending-project-changes-diff-line--added"
-                : change.removed
-                  ? "pending-project-changes-diff-line pending-project-changes-diff-line--removed"
-                  : "pending-project-changes-diff-line"
-            }
+      <div className="pending-project-changes-body-comparison">
+        <article className="pending-project-changes-body-version">
+          <Text
+            size="2"
+            weight="medium"
+            className="pending-project-changes-body-version-header"
           >
-            {change.added ? "+ " : change.removed ? "− " : "  "}
-            {change.value}
-          </span>
-        ))}
-      </pre>
+            {beforeLabel}
+          </Text>
+          <Box className="pending-project-changes-body-version-content">
+            {before ? (
+              <StreamingMarkdown content={before} />
+            ) : (
+              <Text
+                size="2"
+                color="gray"
+              >
+                {emptyLabel}
+              </Text>
+            )}
+          </Box>
+        </article>
+        <article className="pending-project-changes-body-version">
+          <Text
+            size="2"
+            weight="medium"
+            className="pending-project-changes-body-version-header"
+          >
+            {afterLabel}
+          </Text>
+          <Box className="pending-project-changes-body-version-content">
+            {after ? (
+              <StreamingMarkdown content={after} />
+            ) : (
+              <Text
+                size="2"
+                color="gray"
+              >
+                {emptyLabel}
+              </Text>
+            )}
+          </Box>
+        </article>
+      </div>
     </section>
   );
 }
@@ -564,10 +603,13 @@ export function PendingProjectChangesPanel({
                     selectedBefore &&
                     selectedAfter &&
                     hasSelectedBodyChange ? (
-                      <BodyDiff
+                      <BodyComparison
                         label={t("pendingProjectChanges.bodyDiff")}
                         before={asString(selectedBefore.body) ?? ""}
                         after={asString(selectedAfter.body) ?? ""}
+                        beforeLabel={t("pendingProjectChanges.before")}
+                        afterLabel={t("pendingProjectChanges.proposedVersion")}
+                        emptyLabel={t("pendingProjectChanges.noBody")}
                       />
                     ) : null}
                     {selectedChange.operation === "create" && selectedAfter ? (
