@@ -72,10 +72,43 @@ def test_project_change_input_validates_operation_shape(payload: dict) -> None:
         ProposeProjectChangeInput.model_validate(payload)
 
 
+def test_project_change_input_accepts_one_stringified_after_layer() -> None:
+    payload = ProposeProjectChangeInput.model_validate(
+        {
+            "target_type": "note",
+            "operation": "create",
+            "after": json.dumps(
+                {
+                    "kind": "note",
+                    "title": "新笔记",
+                    "body": "保留正文中的 {JSON} 和换行\n原样内容",
+                },
+                ensure_ascii=False,
+            ),
+        }
+    )
+
+    assert payload.after is not None
+    assert payload.after.kind == "note"
+    assert payload.after.title == "新笔记"
+    assert payload.after.body == "保留正文中的 {JSON} 和换行\n原样内容"
+
+
+@pytest.mark.parametrize("after", ["not json", '"still a string"', "[]", "1"])
+def test_project_change_input_rejects_invalid_stringified_after(after: str) -> None:
+    with pytest.raises(ValidationError):
+        ProposeProjectChangeInput.model_validate(
+            {
+                "target_type": "note",
+                "operation": "create",
+                "after": after,
+            }
+        )
+
+
 @pytest.mark.asyncio
-async def test_project_change_creates_pending_record_without_writing_formal_material() -> (
-    None
-):
+async def test_project_change_creates_pending_record_without_writing_formal_material(
+) -> None:
     tool = ProposeProjectChangeTool(_state=_state())
     db_session = AsyncMock()
     change = SimpleNamespace(

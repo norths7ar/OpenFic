@@ -6,7 +6,7 @@ import json
 from collections.abc import Mapping
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.agent_runtime.tools.base import AgentTool
 from app.agent_runtime.tools.errors import ToolExecutionError
@@ -78,9 +78,27 @@ class ProposeProjectChangeInput(BaseModel):
     after: ProposedPayload | None = Field(
         default=None,
         description=(
-            "创建或更新后的资料内容；kind 必须与 target_type 一致，删除时必须为空"
+            "创建或更新后的资料对象；必须直接传入对象，不能把对象序列化为 JSON "
+            "字符串；kind 必须与 target_type 一致，删除时必须为空"
         ),
     )
+
+    @field_validator("after", mode="before")
+    @classmethod
+    def parse_stringified_after(cls, value: Any) -> Any:
+        """Accept one extra JSON encoding layer from imperfect tool callers."""
+
+        if not isinstance(value, str):
+            return value
+        try:
+            parsed = json.loads(value)
+        except json.JSONDecodeError as exc:
+            raise ValueError(
+                "after 必须直接传入对象；收到的字符串不是有效 JSON 对象"
+            ) from exc
+        if parsed is not None and not isinstance(parsed, dict):
+            raise ValueError("after 解析后必须是对象或 null")
+        return parsed
 
     @model_validator(mode="after")
     def validate_operation_shape(self) -> ProposeProjectChangeInput:
