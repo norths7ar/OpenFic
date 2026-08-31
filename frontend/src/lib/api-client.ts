@@ -2733,6 +2733,7 @@ import type {
   NoteCategoryUpdate,
   NoteItemMove,
   NoteItemReorder,
+  NoteItemsMixedReorder,
   NoteMoveResult,
   DocumentType,
 } from "./note.types";
@@ -2828,6 +2829,18 @@ export async function reorderNoteItems(projectId: string, data: NoteItemReorder)
     kind: data.kind,
     parent_id: data.parentId,
     ordered_ids: data.orderedIds,
+    document_type: data.documentType ?? "note",
+  });
+  return response.data.updated_count as number;
+}
+
+export async function reorderMixedNoteItems(
+  projectId: string,
+  data: NoteItemsMixedReorder,
+): Promise<number> {
+  const response = await apiClient.post(`/projects/${projectId}/note-items/reorder-mixed`, {
+    parent_id: data.parentId,
+    ordered_items: data.orderedItems,
     document_type: data.documentType ?? "note",
   });
   return response.data.updated_count as number;

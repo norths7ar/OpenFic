@@ -625,6 +625,7 @@ export function WorldInfoPage() {
           worldInfoEntryId: selectedEntry.id,
           label: selectedEntry.name,
         })}
+        replaceComposerWithInitialMarkup
         onStateChange={setAssistantState}
         isMobileOverlay={isMobile}
       />

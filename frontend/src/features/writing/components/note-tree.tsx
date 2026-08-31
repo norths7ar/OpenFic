@@ -43,6 +43,12 @@ interface NoteTreeProps {
     kind: "category" | "note",
     targetCategoryId: string | null,
   ) => Promise<void>;
+  onReorder: (
+    parentId: string | null,
+    orderedItems: Array<{ id: string; kind: "category" | "note" }>,
+  ) => Promise<void>;
+  onToggleWritingVisibility: (noteId: string) => void;
+  isWritingVisibilityLocked: boolean;
 }
 
 function flattenTree(
@@ -55,30 +61,35 @@ function flattenTree(
 ): NoteTreeItemData[] {
   const result: NoteTreeItemData[] = [];
 
-  for (const cat of categories) {
-    const isExpanded = expandedIds.has(cat.id);
-    result.push({
-      type: "category",
-      id: cat.id,
-      title: cat.title,
-      parentId: cat.parentId,
-      depth,
-      isExpanded,
-      childCount: cat.categories.length + cat.notes.length,
-      ancestorCategoryIds,
-    });
+  const siblings = [...categories, ...notes].sort((left, right) => left.order - right.order);
 
-    if (isExpanded) {
-      result.push(
-        ...flattenTree(cat.categories, cat.notes, expandedIds, depth + 1, cat.id, [
-          ...ancestorCategoryIds,
-          cat.id,
-        ]),
-      );
+  for (const item of siblings) {
+    if ("categories" in item) {
+      const cat = item;
+      const isExpanded = expandedIds.has(cat.id);
+      result.push({
+        type: "category",
+        id: cat.id,
+        title: cat.title,
+        parentId: cat.parentId,
+        depth,
+        isExpanded,
+        childCount: cat.categories.length + cat.notes.length,
+        ancestorCategoryIds,
+      });
+
+      if (isExpanded) {
+        result.push(
+          ...flattenTree(cat.categories, cat.notes, expandedIds, depth + 1, cat.id, [
+            ...ancestorCategoryIds,
+            cat.id,
+          ]),
+        );
+      }
+      continue;
     }
-  }
 
-  for (const note of notes) {
+    const note = item;
     result.push({
       type: "note",
       id: note.id,
@@ -93,6 +104,26 @@ function flattenTree(
   }
 
   return result;
+}
+
+function getMixedSiblings(
+  data: NoteTreeResponse,
+  parentId: string | null,
+): Array<{ id: string; kind: "category" | "note" }> {
+  const findCategory = (categories: NoteCategoryItem[]): NoteCategoryItem | undefined => {
+    for (const category of categories) {
+      if (category.id === parentId) return category;
+      const found = findCategory(category.categories);
+      if (found) return found;
+    }
+    return undefined;
+  };
+  const parent = parentId === null ? undefined : findCategory(data.categories);
+  const categories = parent ? parent.categories : data.categories;
+  const notes = parent ? parent.notes : data.rootNotes;
+  return [...categories, ...notes]
+    .sort((left, right) => left.order - right.order)
+    .map((item) => ({ id: item.id, kind: "categories" in item ? "category" : "note" }));
 }
 
 function buildCategoryParentMap(categories: NoteCategoryItem[]): Map<string, string | null> {
@@ -211,6 +242,9 @@ export function NoteTree({
   onRenameCancel,
   onContextMenu,
   onMove,
+  onReorder,
+  onToggleWritingVisibility,
+  isWritingVisibilityLocked,
 }: NoteTreeProps) {
   const { t } = useTranslation();
   const [expandedIds, toggleExpanded] = useNotesStore(
@@ -274,7 +308,7 @@ export function NoteTree({
           }
         | undefined;
       const overData = over.data.current as
-        | { itemType?: string; itemId?: string; depth?: number }
+        | { itemType?: string; itemId?: string; depth?: number; parentId?: string | null }
         | undefined;
 
       if (!activeData) return;
@@ -290,15 +324,36 @@ export function NoteTree({
           toast.error(t("writing.categoryDepthExceeded"));
           return;
         }
-      } else if (overData?.itemType === "category") {
-        if (sourceKind === "category" && overData.itemId === sourceId) {
+      } else if (overData?.itemType === "category" || overData?.itemType === "note") {
+        if (overData.itemId === sourceId && overData.itemType === sourceKind) return;
+
+        const targetParentId = overData.parentId ?? null;
+        if ((activeData.parentId ?? null) === targetParentId) {
+          const siblings = getMixedSiblings(data!, targetParentId);
+          const sourceIndex = siblings.findIndex(
+            (item) => item.id === sourceId && item.kind === sourceKind,
+          );
+          const targetIndex = siblings.findIndex(
+            (item) => item.id === overData.itemId && item.kind === overData.itemType,
+          );
+          if (sourceIndex < 0 || targetIndex < 0 || sourceIndex === targetIndex) return;
+          const orderedItems = [...siblings];
+          const [moved] = orderedItems.splice(sourceIndex, 1);
+          orderedItems.splice(targetIndex, 0, moved!);
+          onReorder(targetParentId, orderedItems).catch(() => {
+            // error handled by mutation
+          });
           return;
         }
+
+        if (overData.itemType === "note") return;
+
         targetCategoryId = overData.itemId!;
         const targetDepth = overData.depth ?? 0;
 
         if (
           sourceKind === "category" &&
+          targetCategoryId !== null &&
           data?.categories &&
           isDescendantOf(data.categories, sourceId, targetCategoryId)
         ) {
@@ -322,7 +377,7 @@ export function NoteTree({
         // error handled by mutation
       });
     },
-    [onMove, t, data],
+    [onMove, onReorder, t, data],
   );
 
   if (!data) return null;
@@ -366,6 +421,8 @@ export function NoteTree({
               onContextMenu={onContextMenu}
               onRenameConfirm={onRenameConfirm}
               onRenameCancel={onRenameCancel}
+              onToggleWritingVisibility={onToggleWritingVisibility}
+              isWritingVisibilityLocked={isWritingVisibilityLocked}
             />
           ))
         )}

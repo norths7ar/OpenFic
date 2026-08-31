@@ -34,6 +34,7 @@ interface AgentInputProps {
   projectId: string;
   value: string;
   automaticComposerMarkup?: string | null;
+  restorePersistedDraft?: boolean;
   attachments: PendingAgentImageAttachment[];
   modelId: string;
   models: ModelIdSelectOption[];
@@ -72,6 +73,7 @@ export function AgentInput({
   projectId,
   value,
   automaticComposerMarkup = null,
+  restorePersistedDraft = true,
   attachments,
   modelId,
   models,
@@ -175,7 +177,13 @@ export function AgentInput({
   }, [onChange, projectId]);
 
   useEffect(() => {
-    if (!isDraftLoaded || !persistedDraft || getPersistableValue(value) !== "") return;
+    if (
+      !restorePersistedDraft ||
+      !isDraftLoaded ||
+      !persistedDraft ||
+      getPersistableValue(value) !== ""
+    )
+      return;
     const restoredValue = automaticComposerMarkup
       ? appendMentionMarkup(persistedDraft, automaticComposerMarkup)
       : persistedDraft;
@@ -187,6 +195,7 @@ export function AgentInput({
     isDraftLoaded,
     onChange,
     persistedDraft,
+    restorePersistedDraft,
     value,
   ]);
 

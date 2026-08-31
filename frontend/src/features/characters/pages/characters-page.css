@@ -141,57 +141,14 @@
   white-space: nowrap;
 }
 
-.characters-list-avatar-button {
-  position: relative;
-  width: 32px;
-  height: 32px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  border: 0;
-  border-radius: 999px;
-  overflow: hidden;
-  background: var(--gray-a3);
-  color: var(--gray-11);
-  cursor: pointer;
+.characters-list-drag-handle {
+  cursor: grab;
+  color: var(--gray-a9);
+  touch-action: none;
 }
 
-.characters-list-avatar-image {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  opacity: 0;
-  transition: opacity 0.12s ease;
-}
-
-.characters-list-avatar-image[data-loaded="true"] {
-  opacity: 1;
-}
-
-.characters-list-avatar-spinner {
-  position: absolute;
-  color: var(--gray-10);
-}
-
-.characters-list-avatar-overlay {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0, 0, 0, 0.48);
-  color: white;
-  opacity: 0;
-  transition: opacity 0.12s ease;
-}
-
-.characters-list-avatar-button:hover .characters-list-avatar-overlay {
-  opacity: 1;
-}
-
-.characters-list-favorite-button:hover {
-  color: var(--amber-9) !important;
+.characters-list-drag-handle:active {
+  cursor: grabbing;
 }
 
 .characters-empty,

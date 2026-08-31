@@ -87,6 +87,17 @@ export interface NoteItemReorder {
   documentType?: DocumentType;
 }
 
+export interface NoteOrderedItem {
+  kind: "category" | "note";
+  id: string;
+}
+
+export interface NoteItemsMixedReorder {
+  parentId: string | null;
+  orderedItems: NoteOrderedItem[];
+  documentType?: DocumentType;
+}
+
 export interface NoteMoveResult {
   kind: "category" | "note";
   note?: Note;

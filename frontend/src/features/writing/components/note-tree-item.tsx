@@ -1,6 +1,6 @@
 import { useDraggable, useDroppable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
-import { Flex, Text } from "@radix-ui/themes";
+import { Flex, Switch, Text, Tooltip } from "@radix-ui/themes";
 import {
   Folder,
   FolderOpen,
@@ -114,6 +114,8 @@ interface NoteTreeItemProps {
   ) => void;
   onRenameConfirm: (id: string, type: "category" | "note", newTitle: string) => void;
   onRenameCancel: () => void;
+  onToggleWritingVisibility: (noteId: string) => void;
+  isWritingVisibilityLocked: boolean;
 }
 
 export const NoteTreeItem = memo(function NoteTreeItem({
@@ -126,6 +128,8 @@ export const NoteTreeItem = memo(function NoteTreeItem({
   onContextMenu,
   onRenameConfirm,
   onRenameCancel,
+  onToggleWritingVisibility,
+  isWritingVisibilityLocked,
 }: NoteTreeItemProps) {
   const { t } = useTranslation();
   const [isHovered, setIsHovered] = useState(false);
@@ -138,8 +142,6 @@ export const NoteTreeItem = memo(function NoteTreeItem({
   const didDragAfterLongPressRef = useRef(false);
 
   const draggableId = `${data.type}:${data.id}`;
-  const isCategory = data.type === "category";
-
   const {
     attributes,
     listeners,
@@ -159,22 +161,22 @@ export const NoteTreeItem = memo(function NoteTreeItem({
   const { setNodeRef: setDropNodeRef, isOver } = useDroppable({
     id: `${draggableId}:drop`,
     data: {
-      itemType: "category",
+      itemType: data.type,
       itemId: data.id,
       depth: data.depth,
+      parentId: data.parentId,
     },
-    disabled: !isCategory,
   });
 
   const setNodeRef = useCallback(
     (node: HTMLElement | null) => {
       setDragNodeRef(node);
-      if (isCategory) setDropNodeRef(node);
+      setDropNodeRef(node);
     },
-    [setDragNodeRef, setDropNodeRef, isCategory],
+    [setDragNodeRef, setDropNodeRef],
   );
 
-  const highlight = isCategory && isOver && !isDragging;
+  const highlight = isOver && !isDragging;
 
   const isPressed = isLongPressPending || isLongPressActive;
   const isDarkPressed = isLongPressActive;
@@ -528,13 +530,33 @@ export const NoteTreeItem = memo(function NoteTreeItem({
               style={{ opacity: 0.4, color: textColor }}
             />
           )}
-          {data.type === "note" && data.isWritingVisible === false && !data.isHidden ? (
-            <EyeOff
-              size={12}
-              style={{ opacity: 0.4, color: "var(--orange-9)" }}
-              aria-label={t("writing.noteNotVisibleToWritingAgent")}
-            />
-          ) : null}
+          {data.type === "note" && (
+            <Tooltip
+              content={
+                data.isWritingVisible
+                  ? t("writing.noteVisibleToWritingAgent")
+                  : t("writing.noteGlobalDiscussionOnly")
+              }
+            >
+              <span
+                onPointerDown={(event) => event.stopPropagation()}
+                onClick={(event) => event.stopPropagation()}
+              >
+                <Switch
+                  size="1"
+                  color="green"
+                  checked={data.isWritingVisible}
+                  disabled={data.isLocked || isWritingVisibilityLocked}
+                  aria-label={
+                    data.isWritingVisible
+                      ? t("writing.noteVisibleToWritingAgent")
+                      : t("writing.noteGlobalDiscussionOnly")
+                  }
+                  onCheckedChange={() => onToggleWritingVisibility(data.id)}
+                />
+              </span>
+            </Tooltip>
+          )}
 
           {isHovered && (
             <button

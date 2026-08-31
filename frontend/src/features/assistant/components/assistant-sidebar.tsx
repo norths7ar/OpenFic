@@ -95,6 +95,7 @@ interface AssistantSidebarProps {
   projectId: string;
   preferredAgentKey?: string;
   initialComposerMarkup?: string;
+  replaceComposerWithInitialMarkup?: boolean;
   discussionWorkspace?: boolean;
   onStateChange?: (state: AssistantSidebarState) => void;
   onOpenMentionChapter?: (chapterId: string, chapterTitle: string) => void;
@@ -297,6 +298,7 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
       projectId,
       preferredAgentKey,
       initialComposerMarkup,
+      replaceComposerWithInitialMarkup = false,
       discussionWorkspace = false,
       onStateChange,
       onOpenMentionChapter,
@@ -1359,7 +1361,7 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
 
     useEffect(() => {
       const nextMarkup = initialComposerMarkup?.trim() || null;
-      const requestKey = `${projectId}:${nextMarkup ?? ""}`;
+      const requestKey = `${projectId}:${replaceComposerWithInitialMarkup ? "replace" : "merge"}:${nextMarkup ?? ""}`;
       if (handledInitialComposerMarkupRef.current === requestKey) return;
       handledInitialComposerMarkupRef.current = requestKey;
       const previousMarkup = automaticComposerMarkupRef.current;
@@ -1369,13 +1371,15 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
       queueMicrotask(() => {
         if (cancelled) return;
         setInputValue((current) =>
-          replaceAutomaticMentionMarkup(current, previousMarkup, nextMarkup),
+          replaceComposerWithInitialMarkup
+            ? (nextMarkup ?? "")
+            : replaceAutomaticMentionMarkup(current, previousMarkup, nextMarkup),
         );
       });
       return () => {
         cancelled = true;
       };
-    }, [initialComposerMarkup, projectId]);
+    }, [initialComposerMarkup, projectId, replaceComposerWithInitialMarkup]);
 
     const agentSelectorOptions = useMemo(
       () =>
@@ -1929,6 +1933,7 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
               }
               value={inputValue}
               automaticComposerMarkup={automaticComposerMarkupRef.current}
+              restorePersistedDraft={!replaceComposerWithInitialMarkup}
               attachments={pendingAttachments}
               projectId={projectId}
               modelId={effectiveModelId}

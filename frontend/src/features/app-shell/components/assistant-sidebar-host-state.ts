@@ -9,6 +9,7 @@ export interface AssistantSidebarHostRegistration {
   isOpen: boolean;
   preferredAgentKey?: string;
   initialComposerMarkup?: string;
+  replaceComposerWithInitialMarkup?: boolean;
   discussionWorkspace?: boolean;
   onStateChange?: (state: AssistantSidebarState) => void;
   onOpenMentionChapter?: (chapterId: string, chapterTitle: string) => void;
@@ -33,6 +34,7 @@ export function registerAssistantSidebarHost(
     current.isOpen === registration.isOpen &&
     current.preferredAgentKey === registration.preferredAgentKey &&
     current.initialComposerMarkup === registration.initialComposerMarkup &&
+    current.replaceComposerWithInitialMarkup === registration.replaceComposerWithInitialMarkup &&
     current.discussionWorkspace === registration.discussionWorkspace &&
     current.onStateChange === registration.onStateChange &&
     current.onOpenMentionChapter === registration.onOpenMentionChapter &&

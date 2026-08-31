@@ -1,4 +1,15 @@
 import {
+  DndContext,
+  DragOverlay,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
+import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import {
   Box,
   Button,
   Checkbox,
@@ -7,6 +18,7 @@ import {
   Flex,
   IconButton,
   Skeleton,
+  Switch,
   Text,
   Tooltip,
 } from "@radix-ui/themes";
@@ -20,8 +32,7 @@ import {
   Pencil,
   Plus,
   Search,
-  Star,
-  StarOff,
+  GripVertical,
   Trash2,
   UserRound,
 } from "lucide-react";
@@ -29,14 +40,152 @@ import { motion } from "motion/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { Spinner } from "@/components";
 import { ContextMenu, type ContextMenuItem } from "@/components/context-menu";
 import type { CharacterListItem } from "@/lib/character.types";
 import { formatRelativeTime } from "@/lib/time-utils";
 
 import { CharacterSearchPopover } from "./character-search-popover";
 
-const loadedAvatarUrls = new Set<string>();
+function CharacterListRow({
+  character,
+  isSelected,
+  isChecked,
+  isMultiSelect,
+  showDragHandle,
+  onSelect,
+  onCheck,
+  onToggleWritingVisibility,
+  onContextMenu,
+  t,
+}: {
+  character: CharacterListItem;
+  isSelected: boolean;
+  isChecked: boolean;
+  isMultiSelect: boolean;
+  showDragHandle: boolean;
+  onSelect: () => void;
+  onCheck: () => void;
+  onToggleWritingVisibility: () => void;
+  onContextMenu: (event: React.MouseEvent) => void;
+  t: (key: string) => string;
+}) {
+  const { attributes, listeners, setNodeRef, isDragging, transform, transition } = useSortable({
+    id: character.id,
+    disabled: !showDragHandle,
+  });
+  return (
+    <Box
+      ref={setNodeRef}
+      className="characters-list-item"
+      data-state={isSelected ? "selected" : "idle"}
+      role="button"
+      tabIndex={0}
+      onClick={isMultiSelect ? onCheck : onSelect}
+      onKeyDown={(event) => {
+        if (event.key !== "Enter" && event.key !== " ") return;
+        event.preventDefault();
+        (isMultiSelect ? onCheck : onSelect)();
+      }}
+      onContextMenu={onContextMenu}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.4 : 1,
+      }}
+    >
+      <Flex
+        className="characters-list-item-row"
+        align="center"
+        gap="2"
+        justify="between"
+      >
+        {isMultiSelect ? (
+          <Flex
+            className="characters-list-leading"
+            align="center"
+            justify="center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <Checkbox
+              checked={isChecked}
+              onCheckedChange={onCheck}
+              size="1"
+            />
+          </Flex>
+        ) : showDragHandle ? (
+          <Flex
+            {...attributes}
+            {...listeners}
+            className="characters-list-leading characters-list-drag-handle"
+            align="center"
+            justify="center"
+            onClick={(e) => e.stopPropagation()}
+            aria-label={t("characters.reorderHandle")}
+          >
+            <GripVertical size={16} />
+          </Flex>
+        ) : (
+          <Box className="characters-list-leading" />
+        )}
+        <Flex
+          className="characters-list-item-main"
+          align="center"
+          gap="2"
+          justify="between"
+        >
+          <Flex
+            direction="column"
+            gap="1"
+            style={{ flex: 1, minWidth: 0, overflow: "hidden" }}
+          >
+            <Text
+              size="2"
+              weight="medium"
+              className="characters-list-item-title"
+            >
+              {character.name}
+            </Text>
+            <Flex gap="2">
+              <Text
+                size="1"
+                color="gray"
+              >
+                {character.tokenCount} {t("characters.tokenCount")}
+              </Text>
+              <Text
+                size="1"
+                color="gray"
+              >
+                · {formatRelativeTime(character.updatedAt)}
+              </Text>
+            </Flex>
+          </Flex>
+          <Tooltip
+            content={
+              character.isWritingVisible
+                ? t("characters.visibleToWritingAgent")
+                : t("characters.notVisibleToWritingAgent")
+            }
+          >
+            <span onClick={(e) => e.stopPropagation()}>
+              <Switch
+                size="1"
+                color="green"
+                checked={character.isWritingVisible}
+                aria-label={
+                  character.isWritingVisible
+                    ? t("characters.visibleToWritingAgent")
+                    : t("characters.notVisibleToWritingAgent")
+                }
+                onCheckedChange={onToggleWritingVisibility}
+              />
+            </span>
+          </Tooltip>
+        </Flex>
+      </Flex>
+    </Box>
+  );
+}
 
 interface CharacterListProps {
   characters: CharacterListItem[];
@@ -48,10 +197,8 @@ interface CharacterListProps {
   onSelectCharacter: (characterId: string) => void;
   onEditProfile: (character: CharacterListItem) => void;
   onDeleteCharacter: (character: CharacterListItem) => void;
-  onToggleFavorite: (character: CharacterListItem, isFavorited: boolean) => void;
   onToggleWritingVisibility: (character: CharacterListItem, isWritingVisible: boolean) => void;
   onBatchDelete: (characterIds: string[]) => void;
-  onBatchFavorite: (characterIds: string[], isFavorited: boolean) => void;
   onReorderCharacters: (orderedIds: string[]) => void;
 }
 
@@ -60,67 +207,8 @@ interface MenuPosition {
   y: number;
 }
 
-type SortField = "order" | "favorite" | "updatedAt" | "tokenCount" | "name";
+type SortField = "order" | "updatedAt" | "tokenCount" | "name";
 type SortDirection = "asc" | "desc";
-
-function getAvatarFallback(name: string): string {
-  return name.trim().slice(0, 1).toUpperCase() || "?";
-}
-
-function CharacterListAvatar({
-  character,
-  onEditProfile,
-}: {
-  character: CharacterListItem;
-  onEditProfile: (character: CharacterListItem) => void;
-}) {
-  const [isLoaded, setIsLoaded] = useState(
-    () => !character.imageUrl || loadedAvatarUrls.has(character.imageUrl),
-  );
-
-  return (
-    <button
-      type="button"
-      className="characters-list-avatar-button"
-      onClick={(event) => {
-        event.stopPropagation();
-        onEditProfile(character);
-      }}
-      aria-label="edit character profile"
-    >
-      {character.imageUrl ? (
-        <>
-          {!isLoaded && (
-            <Spinner
-              size={18}
-              className="characters-list-avatar-spinner"
-            />
-          )}
-          <img
-            src={character.imageUrl}
-            alt=""
-            className="characters-list-avatar-image"
-            data-loaded={isLoaded ? "true" : "false"}
-            onLoad={() => {
-              if (character.imageUrl) loadedAvatarUrls.add(character.imageUrl);
-              setIsLoaded(true);
-            }}
-          />
-        </>
-      ) : (
-        <Text
-          size="1"
-          weight="medium"
-        >
-          {getAvatarFallback(character.name)}
-        </Text>
-      )}
-      <span className="characters-list-avatar-overlay">
-        <Pencil size={14} />
-      </span>
-    </button>
-  );
-}
 
 export function CharacterList({
   characters,
@@ -132,10 +220,8 @@ export function CharacterList({
   onSelectCharacter,
   onEditProfile,
   onDeleteCharacter,
-  onToggleFavorite,
   onToggleWritingVisibility,
   onBatchDelete,
-  onBatchFavorite,
   onReorderCharacters,
 }: CharacterListProps) {
   const { t } = useTranslation();
@@ -149,7 +235,10 @@ export function CharacterList({
   const [searchExpanded, setSearchExpanded] = useState(false);
   const [sortField, setSortField] = useState<SortField>("order");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+  const [activeCharacterId, setActiveCharacterId] = useState<string | null>(null);
   const searchContainerRef = useRef<HTMLDivElement | null>(null);
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
+  const shouldShowDragHandle = !isMultiSelect && sortField === "order" && sortDirection === "asc";
 
   const sortedCharacters = useMemo(() => {
     return [...characters].sort((a, b) => {
@@ -157,10 +246,6 @@ export function CharacterList({
       switch (sortField) {
         case "order":
           comparison = a.order - b.order || a.name.localeCompare(b.name, "zh-CN");
-          break;
-        case "favorite":
-          comparison = Number(a.isFavorited) - Number(b.isFavorited);
-          if (comparison === 0) comparison = a.updatedAt.localeCompare(b.updatedAt);
           break;
         case "updatedAt":
           comparison = a.updatedAt.localeCompare(b.updatedAt);
@@ -289,13 +374,19 @@ export function CharacterList({
     setBatchDeleteDialogOpen(false);
   }, [onBatchDelete, selectedIds]);
 
-  const handleBatchFavorite = useCallback(
-    (isFavorited: boolean) => {
-      if (selectedIds.size === 0) return;
-      onBatchFavorite(Array.from(selectedIds), isFavorited);
-      handleCloseContextMenu();
+  const handleDragEnd = useCallback(
+    (event: DragEndEvent) => {
+      setActiveCharacterId(null);
+      if (!shouldShowDragHandle || !event.over || event.active.id === event.over.id) return;
+      const from = sortedCharacters.findIndex((character) => character.id === event.active.id);
+      const to = sortedCharacters.findIndex((character) => character.id === event.over?.id);
+      if (from < 0 || to < 0) return;
+      const next = [...sortedCharacters];
+      const [moved] = next.splice(from, 1);
+      next.splice(to, 0, moved);
+      onReorderCharacters(next.map((character) => character.id));
     },
-    [handleCloseContextMenu, onBatchFavorite, selectedIds],
+    [onReorderCharacters, shouldShowDragHandle, sortedCharacters],
   );
 
   const handleManualMove = useCallback(
@@ -316,18 +407,6 @@ export function CharacterList({
   const menuItems = useMemo<ContextMenuItem[]>(() => {
     if (isMultiSelect) {
       return [
-        {
-          id: "favorite-selected",
-          label: t("characters.favoriteSelected"),
-          icon: Star,
-          onClick: () => handleBatchFavorite(true),
-        },
-        {
-          id: "unfavorite-selected",
-          label: t("characters.unfavoriteSelected"),
-          icon: StarOff,
-          onClick: () => handleBatchFavorite(false),
-        },
         {
           id: "delete-selected",
           label: t("characters.deleteSelected"),
@@ -385,15 +464,6 @@ export function CharacterList({
         },
       },
       {
-        id: "favorite",
-        label: menuCharacter.isFavorited ? t("characters.unfavorite") : t("characters.favorite"),
-        icon: menuCharacter.isFavorited ? StarOff : Star,
-        onClick: () => {
-          handleCloseContextMenu();
-          onToggleFavorite(menuCharacter, !menuCharacter.isFavorited);
-        },
-      },
-      {
         id: "delete",
         label: t("characters.deleteCharacter"),
         icon: Trash2,
@@ -406,14 +476,12 @@ export function CharacterList({
     );
     return items;
   }, [
-    handleBatchFavorite,
     handleCloseContextMenu,
     handleManualMove,
     isMultiSelect,
     menuCharacter,
     onDeleteCharacter,
     onEditProfile,
-    onToggleFavorite,
     onToggleWritingVisibility,
     sortField,
     sortedCharacters,
@@ -554,16 +622,6 @@ export function CharacterList({
                           >
                             <Text>{t("characters.sortByOrder")}</Text>
                             {getSortIcon("order")}
-                          </Flex>
-                        </DropdownMenu.Item>
-                        <DropdownMenu.Item onClick={() => handleSortChange("favorite")}>
-                          <Flex
-                            align="center"
-                            justify="between"
-                            width="100%"
-                          >
-                            <Text>{t("characters.sortByFavorite")}</Text>
-                            {getSortIcon("favorite")}
                           </Flex>
                         </DropdownMenu.Item>
                         <DropdownMenu.Item onClick={() => handleSortChange("updatedAt")}>
@@ -736,139 +794,49 @@ export function CharacterList({
               width="100%"
               style={{ minWidth: 0 }}
             >
-              {sortedCharacters.map((character) => {
-                const isSelected = character.id === selectedCharacterId;
-                const isChecked = selectedIds.has(character.id);
-
-                return (
-                  <Box
-                    key={character.id}
-                    className="characters-list-item"
-                    data-state={isSelected ? "selected" : "idle"}
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => {
-                      if (isMultiSelect) {
-                        handleCheckCharacter(character.id);
-                        return;
-                      }
-                      onSelectCharacter(character.id);
-                    }}
-                    onKeyDown={(event) => {
-                      if (event.key !== "Enter" && event.key !== " ") return;
-                      event.preventDefault();
-                      if (isMultiSelect) {
-                        handleCheckCharacter(character.id);
-                        return;
-                      }
-                      onSelectCharacter(character.id);
-                    }}
-                    onContextMenu={(event) => handleContextMenu(event, character)}
-                  >
-                    <Flex
-                      className="characters-list-item-row"
-                      align="center"
-                      gap="2"
-                      justify="between"
-                    >
-                      {isMultiSelect ? (
-                        <Flex
-                          className="characters-list-leading"
-                          align="center"
-                          justify="center"
-                          onClick={(event) => event.stopPropagation()}
-                        >
-                          <Checkbox
-                            checked={isChecked}
-                            onCheckedChange={() => handleCheckCharacter(character.id)}
-                            size="1"
-                          />
-                        </Flex>
-                      ) : (
-                        <Flex
-                          className="characters-list-leading"
-                          align="center"
-                          justify="center"
-                        >
-                          <CharacterListAvatar
-                            key={character.imageUrl ?? character.id}
-                            character={character}
-                            onEditProfile={onEditProfile}
-                          />
-                        </Flex>
-                      )}
-
-                      <Flex
-                        className="characters-list-item-main"
-                        align="center"
-                        gap="2"
-                        justify="between"
-                      >
-                        <Flex
-                          direction="column"
-                          gap="1"
-                          style={{ flex: 1, minWidth: 0, overflow: "hidden" }}
-                        >
-                          <Text
-                            size="2"
-                            weight="medium"
-                            className="characters-list-item-title"
-                          >
-                            {character.name}
-                          </Text>
-                          <Flex gap="2">
-                            {!character.isWritingVisible ? (
-                              <Text
-                                size="1"
-                                color="orange"
-                              >
-                                {t("characters.notVisibleToWritingAgent")}
-                              </Text>
-                            ) : null}
-                            <Text
-                              size="1"
-                              color="gray"
-                            >
-                              {character.tokenCount} {t("characters.tokenCount")}
-                            </Text>
-                            <Text
-                              size="1"
-                              color="gray"
-                            >
-                              · {formatRelativeTime(character.updatedAt)}
-                            </Text>
-                          </Flex>
-                        </Flex>
-
-                        <IconButton
-                          size="1"
-                          variant="ghost"
-                          className="characters-list-favorite-button"
-                          style={{
-                            width: "24px",
-                            height: "24px",
-                            color: character.isFavorited ? "var(--amber-9)" : "var(--gray-9)",
-                          }}
-                          aria-label={
-                            character.isFavorited
-                              ? t("characters.unfavorite")
-                              : t("characters.favorite")
-                          }
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            onToggleFavorite(character, !character.isFavorited);
-                          }}
-                        >
-                          <Star
-                            size={15}
-                            fill={character.isFavorited ? "currentColor" : "none"}
-                          />
-                        </IconButton>
-                      </Flex>
-                    </Flex>
-                  </Box>
-                );
-              })}
+              <DndContext
+                sensors={sensors}
+                modifiers={[restrictToVerticalAxis]}
+                onDragStart={(event) => setActiveCharacterId(String(event.active.id))}
+                onDragCancel={() => setActiveCharacterId(null)}
+                onDragEnd={handleDragEnd}
+              >
+                <SortableContext
+                  items={sortedCharacters.map((character) => character.id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  {sortedCharacters.map((character) => {
+                    const isSelected = character.id === selectedCharacterId;
+                    const isChecked = selectedIds.has(character.id);
+                    return (
+                      <CharacterListRow
+                        key={character.id}
+                        character={character}
+                        isSelected={isSelected}
+                        isChecked={isChecked}
+                        isMultiSelect={isMultiSelect}
+                        showDragHandle={shouldShowDragHandle}
+                        onSelect={() => onSelectCharacter(character.id)}
+                        onCheck={() => handleCheckCharacter(character.id)}
+                        onToggleWritingVisibility={() =>
+                          onToggleWritingVisibility(character, !character.isWritingVisible)
+                        }
+                        onContextMenu={(event) => handleContextMenu(event, character)}
+                        t={t}
+                      />
+                    );
+                  })}
+                </SortableContext>
+                <DragOverlay>
+                  {activeCharacterId ? (
+                    <Box className="characters-list-item">
+                      <Text>
+                        {characters.find((character) => character.id === activeCharacterId)?.name}
+                      </Text>
+                    </Box>
+                  ) : null}
+                </DragOverlay>
+              </DndContext>
             </Flex>
           )}
         </Box>

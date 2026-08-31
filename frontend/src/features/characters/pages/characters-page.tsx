@@ -15,7 +15,6 @@ import { buildCharacterMentionTag } from "@/features/assistant/lib/mention-text"
 import { usePersistedPanelLayout } from "@/hooks/use-persisted-panel-layout";
 import {
   batchDeleteCharacters,
-  batchFavoriteCharacters,
   createCharacter,
   deleteCharacter,
   fetchCharacter,
@@ -297,36 +296,6 @@ export function CharactersPage() {
     },
   });
 
-  const favoriteMutation = useMutation({
-    mutationFn: ({
-      character,
-      isFavorited,
-    }: {
-      character: CharacterListItem;
-      isFavorited: boolean;
-    }) => updateCharacter(character.id, { isFavorited }),
-    onMutate: ({ character, isFavorited }) => {
-      upsertCharacterCache({
-        ...character,
-        isFavorited,
-        updatedAt: new Date().toISOString(),
-      });
-    },
-    onSuccess: (character) => {
-      upsertCharacterCache(toCharacterListItem(character));
-      queryClient.invalidateQueries({
-        queryKey: projectDataQueryKeys.characters.list(character.projectId),
-      });
-      toast.success(
-        character.isFavorited ? t("characters.favorited") : t("characters.unfavorited"),
-      );
-    },
-    onError: (_error, { character }) => {
-      upsertCharacterCache(character);
-      toast.error(t("characters.favoriteFailed"));
-    },
-  });
-
   const writingVisibilityMutation = useMutation({
     mutationFn: ({
       character,
@@ -390,34 +359,6 @@ export function CharactersPage() {
         queryKey: projectDataQueryKeys.characters.list(currentProjectId),
       });
       toast.success(t("characters.deleted"));
-    },
-  });
-
-  const batchFavoriteMutation = useMutation({
-    mutationFn: ({ characterIds, isFavorited }: { characterIds: string[]; isFavorited: boolean }) =>
-      batchFavoriteCharacters(currentProjectId!, characterIds, isFavorited),
-    onMutate: ({ characterIds, isFavorited }) => {
-      characters
-        .filter((character) => characterIds.includes(character.id))
-        .forEach((character) => {
-          upsertCharacterCache({
-            ...character,
-            isFavorited,
-            updatedAt: new Date().toISOString(),
-          });
-        });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: projectDataQueryKeys.characters.list(currentProjectId),
-      });
-      toast.success(t("characters.favoriteUpdated"));
-    },
-    onError: () => {
-      queryClient.invalidateQueries({
-        queryKey: projectDataQueryKeys.characters.list(currentProjectId),
-      });
-      toast.error(t("characters.favoriteFailed"));
     },
   });
 
@@ -487,16 +428,10 @@ export function CharactersPage() {
       onSelectCharacter={handleSelectCharacter}
       onEditProfile={setProfileCharacter}
       onDeleteCharacter={setDeleteCharacterTarget}
-      onToggleFavorite={(character, isFavorited) => {
-        favoriteMutation.mutate({ character, isFavorited });
-      }}
       onToggleWritingVisibility={(character, isWritingVisible) => {
         writingVisibilityMutation.mutate({ character, isWritingVisible });
       }}
       onBatchDelete={(characterIds) => batchDeleteMutation.mutate(characterIds)}
-      onBatchFavorite={(characterIds, isFavorited) => {
-        batchFavoriteMutation.mutate({ characterIds, isFavorited });
-      }}
       onReorderCharacters={(orderedIds) => reorderMutation.mutate(orderedIds)}
     />
   );
@@ -564,6 +499,7 @@ export function CharactersPage() {
                     characterId: selectedCharacter.id,
                     label: selectedCharacter.name,
                   })}
+                  replaceComposerWithInitialMarkup
                   onStateChange={setAssistantState}
                   isMobileOverlay={false}
                 />
@@ -679,6 +615,7 @@ export function CharactersPage() {
             characterId: selectedCharacter.id,
             label: selectedCharacter.name,
           })}
+          replaceComposerWithInitialMarkup
           onStateChange={setAssistantState}
           isMobileOverlay
         />

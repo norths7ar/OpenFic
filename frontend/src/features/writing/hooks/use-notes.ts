@@ -14,6 +14,7 @@ import {
   updateNoteCategory,
   deleteNoteCategory,
   moveNoteItem,
+  reorderMixedNoteItems,
   reorderNoteItems,
 } from "@/lib/api-client";
 import type {
@@ -25,6 +26,7 @@ import type {
   NoteCategoryUpdate,
   NoteItemMove,
   NoteItemReorder,
+  NoteItemsMixedReorder,
   NoteTreeResponse,
   NoteCategoryItem,
   DocumentType,
@@ -561,6 +563,23 @@ export function useReorderNoteItems(projectId: string, documentType: DocumentTyp
 
   return useMutation({
     mutationFn: (data: NoteItemReorder) => reorderNoteItems(projectId, { ...data, documentType }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: projectDataQueryKeys.notes.tree(projectId) });
+      toast.success(t("writing.orderSaved"));
+    },
+    onError: () => {
+      toast.error(t("writing.orderSaveFailed"));
+    },
+  });
+}
+
+export function useReorderMixedNoteItems(projectId: string, documentType: DocumentType = "note") {
+  const queryClient = useQueryClient();
+  const { t } = useTranslation();
+
+  return useMutation({
+    mutationFn: (data: NoteItemsMixedReorder) =>
+      reorderMixedNoteItems(projectId, { ...data, documentType }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: projectDataQueryKeys.notes.tree(projectId) });
       toast.success(t("writing.orderSaved"));

@@ -14,6 +14,7 @@ export function AssistantSidebarHost({
   className,
   isMobileOverlay,
   initialComposerMarkup,
+  replaceComposerWithInitialMarkup,
   discussionWorkspace,
   onOpenMentionChapter,
   onApplySceneDraft,
@@ -45,6 +46,7 @@ export function AssistantSidebarHost({
       isOpen: isMobileOverlay ? isAssistantSidebarOpen : true,
       preferredAgentKey,
       initialComposerMarkup,
+      replaceComposerWithInitialMarkup,
       discussionWorkspace,
       onStateChange: (state) => callbacksRef.current.onStateChange?.(state),
       onOpenMentionChapter: (chapterId, chapterTitle) =>
@@ -59,6 +61,7 @@ export function AssistantSidebarHost({
     isAssistantSidebarOpen,
     preferredAgentKey,
     initialComposerMarkup,
+    replaceComposerWithInitialMarkup,
     discussionWorkspace,
     projectId,
     closeAssistantSidebar,

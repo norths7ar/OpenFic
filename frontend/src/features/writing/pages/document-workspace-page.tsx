@@ -1,5 +1,5 @@
-import { Box, Flex, Text } from "@radix-ui/themes";
-import { FileText, ListTree } from "lucide-react";
+import { Box, Flex, IconButton, Text, Tooltip } from "@radix-ui/themes";
+import { FileText, ListTree, PanelRightClose, PanelRightOpen } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useParams } from "react-router";
@@ -23,6 +23,7 @@ export function DocumentWorkspacePage({ documentType }: DocumentWorkspacePagePro
   const { t } = useTranslation();
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
   const [selectedTitle, setSelectedTitle] = useState("");
+  const [assistantOpen, setAssistantOpen] = useState(false);
   const [assistantState, setAssistantState] = useState<AssistantSidebarState>({
     agentStatus: "idle",
     isAgentRunning: false,
@@ -67,7 +68,32 @@ export function DocumentWorkspacePage({ documentType }: DocumentWorkspacePagePro
               style={{ height: 48, borderBottom: "1px solid var(--gray-a5)" }}
             >
               <Icon size={18} />
-              <Text weight="medium">{selectedTitle}</Text>
+              <Text
+                weight="medium"
+                style={{ flex: 1, minWidth: 0 }}
+              >
+                {selectedTitle}
+              </Text>
+              <Tooltip
+                content={t(
+                  assistantOpen
+                    ? "assistant.closeDocumentAssistant"
+                    : "assistant.openDocumentAssistant",
+                )}
+              >
+                <IconButton
+                  variant="ghost"
+                  color="gray"
+                  onClick={() => setAssistantOpen((open) => !open)}
+                  aria-label={t(
+                    assistantOpen
+                      ? "assistant.closeDocumentAssistant"
+                      : "assistant.openDocumentAssistant",
+                  )}
+                >
+                  {assistantOpen ? <PanelRightClose size={18} /> : <PanelRightOpen size={18} />}
+                </IconButton>
+              </Tooltip>
             </Flex>
             <Box style={{ flex: 1, minHeight: 0 }}>
               <NoteEditor
@@ -94,7 +120,7 @@ export function DocumentWorkspacePage({ documentType }: DocumentWorkspacePagePro
           </Flex>
         )}
       </Flex>
-      {selectedNoteId && (
+      {selectedNoteId && assistantOpen && (
         <Box style={{ width: 420, minWidth: 340, borderLeft: "1px solid var(--gray-a5)" }}>
           <AssistantSidebarHost
             projectId={projectId}
@@ -103,6 +129,7 @@ export function DocumentWorkspacePage({ documentType }: DocumentWorkspacePagePro
               noteId: selectedNoteId,
               label: selectedTitle,
             })}
+            replaceComposerWithInitialMarkup
             onStateChange={setAssistantState}
             isMobileOverlay={false}
           />
