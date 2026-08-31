@@ -656,6 +656,8 @@ def _action(
         )
     elif current_hash == incoming_hash:
         action, reason = "unchanged", "same_semantics"
+    elif mode in {"update", "merge"} and incoming_hash == base_hash:
+        action, reason = "unchanged", "incoming_matches_base"
     elif mode == "append":
         action, reason = "conflict", "existing_differs"
     elif current_hash == base_hash:

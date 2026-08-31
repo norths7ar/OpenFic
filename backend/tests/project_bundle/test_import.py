@@ -89,6 +89,12 @@ async def test_preview_modes_and_concurrent_change_rules(session) -> None:
     assert concurrent.items[0].action == "conflict"
     assert concurrent.items[0].reason == "current_changed"
 
+    unchanged_source = await preview_project_bundle(
+        session, project.id, bundle, "merge"
+    )
+    assert unchanged_source.items[0].action == "unchanged"
+    assert unchanged_source.items[0].reason == "incoming_matches_base"
+
     await session.delete(note)
     await session.flush()
     missing_append = await preview_project_bundle(session, project.id, bundle, "append")

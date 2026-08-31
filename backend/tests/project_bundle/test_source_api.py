@@ -2,15 +2,16 @@ from uuid import uuid4
 
 import pytest
 import yaml
+from httpx import AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import select
+
 from app.project_bundle.archive import build_zip
 from app.storage.models.character import Character
 from app.storage.models.note import Note
 from app.storage.models.project import Project
 from app.storage.models.project_import_profile import ProjectImportProfile
 from app.storage.models.world_info_entry import WorldInfoEntry
-from httpx import AsyncClient
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlmodel import select
 
 
 def _source_bundle(
@@ -270,7 +271,9 @@ async def test_source_apply_conflict_does_not_partially_write(
 
     note = (
         await session.execute(
-            Note.__table__.select().where(Note.project_id == project.id)
+            Note.__table__.select().where(
+                (Note.project_id == project.id) & (Note.content == "卷内容")
+            )
         )
     ).first()
     assert note is not None
