@@ -8,7 +8,6 @@ import { useDraggable } from "@dnd-kit/core";
 import { Box, Flex, Text, Switch, Checkbox, Tooltip } from "@radix-ui/themes";
 import { GripVertical } from "lucide-react";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
 
 import { formatRelativeTime } from "@/lib/time-utils";
@@ -421,15 +420,9 @@ function EntryListItemComponent({
             >
               <span>
                 <Switch
-                  className="writing-visibility-switch"
                   size="1"
                   checked={entry.isEnabled}
-                  color="gray"
-                  style={
-                    {
-                      "--accent-track": "var(--sage-9)",
-                    } as CSSProperties
-                  }
+                  color="green"
                   aria-label={
                     entry.isEnabled
                       ? t("worldInfo.visibleToWritingAgent")
