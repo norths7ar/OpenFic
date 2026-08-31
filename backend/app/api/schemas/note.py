@@ -61,6 +61,17 @@ class NoteItemsReorderRequest(BaseModel):
     document_type: DocumentType = "note"
 
 
+class NoteOrderedItem(BaseModel):
+    kind: Literal["category", "note"]
+    id: str
+
+
+class NoteItemsMixedReorderRequest(BaseModel):
+    parent_id: str | None = None
+    ordered_items: list[NoteOrderedItem]
+    document_type: DocumentType = "note"
+
+
 class ReorderResponse(BaseModel):
     updated_count: int
 

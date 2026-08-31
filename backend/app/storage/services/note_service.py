@@ -35,6 +35,30 @@ class NoteTreeResult:
     total_notes: int
 
 
+async def _get_max_mixed_order(
+    session: AsyncSession,
+    project_id: str,
+    parent_id: str | None,
+    document_type: DocumentType,
+) -> int:
+    categories = await note_category_repo.list_by_project(
+        session, project_id, document_type
+    )
+    notes = await note_repo.list_by_project(
+        session,
+        project_id,
+        include_hidden=True,
+        document_type=document_type,
+    )
+    orders = [
+        category.order
+        for category in categories
+        if category.parent_id == parent_id
+    ]
+    orders.extend(note.order for note in notes if note.category_id == parent_id)
+    return max(orders, default=0)
+
+
 async def _assert_category_depth(session: AsyncSession, parent_id: str) -> None:
     parent = await note_category_repo.get_by_id(session, parent_id)
     if parent is not None and parent.parent_id is not None:
@@ -103,7 +127,7 @@ async def create_note(
         title=unique_title,
         content=content,
         document_type=document_type,
-        order=await note_repo.get_max_order(
+        order=await _get_max_mixed_order(
             session, project_id, category_id, document_type
         )
         + 1,
@@ -224,6 +248,60 @@ async def reorder_items(
         session.add(item)
     await session.flush()
     return len(ordered_ids)
+
+
+async def reorder_mixed_items(
+    session: AsyncSession,
+    project_id: str,
+    *,
+    parent_id: str | None,
+    ordered_items: list[tuple[Literal["category", "note"], str]],
+    document_type: DocumentType = "note",
+) -> int:
+    project = await project_repo.get_by_id(session, project_id)
+    if project is None:
+        raise NotFoundError(f"项目不存在: {project_id}")
+    if len(ordered_items) != len(set(ordered_items)):
+        raise ValueError("ordered_items 不能包含重复条目")
+    if parent_id is not None:
+        parent = await note_category_repo.get_by_id(session, parent_id)
+        if parent is None or parent.project_id != project_id:
+            raise ValueError("父分类不存在或不属于当前项目")
+        if parent.document_type != document_type:
+            raise ValueError("父分类与当前文档类型不一致")
+
+    categories = [
+        category
+        for category in await note_category_repo.list_by_project(
+            session, project_id, document_type
+        )
+        if category.parent_id == parent_id
+    ]
+    notes = [
+        note
+        for note in await note_repo.list_by_project(
+            session,
+            project_id,
+            include_hidden=True,
+            document_type=document_type,
+        )
+        if note.category_id == parent_id
+    ]
+    siblings: dict[tuple[Literal["category", "note"], str], Note | NoteCategory] = {
+        **{("category", item.id): item for item in categories},
+        **{("note", item.id): item for item in notes},
+    }
+    if set(ordered_items) != set(siblings) or len(ordered_items) != len(siblings):
+        raise ValueError("ordered_items 必须完整匹配当前同级分类和条目")
+
+    now = datetime.now(UTC)
+    for index, key in enumerate(ordered_items):
+        item = siblings[key]
+        item.order = index
+        item.updated_at = now
+        session.add(item)
+    await session.flush()
+    return len(ordered_items)
 
 
 async def update_note(
@@ -381,7 +459,7 @@ async def create_category(
         parent_id=parent_id,
         title=unique_title,
         document_type=document_type,
-        order=await note_category_repo.get_max_order(
+        order=await _get_max_mixed_order(
             session, project_id, parent_id, document_type
         )
         + 1,
@@ -451,7 +529,7 @@ async def move_item(
         if category.parent_id != target_category_id:
             category.parent_id = target_category_id
             category.order = (
-                await note_category_repo.get_max_order(
+                await _get_max_mixed_order(
                     session,
                     category.project_id,
                     target_category_id,
@@ -491,7 +569,7 @@ async def move_item(
         if note.category_id != target_category_id:
             note.category_id = target_category_id
             note.order = (
-                await note_repo.get_max_order(
+                await _get_max_mixed_order(
                     session,
                     note.project_id,
                     target_category_id,

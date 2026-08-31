@@ -25,6 +25,7 @@ async def test_reorder_characters_updates_zero_based_order(client: AsyncClient) 
     )
     assert response.status_code == 200
     assert response.json() == {"updated_count": 2}
+
     listed = (await client.get(f"/api/v1/projects/{project_id}/characters")).json()[
         "items"
     ]
@@ -75,6 +76,65 @@ async def test_reorder_note_category_and_notes_updates_siblings(
     )
     assert response.status_code == 200
     assert response.json() == {"updated_count": 2}
+
+
+@pytest.mark.asyncio
+async def test_reorder_mixed_note_items_preserves_one_sibling_order(
+    client: AsyncClient,
+) -> None:
+    project_id = await _project(client, "笔记混排")
+    first_category = (
+        await client.post(
+            f"/api/v1/projects/{project_id}/note-categories",
+            json={"title": "甲"},
+        )
+    ).json()
+    note = (
+        await client.post(
+            f"/api/v1/projects/{project_id}/notes",
+            json={"title": "中间笔记"},
+        )
+    ).json()
+    second_category = (
+        await client.post(
+            f"/api/v1/projects/{project_id}/note-categories",
+            json={"title": "乙"},
+        )
+    ).json()
+
+    assert [first_category["order"], note["order"], second_category["order"]] == [
+        1,
+        2,
+        3,
+    ]
+    ordered_items = [
+        {"kind": "note", "id": note["id"]},
+        {"kind": "category", "id": second_category["id"]},
+        {"kind": "category", "id": first_category["id"]},
+    ]
+    response = await client.post(
+        f"/api/v1/projects/{project_id}/note-items/reorder-mixed",
+        json={"parent_id": None, "ordered_items": ordered_items},
+    )
+    assert response.status_code == 200
+    assert response.json() == {"updated_count": 3}
+
+    tree = (await client.get(f"/api/v1/projects/{project_id}/notes")).json()
+    actual = sorted(
+        [
+            *((item["order"], "category", item["id"]) for item in tree["categories"]),
+            *((item["order"], "note", item["id"]) for item in tree["root_notes"]),
+        ]
+    )
+    assert [(kind, item_id) for _, kind, item_id in actual] == [
+        (item["kind"], item["id"]) for item in ordered_items
+    ]
+
+    incomplete = await client.post(
+        f"/api/v1/projects/{project_id}/note-items/reorder-mixed",
+        json={"parent_id": None, "ordered_items": ordered_items[:-1]},
+    )
+    assert incomplete.status_code == 400
 
 
 @pytest.mark.asyncio
