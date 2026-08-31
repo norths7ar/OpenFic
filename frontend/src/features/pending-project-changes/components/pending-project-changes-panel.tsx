@@ -446,7 +446,7 @@ export function PendingProjectChangesPanel({
               </ScrollArea>
             </div>
             {selectedChange ? (
-              <ScrollArea className="pending-project-changes-detail-scroll">
+              <div className="pending-project-changes-detail-scroll">
                 <div className="pending-project-changes-detail">
                   <Flex
                     align="center"
@@ -522,67 +522,69 @@ export function PendingProjectChangesPanel({
                       />
                     ) : null}
                   </div>
-                  {selectedChange.operation === "update" &&
-                  selectedBefore &&
-                  selectedAfter &&
-                  hasSelectedFieldChanges ? (
-                    <section className="pending-project-changes-field-changes">
-                      <Text
-                        size="2"
-                        weight="medium"
-                      >
-                        {t("pendingProjectChanges.changedFields")}
-                      </Text>
-                      <FieldComparison
-                        label={t("pendingProjectChanges.titleField")}
-                        before={selectedBefore.title}
-                        after={selectedAfter.title}
-                        emptyLabel={t("pendingProjectChanges.none")}
-                        visibleLabel={t("pendingProjectChanges.visibleToWritingAgent")}
-                        hiddenLabel={t("pendingProjectChanges.hiddenFromWritingAgent")}
+                  <div className="pending-project-changes-review-content">
+                    {selectedChange.operation === "update" &&
+                    selectedBefore &&
+                    selectedAfter &&
+                    hasSelectedFieldChanges ? (
+                      <section className="pending-project-changes-field-changes">
+                        <Text
+                          size="2"
+                          weight="medium"
+                        >
+                          {t("pendingProjectChanges.changedFields")}
+                        </Text>
+                        <FieldComparison
+                          label={t("pendingProjectChanges.titleField")}
+                          before={selectedBefore.title}
+                          after={selectedAfter.title}
+                          emptyLabel={t("pendingProjectChanges.none")}
+                          visibleLabel={t("pendingProjectChanges.visibleToWritingAgent")}
+                          hiddenLabel={t("pendingProjectChanges.hiddenFromWritingAgent")}
+                        />
+                        <FieldComparison
+                          label={t("pendingProjectChanges.writingVisibility")}
+                          before={selectedBefore.writing_visible}
+                          after={selectedAfter.writing_visible}
+                          emptyLabel={t("pendingProjectChanges.none")}
+                          visibleLabel={t("pendingProjectChanges.visibleToWritingAgent")}
+                          hiddenLabel={t("pendingProjectChanges.hiddenFromWritingAgent")}
+                        />
+                        <FieldComparison
+                          label={t("pendingProjectChanges.section")}
+                          before={selectedBefore.section}
+                          after={selectedAfter.section}
+                          emptyLabel={t("pendingProjectChanges.none")}
+                          visibleLabel={t("pendingProjectChanges.visibleToWritingAgent")}
+                          hiddenLabel={t("pendingProjectChanges.hiddenFromWritingAgent")}
+                        />
+                      </section>
+                    ) : null}
+                    {selectedChange.operation === "update" &&
+                    selectedBefore &&
+                    selectedAfter &&
+                    hasSelectedBodyChange ? (
+                      <BodyDiff
+                        label={t("pendingProjectChanges.bodyDiff")}
+                        before={asString(selectedBefore.body) ?? ""}
+                        after={asString(selectedAfter.body) ?? ""}
                       />
-                      <FieldComparison
-                        label={t("pendingProjectChanges.writingVisibility")}
-                        before={selectedBefore.writing_visible}
-                        after={selectedAfter.writing_visible}
-                        emptyLabel={t("pendingProjectChanges.none")}
-                        visibleLabel={t("pendingProjectChanges.visibleToWritingAgent")}
-                        hiddenLabel={t("pendingProjectChanges.hiddenFromWritingAgent")}
+                    ) : null}
+                    {selectedChange.operation === "create" && selectedAfter ? (
+                      <MaterialContent
+                        label={t("pendingProjectChanges.proposedContent")}
+                        record={selectedAfter}
+                        emptyLabel={t("pendingProjectChanges.noBody")}
                       />
-                      <FieldComparison
-                        label={t("pendingProjectChanges.section")}
-                        before={selectedBefore.section}
-                        after={selectedAfter.section}
-                        emptyLabel={t("pendingProjectChanges.none")}
-                        visibleLabel={t("pendingProjectChanges.visibleToWritingAgent")}
-                        hiddenLabel={t("pendingProjectChanges.hiddenFromWritingAgent")}
+                    ) : null}
+                    {selectedChange.operation === "delete" && selectedBefore ? (
+                      <MaterialContent
+                        label={t("pendingProjectChanges.contentToDelete")}
+                        record={selectedBefore}
+                        emptyLabel={t("pendingProjectChanges.noBody")}
                       />
-                    </section>
-                  ) : null}
-                  {selectedChange.operation === "update" &&
-                  selectedBefore &&
-                  selectedAfter &&
-                  hasSelectedBodyChange ? (
-                    <BodyDiff
-                      label={t("pendingProjectChanges.bodyDiff")}
-                      before={asString(selectedBefore.body) ?? ""}
-                      after={asString(selectedAfter.body) ?? ""}
-                    />
-                  ) : null}
-                  {selectedChange.operation === "create" && selectedAfter ? (
-                    <MaterialContent
-                      label={t("pendingProjectChanges.proposedContent")}
-                      record={selectedAfter}
-                      emptyLabel={t("pendingProjectChanges.noBody")}
-                    />
-                  ) : null}
-                  {selectedChange.operation === "delete" && selectedBefore ? (
-                    <MaterialContent
-                      label={t("pendingProjectChanges.contentToDelete")}
-                      record={selectedBefore}
-                      emptyLabel={t("pendingProjectChanges.noBody")}
-                    />
-                  ) : null}
+                    ) : null}
+                  </div>
                   <details className="pending-project-changes-technical-details">
                     <summary>{t("pendingProjectChanges.technicalDetails")}</summary>
                     <div className="pending-project-changes-metadata">
@@ -605,7 +607,7 @@ export function PendingProjectChangesPanel({
                     </div>
                   </details>
                 </div>
-              </ScrollArea>
+              </div>
             ) : null}
           </div>
         )}

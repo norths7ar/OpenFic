@@ -42,6 +42,11 @@
   min-height: 0;
 }
 
+.pending-project-changes-detail-scroll {
+  display: flex;
+  overflow: hidden;
+}
+
 .pending-project-changes-list {
   display: flex;
   flex-direction: column;
@@ -74,6 +79,8 @@
 
 .pending-project-changes-detail {
   display: flex;
+  width: 100%;
+  min-height: 0;
   flex-direction: column;
   padding: var(--space-4);
   gap: var(--space-4);
@@ -138,11 +145,26 @@
 }
 
 .pending-project-changes-content-section {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+.pending-project-changes-review-content {
+  display: flex;
   min-width: 0;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-4);
+  overflow: auto;
 }
 
 .pending-project-changes-markdown {
-  max-height: 360px;
+  min-height: 0;
+  max-height: none;
+  flex: 1;
   margin: var(--space-2) 0 0;
   padding: var(--space-3);
   overflow: auto;
@@ -152,7 +174,9 @@
 }
 
 .pending-project-changes-body-diff {
+  min-height: 0;
   max-height: none;
+  flex: 1;
   margin: var(--space-2) 0 0;
   overflow: auto;
   border: 1px solid var(--gray-a4);
@@ -180,7 +204,8 @@
 }
 
 .pending-project-changes-technical-details {
-  padding-top: var(--space-2);
+  flex: 0 0 auto;
+  padding-top: var(--space-1);
   border-top: 1px solid var(--gray-a4);
   color: var(--gray-11);
 }
@@ -189,10 +214,16 @@
   width: fit-content;
   cursor: pointer;
   font-size: var(--font-size-1);
+  line-height: var(--line-height-1);
 }
 
 .pending-project-changes-technical-details[open] > summary {
   margin-bottom: var(--space-3);
+}
+
+.pending-project-changes-technical-details[open] {
+  max-height: min(220px, 30vh);
+  overflow: auto;
 }
 
 .pending-project-changes-state {
@@ -209,6 +240,10 @@
   .pending-project-changes-detail-scroll {
     height: auto;
     max-height: 260px;
+  }
+
+  .pending-project-changes-detail-scroll {
+    overflow: auto;
   }
 
   .pending-project-changes-list-column {
