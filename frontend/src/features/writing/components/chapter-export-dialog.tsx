@@ -18,12 +18,7 @@ import { Virtuoso } from "react-virtuoso";
 import "./chapter-export-dialog.css";
 
 import { fetchProject } from "@/features/projects/lib/project-api";
-import {
-  cancelChapterExport,
-  createChapterExport,
-  fetchChapter,
-  fetchChapterExport,
-} from "@/lib/api-client";
+import { cancelChapterExport, createChapterExport, fetchChapterExport } from "@/lib/api-client";
 import { subscribeBackgroundEvents } from "@/lib/background-socket";
 import type { ChapterExport } from "@/lib/chapter-export.types";
 import type { Chapter, VolumeWithChapters } from "@/lib/chapter.types";
@@ -42,6 +37,7 @@ import {
   type ChapterExportCheckState,
   type ChapterExportSelection,
 } from "../lib/chapter-export-selection";
+import { fetchChapter } from "../lib/chapter-volume-api";
 
 interface ChapterExportDialogProps {
   open: boolean;

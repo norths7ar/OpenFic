@@ -4,7 +4,6 @@ import { useTranslation } from "react-i18next";
 import { useShallow } from "zustand/react/shallow";
 
 import { ConfirmDialog, toast } from "@/components";
-import { fetchChapter } from "@/lib/api-client";
 import type { ChapterListItem, VolumeWithChapters } from "@/lib/chapter.types";
 import { createToastThrottler } from "@/lib/ui-utils";
 
@@ -23,6 +22,7 @@ import {
   useUpdateVolume,
   useVolumeTree,
 } from "../hooks/use-volumes";
+import { fetchChapter } from "../lib/chapter-volume-api";
 import { useTabsStore } from "../store/use-tabs-store";
 import { useWritingStore } from "../store/use-writing-store";
 import { ChapterExportDialog } from "./chapter-export-dialog";

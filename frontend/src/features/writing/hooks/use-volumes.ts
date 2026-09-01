@@ -1,13 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
+import type { VolumeCreate, VolumeUpdate } from "@/lib/chapter.types";
+
 import {
   createVolume,
   deleteVolume,
   fetchChapters,
   moveVolume,
   updateVolume,
-} from "@/lib/api-client";
-import type { VolumeCreate, VolumeUpdate } from "@/lib/chapter.types";
+} from "../lib/chapter-volume-api";
 
 export function useVolumeTree(projectId: string) {
   return useQuery({

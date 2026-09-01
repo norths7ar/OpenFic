@@ -126,6 +126,21 @@ export {
   updateNote,
   updateNoteCategory,
 } from "../features/writing/lib/note-api";
+export {
+  createChapter,
+  createVolume,
+  deleteChapter,
+  deleteVolume,
+  fetchChapter,
+  fetchChapters,
+  fetchVolume,
+  fetchVolumes,
+  moveChapterToVolume,
+  moveVolume,
+  reorderChapters,
+  updateChapter,
+  updateVolume,
+} from "../features/writing/lib/chapter-volume-api";
 
 // 健康检查类型
 export interface HealthResponse {
@@ -369,195 +384,6 @@ export async function updateSkillReferenceDoc(
 
 export async function deleteSkillReferenceDoc(skillDbId: string, docId: string): Promise<void> {
   await apiClient.delete(`/skills/${skillDbId}/reference-docs/${docId}`);
-}
-
-// ============================================
-// Chapter API
-// ============================================
-
-import type {
-  Chapter,
-  ChapterCreate,
-  ChapterUpdate,
-  ChapterListItem,
-  ChapterMoveToVolume,
-  Volume,
-  VolumeCreate,
-  VolumeMove,
-  VolumeTreeResponse,
-  VolumeUpdate,
-  VolumeWithChapters,
-} from "./chapter.types";
-
-/**
- * 后端响应字段转换（snake_case -> camelCase）- 完整版章节
- */
-function transformChapter(raw: Record<string, unknown>): Chapter {
-  return {
-    id: raw.id as string,
-    projectId: raw.project_id as string,
-    volumeId: raw.volume_id as string,
-    title: raw.title as string,
-    content: raw.content as string,
-    wordCount: raw.word_count as number,
-    order: raw.order as number,
-    createdAt: raw.created_at as string,
-    updatedAt: raw.updated_at as string,
-  };
-}
-
-/**
- * 后端响应字段转换（snake_case -> camelCase）- 精简版章节列表项
- */
-function transformChapterListItem(raw: Record<string, unknown>): ChapterListItem {
-  return {
-    id: raw.id as string,
-    projectId: raw.project_id as string,
-    volumeId: raw.volume_id as string,
-    title: raw.title as string,
-    wordCount: raw.word_count as number,
-    order: raw.order as number,
-    createdAt: raw.created_at as string,
-    updatedAt: raw.updated_at as string,
-  };
-}
-
-function transformVolume(raw: Record<string, unknown>): Volume {
-  return {
-    id: raw.id as string,
-    projectId: raw.project_id as string,
-    title: raw.title as string,
-    description: (raw.description as string | null | undefined) ?? null,
-    order: raw.order as number,
-    chapterCount: raw.chapter_count as number,
-    createdAt: raw.created_at as string,
-    updatedAt: raw.updated_at as string,
-  };
-}
-
-function transformVolumeWithChapters(raw: Record<string, unknown>): VolumeWithChapters {
-  return {
-    ...transformVolume(raw),
-    chapters: ((raw.chapters as Record<string, unknown>[]) ?? []).map(transformChapterListItem),
-  };
-}
-
-function transformVolumeTree(raw: Record<string, unknown>): VolumeTreeResponse {
-  return {
-    volumes: ((raw.volumes as Record<string, unknown>[]) ?? []).map(transformVolumeWithChapters),
-    totalChapters: raw.total_chapters as number,
-  };
-}
-
-/**
- * 获取卷-章节树
- */
-export async function fetchChapters(projectId: string): Promise<VolumeTreeResponse> {
-  const response = await apiClient.get(`/projects/${projectId}/chapters`);
-  return transformVolumeTree(response.data);
-}
-
-/**
- * 获取单个章节
- */
-export async function fetchChapter(chapterId: string): Promise<Chapter> {
-  const response = await apiClient.get(`/chapters/${chapterId}`);
-  return transformChapter(response.data);
-}
-
-/**
- * 创建章节
- */
-export async function createChapter(projectId: string, data: ChapterCreate): Promise<Chapter> {
-  const response = await apiClient.post(`/projects/${projectId}/chapters`, {
-    volume_id: data.volumeId,
-    title: data.title,
-    content: data.content ?? "",
-    word_count: data.wordCount,
-  });
-  return transformChapter(response.data);
-}
-
-export async function createVolume(projectId: string, data: VolumeCreate): Promise<Volume> {
-  const response = await apiClient.post(`/projects/${projectId}/volumes`, {
-    title: data.title,
-    description: data.description ?? null,
-  });
-  return transformVolume(response.data);
-}
-
-export async function fetchVolumes(projectId: string): Promise<Volume[]> {
-  const response = await apiClient.get(`/projects/${projectId}/volumes`);
-  return (response.data as Record<string, unknown>[]).map(transformVolume);
-}
-
-export async function fetchVolume(volumeId: string): Promise<Volume> {
-  const response = await apiClient.get(`/volumes/${volumeId}`);
-  return transformVolume(response.data);
-}
-
-export async function updateVolume(volumeId: string, data: VolumeUpdate): Promise<Volume> {
-  const response = await apiClient.patch(`/volumes/${volumeId}`, {
-    title: data.title,
-    description: data.description,
-  });
-  return transformVolume(response.data);
-}
-
-export async function deleteVolume(volumeId: string, cascade = false): Promise<void> {
-  await apiClient.delete(`/volumes/${volumeId}`, {
-    params: { cascade },
-  });
-}
-
-export async function moveVolume(volumeId: string, data: VolumeMove): Promise<Volume> {
-  const response = await apiClient.post(`/volumes/${volumeId}/move`, {
-    new_order: data.newOrder,
-  });
-  return transformVolume(response.data);
-}
-
-/**
- * 更新章节
- */
-export async function updateChapter(chapterId: string, data: ChapterUpdate): Promise<Chapter> {
-  const response = await apiClient.patch(`/chapters/${chapterId}`, {
-    title: data.title,
-    content: data.content,
-    word_count: data.wordCount,
-  });
-  return transformChapter(response.data);
-}
-
-/**
- * 删除章节
- */
-export async function deleteChapter(chapterId: string): Promise<void> {
-  await apiClient.delete(`/chapters/${chapterId}`);
-}
-
-/**
- * 批量重排章节顺序
- */
-export async function reorderChapters(
-  volumeId: string,
-  chapterIds: string[],
-): Promise<ChapterListItem[]> {
-  const response = await apiClient.post("/chapters/reorder", {
-    volume_id: volumeId,
-    chapter_ids: chapterIds,
-  });
-  return (response.data as Record<string, unknown>[]).map(transformChapterListItem);
-}
-
-export async function moveChapterToVolume(
-  chapterId: string,
-  data: ChapterMoveToVolume,
-): Promise<Chapter> {
-  const response = await apiClient.post(`/chapters/${chapterId}/move-to-volume`, {
-    volume_id: data.volumeId,
-  });
-  return transformChapter(response.data);
 }
 
 // ============================================

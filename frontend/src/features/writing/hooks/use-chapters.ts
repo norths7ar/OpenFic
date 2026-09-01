@@ -6,6 +6,8 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
+import type { ChapterCreate, ChapterUpdate } from "@/lib/chapter.types";
+
 import {
   fetchChapter,
   createChapter,
@@ -13,8 +15,7 @@ import {
   deleteChapter,
   reorderChapters,
   moveChapterToVolume,
-} from "@/lib/api-client";
-import type { ChapterCreate, ChapterUpdate } from "@/lib/chapter.types";
+} from "../lib/chapter-volume-api";
 
 /**
  * 获取单个章节（完整内容）

@@ -22,7 +22,6 @@ import type {
 } from "@/features/assistant/lib/scene-draft";
 import { fetchSettings } from "@/features/settings/lib/settings-api";
 import { useScrollbarAutoHide } from "@/hooks/use-scrollbar-auto-hide";
-import { fetchChapter } from "@/lib/api-client";
 import type { Chapter } from "@/lib/chapter.types";
 import {
   getEditorContentLimit,
@@ -44,6 +43,7 @@ import {
   type WritingWorkingCopyController,
 } from "../hooks/use-writing-working-copy";
 import { createChapterEditorDraft, isChapterEditorDraftDirty } from "../lib/chapter-editor-draft";
+import { fetchChapter } from "../lib/chapter-volume-api";
 import { createEditorExtensions } from "../lib/editor-config";
 import {
   getNextWritingWorkingCopyTimestamp,
