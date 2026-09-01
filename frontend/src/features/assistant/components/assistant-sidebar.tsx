@@ -74,6 +74,15 @@ import {
   syncParentConversationState,
   type AssistantConversationStackState,
 } from "../lib/assistant-conversation-state";
+import {
+  getStoredAgentKey,
+  getStoredModelId,
+  getStoredReasoningEffort,
+  isReasoningEffort,
+  storeAgentKey,
+  storeModelId,
+  storeReasoningEffort,
+} from "../lib/assistant-preferences";
 import type { AssistantSidebarState } from "../lib/assistant-state.types";
 import {
   applyTaskUsageDelta,
@@ -122,9 +131,6 @@ export interface AssistantSidebarHandle {
   prepareSceneDraft: (request: SceneDraftRequest) => void;
 }
 
-const ASSISTANT_MODEL_STORAGE_KEY = "openfic.agent.selectedModelId";
-const ASSISTANT_AGENT_STORAGE_KEY = "openfic.agent.selectedAgentKey";
-const ASSISTANT_REASONING_EFFORT_STORAGE_KEY = "openfic.agent.reasoningEffort";
 const CONTEXT_MID_FIELD_CHAPTER_COUNT = 10;
 const CONTEXT_NEAR_FIELD_CHAPTER_COUNT = 9;
 
@@ -143,44 +149,6 @@ function needsContextCompletionWarning(status: string, isStale: boolean): boolea
   if (status === "ready" && !isStale) return false;
   return (
     status === "not_generated" || status === "failed" || status === "queued" || status === "running"
-  );
-}
-
-function getStoredReasoningEffort(modelId: string, supportsReasoning: boolean): ReasoningEffort {
-  if (!supportsReasoning) return "off";
-  if (typeof window === "undefined" || !modelId) return "medium";
-  try {
-    const stored = JSON.parse(
-      window.localStorage.getItem(ASSISTANT_REASONING_EFFORT_STORAGE_KEY) ?? "{}",
-    ) as Record<string, string>;
-    const value = stored[modelId];
-    return ["off", "low", "medium", "high", "xhigh", "max"].includes(value)
-      ? (value as ReasoningEffort)
-      : "medium";
-  } catch {
-    return "medium";
-  }
-}
-
-function isReasoningEffort(value: unknown): value is ReasoningEffort {
-  return (
-    typeof value === "string" && ["off", "low", "medium", "high", "xhigh", "max"].includes(value)
-  );
-}
-
-function storeReasoningEffort(modelId: string, reasoningEffort: ReasoningEffort): void {
-  if (typeof window === "undefined" || !modelId) return;
-  let stored: Record<string, ReasoningEffort> = {};
-  try {
-    stored = JSON.parse(
-      window.localStorage.getItem(ASSISTANT_REASONING_EFFORT_STORAGE_KEY) ?? "{}",
-    ) as Record<string, ReasoningEffort>;
-  } catch {
-    // Replace malformed local preferences with the persisted session value.
-  }
-  window.localStorage.setItem(
-    ASSISTANT_REASONING_EFFORT_STORAGE_KEY,
-    JSON.stringify({ ...stored, [modelId]: reasoningEffort }),
   );
 }
 
@@ -274,12 +242,10 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
     const queryClient = useQueryClient();
 
     const [selectedModelId, setSelectedModelId] = useState<string>(() => {
-      if (typeof window === "undefined") return "";
-      return window.localStorage.getItem(ASSISTANT_MODEL_STORAGE_KEY) ?? "";
+      return getStoredModelId();
     });
     const [selectedAgentKey, setSelectedAgentKey] = useState<string>(() => {
-      if (typeof window === "undefined") return "";
-      return window.localStorage.getItem(ASSISTANT_AGENT_STORAGE_KEY) ?? "";
+      return getStoredAgentKey();
     });
     const [conversationState, setConversationState] = useState<AssistantConversationStackState>(
       () => createConversationStackState(""),
@@ -406,14 +372,14 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
 
     useEffect(() => {
       if (selectedModelId) {
-        window.localStorage.setItem(ASSISTANT_MODEL_STORAGE_KEY, selectedModelId);
+        storeModelId(selectedModelId);
       }
     }, [selectedModelId]);
 
     useEffect(() => {
       const selectedAgent = primaryAgents.find((agent) => agent.key === selectedAgentKey);
       if (selectedAgentKey && !selectedAgent?.metadata.workflow_only) {
-        window.localStorage.setItem(ASSISTANT_AGENT_STORAGE_KEY, selectedAgentKey);
+        storeAgentKey(selectedAgentKey);
       }
     }, [primaryAgents, selectedAgentKey]);
 
@@ -614,7 +580,7 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
         setSelectedAgentKey(confirmedAgentKey);
         const confirmedAgent = primaryAgents.find((agent) => agent.key === confirmedAgentKey);
         if (!confirmedAgent?.metadata.workflow_only) {
-          window.localStorage.setItem(ASSISTANT_AGENT_STORAGE_KEY, confirmedAgentKey);
+          storeAgentKey(confirmedAgentKey);
         }
       },
       projectedSpecialPanels: projectedSubagentSpecialPanels,
@@ -1186,7 +1152,7 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
 
     const handleModelChange = useCallback((nextModelId: string) => {
       setSelectedModelId(nextModelId);
-      window.localStorage.setItem(ASSISTANT_MODEL_STORAGE_KEY, nextModelId);
+      storeModelId(nextModelId);
     }, []);
 
     const handleReasoningEffortChange = useCallback(
@@ -1217,7 +1183,7 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
         }
         if (!hasActiveSession) setContextMode("local");
         setSelectedAgentKey(nextAgentKey);
-        window.localStorage.setItem(ASSISTANT_AGENT_STORAGE_KEY, nextAgentKey);
+        storeAgentKey(nextAgentKey);
         if (hasActiveSession) {
           const agentName = primaryAgents.find((agent) => agent.key === nextAgentKey)?.display_name;
           toast.success(t("assistant.agentSwitchNextTurn", { agent: agentName || nextAgentKey }));
@@ -1240,7 +1206,7 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
         backToTaskList();
         setContextMode(nextContextMode);
         setSelectedAgentKey("discuss");
-        window.localStorage.setItem(ASSISTANT_AGENT_STORAGE_KEY, "discuss");
+        storeAgentKey("discuss");
       },
       [backToTaskList],
     );
