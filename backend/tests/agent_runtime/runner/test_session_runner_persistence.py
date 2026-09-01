@@ -22,6 +22,7 @@ from app.agent_runtime.persistence.child_runs import (
 from app.agent_runtime.persistence.model import AgentChildRun
 from app.agent_runtime.runner.run_registry import get_agent_run_registry
 from app.agent_runtime.runner.session_runner import SessionRunner
+from app.agent_runtime.runner.task_usage_recorder import TaskUsageRecorder
 from app.storage.database import _set_sqlite_pragma  # noqa: F401  ensure module ready
 from tests.model_registry import register_sqlmodel_models
 
@@ -784,6 +785,51 @@ async def test_emit_persisted_task_usage_events_preserves_compaction_usage_kind(
             "usage_kind": "compaction",
         }
     ]
+
+
+@pytest.mark.asyncio
+async def test_task_usage_recorder_persists_usage_and_builds_payloads(isolated_db):
+    recorder = TaskUsageRecorder(
+        session_id="s_usage_recorder",
+        task_id="task_x",
+        model_config={
+            "max_context_tokens": 8000,
+            "input_price": 2.0,
+            "output_price": 8.0,
+            "cache_read_price": 0.5,
+        },
+    )
+
+    usage_payload, delta_payload = await recorder.persist_task_usage_and_build_payload(
+        {
+            "usage_kind": "compaction",
+            "usage": {
+                "input_tokens": 1_000,
+                "output_tokens": 200,
+                "input_token_details": {"cache_read": 200},
+            },
+        }
+    )
+
+    assert usage_payload == {
+        "session_id": "s_usage_recorder",
+        "token_input": 1_000,
+        "token_output": 200,
+        "token_cache": 200,
+        "cost": 0.0033,
+        "context_input_tokens": 1_000,
+        "context_length": 8000,
+        "usage_kind": "compaction",
+    }
+    assert delta_payload == {
+        "session_id": "s_usage_recorder",
+        "task_id": "task_x",
+        "token_input": 1_000,
+        "token_output": 200,
+        "token_cache": 200,
+        "cost": 0.0033,
+        "usage_kind": "compaction",
+    }
 
 
 @pytest.mark.asyncio

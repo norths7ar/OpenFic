@@ -38,20 +38,15 @@ from app.agent_runtime.runner.checkpointer import (
 )
 from app.agent_runtime.runner.event_translator import EventTranslator
 from app.agent_runtime.runner.run_registry import get_agent_run_registry
+from app.agent_runtime.runner.task_usage_recorder import TaskUsageRecorder
 from app.agent_runtime.streaming.replay_buffer import get_agent_event_replay_buffer
 from app.agent_runtime.types import DEFAULT_AGENT_RECURSION_LIMIT
-from app.agent_runtime.usage_cost import (
-    calculate_llm_call_cost,
-    extract_cache_read_tokens,
-    extract_cache_write_tokens,
-)
 from app.audit import AuditContext
 from app.core.ids import generate_id
 from app.socket import emit
 from app.socket.handlers import agent_session_room
 from app.storage.database import _get_session_factory, create_session
 from app.storage.repos import revision_repo
-from app.storage.services import task_service
 
 _HELD_EVENT_SESSION_IDS: ContextVar[frozenset[str]] = ContextVar(
     "session_runner_held_event_session_ids",
@@ -431,92 +426,21 @@ class SessionRunner:
         return checkpoint_id if isinstance(checkpoint_id, str) and checkpoint_id else None
 
     def _normalize_usage_event(self, event_data: dict) -> dict:
-        usage = event_data.get("usage") if isinstance(event_data, dict) else None
-        usage_dict = usage if isinstance(usage, dict) else {}
-        token_input = int(
-            usage_dict.get("input_tokens")
-            or usage_dict.get("prompt_tokens")
-            or usage_dict.get("token_input")
-            or 0
-        )
-        token_output = int(
-            usage_dict.get("output_tokens")
-            or usage_dict.get("completion_tokens")
-            or usage_dict.get("token_output")
-            or 0
-        )
-        token_cache = extract_cache_read_tokens(usage_dict)
-        if token_cache == 0:
-            token_cache = max(int(usage_dict.get("token_cache") or 0), 0)
-        token_cache_write = extract_cache_write_tokens(usage_dict)
-        if token_cache_write == 0:
-            token_cache_write = max(int(usage_dict.get("token_cache_write") or 0), 0)
-        call_cost = calculate_llm_call_cost(
-            token_input=token_input,
-            token_output=token_output,
-            token_cache=token_cache,
-            token_cache_write=token_cache_write,
-            input_price=float(self.model_config.get("input_price") or 0),
-            output_price=float(self.model_config.get("output_price") or 0),
-            cache_read_price=float(self.model_config.get("cache_read_price") or 0),
-            cache_write_price=float(self.model_config.get("cache_write_price") or 0),
-        )
-        return {
-            "session_id": self.session_id,
-            "token_input": token_input,
-            "token_output": token_output,
-            "token_cache": token_cache,
-            "cost": call_cost,
-            "context_input_tokens": token_input,
-            "context_length": int(self.model_config.get("max_context_tokens", 0)),
-            **(
-                {"usage_kind": event_data["usage_kind"]}
-                if isinstance(event_data.get("usage_kind"), str) and event_data.get("usage_kind")
-                else {}
-            ),
-        }
+        return TaskUsageRecorder(
+            session_id=self.session_id,
+            task_id=self.task_id,
+            model_config=self.model_config,
+        ).normalize_usage_event(event_data)
 
     async def _persist_task_usage_and_build_payload(
         self,
         event_data: dict,
     ) -> tuple[dict, dict]:
-        normalized = self._normalize_usage_event(event_data)
-        session = await create_session()
-        try:
-            task = await task_service.add_task_token_usage(
-                session,
-                task_id=self.task_id,
-                token_input=int(normalized["token_input"]),
-                token_output=int(normalized["token_output"]),
-                token_cache=int(normalized["token_cache"]),
-                cost=float(normalized["cost"]),
-            )
-            await session.commit()
-        finally:
-            await session.close()
-
-        usage_payload = {
-            "session_id": self.session_id,
-            "token_input": int(task.token_input),
-            "token_output": int(task.token_output),
-            "token_cache": int(task.token_cache),
-            "cost": float(task.cost),
-            "context_input_tokens": int(task.context_input_tokens),
-            "context_length": int(normalized["context_length"]),
-        }
-        delta_payload = {
-            "session_id": self.session_id,
-            "task_id": self.task_id,
-            "token_input": int(normalized["token_input"]),
-            "token_output": int(normalized["token_output"]),
-            "token_cache": int(normalized["token_cache"]),
-            "cost": float(normalized["cost"]),
-        }
-        usage_kind = normalized.get("usage_kind")
-        if isinstance(usage_kind, str) and usage_kind:
-            usage_payload["usage_kind"] = usage_kind
-            delta_payload["usage_kind"] = usage_kind
-        return usage_payload, delta_payload
+        return await TaskUsageRecorder(
+            session_id=self.session_id,
+            task_id=self.task_id,
+            model_config=self.model_config,
+        ).persist_task_usage_and_build_payload(event_data)
 
     async def _emit_persisted_task_usage_events(self, event_data: dict) -> None:
         async with self._event_session_lock():
