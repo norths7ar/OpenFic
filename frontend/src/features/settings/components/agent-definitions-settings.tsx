@@ -38,7 +38,6 @@ import {
   DEFAULT_AGENT_ICON,
   getAgentDisplayDescription,
 } from "@/lib/agent-branding";
-import { fetchSkills } from "@/lib/api-client";
 import type { Skill } from "@/lib/skill.types";
 import { useLlmModelOptions } from "@/lib/use-llm-model-options";
 
@@ -66,6 +65,7 @@ import {
   SYSTEM_LIGHT_MODEL_REFERENCE,
 } from "../lib/agent-definitions.types";
 import { fetchSettings } from "../lib/settings-api";
+import { fetchSkills } from "../lib/skills-api";
 import { AgentBrandingPicker } from "./agent-branding-picker";
 import { AgentSettingsLockNotice } from "./agent-settings-lock-notice";
 

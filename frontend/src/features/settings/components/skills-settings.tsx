@@ -36,24 +36,24 @@ import {
   type ContextMenuPosition,
 } from "@/components/context-menu";
 import { toast } from "@/components/toast";
-import {
-  createSkill,
-  createSkillReferenceDoc,
-  deleteSkill,
-  deleteSkillReferenceDoc,
-  fetchSkills,
-  fetchSkillReferenceDocs,
-  forkSkill,
-  toggleSkill,
-  updateSkill,
-  updateSkillReferenceDoc,
-} from "@/lib/api-client";
 import { getPinyin, getInitials } from "@/lib/pinyin-search";
 import type { SkillReferenceDoc, SkillReferenceDocCreate } from "@/lib/skill-reference-doc.types";
 import type { Skill, SkillCreate, SkillListResponse } from "@/lib/skill.types";
 import { countTokens } from "@/lib/tiktoken-utils";
 
 import { fetchAgentDefinitions } from "../lib/agent-definitions-api";
+import {
+  createSkill,
+  createSkillReferenceDoc,
+  deleteSkill,
+  deleteSkillReferenceDoc,
+  fetchSkillReferenceDocs,
+  fetchSkills,
+  forkSkill,
+  toggleSkill,
+  updateSkill,
+  updateSkillReferenceDoc,
+} from "../lib/skills-api";
 import { AgentSettingsLockNotice } from "./agent-settings-lock-notice";
 import { ImportSkillDialog } from "./import-skill-dialog";
 

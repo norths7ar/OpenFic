@@ -4,8 +4,9 @@ import { useCallback, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { Spinner } from "@/components";
-import { importSkill } from "@/lib/api-client";
 import type { Skill, SkillImportResult } from "@/lib/skill.types";
+
+import { importSkill } from "../lib/skills-api";
 
 import "./import-skill-dialog.css";
 
