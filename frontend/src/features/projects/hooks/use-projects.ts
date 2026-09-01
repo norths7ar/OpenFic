@@ -6,10 +6,11 @@
 
 import { keepPreviousData, useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
-import { fetchProjects, createProject, updateProject, deleteProject } from "@/lib/api-client";
 import { deleteAgentInputHistory, removeRecentProjectByProjectId } from "@/lib/local-db";
 import type { ProjectCreate, ProjectUpdate, ProjectListParams } from "@/lib/project.types";
 import type { RecentProject } from "@/lib/recent-projects";
+
+import { fetchProjects, createProject, updateProject, deleteProject } from "../lib/project-api";
 
 /** 项目列表查询 key */
 export const projectsQueryKey = ["projects"] as const;

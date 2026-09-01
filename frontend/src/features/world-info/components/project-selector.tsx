@@ -9,7 +9,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 
 import { LabeledSelect } from "@/components/select";
-import { fetchProjects } from "@/lib/api-client";
+import { fetchProjects } from "@/features/projects/lib/project-api";
 import type { Project } from "@/lib/project.types";
 
 interface ProjectSelectorProps {

@@ -17,12 +17,12 @@ import { Virtuoso } from "react-virtuoso";
 
 import "./chapter-export-dialog.css";
 
+import { fetchProject } from "@/features/projects/lib/project-api";
 import {
   cancelChapterExport,
   createChapterExport,
   fetchChapter,
   fetchChapterExport,
-  fetchProject,
 } from "@/lib/api-client";
 import { subscribeBackgroundEvents } from "@/lib/background-socket";
 import type { ChapterExport } from "@/lib/chapter-export.types";

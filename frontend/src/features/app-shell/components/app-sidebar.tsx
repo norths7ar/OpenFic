@@ -22,7 +22,7 @@ import { useLocation, useNavigate, useParams } from "react-router";
 
 import { useAppShell } from "@/app/app-shell-context";
 import { toast } from "@/components";
-import { fetchProject, fetchProjects } from "@/lib/api-client";
+import { fetchProject, fetchProjects } from "@/features/projects/lib/project-api";
 
 import {
   SIDEBAR_COLLAPSED_WIDTH,

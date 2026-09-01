@@ -22,8 +22,8 @@ import { AssistantSidebarHost } from "@/features/app-shell/components/assistant-
 import { MobileAppSidebarTrigger } from "@/features/app-shell/components/mobile-app-sidebar-trigger";
 import type { AssistantSidebarState } from "@/features/assistant";
 import { buildWorldInfoEntryMentionTag } from "@/features/assistant/lib/mention-text";
+import { fetchProjects } from "@/features/projects/lib/project-api";
 import { usePersistedPanelLayout } from "@/hooks/use-persisted-panel-layout";
-import { fetchProjects } from "@/lib/api-client";
 import { getPreference, setPreference } from "@/lib/local-db";
 import { projectDataQueryKeys } from "@/lib/project-data-query-keys";
 import type {

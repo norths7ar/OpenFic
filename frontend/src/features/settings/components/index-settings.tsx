@@ -12,7 +12,7 @@ import { useTranslation } from "react-i18next";
 
 import { ConfirmDialog, Spinner, toast } from "@/components";
 import type { ModelIdSelectOption } from "@/components/model-id-select";
-import { fetchProjects } from "@/lib/api-client";
+import { fetchProjects } from "@/features/projects/lib/project-api";
 import { subscribeBackgroundEvents, type BackgroundEvent } from "@/lib/background-socket";
 import {
   OVERALL_INDEX_STATUS_QUERY_KEY,
