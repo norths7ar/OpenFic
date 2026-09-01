@@ -460,6 +460,45 @@ async def test_index_start_emits_status_event_after_commit(
 
 
 @pytest.mark.asyncio
+async def test_after_commit_emit_task_is_retained_until_completion(
+    session: AsyncSession,
+    monkeypatch,
+) -> None:
+    import asyncio
+
+    import app.retrieval.index_status as index_status_mod
+    import app.socket as socket_mod
+
+    started = asyncio.Event()
+    release = asyncio.Event()
+    task: asyncio.Task[None] | None = None
+
+    async def blocking_emit() -> None:
+        started.set()
+        await release.wait()
+
+    monkeypatch.setattr(socket_mod, "is_connected", lambda: True)
+    existing_tasks = set(index_status_mod._pending_emit_tasks)
+
+    try:
+        index_status_mod._schedule_after_commit(session, blocking_emit)
+        await session.commit()
+        await asyncio.wait_for(started.wait(), timeout=1.0)
+
+        scheduled_tasks = index_status_mod._pending_emit_tasks - existing_tasks
+        assert len(scheduled_tasks) == 1
+        task = scheduled_tasks.pop()
+        assert not task.done()
+    finally:
+        release.set()
+        if task is not None:
+            await asyncio.wait_for(task, timeout=1.0)
+            await asyncio.sleep(0)
+
+    assert task not in index_status_mod._pending_emit_tasks
+
+
+@pytest.mark.asyncio
 async def test_commit_and_emit_index_status_keeps_committed_progress_snapshot(
     session: AsyncSession,
     monkeypatch,

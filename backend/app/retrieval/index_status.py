@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Callable, Coroutine
 from typing import Any
 
 from loguru import logger
@@ -24,6 +25,7 @@ from app.socket.handlers import background_project_room
 
 INDEX_STATUS_EVENT = "index:status"
 INDEX_CONFIG_EVENT = "index:config"
+_pending_emit_tasks: set[asyncio.Task[None]] = set()
 
 
 async def emit_project_index_status_payload(
@@ -65,7 +67,10 @@ async def _emit_index_config() -> None:
         logger.warning(f"emit index:config failed: {exc}")
 
 
-def _schedule_after_commit(session: AsyncSession, coro_factory) -> None:
+def _schedule_after_commit(
+    session: AsyncSession,
+    coro_factory: Callable[[], Coroutine[Any, Any, None]],
+) -> None:
     """注册一次性 after_commit 钩子，在提交后调度协程（仅在有前端连接时）。
 
     注册过程为 best-effort：会话不具备 SQLAlchemy 事件支持时静默跳过，
@@ -88,7 +93,9 @@ def _schedule_after_commit(session: AsyncSession, coro_factory) -> None:
                 loop = asyncio.get_running_loop()
             except RuntimeError:
                 return
-            loop.create_task(coro_factory())
+            task = loop.create_task(coro_factory(), name="index-status-after-commit")
+            _pending_emit_tasks.add(task)
+            task.add_done_callback(_pending_emit_tasks.discard)
     except Exception as exc:
         logger.debug(f"schedule index status emit skipped: {exc}")
 
