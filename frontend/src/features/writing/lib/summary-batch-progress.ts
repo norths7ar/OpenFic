@@ -1,6 +1,11 @@
-import type { BackgroundEvent } from "@/features/assistant/lib/agent-runtime-api";
-
 import type { SummaryBackgroundJobItem, SummaryMaintenance } from "./summary-api";
+
+interface SummaryBatchProgressEvent {
+  type: string;
+  job_id?: string;
+  payload?: Record<string, unknown>;
+  created_at?: string;
+}
 
 export const ITEM_TERMINAL_EVENT_TYPES = new Set([
   "background_item_succeeded",
@@ -26,7 +31,7 @@ function resolveProgressMessage(
 }
 
 export function extractBatchProgressFromEvent(
-  event: BackgroundEvent,
+  event: SummaryBatchProgressEvent,
   current: SummaryMaintenance["batchProgress"],
 ): SummaryMaintenance["batchProgress"] {
   if (!event.job_id || !event.payload) return current;
@@ -75,7 +80,7 @@ function hasAuthoritativeProgress(current: SummaryMaintenance["batchProgress"] |
 
 export function updateBatchProgressForItemEvent(
   current: SummaryMaintenance["batchProgress"],
-  event: BackgroundEvent,
+  event: SummaryBatchProgressEvent,
   previousJob: SummaryBackgroundJobItem | undefined,
 ): SummaryMaintenance["batchProgress"] {
   const jobId = getString(event.job_id) ?? current?.jobId;
