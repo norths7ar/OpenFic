@@ -2,7 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
 import { useEffect } from "react";
 
-import { apiClient } from "@/lib/api-client";
+import { apiClient } from "@/lib/api-transport";
 import { getSocket } from "@/lib/socket-client";
 
 export const AGENT_SETTINGS_LOCK_QUERY_KEY = ["agent-settings-lock"] as const;

@@ -25,19 +25,19 @@ import {
 } from "@/components/context-menu";
 import { SimpleSelect } from "@/components/select";
 import { toast } from "@/components/toast";
-import type {
-  AgentRule,
-  AgentRuleCreate,
-  AgentRuleListResponse,
-  AgentRuleScope,
-} from "@/lib/agent-rule.types";
 import {
   createAgentRule,
   deleteAgentRule,
   fetchAgentRuleScopes,
   fetchAgentRules,
   updateAgentRule,
-} from "@/lib/api-client";
+} from "@/features/assistant/lib/agent-context-api";
+import type {
+  AgentRule,
+  AgentRuleCreate,
+  AgentRuleListResponse,
+  AgentRuleScope,
+} from "@/lib/agent-rule.types";
 import { countTokens } from "@/lib/tiktoken-utils";
 
 import { AgentSettingsLockNotice } from "./agent-settings-lock-notice";

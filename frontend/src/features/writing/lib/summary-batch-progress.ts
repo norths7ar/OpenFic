@@ -1,4 +1,4 @@
-import type { BackgroundEvent } from "@/lib/api-client";
+import type { BackgroundEvent } from "@/features/assistant/lib/agent-runtime-api";
 
 import type { SummaryBackgroundJobItem, SummaryMaintenance } from "./summary-api";
 

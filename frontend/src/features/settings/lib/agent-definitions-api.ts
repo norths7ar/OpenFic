@@ -4,7 +4,7 @@
  * 智能体定义 API 客户端，对接后端 /agent-definitions。
  */
 
-import { apiClient } from "@/lib/api-client";
+import { apiClient } from "@/lib/api-transport";
 
 import type {
   AgentDefinitionCreateRequest,

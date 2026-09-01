@@ -12,7 +12,7 @@ import {
   type BackgroundEvent,
   type BackgroundProjectionSubscription,
   type BackgroundSnapshot,
-} from "@/lib/api-client";
+} from "@/features/assistant/lib/agent-runtime-api";
 import { requestBackgroundSnapshot } from "@/lib/background-socket";
 
 import {

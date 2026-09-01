@@ -4,7 +4,7 @@
  * 设置 API 客户端。
  */
 
-import { apiClient } from "@/lib/api-client";
+import { apiClient } from "@/lib/api-transport";
 
 import type {
   AgentToolMetadata,

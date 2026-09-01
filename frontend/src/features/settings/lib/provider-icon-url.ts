@@ -1,4 +1,4 @@
-import { getApiBaseUrl, resolveBackendUrl } from "@/lib/api-client";
+import { getApiBaseUrl, resolveBackendUrl } from "@/lib/api-transport";
 
 export function getProviderIconUrl(iconPath?: string | null): string | null {
   if (!iconPath) {

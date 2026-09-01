@@ -7,7 +7,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo } from "react";
 
-import { apiClient } from "@/lib/api-client";
+import { apiClient } from "@/lib/api-transport";
 import { subscribeIndexStatus } from "@/lib/background-socket";
 
 export type IndexStatus =

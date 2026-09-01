@@ -7,7 +7,7 @@
 
 import posthog from "posthog-js";
 
-import { getApiBaseUrl } from "./api-client";
+import { getApiBaseUrl } from "./api-transport";
 
 let initialized = false;
 let cachedConfig: { apiKey: string; host: string } | null = null;
