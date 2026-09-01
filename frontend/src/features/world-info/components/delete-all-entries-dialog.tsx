@@ -4,8 +4,9 @@ import { useCallback } from "react";
 import { useTranslation } from "react-i18next";
 
 import { toast } from "@/components/toast";
-import { deleteAllWorldInfoEntries } from "@/lib/api-client";
 import { projectDataQueryKeys } from "@/lib/project-data-query-keys";
+
+import { deleteAllWorldInfoEntries } from "../lib/world-info-api";
 
 interface DeleteAllEntriesDialogProps {
   open: boolean;

@@ -18,8 +18,9 @@ import { Spinner } from "@/components";
 
 import "./import-world-info-dialog.css";
 
-import { importWorldInfoEntriesStream, previewWorldInfoImport } from "@/lib/api-client";
 import type { WorldInfoImportMode, WorldInfoImportPreviewResponse } from "@/lib/world-info.types";
+
+import { importWorldInfoEntriesStream, previewWorldInfoImport } from "../lib/world-info-api";
 
 interface ImportWorldInfoDialogProps {
   open: boolean;

@@ -4,9 +4,10 @@ import { ChevronDown, ChevronRight, ChevronsUpDown } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { searchWorldInfoEntries } from "@/lib/api-client";
 import { projectDataQueryKeys } from "@/lib/project-data-query-keys";
 import type { WorldInfoEntrySearchResult } from "@/lib/world-info.types";
+
+import { searchWorldInfoEntries } from "../lib/world-info-api";
 
 interface EntrySearchPopoverProps {
   worldInfoId: string;

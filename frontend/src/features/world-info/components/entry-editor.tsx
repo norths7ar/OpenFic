@@ -12,7 +12,6 @@ import { useTranslation } from "react-i18next";
 
 import { MarkdownEditor } from "@/components";
 import { toast } from "@/components/toast";
-import { updateWorldInfoEntry } from "@/lib/api-client";
 import {
   getEditorContentLimit,
   MAX_EDITOR_CONTENT_CHARACTERS,
@@ -26,6 +25,7 @@ import type {
   WorldInfoEntryBriefListResponse,
 } from "@/lib/world-info.types";
 
+import { updateWorldInfoEntry } from "../lib/world-info-api";
 import { resolveRemoteEntryEditorState } from "./entry-editor-state";
 
 interface EntryEditorProps {

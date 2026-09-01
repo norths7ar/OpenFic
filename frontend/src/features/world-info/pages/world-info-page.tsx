@@ -23,18 +23,7 @@ import { MobileAppSidebarTrigger } from "@/features/app-shell/components/mobile-
 import type { AssistantSidebarState } from "@/features/assistant";
 import { buildWorldInfoEntryMentionTag } from "@/features/assistant/lib/mention-text";
 import { usePersistedPanelLayout } from "@/hooks/use-persisted-panel-layout";
-import {
-  fetchWorldInfoByProject,
-  fetchProjects,
-  fetchWorldInfoEntries,
-  fetchWorldInfoEntry,
-  createWorldInfoEntry,
-  toggleWorldInfoEntry,
-  deleteWorldInfoEntry,
-  moveWorldInfoEntry,
-  batchDeleteWorldInfoEntries,
-  batchToggleWorldInfoEntries,
-} from "@/lib/api-client";
+import { fetchProjects } from "@/lib/api-client";
 import { getPreference, setPreference } from "@/lib/local-db";
 import { projectDataQueryKeys } from "@/lib/project-data-query-keys";
 import type {
@@ -46,6 +35,17 @@ import type {
 import { EntryEditor } from "../components/entry-editor";
 import { EntryList } from "../components/entry-list";
 import { ImportWorldInfoDialog } from "../components/import-world-info-dialog";
+import {
+  batchDeleteWorldInfoEntries,
+  batchToggleWorldInfoEntries,
+  createWorldInfoEntry,
+  deleteWorldInfoEntry,
+  fetchWorldInfoByProject,
+  fetchWorldInfoEntries,
+  fetchWorldInfoEntry,
+  moveWorldInfoEntry,
+  toggleWorldInfoEntry,
+} from "../lib/world-info-api";
 import { useWorldInfoStore } from "../store/use-world-info-store";
 import {
   mergeWorldInfoEntryOrder,
