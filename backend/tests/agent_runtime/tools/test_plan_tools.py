@@ -1,4 +1,3 @@
-import json
 from collections.abc import Iterator
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
@@ -40,7 +39,7 @@ def _fake_session():
 
 
 @pytest.mark.asyncio
-async def test_write_plan_tool_returns_success_status_after_replacing_session_todos() -> None:
+async def test_write_plan_tool_returns_current_plan_after_replacing_session_todos() -> None:
     session = _fake_session()
     snapshot = {
         "todos": [
@@ -68,10 +67,7 @@ async def test_write_plan_tool_returns_success_status_after_replacing_session_to
         )[0]
         result = await tool.ainvoke({"todos": snapshot["todos"]})
 
-    payload = json.loads(result)
-    assert payload == {
-        "success": True,
-    }
+    assert result == "[1 in_progress / high priority]\nReview the outline"
     assert write_plan_service.await_args is not None
     assert write_plan_service.await_args.kwargs["runtime_state"]["session_id"] == "session-1"
     assert write_plan_service.await_args.kwargs["todos"] == snapshot["todos"]

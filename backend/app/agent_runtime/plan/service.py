@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
 from typing import Any
 
@@ -13,6 +14,26 @@ from app.agent_runtime.tools.errors import ToolExecutionError
 
 PLAN_STATUSES = {"pending", "in_progress", "completed"}
 PLAN_PRIORITIES = {"low", "medium", "high"}
+
+
+def format_plan_todos(todos: Sequence[Mapping[str, str]]) -> str:
+    if not todos:
+        return "当前计划为空。"
+    return "\n\n".join(
+        f"[{index} {todo['status']} / {todo['priority']} priority]\n{todo['content']}"
+        for index, todo in enumerate(todos, start=1)
+    )
+
+
+def _todo_payloads(todos: Sequence[PlanTodoRecord]) -> list[dict[str, str]]:
+    return [
+        {
+            "content": todo.content,
+            "status": todo.status,
+            "priority": todo.priority,
+        }
+        for todo in todos
+    ]
 
 
 def _resolve_session_id(runtime_state: dict[str, Any]) -> str:
@@ -40,16 +61,17 @@ def _normalize_todo(payload: dict[str, Any]) -> dict[str, str]:
 
 
 def _serialize_todos(todos: list[PlanTodoRecord]) -> dict[str, list[dict[str, str]]]:
-    return {
-        "todos": [
-            {
-                "content": todo.content,
-                "status": todo.status,
-                "priority": todo.priority,
-            }
-            for todo in todos
-        ]
-    }
+    return {"todos": _todo_payloads(todos)}
+
+
+async def get_plan_todos(
+    session: AsyncSession,
+    session_id: str,
+) -> list[dict[str, str]] | None:
+    plan = await plan_repo.get_plan_by_session(session, session_id)
+    if plan is None:
+        return None
+    return _todo_payloads(await plan_repo.list_todos_by_plan(session, plan.id))
 
 
 async def write_plan(

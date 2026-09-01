@@ -36,9 +36,15 @@ def base_state() -> AgentRuntimeState:
 
 @pytest.fixture(autouse=True)
 def _compress_setting_disabled() -> None:
-    with patch(
-        "app.agent_runtime.context.processors.compress.setting_repo.get_by_key",
-        new=AsyncMock(return_value=None),
+    with (
+        patch(
+            "app.agent_runtime.context.processors.compress.setting_repo.get_by_key",
+            new=AsyncMock(return_value=None),
+        ),
+        patch(
+            "app.agent_runtime.context.parts.session_plan.plan_service.get_plan_todos",
+            new=AsyncMock(return_value=None),
+        ),
     ):
         yield
 
@@ -197,6 +203,182 @@ async def test_build_context_applies_persisted_compaction_overlay_to_history_onl
         "<compaction-summary>\n旧内容摘要\n</compaction-summary>",
         "最新",
     ]
+
+
+@pytest.mark.asyncio
+async def test_build_context_injects_current_plan_after_compaction_summary(
+    base_state: AgentRuntimeState,
+) -> None:
+    compaction = PersistedCompaction(
+        id="compaction-1",
+        session_id="s1",
+        task_id="t1",
+        project_id="p1",
+        start_seq=1,
+        end_seq=2,
+        summary="旧内容摘要",
+        trigger="auto",
+        source_input_tokens=100,
+        summary_tokens=10,
+        created_at=datetime.now(UTC),
+    )
+    todos = [
+        {"content": "继续起草场景", "status": "in_progress", "priority": "high"}
+    ]
+
+    with (
+        patch(
+            "app.agent_runtime.context.build_context.build_system_prompt",
+            new=AsyncMock(return_value=[]),
+        ),
+        patch(
+            "app.agent_runtime.context.build_context.build_rules",
+            new=AsyncMock(return_value=None),
+        ),
+        patch(
+            "app.agent_runtime.context.build_context.build_skills",
+            new=AsyncMock(return_value=None),
+        ),
+        patch(
+            "app.agent_runtime.context.build_context.compaction_repo.list_by_session",
+            new=AsyncMock(return_value=[compaction]),
+        ),
+        patch(
+            "app.agent_runtime.context.parts.session_plan.plan_service.get_plan_todos",
+            new=AsyncMock(return_value=todos),
+        ),
+    ):
+        out = await build_context(
+            state=base_state,
+            agent_name="build",
+            node_messages=[
+                {"role": "user", "content": "首轮", "metadata": {"seq": 0}},
+                {"role": "assistant", "content": "旧 A", "metadata": {"seq": 1}},
+                {"role": "user", "content": "旧 B", "metadata": {"seq": 2}},
+                {"role": "assistant", "content": "最新", "metadata": {"seq": 3}},
+            ],
+            db_session=AsyncMock(),
+        )
+
+    assert [message.content for message in out] == [
+        "首轮",
+        "<compaction-summary>\n旧内容摘要\n</compaction-summary>",
+        (
+            "<current-session-plan>\n"
+            "以下是当前会话的权威计划状态。执行任务时参考，并在状态发生变化时更新计划。\n\n"
+            "[1 in_progress / high priority]\n继续起草场景\n"
+            "</current-session-plan>"
+        ),
+        "最新",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_discuss_reads_active_plan_as_reference_only(
+    base_state: AgentRuntimeState,
+) -> None:
+    todos = [{"content": "修改提纲", "status": "pending", "priority": "medium"}]
+    with (
+        patch(
+            "app.agent_runtime.context.build_context.build_system_prompt",
+            new=AsyncMock(return_value=[]),
+        ),
+        patch(
+            "app.agent_runtime.context.build_context.build_rules",
+            new=AsyncMock(return_value=None),
+        ),
+        patch(
+            "app.agent_runtime.context.build_context.build_skills",
+            new=AsyncMock(return_value=None),
+        ),
+        patch(
+            "app.agent_runtime.context.build_context.compaction_repo.list_by_session",
+            new=AsyncMock(return_value=[]),
+        ),
+        patch(
+            "app.agent_runtime.context.parts.session_plan.plan_service.get_plan_todos",
+            new=AsyncMock(return_value=todos),
+        ),
+    ):
+        out = await build_context(
+            state=base_state,
+            agent_name="discuss",
+            node_messages=[{"role": "user", "content": "这个计划合理吗？"}],
+            db_session=AsyncMock(),
+        )
+
+    plan_message = next(
+        message for message in out if "<current-session-plan>" in str(message.content)
+    )
+    assert "仅供理解讨论背景" in str(plan_message.content)
+    assert "不要执行、推进或修改" in str(plan_message.content)
+    assert "修改提纲" in str(plan_message.content)
+
+
+@pytest.mark.asyncio
+async def test_build_context_does_not_inject_completed_or_duplicate_plan(
+    base_state: AgentRuntimeState,
+) -> None:
+    async def _build(todos, node_messages):
+        with (
+            patch(
+                "app.agent_runtime.context.build_context.build_system_prompt",
+                new=AsyncMock(return_value=[]),
+            ),
+            patch(
+                "app.agent_runtime.context.build_context.build_rules",
+                new=AsyncMock(return_value=None),
+            ),
+            patch(
+                "app.agent_runtime.context.build_context.build_skills",
+                new=AsyncMock(return_value=None),
+            ),
+            patch(
+                "app.agent_runtime.context.build_context.compaction_repo.list_by_session",
+                new=AsyncMock(return_value=[]),
+            ),
+            patch(
+                "app.agent_runtime.context.parts.session_plan.plan_service.get_plan_todos",
+                new=AsyncMock(return_value=todos),
+            ),
+        ):
+            return await build_context(
+                state=base_state,
+                agent_name="build",
+                node_messages=node_messages,
+                db_session=AsyncMock(),
+            )
+
+    completed = await _build(
+        [{"content": "完成校对", "status": "completed", "priority": "low"}],
+        [{"role": "user", "content": "继续"}],
+    )
+    assert all("<current-session-plan>" not in str(message.content) for message in completed)
+
+    formatted = "[1 pending / high priority]\n继续起草"
+    duplicate = await _build(
+        [{"content": "继续起草", "status": "pending", "priority": "high"}],
+        [
+            {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [
+                    {
+                        "id": "call-plan",
+                        "name": "write_plan",
+                        "args": {"todos": []},
+                    }
+                ],
+            },
+            {
+                "role": "tool",
+                "name": "write_plan",
+                "tool_call_id": "call-plan",
+                "content": formatted,
+            },
+        ],
+    )
+    assert all("<current-session-plan>" not in str(message.content) for message in duplicate)
 
 
 @pytest.mark.asyncio

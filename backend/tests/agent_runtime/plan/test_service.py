@@ -91,3 +91,37 @@ async def test_write_plan_accepts_an_empty_complete_list(session: AsyncSession) 
     cleared = await plan_service.write_plan(session, runtime_state=_state(), todos=[])
 
     assert cleared == {"todos": []}
+
+
+@pytest.mark.asyncio
+async def test_get_plan_todos_returns_the_current_session_snapshot(
+    session: AsyncSession,
+) -> None:
+    assert await plan_service.get_plan_todos(session, "missing") is None
+
+    await plan_service.write_plan(
+        session,
+        runtime_state=_state(),
+        todos=[_todo("Review the outline", "pending", "high")],
+    )
+
+    assert await plan_service.get_plan_todos(session, "session-1") == [
+        {
+            "content": "Review the outline",
+            "status": "pending",
+            "priority": "high",
+        }
+    ]
+
+
+def test_format_plan_todos_is_stable_and_model_readable() -> None:
+    assert plan_service.format_plan_todos([]) == "当前计划为空。"
+    assert plan_service.format_plan_todos(
+        [
+            _todo("Review the outline", "completed", "medium"),
+            _todo("Write the scene", "in_progress", "high"),
+        ]
+    ) == (
+        "[1 completed / medium priority]\nReview the outline\n\n"
+        "[2 in_progress / high priority]\nWrite the scene"
+    )

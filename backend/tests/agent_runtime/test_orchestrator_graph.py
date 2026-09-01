@@ -156,6 +156,35 @@ async def test_primary_tool_names_keeps_configured_embedding_tools() -> None:
     assert result == ["list_chapters", "search_chapters", "update_index"]
 
 
+@pytest.mark.asyncio
+async def test_discuss_primary_tool_names_never_include_write_plan() -> None:
+    from app.agent_runtime.graph.orchestrator.graph import _primary_tool_names
+
+    definition = SimpleNamespace(
+        enabled_tool_categories=("interaction", "plan"),
+        enabled_skills=[],
+    )
+    with patch(
+        "app.agent_runtime.graph.orchestrator.graph.load_agent_definition",
+        AsyncMock(return_value=definition),
+    ), patch(
+        "app.agent_runtime.graph.orchestrator.graph.get_tool_names_for_categories",
+        return_value=("ask_user", "write_plan"),
+    ), patch(
+        "app.agent_runtime.graph.orchestrator.graph.skill_tool_names_for_definition",
+        AsyncMock(return_value=()),
+    ), patch(
+        "app.agent_runtime.graph.orchestrator.graph.setting_repo.get_by_key",
+        AsyncMock(return_value=None),
+    ):
+        result = await _primary_tool_names(
+            {"configurable": {"db_session": object()}},
+            agent_key="discuss",
+        )
+
+    assert result == ["ask_user"]
+
+
 def test_session_runner_constructor_no_longer_accepts_mode():
     with pytest.raises(TypeError):
         SessionRunner(

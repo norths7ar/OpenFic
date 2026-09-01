@@ -6,6 +6,7 @@ from app.agent_runtime.context.errors import ContextBuildError
 from app.agent_runtime.context.parts.discussion_scope import build_discussion_scope
 from app.agent_runtime.context.parts.history import build_history
 from app.agent_runtime.context.parts.rules import build_rules
+from app.agent_runtime.context.parts.session_plan import build_session_plan
 from app.agent_runtime.context.parts.skills import build_skills
 from app.agent_runtime.context.parts.system_prompt import build_system_prompt
 from app.agent_runtime.context.parts.writing_scope import build_writing_scope
@@ -76,6 +77,19 @@ async def build_context_parts(
             cause=e,
         ) from e
     overlaid_history = apply_compaction_overlay(history, compactions)
+    plan_message = await build_session_plan(
+        state,
+        agent_name,
+        overlaid_history,
+        db_session,
+    )
+    if plan_message is not None:
+        insertion_index = 0
+        for index, message in enumerate(overlaid_history):
+            if (message.metadata or {}).get("compaction_id") is not None:
+                insertion_index = index + 1
+        overlaid_history.insert(insertion_index, plan_message)
+
     result = static + overlaid_history
     result = await compress_system_prompts_if_enabled(result, db_session)
     return result
