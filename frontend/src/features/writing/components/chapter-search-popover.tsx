@@ -4,8 +4,10 @@ import { useTranslation } from "react-i18next";
 
 import { ContentSearchPopover } from "@/components/content-search-popover";
 import type { ContentSearchResultItem } from "@/components/content-search-popover";
-import { searchChapters } from "@/lib/api-client";
-import type { ChapterSearchResultItem } from "@/lib/api-client";
+import {
+  searchChapters,
+  type ChapterSearchResultItem,
+} from "@/features/writing/lib/writing-search-api";
 
 interface ChapterSearchPopoverProps {
   projectId: string;

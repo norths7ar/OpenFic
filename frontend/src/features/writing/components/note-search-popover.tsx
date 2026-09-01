@@ -4,8 +4,7 @@ import { useTranslation } from "react-i18next";
 
 import { ContentSearchPopover } from "@/components/content-search-popover";
 import type { ContentSearchResultItem } from "@/components/content-search-popover";
-import { searchNotes } from "@/lib/api-client";
-import type { NoteSearchResultItem } from "@/lib/api-client";
+import { searchNotes, type NoteSearchResultItem } from "@/features/writing/lib/writing-search-api";
 import type { DocumentType } from "@/lib/note.types";
 
 interface NoteSearchPopoverProps {
