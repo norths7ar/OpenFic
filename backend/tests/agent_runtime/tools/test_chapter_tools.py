@@ -119,9 +119,9 @@ async def test_list_chapters_uses_required_volume_ref_and_volume_pagination() ->
             "app.agent_runtime.tools.impls.chapter.list_chapters.volume_repo.list_by_project",
             AsyncMock(return_value=[volume]),
         ), patch(
-            "app.agent_runtime.tools.impls.chapter.list_chapters.chapter_repo.list_by_volume",
+            "app.agent_runtime.tools.impls.chapter.list_chapters.chapter_repo.list_metadata_by_volume",
             AsyncMock(return_value=chapters),
-        ) as list_by_volume:
+        ) as list_metadata_by_volume:
             result = await tool.ainvoke(
                 {
                     "volume_ref": {"type": "order", "value": 1},
@@ -134,7 +134,9 @@ async def test_list_chapters_uses_required_volume_ref_and_volume_pagination() ->
         {"order": 1, "title": "第一章", "word_count": 4},
         {"order": 2, "title": "第二章", "word_count": 4},
     ]
-    list_by_volume.assert_awaited_once_with(mock_session, "vol-1", offset=5, limit=10)
+    list_metadata_by_volume.assert_awaited_once_with(
+        mock_session, "vol-1", offset=5, limit=10
+    )
 
 
 async def test_read_chapter_resolves_chapter_inside_volume() -> None:
@@ -151,9 +153,9 @@ async def test_read_chapter_resolves_chapter_inside_volume() -> None:
             "app.agent_runtime.tools.impls.chapter.read_chapter.volume_repo.list_by_project",
             AsyncMock(return_value=[volume]),
         ), patch(
-            "app.agent_runtime.tools.impls.chapter.read_chapter.chapter_repo.list_by_volume",
-            AsyncMock(return_value=[chapter]),
-        ) as list_by_volume:
+            "app.agent_runtime.tools.impls.chapter.read_chapter.chapter_repo.get_by_volume_ref",
+            AsyncMock(return_value=chapter),
+        ) as get_by_volume_ref:
             result = await tool.ainvoke(
                 {
                     "volume_ref": {"type": "title", "value": "第一卷"},
@@ -168,7 +170,9 @@ async def test_read_chapter_resolves_chapter_inside_volume() -> None:
         "content": "1|第一行\n2|第二行",
         "word_count": 6,
     }
-    list_by_volume.assert_awaited_once_with(mock_session, "vol-1")
+    get_by_volume_ref.assert_awaited_once_with(
+        mock_session, "vol-1", ref_type="order", ref_value=2
+    )
 
 
 async def test_write_chapter_appends_to_volume_and_returns_volume_id() -> None:
@@ -362,12 +366,8 @@ async def test_edit_chapter_rejects_over_limit_replacement_without_updating_repo
                 AsyncMock(return_value=[volume]),
             ),
             patch(
-                "app.agent_runtime.tools.impls.chapter.edit_chapter.chapter_repo.list_by_project",
-                AsyncMock(return_value=[chapter]),
-            ),
-            patch(
-                "app.agent_runtime.tools.impls.chapter.edit_chapter.chapter_repo.list_by_volume",
-                AsyncMock(return_value=[chapter]),
+                "app.agent_runtime.tools.impls.chapter.edit_chapter.chapter_repo.get_by_volume_ref",
+                AsyncMock(return_value=chapter),
             ),
             patch(
                 "app.agent_runtime.tools.impls.chapter.edit_chapter.chapter_repo.update_chapter",
@@ -423,8 +423,10 @@ async def test_write_chapter_insert_order_shifts_within_volume() -> None:
         ), patch(
             "app.background.jobs.service.commit_and_notify", AsyncMock()
         ):
-            mock_repo.list_by_project = AsyncMock(side_effect=[[], [created]])
-            mock_repo.list_by_volume = AsyncMock(return_value=[_make_chapter(order=2)])
+            mock_repo.get_by_volume_ref = AsyncMock(return_value=_make_chapter(order=2))
+            mock_repo.list_by_volume_from_order = AsyncMock(
+                side_effect=[[_make_chapter(order=2)], [created]]
+            )
             mock_repo.get_max_order = AsyncMock(return_value=5)
             mock_repo.shift_orders = AsyncMock()
             mock_repo.create = AsyncMock(side_effect=create_chapter)
@@ -478,8 +480,7 @@ async def test_edit_chapter_resolves_inside_volume() -> None:
         ), patch(
             "app.background.jobs.service.commit_and_notify", AsyncMock()
         ):
-            mock_repo.list_by_project = AsyncMock(return_value=[chapter])
-            mock_repo.list_by_volume = AsyncMock(return_value=[chapter])
+            mock_repo.get_by_volume_ref = AsyncMock(return_value=chapter)
             mock_repo.update_chapter = AsyncMock()
             result = await tool.ainvoke(
                 {
@@ -521,7 +522,9 @@ async def test_edit_chapter_resolves_inside_volume() -> None:
             }
         },
     }
-    mock_repo.list_by_volume.assert_awaited_once_with(mock_session, "vol-1")
+    mock_repo.get_by_volume_ref.assert_awaited_once_with(
+        mock_session, "vol-1", ref_type="order", ref_value=1
+    )
     assert isinstance(chapter.updated_at, datetime)
     assert chapter.updated_at.tzinfo is UTC
 
@@ -553,8 +556,10 @@ async def test_delete_chapter_delegates_to_chapter_service() -> None:
             create=True,
         ) as mock_chapter_service:
             after_chapter = _make_chapter(order=1, chapter_id="chap-2")
-            mock_repo.list_by_project = AsyncMock(side_effect=[[chapter, after_chapter], [after_chapter]])
-            mock_repo.list_by_volume = AsyncMock(return_value=[chapter])
+            mock_repo.get_by_volume_ref = AsyncMock(return_value=chapter)
+            mock_repo.list_by_volume_from_order = AsyncMock(
+                side_effect=[[chapter, after_chapter], [after_chapter]]
+            )
             mock_repo.delete = AsyncMock()
             mock_repo.get_max_order = AsyncMock(return_value=4)
             mock_repo.shift_orders = AsyncMock()
@@ -584,6 +589,9 @@ async def test_delete_chapter_delegates_to_chapter_service() -> None:
     )
     mock_repo.delete.assert_not_called()
     mock_repo.shift_orders.assert_not_called()
+    mock_repo.get_by_volume_ref.assert_awaited_once_with(
+        mock_session, "vol-1", ref_type="order", ref_value=2
+    )
 
 
 async def test_create_volume_appends_to_project() -> None:
@@ -839,9 +847,6 @@ async def test_move_chapter_to_volume_appends_to_target_volume() -> None:
             "app.agent_runtime.tools.impls.chapter.move_chapter_to_volume.volume_repo.list_by_project",
             AsyncMock(return_value=[source, target]),
         ), patch(
-            "app.agent_runtime.tools.impls.chapter.move_chapter_to_volume.chapter_repo.list_by_volume",
-            AsyncMock(return_value=[chapter]),
-        ), patch(
             "app.agent_runtime.tools.impls.chapter.move_chapter_to_volume.chapter_service.move_chapter_to_volume",
             AsyncMock(return_value=moved),
         ) as move_chapter, patch(
@@ -855,9 +860,12 @@ async def test_move_chapter_to_volume_appends_to_target_volume() -> None:
             AsyncMock(),
         ):
             with patch(
-                "app.agent_runtime.tools.impls.chapter.move_chapter_to_volume.chapter_repo.list_by_project",
-                AsyncMock(side_effect=[[chapter], [moved]]),
-            ):
+                "app.agent_runtime.tools.impls.chapter.move_chapter_to_volume.chapter_repo.get_by_volume_ref",
+                AsyncMock(return_value=chapter),
+            ) as get_by_volume_ref, patch(
+                "app.agent_runtime.tools.impls.chapter.move_chapter_to_volume.chapter_repo.list_by_volume_from_order",
+                AsyncMock(side_effect=[[chapter], []]),
+            ) as list_by_volume_from_order:
                 result = await tool.ainvoke(
                     {
                         "volume_ref": {"type": "order", "value": 1},
@@ -882,6 +890,10 @@ async def test_move_chapter_to_volume_appends_to_target_volume() -> None:
         "vol-2",
         record_activity=False,
     )
+    get_by_volume_ref.assert_awaited_once_with(
+        mock_session, "vol-1", ref_type="order", ref_value=2
+    )
+    assert list_by_volume_from_order.await_count == 2
 
 
 def test_edit_chapter_input_rejects_empty_old_content() -> None:

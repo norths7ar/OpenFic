@@ -97,14 +97,19 @@ class FakeRetrievalService:
 
 
 class FailingQueryRetrievalService:
-    def __init__(self, message: str) -> None:
+    def __init__(
+        self,
+        message: str,
+        error_type: type[Exception] = RuntimeError,
+    ) -> None:
         self.message = message
+        self.error_type = error_type
         self.queries: list[tuple[str, str]] = []
 
     async def query(self, session, index_key: str, text: str, embedding_client):
         _ = (session, embedding_client)
         self.queries.append((index_key, text))
-        raise RuntimeError(self.message)
+        raise self.error_type(self.message)
 
 
 def _make_state(project_id: str = "project-search") -> dict[str, Any]:
@@ -874,6 +879,31 @@ async def test_search_chapters_hides_external_retrieval_error_details(
     assert "sk-secret" not in data["message"]
     assert "LanceDB" not in data["message"]
     assert "/tmp/private-table" not in data["message"]
+
+
+@pytest.mark.asyncio
+async def test_search_chapters_preserves_index_not_ready_reason(
+    session: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.retrieval.service import IndexNotReadyError
+
+    module, _ = await _seed_ready_index(session)
+    reason = "Index chapters:project-search is not ready"
+    retrieval = FailingQueryRetrievalService(reason, error_type=IndexNotReadyError)
+    monkeypatch.setattr(module, "OpenFicRetrievalService", lambda: retrieval)
+    monkeypatch.setattr(module, "EmbeddingClient", FakeEmbeddingClient)
+
+    tool = _make_search_chapters_tool(module)
+    data = json.loads(
+        await tool.ainvoke(
+            {"query": "星桥", "force": True},
+            config={"configurable": {"db_session": session}},
+        )
+    )
+
+    assert data["type"] == "fail"
+    assert data["message"] == f"章节检索执行失败: {reason}"
 
 
 @pytest.mark.asyncio
