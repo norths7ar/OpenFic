@@ -16,13 +16,14 @@ import { useCallback, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { toast } from "@/components";
+import { projectDataQueryKeys } from "@/lib/project-data-query-keys";
+
 import {
   applyProjectBundleImport,
   downloadProjectBundle,
   previewProjectBundleImport,
-} from "@/lib/api-client";
-import type { ProjectBundlePreviewResponse } from "@/lib/api-client";
-import { projectDataQueryKeys } from "@/lib/project-data-query-keys";
+  type ProjectBundlePreviewResponse,
+} from "../lib/project-bundle-api";
 
 interface ProjectDataDialogProps {
   open: boolean;
