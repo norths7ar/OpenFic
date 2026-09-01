@@ -49,6 +49,9 @@ if (-not $SkipFrontend) {
         Invoke-QualityCommand -Command 'pnpm' -Arguments @('run', 'format:check')
         Invoke-QualityCommand -Command 'pnpm' -Arguments @('run', 'lint')
         Invoke-QualityCommand -Command 'pnpm' -Arguments @('run', 'type-check')
+        if (-not $SkipTests) {
+            Invoke-QualityCommand -Command 'pnpm' -Arguments @('run', 'test')
+        }
 
         if (-not $SkipBuild) {
             Invoke-QualityCommand -Command 'pnpm' -Arguments @('run', 'build')

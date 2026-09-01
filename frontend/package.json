@@ -10,6 +10,7 @@
     "format:check": "oxfmt . --check",
     "lint": "oxlint . --import-plugin -D import/no-cycle",
     "preview": "vp preview",
+    "test": "vp test src",
     "test:e2e": "playwright test",
     "type-check": "oxlint . --type-aware --type-check"
   },
