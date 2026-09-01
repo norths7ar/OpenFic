@@ -4,8 +4,6 @@
  * New feature APIs should depend on api-transport directly instead of this aggregation module.
  */
 
-import { apiClient } from "./api-transport";
-
 export { apiClient, getApiBaseUrl, getApiUrl, resolveBackendUrl } from "./api-transport";
 export {
   applyProjectBundleImport,
@@ -164,52 +162,18 @@ export type {
   NoteSearchResponse,
   NoteSearchResultItem,
 } from "../features/writing/lib/writing-search-api";
-
-// 健康检查类型
-export interface HealthResponse {
-  status: string;
-  version: string;
-}
-
-export interface AuthStatusResponse {
-  enabled: boolean;
-  authenticated: boolean;
-}
-
-export interface AuthPreferencesResponse {
-  language: string;
-  theme: string;
-  font_family: string;
-  code_font_family: string;
-  base_font_size: number;
-  editor_font_size: number;
-}
-
-export interface AuthLoginRequest {
-  password: string;
-  trust_device: boolean;
-}
-
-export async function fetchAuthStatus(): Promise<AuthStatusResponse> {
-  const response = await apiClient.get<AuthStatusResponse>("/auth/status");
-  return response.data;
-}
-
-export async function fetchAuthPreferences(): Promise<AuthPreferencesResponse> {
-  const response = await apiClient.get<AuthPreferencesResponse>("/auth/preferences");
-  return response.data;
-}
-
-export async function loginWithPassword(payload: AuthLoginRequest): Promise<AuthStatusResponse> {
-  const response = await apiClient.post<AuthStatusResponse>("/auth/login", payload);
-  return response.data;
-}
-
-// 健康检查 API
-export async function checkHealth(): Promise<HealthResponse> {
-  const response = await apiClient.get<HealthResponse>("/health");
-  return response.data;
-}
+export {
+  fetchAuthPreferences,
+  fetchAuthStatus,
+  loginWithPassword,
+} from "../features/auth/lib/auth-api";
+export type {
+  AuthLoginRequest,
+  AuthPreferencesResponse,
+  AuthStatusResponse,
+} from "../features/auth/lib/auth-api";
+export { checkHealth } from "./health-api";
+export type { HealthResponse } from "./health-api";
 
 export {
   createSkill,

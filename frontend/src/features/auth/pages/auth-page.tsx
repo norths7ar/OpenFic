@@ -4,7 +4,7 @@ import { LockOpen } from "lucide-react";
 import { type FormEvent, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { loginWithPassword } from "@/lib/api-client";
+import { loginWithPassword } from "../lib/auth-api";
 
 import "./auth-page.css";
 

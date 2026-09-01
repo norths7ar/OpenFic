@@ -10,6 +10,7 @@ import { Toaster } from "./components/toaster";
 import { AppLayout } from "./features/app-shell";
 import { DiscussionPage } from "./features/assistant";
 import { AuthPage } from "./features/auth";
+import { fetchAuthPreferences, fetchAuthStatus } from "./features/auth/lib/auth-api";
 import { CharactersPage } from "./features/characters";
 import { PendingProjectChangesPage } from "./features/pending-project-changes";
 import { PromptChainsPage } from "./features/prompt-chains";
@@ -19,7 +20,6 @@ import { WorldInfoPage } from "./features/world-info";
 import { DocumentWorkspacePage, WritingPage } from "./features/writing";
 // 初始化 i18n
 import i18n, { type LanguageCode } from "./i18n";
-import { checkHealth, fetchAuthPreferences, fetchAuthStatus } from "./lib/api-client";
 import { publishDesktopAppearance, publishDesktopLanguage } from "./lib/desktop-appearance-bridge";
 import {
   applyBaseFontSize,
@@ -29,6 +29,7 @@ import {
   loadConfiguredFonts,
 } from "./lib/font-utils";
 import { getOrCreateRoot } from "./lib/get-or-create-root";
+import { checkHealth } from "./lib/health-api";
 import { captureException, initErrorTelemetry } from "./lib/posthog";
 import { loadRuntimeConfig } from "./lib/runtime-config";
 import { connectSocket } from "./lib/socket-client";
