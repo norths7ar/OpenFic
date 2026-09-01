@@ -8,8 +8,15 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { toast } from "@/components";
 import i18n from "@/i18n";
-import { fetchTask, fetchTasks, updateTask, deleteTask, deleteAllTasks } from "@/lib/api-client";
 import type { Task, TaskListResponse, UpdateTaskRequest } from "@/lib/task.types";
+
+import {
+  fetchTask,
+  fetchTasks,
+  updateTask,
+  deleteTask,
+  deleteAllTasks,
+} from "../lib/agent-runtime-api";
 
 function getTasksQueryKey(
   projectId: string,

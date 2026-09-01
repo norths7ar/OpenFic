@@ -25,6 +25,11 @@ import type {
 } from "@/lib/agent.types";
 import type { TokenUsageState } from "@/lib/agent.types";
 import type { AgentForkResponse } from "@/lib/agent.types";
+import type { CharacterListResponse } from "@/lib/character.types";
+import { projectDataQueryKeys } from "@/lib/project-data-query-keys";
+import type { WorldInfoEntryBriefListResponse } from "@/lib/world-info.types";
+
+import type { ClarificationAnswerItem } from "../components/agent/message-blocks/messages/special/clarification-flow-state";
 import {
   cancelPendingAgentMessage,
   compactAgentSession,
@@ -37,12 +42,7 @@ import {
   cancelAgentSession,
   uploadAgentImageAttachment,
   submitAgentToolApproval,
-} from "@/lib/api-client";
-import type { CharacterListResponse } from "@/lib/character.types";
-import { projectDataQueryKeys } from "@/lib/project-data-query-keys";
-import type { WorldInfoEntryBriefListResponse } from "@/lib/world-info.types";
-
-import type { ClarificationAnswerItem } from "../components/agent/message-blocks/messages/special/clarification-flow-state";
+} from "../lib/agent-runtime-api";
 import { joinAgentSession, subscribeAgentSessionEvents } from "../lib/agent-socket";
 import {
   applyAgentTranscriptEventToLiveState,

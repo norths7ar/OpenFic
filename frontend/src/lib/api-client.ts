@@ -17,6 +17,53 @@ export type {
   ProjectBundlePreviewItem,
   ProjectBundlePreviewResponse,
 } from "../features/projects/lib/project-bundle-api";
+export {
+  createAgentMemory,
+  createAgentRule,
+  deleteAgentMemory,
+  deleteAgentRule,
+  fetchAgentMemories,
+  fetchAgentRules,
+  fetchAgentRuleScopes,
+  reorderAgentMemories,
+  reorderAgentRules,
+  updateAgentMemory,
+  updateAgentRule,
+} from "../features/assistant/lib/agent-context-api";
+export {
+  cancelAgentSession,
+  cancelPendingAgentMessage,
+  cancelSubagentSession,
+  compactAgentSession,
+  createAgentSession,
+  deleteAllTasks,
+  deleteTask,
+  fetchActiveSubagents,
+  fetchAgentSessionState,
+  fetchSubagentSession,
+  fetchTask,
+  fetchTasks,
+  forkAgentSession,
+  rollbackAgentRevision,
+  sendAgentMessage,
+  submitAgentInterruptBatch,
+  submitAgentQuestionAnswer,
+  submitAgentToolApproval,
+  subscribeBackgroundEvents,
+  subscribeBackgroundProjection,
+  updateTask,
+  uploadAgentImageAttachment,
+} from "../features/assistant/lib/agent-runtime-api";
+export type {
+  BackgroundEvent,
+  BackgroundEventSubscription,
+  BackgroundProjectionSubscription,
+  BackgroundSnapshot,
+} from "../features/assistant/lib/agent-runtime-api";
+export {
+  searchCommands,
+  searchMentionCandidates,
+} from "../features/assistant/lib/agent-composer-api";
 
 // 健康检查类型
 export interface HealthResponse {
@@ -77,8 +124,6 @@ import type {
   CharacterListResponse,
   CharacterUpdate,
 } from "./character.types";
-import type { AssistantCommandCandidate } from "./command.types";
-import type { AssistantMentionCandidate } from "./mention.types";
 import type {
   Project,
   ProjectCreate,
@@ -504,163 +549,6 @@ export async function deleteSkillReferenceDoc(skillDbId: string, docId: string):
 }
 
 // ============================================
-// Agent Rules API
-// ============================================
-
-import type {
-  AgentRule,
-  AgentRuleCreate,
-  AgentRuleUpdate,
-  AgentRuleListResponse,
-  AgentRuleListParams,
-  AgentRuleScopeListResponse,
-} from "./agent-rule.types";
-
-function transformAgentRule(raw: Record<string, unknown>): AgentRule {
-  return {
-    id: raw.id as string,
-    title: raw.title as string,
-    content: raw.content as string,
-    scope: (raw.scope as string) ?? "global",
-    projectId: (raw.project_id as string | null) ?? null,
-    tokenCount: (raw.token_count as number) ?? 0,
-    orderIndex: (raw.order_index as number) ?? 0,
-    createdAt: raw.created_at as string,
-    updatedAt: raw.updated_at as string,
-  };
-}
-
-export async function fetchAgentRuleScopes(): Promise<AgentRuleScopeListResponse> {
-  const response = await apiClient.get("/agent-rules/scopes");
-  const data = response.data;
-  return {
-    items: (data.items as Record<string, unknown>[]).map((raw) => ({
-      scope: raw.scope as string,
-      projectId: (raw.project_id as string | null) ?? null,
-      title: raw.title as string,
-      ruleCount: (raw.rule_count as number) ?? 0,
-    })),
-  };
-}
-
-export async function fetchAgentRules(
-  params?: AgentRuleListParams,
-): Promise<AgentRuleListResponse> {
-  const response = await apiClient.get("/agent-rules", {
-    params: {
-      page: params?.page ?? 1,
-      page_size: params?.pageSize ?? 100,
-      scope: params?.scope ?? "global",
-      project_id: params?.projectId ?? undefined,
-    },
-  });
-  const data = response.data;
-  return {
-    items: (data.items as Record<string, unknown>[]).map(transformAgentRule),
-    total: data.total,
-    page: data.page,
-    pageSize: data.page_size,
-  };
-}
-
-export async function createAgentRule(data: AgentRuleCreate): Promise<AgentRule> {
-  const response = await apiClient.post("/agent-rules", {
-    title: data.title,
-    content: data.content,
-    scope: data.scope ?? "global",
-    project_id: data.projectId ?? null,
-  });
-  return transformAgentRule(response.data);
-}
-
-export async function updateAgentRule(ruleId: string, data: AgentRuleUpdate): Promise<AgentRule> {
-  const response = await apiClient.patch(`/agent-rules/${ruleId}`, {
-    title: data.title,
-    content: data.content,
-  });
-  return transformAgentRule(response.data);
-}
-
-export async function deleteAgentRule(ruleId: string): Promise<void> {
-  await apiClient.delete(`/agent-rules/${ruleId}`);
-}
-
-export async function reorderAgentRules(ruleIds: string[]): Promise<AgentRule[]> {
-  const response = await apiClient.post("/agent-rules/reorder", {
-    rule_ids: ruleIds,
-  });
-  return (response.data as Record<string, unknown>[]).map(transformAgentRule);
-}
-
-// ============================================
-// Agent Memories API
-// ============================================
-
-import type {
-  AgentMemory,
-  AgentMemoryCreate,
-  AgentMemoryUpdate,
-  AgentMemoryListResponse,
-  AgentMemoryListParams,
-} from "./agent-memory.types";
-
-function transformAgentMemory(raw: Record<string, unknown>): AgentMemory {
-  return {
-    id: raw.id as string,
-    content: raw.content as string,
-    orderIndex: (raw.order_index as number) ?? 0,
-    createdAt: raw.created_at as string,
-    updatedAt: raw.updated_at as string,
-  };
-}
-
-export async function fetchAgentMemories(
-  params?: AgentMemoryListParams,
-): Promise<AgentMemoryListResponse> {
-  const response = await apiClient.get("/agent-memories", {
-    params: {
-      page: params?.page ?? 1,
-      page_size: params?.pageSize ?? 100,
-    },
-  });
-  const data = response.data;
-  return {
-    items: (data.items as Record<string, unknown>[]).map(transformAgentMemory),
-    total: data.total,
-    page: data.page,
-    pageSize: data.page_size,
-  };
-}
-
-export async function createAgentMemory(data: AgentMemoryCreate): Promise<AgentMemory> {
-  const response = await apiClient.post("/agent-memories", {
-    content: data.content,
-  });
-  return transformAgentMemory(response.data);
-}
-
-export async function updateAgentMemory(
-  memoryId: string,
-  data: AgentMemoryUpdate,
-): Promise<AgentMemory> {
-  const response = await apiClient.patch(`/agent-memories/${memoryId}`, {
-    content: data.content,
-  });
-  return transformAgentMemory(response.data);
-}
-
-export async function deleteAgentMemory(memoryId: string): Promise<void> {
-  await apiClient.delete(`/agent-memories/${memoryId}`);
-}
-
-export async function reorderAgentMemories(memoryIds: string[]): Promise<AgentMemory[]> {
-  const response = await apiClient.post("/agent-memories/reorder", {
-    memory_ids: memoryIds,
-  });
-  return (response.data as Record<string, unknown>[]).map(transformAgentMemory);
-}
-
-// ============================================
 // Chapter API
 // ============================================
 
@@ -738,69 +626,12 @@ function transformVolumeTree(raw: Record<string, unknown>): VolumeTreeResponse {
   };
 }
 
-function transformMentionCandidate(raw: Record<string, unknown>): AssistantMentionCandidate {
-  return {
-    kind: raw.kind as
-      | "volume"
-      | "chapter"
-      | "note"
-      | "note_category"
-      | "world_info_entry"
-      | "character",
-    id: raw.id as string,
-    title: raw.title as string,
-    label: raw.label as string,
-    description: typeof raw.description === "string" ? raw.description : undefined,
-  };
-}
-
-function transformCommandCandidate(raw: Record<string, unknown>): AssistantCommandCandidate {
-  return {
-    kind: "skill",
-    id: raw.id as string,
-    name: raw.name as string,
-    description: raw.description as string,
-  };
-}
-
 /**
  * 获取卷-章节树
  */
 export async function fetchChapters(projectId: string): Promise<VolumeTreeResponse> {
   const response = await apiClient.get(`/projects/${projectId}/chapters`);
   return transformVolumeTree(response.data);
-}
-
-export async function searchMentionCandidates(
-  projectId: string,
-  query: string,
-  limit = 20,
-  kind?: "volume" | "chapter" | "note" | "note_category" | "world_info_entry" | "character",
-  signal?: AbortSignal,
-): Promise<AssistantMentionCandidate[]> {
-  const response = await apiClient.get<Record<string, unknown>>(`/projects/${projectId}/mentions`, {
-    params: {
-      query,
-      limit,
-      ...(kind ? { kind } : {}),
-    },
-    signal,
-  });
-  return ((response.data.items as Record<string, unknown>[]) ?? []).map(transformMentionCandidate);
-}
-
-export async function searchCommands(
-  projectId: string,
-  query: string,
-  limit = 20,
-  kind: "skill" = "skill",
-  signal?: AbortSignal,
-): Promise<AssistantCommandCandidate[]> {
-  const response = await apiClient.get<Record<string, unknown>>(`/projects/${projectId}/commands`, {
-    params: { query, limit, kind },
-    signal,
-  });
-  return ((response.data.items as Record<string, unknown>[]) ?? []).map(transformCommandCandidate);
 }
 
 /**
@@ -1869,6 +1700,15 @@ import type {
   PromptChainsMetadata,
 } from "./prompt-chain.types";
 
+function normalizeUtcDateString(value: unknown): string {
+  if (typeof value !== "string") return "";
+
+  const hasTimezone = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(value);
+  if (hasTimezone) return value;
+
+  return `${value}Z`;
+}
+
 function transformPromptChainVersion(raw: Record<string, unknown>): PromptChainVersion {
   return {
     id: raw.id as string,
@@ -2075,498 +1915,6 @@ export async function resetPromptChain(promptId: string): Promise<VersionWithEnt
     version: transformPromptChainVersion(response.data.version),
     entries: (response.data.entries as Record<string, unknown>[]).map(transformPromptEntry),
   };
-}
-
-// ============================================
-// Task API
-// ============================================
-
-import type { Task, TaskListItem, TaskListResponse, UpdateTaskRequest } from "./task.types";
-
-function normalizeUtcDateString(value: unknown): string {
-  if (typeof value !== "string") return "";
-
-  const hasTimezone = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(value);
-  if (hasTimezone) return value;
-
-  return `${value}Z`;
-}
-
-function transformTaskMessage(raw: Record<string, unknown>): Task["messages"][number] {
-  return {
-    id: raw.id as string,
-    taskId: (raw.task_id ?? raw.taskId) as string | null | undefined,
-    role: raw.role as "system" | "user" | "assistant" | "tool",
-    agentId: (raw.agent_id ?? raw.agentId) as string | null | undefined,
-    content: raw.content as string,
-    toolCalls: (raw.tool_calls ?? raw.toolCalls) as Record<string, unknown>[] | undefined,
-    toolCallId: (raw.tool_call_id ?? raw.toolCallId) as string | null | undefined,
-    metadata: (raw.metadata as Record<string, unknown> | null | undefined) ?? undefined,
-    messageType: (raw.message_type ?? raw.messageType) as string | null | undefined,
-    messageStatus: (raw.message_status ?? raw.messageStatus) as string | null | undefined,
-    displayChannel: (raw.display_channel ?? raw.displayChannel) as string | null | undefined,
-    payload: (raw.payload as Record<string, unknown> | null | undefined) ?? undefined,
-    correlationId: (raw.correlation_id ?? raw.correlationId) as string | null | undefined,
-    createdAt: normalizeUtcDateString(raw.created_at ?? raw.createdAt),
-    updatedAt: normalizeUtcDateString(raw.updated_at ?? raw.updatedAt),
-  };
-}
-
-/**
- * 后端响应字段转换（snake_case -> camelCase）
- */
-function transformTask(raw: Record<string, unknown>): Task {
-  return {
-    id: raw.id as string,
-    projectId: raw.project_id as string,
-    title: raw.title as string,
-    contextMode: (raw.context_mode ?? "local") as "global" | "local",
-    messages: ((raw.messages as Record<string, unknown>[] | undefined) ?? []).map(
-      transformTaskMessage,
-    ),
-    tokenInput: Number(raw.token_input ?? raw.tokenInput ?? 0),
-    tokenOutput: Number(raw.token_output ?? raw.tokenOutput ?? 0),
-    tokenCache: Number(raw.token_cache ?? raw.tokenCache ?? 0),
-    contextInputTokens: Number(raw.context_input_tokens ?? raw.contextInputTokens ?? 0),
-    cost: Number(raw.cost ?? 0),
-    isRunning: raw.is_running === true,
-    currentRevisionId: raw.current_revision_id as string | null | undefined,
-    currentMessageId: raw.current_message_id as string | null | undefined,
-    agentSessionId: raw.agent_session_id as string | null | undefined,
-    isFavorited: raw.is_favorited as boolean,
-    createdAt: normalizeUtcDateString(raw.created_at),
-    updatedAt: normalizeUtcDateString(raw.updated_at),
-  };
-}
-
-function transformTaskListItem(raw: Record<string, unknown>): TaskListItem {
-  return {
-    id: raw.id as string,
-    projectId: raw.project_id as string,
-    title: raw.title as string,
-    contextMode: (raw.context_mode ?? "local") as "global" | "local",
-    tokenInput: Number(raw.token_input ?? raw.tokenInput ?? 0),
-    tokenOutput: Number(raw.token_output ?? raw.tokenOutput ?? 0),
-    tokenCache: Number(raw.token_cache ?? raw.tokenCache ?? 0),
-    contextInputTokens: Number(raw.context_input_tokens ?? raw.contextInputTokens ?? 0),
-    cost: Number(raw.cost ?? 0),
-    isRunning: raw.is_running === true,
-    isFavorited: raw.is_favorited as boolean,
-    createdAt: normalizeUtcDateString(raw.created_at),
-    updatedAt: normalizeUtcDateString(raw.updated_at),
-  };
-}
-
-export type {
-  BackgroundEvent,
-  BackgroundEventSubscription,
-  BackgroundProjectionSubscription,
-  BackgroundSnapshot,
-} from "./background-socket";
-export { subscribeBackgroundEvents, subscribeBackgroundProjection } from "./background-socket";
-
-/**
- * 获取任务详情
- */
-export async function fetchTask(taskId: string): Promise<Task> {
-  const response = await apiClient.get(`/tasks/${taskId}`);
-  return transformTask(response.data);
-}
-
-/**
- * 获取项目的任务列表
- */
-export async function fetchTasks(
-  projectId: string,
-  params?: {
-    limit?: number;
-    offset?: number;
-    search?: string;
-    favorited?: boolean;
-  },
-): Promise<TaskListResponse> {
-  const response = await apiClient.get(`/projects/${projectId}/tasks`, {
-    params: {
-      limit: params?.limit,
-      offset: params?.offset,
-      search: params?.search,
-      favorited: params?.favorited,
-    },
-  });
-  return {
-    items: (response.data.items as Record<string, unknown>[]).map(transformTaskListItem),
-    total: response.data.total,
-  };
-}
-
-/**
- * 更新任务
- */
-export async function updateTask(taskId: string, data: UpdateTaskRequest): Promise<Task> {
-  const response = await apiClient.patch(`/tasks/${taskId}`, {
-    title: data.title,
-    is_favorited: data.is_favorited,
-  });
-  return transformTask(response.data);
-}
-
-/**
- * 删除任务
- */
-export async function deleteTask(taskId: string): Promise<void> {
-  await apiClient.delete(`/tasks/${taskId}`);
-}
-
-/**
- * 删除项目下的所有任务
- */
-export async function deleteAllTasks(
-  projectId: string,
-): Promise<{ deletedCount: number; skippedRunningCount: number }> {
-  const response = await apiClient.delete(`/projects/${projectId}/tasks`);
-  return {
-    deletedCount: Number(response.data.deleted_count ?? 0),
-    skippedRunningCount: Number(response.data.skipped_running_count ?? 0),
-  };
-}
-
-// ============================================
-// Agent API
-// ============================================
-
-import type {
-  ActiveSubagentState,
-  AgentCancelPendingMessageResponse,
-  AgentCompactionResponse,
-  AgentSessionCreateRequest,
-  AgentSessionCreateResponse,
-  AgentForkResponse,
-  AgentImageAttachment,
-  AgentPendingMessage,
-  AgentSendMessageRequest,
-  AgentSendMessageResponse,
-  AgentSessionStateResponse,
-  AgentRollbackResponse,
-  AgentCancelResponse,
-  AgentInterruptBatchResponse,
-  AgentQuestionAnswerResponse,
-  ClarificationAnswerItem,
-  ReasoningEffort,
-  SubagentSessionPayload,
-} from "./agent.types";
-
-/**
- * 创建 Agent 会话（仅创建 Task，不运行）
- */
-export async function createAgentSession(
-  data: AgentSessionCreateRequest,
-): Promise<AgentSessionCreateResponse> {
-  const response = await apiClient.post("/agent/sessions", data);
-  return response.data;
-}
-
-export async function fetchAgentSessionState(
-  sessionId: string,
-): Promise<AgentSessionStateResponse> {
-  const response = await apiClient.get(`/agent/sessions/${sessionId}`);
-  const data = response.data as Record<string, unknown>;
-  return {
-    sessionId: String(data.session_id ?? sessionId),
-    state:
-      data.state && typeof data.state === "object" && !Array.isArray(data.state)
-        ? (data.state as Record<string, unknown>)
-        : {},
-    isRunning: data.is_running === true,
-    interrupts: Array.isArray(data.interrupts)
-      ? data.interrupts.filter((item): item is Record<string, unknown> =>
-          Boolean(item && typeof item === "object" && !Array.isArray(item)),
-        )
-      : [],
-  };
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value && typeof value === "object" && !Array.isArray(value));
-}
-
-function transformPendingAgentMessage(raw: unknown): AgentPendingMessage | null {
-  if (!isRecord(raw)) return null;
-  const messageId = String(raw.message_id ?? "");
-  const content = String(raw.content ?? "");
-  const createdAt = String(raw.created_at ?? "");
-  if (!messageId || !content || !createdAt) return null;
-  return {
-    messageId,
-    content,
-    createdAt,
-  };
-}
-
-function transformActiveSubagentState(raw: Record<string, unknown>): ActiveSubagentState {
-  const metadata = raw.metadata;
-  const metadataRecord = isRecord(metadata) ? metadata : null;
-  const pendingApproval = isRecord(raw.pending_approval) ? raw.pending_approval : null;
-  return {
-    childRunId: String(raw.child_run_id ?? ""),
-    childThreadId: String(raw.child_thread_id ?? ""),
-    agentKey: raw.agent_key as ActiveSubagentState["agentKey"],
-    agentNumber: String(raw.agent_number ?? metadataRecord?.agent_number ?? "") || undefined,
-    status: raw.status as ActiveSubagentState["status"],
-    queuedMessages: Number(raw.queued_messages ?? 0),
-    isActive: raw.is_active === true,
-    pendingApproval,
-  };
-}
-
-function transformSubagentSessionPayload(raw: Record<string, unknown>): SubagentSessionPayload {
-  const metadata = raw.metadata;
-  const metadataRecord = isRecord(metadata) ? metadata : null;
-  const pendingApproval = isRecord(raw.pending_approval) ? raw.pending_approval : null;
-  return {
-    childRunId: String(raw.child_run_id ?? ""),
-    childThreadId: String(raw.child_thread_id ?? ""),
-    parentSessionId: String(raw.parent_session_id ?? ""),
-    agentKey: raw.agent_key as SubagentSessionPayload["agentKey"],
-    agentNumber: String(raw.agent_number ?? metadataRecord?.agent_number ?? "") || undefined,
-    status: raw.status as SubagentSessionPayload["status"],
-    isActive: raw.is_active === true,
-    isRunning: raw.is_running === true,
-    tokenInput: Number(raw.token_input ?? 0),
-    tokenOutput: Number(raw.token_output ?? 0),
-    tokenCache: Number(raw.token_cache ?? 0),
-    cost: Number(raw.cost ?? 0),
-    contextInputTokens: Number(raw.context_input_tokens ?? 0),
-    contextLength: Number(raw.context_length ?? 0),
-    pendingApproval,
-    messages: ((raw.messages as Record<string, unknown>[] | undefined) ?? []).map(
-      transformTaskMessage,
-    ),
-  };
-}
-
-export async function fetchActiveSubagents(
-  parentSessionId: string,
-): Promise<ActiveSubagentState[]> {
-  const response = await apiClient.get(`/agent/sessions/${parentSessionId}/subagents`);
-  return ((response.data as Record<string, unknown>[] | undefined) ?? []).map(
-    transformActiveSubagentState,
-  );
-}
-
-export async function fetchSubagentSession(childRunId: string): Promise<SubagentSessionPayload> {
-  const response = await apiClient.get(`/agent/subagents/${childRunId}`);
-  return transformSubagentSessionPayload(response.data as Record<string, unknown>);
-}
-
-/**
- * 取消单个 subagent 会话（中断其任务与重试，主会话继续）。
- */
-export async function cancelSubagentSession(
-  parentSessionId: string,
-  childRunId: string,
-): Promise<AgentCancelResponse> {
-  const response = await apiClient.post(
-    `/agent/sessions/${parentSessionId}/subagents/${childRunId}/cancel`,
-  );
-  const data = response.data as Record<string, unknown>;
-  return {
-    success: data.success === true,
-    session_id: String(data.session_id ?? childRunId),
-    message: String(data.message ?? ""),
-  };
-}
-
-/**
- * 发送用户消息并运行 Agent 会话。结果通过 Socket.IO 推送。
- */
-export async function sendAgentMessage(
-  sessionId: string,
-  message: string,
-  modelId?: string,
-  reasoningEffort?: ReasoningEffort,
-  agentKey?: string,
-  attachments?: AgentImageAttachment[],
-): Promise<AgentSendMessageResponse> {
-  const request: AgentSendMessageRequest = {
-    message,
-    ...(modelId ? { model_id: modelId } : {}),
-    ...(reasoningEffort ? { reasoning_effort: reasoningEffort } : {}),
-    ...(agentKey ? { agent_key: agentKey } : {}),
-    ...(attachments?.length ? { attachments: attachments.map((attachment) => attachment.id) } : {}),
-  };
-  const response = await apiClient.post(`/agent/sessions/${sessionId}/message`, request);
-  const data = response.data as Record<string, unknown>;
-  return {
-    success: data.success === true,
-    session_id: String(data.session_id ?? sessionId),
-    message: String(data.message ?? ""),
-    agent_key: String(data.agent_key ?? ""),
-    queued: data.queued === true,
-    model_updated: data.model_updated === true,
-    task_id: String(data.task_id ?? ""),
-    task_title: String(data.task_title ?? ""),
-    pending_message: transformPendingAgentMessage(data.pending_message),
-  };
-}
-
-export async function uploadAgentImageAttachment(
-  sessionId: string,
-  image: File,
-): Promise<AgentImageAttachment> {
-  const formData = new FormData();
-  formData.append("image", image);
-  const response = await apiClient.post(`/agent/sessions/${sessionId}/attachments`, formData, {
-    headers: { "Content-Type": "multipart/form-data" },
-  });
-  const raw = response.data as Record<string, unknown>;
-  return {
-    id: String(raw.id ?? ""),
-    sessionId: String(raw.session_id ?? sessionId),
-    storageName: String(raw.storage_name ?? ""),
-    fileName: String(raw.file_name ?? ""),
-    mimeType: raw.mime_type as AgentImageAttachment["mimeType"],
-    sizeBytes: Number(raw.size_bytes ?? 0),
-    width: Number(raw.width ?? 0),
-    height: Number(raw.height ?? 0),
-    url: resolveBackendUrl(String(raw.url ?? "")) ?? "",
-  };
-}
-
-export async function compactAgentSession(sessionId: string): Promise<AgentCompactionResponse> {
-  const response = await apiClient.post(`/agent/sessions/${sessionId}/compaction`);
-  const data = response.data as Record<string, unknown>;
-  return {
-    success: data.success === true,
-    session_id: String(data.session_id ?? sessionId),
-    compaction_id: String(data.compaction_id ?? ""),
-    start_seq: Number(data.start_seq ?? 0),
-    end_seq: Number(data.end_seq ?? 0),
-    source_input_tokens: Number(data.source_input_tokens ?? 0),
-    summary_tokens: Number(data.summary_tokens ?? 0),
-  };
-}
-
-export async function submitAgentQuestionAnswer(
-  sessionId: string,
-  actionId: string,
-  answer: ClarificationAnswerItem[],
-  skipped = false,
-): Promise<AgentQuestionAnswerResponse | void> {
-  const response = await apiClient.post(`/agent/sessions/${sessionId}/question-answer`, {
-    action_id: actionId,
-    answer,
-    skipped,
-  });
-  return response.data;
-}
-
-/**
- * 回滚Agent会话到指定revision
- */
-export async function rollbackAgentRevision(
-  sessionId: string,
-  revisionId: string,
-): Promise<AgentRollbackResponse> {
-  const response = await apiClient.post(`/agent/sessions/${sessionId}/rollback`, {
-    revision_id: revisionId,
-  });
-  const data = response.data as Record<string, unknown>;
-  return {
-    success: data.success === true,
-    session_id: String(data.session_id ?? sessionId),
-    revision_id: typeof data.revision_id === "string" ? data.revision_id : null,
-    affected_chapters: Array.isArray(data.affected_chapters)
-      ? data.affected_chapters.filter((item): item is string => typeof item === "string")
-      : [],
-    affected_notes: Array.isArray(data.affected_notes)
-      ? data.affected_notes.filter((item): item is string => typeof item === "string")
-      : [],
-    affected_note_categories: Array.isArray(data.affected_note_categories)
-      ? data.affected_note_categories.filter((item): item is string => typeof item === "string")
-      : [],
-    affected_world_entries: Array.isArray(data.affected_world_entries)
-      ? data.affected_world_entries.filter((item): item is string => typeof item === "string")
-      : [],
-    restored_message_content: String(data.restored_message_content ?? ""),
-    restored_attachments: Array.isArray(data.restored_attachments)
-      ? data.restored_attachments.flatMap((attachment) => {
-          if (!isRecord(attachment)) return [];
-          if (
-            typeof attachment.id !== "string" ||
-            typeof attachment.url !== "string" ||
-            typeof attachment.mime_type !== "string"
-          )
-            return [];
-          return [
-            {
-              id: attachment.id,
-              sessionId: String(attachment.session_id ?? sessionId),
-              storageName: String(attachment.storage_name ?? ""),
-              fileName: String(attachment.file_name ?? ""),
-              mimeType: attachment.mime_type as AgentImageAttachment["mimeType"],
-              sizeBytes: Number(attachment.size_bytes ?? 0),
-              width: Number(attachment.width ?? 0),
-              height: Number(attachment.height ?? 0),
-              url: resolveBackendUrl(attachment.url) ?? "",
-            },
-          ];
-        })
-      : [],
-  };
-}
-
-export async function forkAgentSession(
-  sessionId: string,
-  sourceRevisionId: string,
-  modelId: string,
-  reasoningEffort?: ReasoningEffort,
-): Promise<AgentForkResponse> {
-  const response = await apiClient.post(`/agent/sessions/${sessionId}/fork`, {
-    source_revision_id: sourceRevisionId,
-    model_id: modelId,
-    ...(reasoningEffort ? { reasoning_effort: reasoningEffort } : {}),
-  });
-  return response.data;
-}
-
-export async function submitAgentToolApproval(
-  sessionId: string,
-  approvalId: string,
-  approved: boolean,
-): Promise<void> {
-  await apiClient.post(`/agent/sessions/${sessionId}/tool-approval`, {
-    approval_id: approvalId,
-    approved,
-  });
-}
-
-export async function submitAgentInterruptBatch(
-  sessionId: string,
-  batchId: string,
-  responses: AgentInterruptBatchResponse[],
-): Promise<void> {
-  await apiClient.post(`/agent/sessions/${sessionId}/interrupt-resume`, {
-    batch_id: batchId,
-    responses,
-  });
-}
-
-/**
- * 取消Agent会话
- */
-export async function cancelAgentSession(sessionId: string): Promise<AgentCancelResponse> {
-  const response = await apiClient.post(`/agent/sessions/${sessionId}/cancel`);
-  return response.data;
-}
-
-export async function cancelPendingAgentMessage(
-  sessionId: string,
-  messageId: string,
-): Promise<AgentCancelPendingMessageResponse> {
-  const response = await apiClient.post(`/agent/sessions/${sessionId}/pending-message/cancel`, {
-    message_id: messageId,
-  });
-  return response.data;
 }
 
 // ============================================

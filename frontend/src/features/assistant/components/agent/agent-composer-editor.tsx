@@ -27,9 +27,9 @@ import {
   mentionTextToHtml,
   parseAssistantMarkup,
 } from "@/features/assistant/lib/mention-text";
-import { searchCommands, searchMentionCandidates } from "@/lib/api-client";
 import type { AssistantCommandCandidate } from "@/lib/command.types";
 
+import { searchCommands, searchMentionCandidates } from "../../lib/agent-composer-api";
 import type { AgentInputHistoryDirection } from "../../lib/agent-input-history-state";
 import { CommandNode } from "./extensions/command-node";
 import type { AssistantCommandNodeAttributes } from "./extensions/command-node";

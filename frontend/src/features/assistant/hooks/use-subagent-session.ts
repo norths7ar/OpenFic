@@ -9,13 +9,13 @@ import type {
   SubagentSessionPayload,
   TokenUsageState,
 } from "@/lib/agent.types";
+import type { TaskListItem } from "@/lib/task.types";
+
 import {
   fetchSubagentSession,
   submitAgentToolApproval,
   cancelSubagentSession,
-} from "@/lib/api-client";
-import type { TaskListItem } from "@/lib/task.types";
-
+} from "../lib/agent-runtime-api";
 import {
   applyAgentTranscriptEventToLiveState,
   createAgentTranscriptLiveState,

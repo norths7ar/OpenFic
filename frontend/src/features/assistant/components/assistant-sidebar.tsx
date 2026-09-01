@@ -46,23 +46,24 @@ import type {
   ReasoningEffort,
   TokenUsageState,
 } from "@/lib/agent.types";
-import {
-  fetchActiveSubagents,
-  fetchAgentSessionState,
-  fetchTask,
-  subscribeBackgroundEvents,
-} from "@/lib/api-client";
 import type { TaskListItem } from "@/lib/task.types";
 import { useLlmModelOptions } from "@/lib/use-llm-model-options";
 
+import { useSubagentSession } from "../hooks/use-subagent-session";
+
 import "./assistant-sidebar.css";
 
-import { useSubagentSession } from "../hooks/use-subagent-session";
 import { useTasks, useUpdateTask } from "../hooks/use-tasks";
 import {
   createRestoredPendingAgentAttachments,
   type PendingAgentImageAttachment,
 } from "../lib/agent-image-attachments";
+import {
+  fetchActiveSubagents,
+  fetchAgentSessionState,
+  fetchTask,
+  subscribeBackgroundEvents,
+} from "../lib/agent-runtime-api";
 import { loadAgentTaskBundle } from "../lib/agent-task-bundle";
 import {
   createConversationStackState,
