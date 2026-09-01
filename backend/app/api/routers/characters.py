@@ -7,7 +7,6 @@ from fastapi import (
     Depends,
     File,
     Form,
-    HTTPException,
     Query,
     UploadFile,
     status,
@@ -30,7 +29,6 @@ from app.api.schemas.character import (
     ReorderResponse,
 )
 from app.background.jobs import service as background_service
-from app.core.errors import ConflictError, NotFoundError
 from app.core.storage import get_character_image_url
 from app.storage.database import get_session
 from app.storage.models.character import Character
@@ -81,14 +79,11 @@ async def list_project_characters(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> CharacterListResponse:
     """获取项目角色列表。"""
-    try:
-        characters = await character_service.list_characters_by_project(session, project_id)
-        return CharacterListResponse(
-            items=[to_list_item_response(character) for character in characters],
-            total=len(characters),
-        )
-    except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
+    characters = await character_service.list_characters_by_project(session, project_id)
+    return CharacterListResponse(
+        items=[to_list_item_response(character) for character in characters],
+        total=len(characters),
+    )
 
 
 @router.post(
@@ -105,18 +100,11 @@ async def create_character(
     image: Annotated[UploadFile | None, File()] = None,
 ) -> CharacterResponse:
     """创建角色。"""
-    try:
-        logger.info(f"创建角色: project_id={project_id}, name={name}")
-        character = await character_service.create_character(
-            session, project_id, name=name, description=description, image_file=image
-        )
-        return to_response(character)
-    except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
-    except ConflictError as e:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e)) from e
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+    logger.info(f"创建角色: project_id={project_id}, name={name}")
+    character = await character_service.create_character(
+        session, project_id, name=name, description=description, image_file=image
+    )
+    return to_response(character)
 
 
 @router.get(
@@ -130,28 +118,25 @@ async def search_project_characters(
     q: Annotated[str, Query(min_length=1, description="搜索关键词")],
 ) -> CharacterSearchResponse:
     """搜索项目角色名称和描述。"""
-    try:
-        result = await character_service.search_characters(session, project_id, q)
-        return CharacterSearchResponse(
-            results=[
-                CharacterSearchResult(
-                    character_id=item.character_id,
-                    character_name=item.character_name,
-                    matches=[
-                        CharacterSearchMatch(
-                            line_number=match.line_number,
-                            line_text=match.line_text,
-                        )
-                        for match in item.matches
-                    ],
-                )
-                for item in result.results
-            ],
-            total_characters=result.total_characters,
-            total_matches=result.total_matches,
-        )
-    except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
+    result = await character_service.search_characters(session, project_id, q)
+    return CharacterSearchResponse(
+        results=[
+            CharacterSearchResult(
+                character_id=item.character_id,
+                character_name=item.character_name,
+                matches=[
+                    CharacterSearchMatch(
+                        line_number=match.line_number,
+                        line_text=match.line_text,
+                    )
+                    for match in item.matches
+                ],
+            )
+            for item in result.results
+        ],
+        total_characters=result.total_characters,
+        total_matches=result.total_matches,
+    )
 
 
 @router.post(
@@ -165,14 +150,11 @@ async def batch_favorite_characters(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> CharacterBatchFavoriteResponse:
     """批量更新项目内角色收藏状态。"""
-    try:
-        logger.info(f"批量更新角色收藏: project_id={project_id}, count={len(data.character_ids)}")
-        updated_count = await character_service.batch_update_favorite(
-            session, project_id, data.character_ids, data.is_favorited
-        )
-        return CharacterBatchFavoriteResponse(updated_count=updated_count)
-    except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
+    logger.info(f"批量更新角色收藏: project_id={project_id}, count={len(data.character_ids)}")
+    updated_count = await character_service.batch_update_favorite(
+        session, project_id, data.character_ids, data.is_favorited
+    )
+    return CharacterBatchFavoriteResponse(updated_count=updated_count)
 
 
 @router.post(
@@ -186,14 +168,11 @@ async def batch_delete_characters(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> CharacterBatchDeleteResponse:
     """批量删除项目内角色。"""
-    try:
-        logger.info(f"批量删除角色: project_id={project_id}, count={len(data.character_ids)}")
-        deleted_count = await character_service.batch_delete_characters(
-            session, project_id, data.character_ids
-        )
-        return CharacterBatchDeleteResponse(deleted_count=deleted_count)
-    except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
+    logger.info(f"批量删除角色: project_id={project_id}, count={len(data.character_ids)}")
+    deleted_count = await character_service.batch_delete_characters(
+        session, project_id, data.character_ids
+    )
+    return CharacterBatchDeleteResponse(deleted_count=deleted_count)
 
 
 @router.post(
@@ -205,16 +184,11 @@ async def reorder_project_characters(
     data: CharacterReorderRequest,
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> ReorderResponse:
-    try:
-        updated_count = await character_service.reorder_characters(
-            session, project_id, data.ordered_ids
-        )
-        await background_service.commit_and_notify(session)
-        return ReorderResponse(updated_count=updated_count)
-    except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+    updated_count = await character_service.reorder_characters(
+        session, project_id, data.ordered_ids
+    )
+    await background_service.commit_and_notify(session)
+    return ReorderResponse(updated_count=updated_count)
 
 
 @router.get(
@@ -227,11 +201,8 @@ async def get_character(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> CharacterResponse:
     """获取角色。"""
-    try:
-        character = await character_service.get_character(session, character_id)
-        return to_response(character)
-    except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
+    character = await character_service.get_character(session, character_id)
+    return to_response(character)
 
 
 @router.patch(
@@ -249,23 +220,16 @@ async def update_character(
     image: Annotated[UploadFile | None, File()] = None,
 ) -> CharacterResponse:
     """更新角色。"""
-    try:
-        character = await character_service.update_character(
-            session,
-            character_id,
-            name=name,
-            description=description,
-            is_favorited=is_favorited,
-            is_writing_visible=is_writing_visible,
-            image_file=image,
-        )
-        return to_response(character)
-    except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
-    except ConflictError as e:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e)) from e
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+    character = await character_service.update_character(
+        session,
+        character_id,
+        name=name,
+        description=description,
+        is_favorited=is_favorited,
+        is_writing_visible=is_writing_visible,
+        image_file=image,
+    )
+    return to_response(character)
 
 
 @router.delete(
@@ -278,7 +242,4 @@ async def delete_character(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> None:
     """删除角色。"""
-    try:
-        await character_service.delete_character(session, character_id)
-    except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
+    await character_service.delete_character(session, character_id)
