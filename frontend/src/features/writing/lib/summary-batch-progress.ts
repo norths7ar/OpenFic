@@ -1,8 +1,6 @@
-import type {
-  BackgroundEvent,
-  SummaryBackgroundJobItem,
-  SummaryMaintenance,
-} from "@/lib/api-client";
+import type { BackgroundEvent } from "@/lib/api-client";
+
+import type { SummaryBackgroundJobItem, SummaryMaintenance } from "./summary-api";
 
 export const ITEM_TERMINAL_EVENT_TYPES = new Set([
   "background_item_succeeded",

@@ -1,4 +1,4 @@
-import type { SummaryBackgroundJobItem, SummaryBatchProgressItem } from "@/lib/api-client";
+import type { SummaryBackgroundJobItem, SummaryBatchProgressItem } from "./summary-api";
 
 export interface SummaryProgressState {
   status: string;

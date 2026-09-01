@@ -32,12 +32,12 @@ import { useShallow } from "zustand/react/shallow";
 import "./grouped-volume-list.css";
 import { ContextMenu, type ContextMenuItem } from "@/components";
 import { buildChapterMentionTag } from "@/features/assistant/lib/mention-text";
-import type { SummaryStatusItem } from "@/lib/api-client";
 import type {
   ChapterListItem as ChapterListItemData,
   VolumeWithChapters,
 } from "@/lib/chapter.types";
 
+import type { SummaryStatusItem } from "../lib/summary-api";
 import { useWritingStore } from "../store/use-writing-store";
 import { ChapterListItem, SortableChapterListItem } from "./chapter-list-item";
 import {

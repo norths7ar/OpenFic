@@ -18,9 +18,9 @@ import "./summary-panel.css";
 
 import { ConfirmDialog, toast } from "@/components";
 import i18n from "@/i18n";
-import type { LongTermSummaryListItem } from "@/lib/api-client";
 
 import { useDeleteLongTermSummaries, useLongTermSummariesPage } from "../hooks/use-summaries";
+import type { LongTermSummaryListItem } from "../lib/summary-api";
 import { formatSummaryRangeMeta } from "../lib/summary-range-title";
 
 const PAGE_SIZE = 20;

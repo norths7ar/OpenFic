@@ -2,9 +2,9 @@ import { Box, Flex, Skeleton, Text } from "@radix-ui/themes";
 import { BookOpen } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
-import type { SummaryStatusItem } from "@/lib/api-client";
 import type { ChapterListItem, VolumeWithChapters } from "@/lib/chapter.types";
 
+import type { SummaryStatusItem } from "../lib/summary-api";
 import { GroupedVolumeList } from "./grouped-volume-list";
 import type { GroupedVolumeListScrollRequest } from "./grouped-volume-list-focus";
 

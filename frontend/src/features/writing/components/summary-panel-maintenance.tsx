@@ -9,15 +9,15 @@ import "./summary-panel.css";
 
 import { Spinner, toast } from "@/components";
 import i18n from "@/i18n";
+import { requestBackgroundSnapshot } from "@/lib/background-socket";
+
+import { useCancelSummaryBatch, useEnqueueSummary, useSummaryPanel } from "../hooks/use-summaries";
 import type {
   EnqueueSummaryRequest,
   MissingChapterSummaryItem,
   MissingLongTermSummaryItem,
   SkippedChapterSummaryItem,
-} from "@/lib/api-client";
-import { requestBackgroundSnapshot } from "@/lib/background-socket";
-
-import { useCancelSummaryBatch, useEnqueueSummary, useSummaryPanel } from "../hooks/use-summaries";
+} from "../lib/summary-api";
 import {
   buildSummaryProgressState,
   shouldShowSummaryProgressPanel,

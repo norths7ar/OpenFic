@@ -12,10 +12,10 @@ import { GripVertical, MoreHorizontal } from "lucide-react";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import type { SummaryStatus } from "@/lib/api-client";
 import type { ChapterListItem as ChapterListItemType } from "@/lib/chapter.types";
 import { formatRelativeTime } from "@/lib/time-utils";
 
+import type { SummaryStatus } from "../lib/summary-api";
 import { SummaryStatusDot } from "./summary-status-dot";
 
 function RenameInput({

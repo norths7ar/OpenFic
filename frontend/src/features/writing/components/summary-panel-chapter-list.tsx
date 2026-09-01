@@ -19,10 +19,10 @@ import "./summary-panel.css";
 
 import { ConfirmDialog, SimpleSelect, toast } from "@/components";
 import i18n from "@/i18n";
-import type { ChapterSummaryListItem } from "@/lib/api-client";
 
 import { useChapterSummaryListPage, useDeleteChapterSummaries } from "../hooks/use-summaries";
 import { useVolumeTree } from "../hooks/use-volumes";
+import type { ChapterSummaryListItem } from "../lib/summary-api";
 
 const CHAPTER_SUMMARY_PAGE_SIZE = 20;
 const EMPTY_CHAPTER_SUMMARIES: ChapterSummaryListItem[] = [];

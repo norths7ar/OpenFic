@@ -8,17 +8,21 @@ import {
 import { useEffect } from "react";
 
 import {
+  subscribeBackgroundProjection,
+  type BackgroundEvent,
+  type BackgroundProjectionSubscription,
+  type BackgroundSnapshot,
+} from "@/lib/api-client";
+import { requestBackgroundSnapshot } from "@/lib/background-socket";
+
+import {
   cancelBackgroundJob,
   deleteChapterSummaries,
   deleteLongTermSummaries,
   enqueueSummary,
   fetchChapterSummaryList,
   fetchLongTermSummariesPage,
-  subscribeBackgroundProjection,
   transformSummaryRealtimeSnapshot,
-  type BackgroundEvent,
-  type BackgroundProjectionSubscription,
-  type BackgroundSnapshot,
   type ChapterSummaryListResponse,
   type EnqueueSummaryRequest,
   type LongTermSummaryListResponse,
@@ -27,9 +31,7 @@ import {
   type SummaryPanelResponse,
   type SummaryStatus,
   type SummaryStatusItem,
-} from "@/lib/api-client";
-import { requestBackgroundSnapshot } from "@/lib/background-socket";
-
+} from "../lib/summary-api";
 import {
   extractBatchProgressFromEvent,
   ITEM_TERMINAL_EVENT_TYPES,

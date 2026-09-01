@@ -1,6 +1,6 @@
 import { Tooltip } from "@radix-ui/themes";
 
-import type { SummaryStatus } from "@/lib/api-client";
+import type { SummaryStatus } from "../lib/summary-api";
 
 import "./summary-status-dot.css";
 
