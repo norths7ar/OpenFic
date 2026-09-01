@@ -4,9 +4,10 @@ import { ChevronDown, ChevronRight, ChevronsUpDown } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { searchCharacters } from "@/lib/api-client";
 import type { CharacterSearchResult } from "@/lib/character.types";
 import { projectDataQueryKeys } from "@/lib/project-data-query-keys";
+
+import { searchCharacters } from "../lib/character-api";
 
 interface CharacterSearchPopoverProps {
   projectId: string;

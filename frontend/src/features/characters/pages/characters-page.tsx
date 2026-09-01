@@ -15,16 +15,7 @@ import { MobileAppSidebarTrigger } from "@/features/app-shell/components/mobile-
 import type { AssistantSidebarState } from "@/features/assistant";
 import { buildCharacterMentionTag } from "@/features/assistant/lib/mention-text";
 import { usePersistedPanelLayout } from "@/hooks/use-persisted-panel-layout";
-import {
-  batchDeleteCharacters,
-  createCharacter,
-  deleteCharacter,
-  fetchCharacter,
-  fetchCharactersByProject,
-  fetchProjects,
-  reorderCharacters,
-  updateCharacter,
-} from "@/lib/api-client";
+import { fetchProjects } from "@/lib/api-client";
 import type { Character, CharacterListItem, CharacterListResponse } from "@/lib/character.types";
 import { getPreference, setPreference } from "@/lib/local-db";
 import { projectDataQueryKeys } from "@/lib/project-data-query-keys";
@@ -33,6 +24,15 @@ import { countTokens } from "@/lib/tiktoken-utils";
 import { CharacterEditor } from "../components/character-editor";
 import { CharacterList } from "../components/character-list";
 import { CharacterProfileDialog } from "../components/character-profile-dialog";
+import {
+  batchDeleteCharacters,
+  createCharacter,
+  deleteCharacter,
+  fetchCharacter,
+  fetchCharactersByProject,
+  reorderCharacters,
+  updateCharacter,
+} from "../lib/character-api";
 import { useCharactersStore } from "../store/use-characters-store";
 import { shouldShowCharacterEditorLoading } from "./character-editor-loading-state";
 
