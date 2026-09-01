@@ -20,7 +20,6 @@ import type {
   AgentSessionCreateResponse,
   AgentSessionStatus,
   AgentEvent,
-  ClarificationQuestion,
   ReasoningEffort,
 } from "@/lib/agent.types";
 import type { TokenUsageState } from "@/lib/agent.types";
@@ -43,6 +42,7 @@ import {
   uploadAgentImageAttachment,
   submitAgentToolApproval,
 } from "../lib/agent-runtime-api";
+import { buildPendingInterruptMessages } from "../lib/agent-session-interrupt-state";
 import { joinAgentSession, subscribeAgentSessionEvents } from "../lib/agent-socket";
 import {
   applyAgentTranscriptEventToLiveState,
@@ -164,84 +164,6 @@ function getAgentApiErrorMessage(error: unknown, fallback: string): string {
   }
   if (error instanceof Error && error.message) return error.message;
   return fallback;
-}
-
-function buildPendingInterruptMessages(interrupts: Record<string, unknown>[]): AgentMessage[] {
-  const restoredBatchId =
-    interrupts.length > 1 ? `restored-interrupt-batch-${Date.now()}` : undefined;
-  return interrupts.flatMap((interrupt, index): AgentMessage[] => {
-    const interruptId = getString(interrupt.interrupt_id) || getString(interrupt.id);
-    if (!interruptId) return [];
-    const timestamp = Date.now() + index;
-    const batchFields = {
-      interruptBatchId: getString(interrupt.batch_id) || restoredBatchId,
-      interruptBatchIndex:
-        typeof interrupt.batch_index === "number" ? interrupt.batch_index : index,
-      interruptBatchTotal:
-        typeof interrupt.batch_total === "number" ? interrupt.batch_total : interrupts.length,
-    };
-    if (interrupt.type === "ask_user") {
-      const questions = Array.isArray(interrupt.questions)
-        ? (interrupt.questions as ClarificationQuestion[])
-        : [];
-      return [
-        {
-          id: interruptId,
-          type: "question",
-          role: "system",
-          status: "pending",
-          display: "panel",
-          timestamp,
-          questions,
-          payload: { action_id: interruptId, questions, ...batchFields },
-          correlationId: interruptId,
-          ...batchFields,
-        },
-      ];
-    }
-    if (interrupt.type !== "tool_approval") return [];
-    const toolName = getString(interrupt.tool_name) || "";
-    const toolArgs = isRecord(interrupt.args)
-      ? interrupt.args
-      : isRecord(interrupt.tool_args)
-        ? interrupt.tool_args
-        : {};
-    const approvalId = getString(interrupt.approval_id) || interruptId;
-    const toolResultPreview = isRecord(interrupt.tool_result_preview)
-      ? interrupt.tool_result_preview
-      : undefined;
-    return [
-      {
-        id: interruptId,
-        type: "approval",
-        role: "system",
-        status: "pending",
-        display: "panel",
-        timestamp,
-        toolApproval: {
-          approval_id: approvalId,
-          tool_name: toolName,
-          tool_args: toolArgs,
-          tool_call_id: getString(interrupt.tool_call_id),
-          tool_result_preview: toolResultPreview,
-          message:
-            getString(interrupt.message) ||
-            i18n.t("assistant.tools.toolApprovalQuestion", { toolName }),
-          interrupt_behavior: interrupt.interrupt_behavior === "block" ? "block" : "cancel",
-        },
-        payload: {
-          approval_id: approvalId,
-          tool_name: toolName,
-          tool_args: toolArgs,
-          tool_call_id: getString(interrupt.tool_call_id),
-          tool_result_preview: toolResultPreview,
-          ...batchFields,
-        },
-        correlationId: interruptId,
-        ...batchFields,
-      },
-    ];
-  });
 }
 
 interface UseAgentSessionOptions {
@@ -1353,6 +1275,11 @@ export function useAgentSession({
 
       const pendingInterruptMessages = buildPendingInterruptMessages(
         options.pendingInterrupts ?? [],
+        {
+          now: Date.now,
+          getApprovalMessage: (toolName) =>
+            i18n.t("assistant.tools.toolApprovalQuestion", { toolName }),
+        },
       );
       const loadedMessages = [
         ...existingMessages,
