@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 if TYPE_CHECKING:
     from app.agent_runtime.tools.base import AgentTool, ToolBuildHook, ToolHook
 
 
 class ToolRegistry:
-    _tools: dict[str, type[AgentTool]] = {}
+    _tools: ClassVar[dict[str, type[AgentTool]]] = {}
 
     @classmethod
     def register(cls, tool_class: type[AgentTool]) -> type[AgentTool]:
