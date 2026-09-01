@@ -18,6 +18,7 @@ import type {
   ModelProviderValidateResponse,
   ModelProviderCatalogModel,
   ModelResponse,
+  ModelValidationResponse,
   TaskType,
   ModelUpdateRequest,
 } from "@/lib/model.types";
@@ -361,6 +362,12 @@ export async function fetchModels(
 export async function fetchModel(id: string): Promise<Model> {
   const response = await apiClient.get<ModelResponse>(`/models/${id}`);
   return transformModel(response.data);
+}
+
+/** Validate one saved provider/model pair without mutating its configuration. */
+export async function validateModel(id: string): Promise<ModelValidationResponse> {
+  const response = await apiClient.post<ModelValidationResponse>(`/models/${id}/validate`);
+  return response.data;
 }
 
 /**

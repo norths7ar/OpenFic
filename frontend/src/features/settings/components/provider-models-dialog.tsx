@@ -12,7 +12,7 @@ import {
 } from "@radix-ui/themes";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
-import { RefreshCw, Search } from "lucide-react";
+import { CircleCheck, RefreshCw, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -31,6 +31,7 @@ import {
   fetchModels,
   fetchProviderModels,
   updateModel,
+  validateModel,
 } from "../lib/model-api";
 
 interface ProviderModelsDialogProps {
@@ -90,6 +91,7 @@ export function ProviderModelsDialog({
   const [taskType, setTaskType] = useState<TaskType>("llm");
   const [searchQuery, setSearchQuery] = useState("");
   const [pendingModelId, setPendingModelId] = useState<string | null>(null);
+  const [validatingModelId, setValidatingModelId] = useState<string | null>(null);
 
   const supportedTaskTypes = useMemo<TaskType[]>(() => {
     const supported = provider?.supportedTaskTypes ?? [];
@@ -192,6 +194,24 @@ export function ProviderModelsDialog({
     onSettled: () => setPendingModelId(null),
   });
 
+  const validateMutation = useMutation({
+    mutationFn: async (model: Model) => {
+      setValidatingModelId(model.id);
+      return validateModel(model.id);
+    },
+    onSuccess: (result) => {
+      if (result.success) {
+        toast.success(result.message);
+        return;
+      }
+      toast.error(result.detail ? `${result.message} ${result.detail}` : result.message);
+    },
+    onError: (error) => {
+      toast.error(getErrorMessage(error, t("models.validationRequestFailed")));
+    },
+    onSettled: () => setValidatingModelId(null),
+  });
+
   const isLoading = remoteQuery.isLoading || savedQuery.isLoading;
 
   return (
@@ -292,6 +312,7 @@ export function ProviderModelsDialog({
                   const capabilities = getModelCapabilityKeys(row.remote);
                   const contextLabel = formatContextWindow(row.remote.contextWindow);
                   const isPending = pendingModelId === row.remote.id;
+                  const isValidating = row.saved?.id === validatingModelId;
                   return (
                     <Box
                       key={`${taskType}-${row.remote.id}`}
@@ -339,21 +360,35 @@ export function ProviderModelsDialog({
                             {row.remote.id}
                           </Text>
                         </Flex>
-                        {isPending ? (
+                        {isPending || isValidating ? (
                           <Spinner size={18} />
                         ) : (
-                          <Switch
-                            checked={row.saved?.isEnabled ?? false}
-                            disabled={
-                              isAgentSettingsLocked ||
-                              toggleMutation.isPending ||
-                              row.saved?.isBuiltin
-                            }
-                            aria-label={t("models.toggleModel", { model: row.remote.name })}
-                            onCheckedChange={(enabled) =>
-                              toggleMutation.mutate({ row, enabled })
-                            }
-                          />
+                          <Flex align="center" gap="2">
+                            {row.saved ? (
+                              <Button
+                                variant="soft"
+                                color="gray"
+                                size="1"
+                                onClick={() => validateMutation.mutate(row.saved!)}
+                                disabled={validateMutation.isPending}
+                              >
+                                <CircleCheck size={14} />
+                                {t("models.validateModel")}
+                              </Button>
+                            ) : null}
+                            <Switch
+                              checked={row.saved?.isEnabled ?? false}
+                              disabled={
+                                isAgentSettingsLocked ||
+                                toggleMutation.isPending ||
+                                row.saved?.isBuiltin
+                              }
+                              aria-label={t("models.toggleModel", { model: row.remote.name })}
+                              onCheckedChange={(enabled) =>
+                                toggleMutation.mutate({ row, enabled })
+                              }
+                            />
+                          </Flex>
                         )}
                       </Flex>
                     </Box>

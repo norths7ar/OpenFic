@@ -8,6 +8,10 @@ from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.repos import model_provider_repo, model_repo
+from app.models.services.model_validation_service import (
+    ModelValidationResult,
+    ModelValidationService,
+)
 
 
 @pytest.mark.asyncio
@@ -349,6 +353,51 @@ async def test_get_models_by_provider(client: AsyncClient, session: AsyncSession
 
     data = response.json()
     assert len(data) == 2
+
+
+@pytest.mark.asyncio
+async def test_validate_model_does_not_change_saved_configuration(
+    client: AsyncClient, session: AsyncSession, monkeypatch
+):
+    from app.core.encryption import EncryptionService
+    from app.settings import settings
+
+    provider = await model_provider_repo.create(
+        session=session,
+        name="Validation Provider",
+        url="https://api.example.com",
+        api_key_encrypted=EncryptionService(settings.encryption_key).encrypt("test-key"),
+        provider_type="openai",
+    )
+    model = await model_repo.create(
+        session=session,
+        name="Disabled validation model",
+        provider_id=provider.id,
+        model_id="validation-model",
+        is_enabled=False,
+    )
+    await session.commit()
+
+    async def validate(self, saved_model, saved_provider):
+        assert saved_model.id == model.id
+        assert saved_provider.id == provider.id
+        return ModelValidationResult(success=True, message="模型连接验证成功。")
+
+    monkeypatch.setattr(ModelValidationService, "validate", validate)
+
+    response = await client.post(f"/api/v1/models/{model.id}/validate")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "success": True,
+        "message": "模型连接验证成功。",
+        "error_code": None,
+        "detail": None,
+    }
+    saved_model = await model_repo.get_by_id(session, model.id)
+    assert saved_model is not None
+    assert saved_model.is_enabled is False
+    assert saved_model.model_id == "validation-model"
 
 
 @pytest.mark.asyncio

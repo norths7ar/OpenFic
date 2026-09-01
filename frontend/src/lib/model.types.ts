@@ -102,6 +102,23 @@ export interface ModelProviderValidateResponse {
   models: AvailableModel[];
 }
 
+export type ModelValidationErrorCode =
+  | "authentication_failed"
+  | "connection_failed"
+  | "model_not_found"
+  | "protocol_incompatible"
+  | "capability_incompatible"
+  | "rate_limited"
+  | "timed_out"
+  | "unknown_error";
+
+export interface ModelValidationResponse {
+  success: boolean;
+  message: string;
+  error_code: ModelValidationErrorCode | null;
+  detail: string | null;
+}
+
 /** 模型 */
 export interface Model {
   id: string;

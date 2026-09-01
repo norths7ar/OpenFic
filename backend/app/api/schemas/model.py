@@ -21,6 +21,16 @@ from app.models.clients.model_params import (
 )
 
 TaskType = Literal["llm", "embedding", "rerank"]
+ModelValidationErrorCode = Literal[
+    "authentication_failed",
+    "connection_failed",
+    "model_not_found",
+    "protocol_incompatible",
+    "capability_incompatible",
+    "rate_limited",
+    "timed_out",
+    "unknown_error",
+]
 
 
 class ModelResponse(BaseModel):
@@ -107,3 +117,14 @@ class ModelUpdateRequest(BaseModel):
     cache_write_price: float | None = Field(default=None, ge=0.0)
     dimensions: int | None = Field(default=None, description="Embedding 维度（Embedding 专用）")
     is_enabled: bool | None = Field(default=None, description="是否启用模型")
+
+
+class ModelValidationResponse(BaseModel):
+    """Specific saved-model validation result."""
+
+    success: bool = Field(description="验证是否成功")
+    message: str = Field(description="面向用户的验证结果")
+    error_code: ModelValidationErrorCode | None = Field(
+        default=None, description="失败分类"
+    )
+    detail: str | None = Field(default=None, description="提供商返回的简短详情")

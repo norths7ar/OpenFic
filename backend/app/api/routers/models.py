@@ -14,10 +14,15 @@ from app.api.schemas.model import (
     ModelCreateRequest,
     ModelResponse,
     ModelUpdateRequest,
+    ModelValidationResponse,
     TaskType,
 )
+from app.core.encryption import EncryptionService
 from app.core.errors import NotFoundError
+from app.models.repos import model_provider_repo
 from app.models.services import ModelService
+from app.models.services.model_validation_service import ModelValidationService
+from app.settings import settings
 from app.storage.database import get_session
 
 router = APIRouter(prefix="/models", tags=["models"])
@@ -27,6 +32,10 @@ _SUPPORTED_TASK_TYPES = frozenset({"llm", "embedding", "rerank"})
 def get_model_service() -> ModelService:
     """获取模型服务实例。"""
     return ModelService()
+
+
+def get_model_validation_service() -> ModelValidationService:
+    return ModelValidationService(EncryptionService(settings.encryption_key))
 
 
 def _require_task_type(task_type: str) -> TaskType:
@@ -137,6 +146,43 @@ async def get_model(
         return _to_response(model)
     except NotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+
+
+@router.post(
+    "/{model_id}/validate",
+    response_model=ModelValidationResponse,
+    summary="验证已保存模型连接",
+)
+async def validate_model(
+    model_id: str,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    service: Annotated[ModelService, Depends(get_model_service)],
+    validation_service: Annotated[
+        ModelValidationService, Depends(get_model_validation_service)
+    ],
+) -> ModelValidationResponse:
+    """Validate one saved provider/model pair without changing its configuration."""
+    try:
+        model = await service.get_model_by_id(session, model_id)
+    except NotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
+        ) from exc
+
+    provider = await model_provider_repo.get_by_id(session, model.provider_id)
+    if provider is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Provider with id {model.provider_id} not found",
+        )
+
+    result = await validation_service.validate(model, provider)
+    return ModelValidationResponse(
+        success=result.success,
+        message=result.message,
+        error_code=result.error_code,
+        detail=result.detail,
+    )
 
 
 @router.post(
