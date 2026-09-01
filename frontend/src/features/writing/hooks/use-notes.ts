@@ -2,21 +2,6 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 
 import { toast } from "@/components";
-import {
-  fetchNoteTree,
-  fetchNote,
-  createNote,
-  updateNote,
-  deleteNote,
-  toggleNoteLock,
-  toggleNoteHidden,
-  createNoteCategory,
-  updateNoteCategory,
-  deleteNoteCategory,
-  moveNoteItem,
-  reorderMixedNoteItems,
-  reorderNoteItems,
-} from "@/lib/api-client";
 import type {
   Note,
   NoteCreate,
@@ -32,6 +17,22 @@ import type {
   DocumentType,
 } from "@/lib/note.types";
 import { projectDataQueryKeys } from "@/lib/project-data-query-keys";
+
+import {
+  fetchNoteTree,
+  fetchNote,
+  createNote,
+  updateNote,
+  deleteNote,
+  toggleNoteLock,
+  toggleNoteHidden,
+  createNoteCategory,
+  updateNoteCategory,
+  deleteNoteCategory,
+  moveNoteItem,
+  reorderMixedNoteItems,
+  reorderNoteItems,
+} from "../lib/note-api";
 
 function cloneCategoryItem(cat: NoteCategoryItem): NoteCategoryItem {
   return {

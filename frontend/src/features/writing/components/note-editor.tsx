@@ -5,7 +5,6 @@ import { useTranslation } from "react-i18next";
 
 import { MarkdownEditor, Spinner } from "@/components";
 import { toast } from "@/components/toast";
-import { fetchNote } from "@/lib/api-client";
 import {
   getEditorContentLimit,
   MAX_EDITOR_CONTENT_CHARACTERS,
@@ -25,6 +24,7 @@ import {
   type WritingDraft,
   type WritingWorkingCopyController,
 } from "../hooks/use-writing-working-copy";
+import { fetchNote } from "../lib/note-api";
 import {
   areWritingWorkingCopyDraftsEqual,
   getNextWritingWorkingCopyTimestamp,
