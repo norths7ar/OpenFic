@@ -1,1 +1,5 @@
-Generic single-database configuration.
+OpenFic Alembic 迁移目录。
+
+- 当前迁移主链从 `versions/1001_initial_schema.py` 开始；后续迁移必须接在这条链上。
+- `versions/legacy/` 保存压缩基线前的历史迁移，默认 Alembic 配置不会递归发现该目录。
+- 是否继续保留旧迁移取决于支持的数据库升级下限，统一记录在仓库根目录 `ROADMAP.md` 的“待决策”中。
