@@ -1,1 +1,5 @@
+# Keep repository text files stable across Windows and Unix checkouts.
+* text=auto eol=lf
+
+# Tokenizer resources are binary data, not line-oriented text.
 backend/app/core/resources/tiktoken/*.tiktoken -text

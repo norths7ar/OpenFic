@@ -51,6 +51,18 @@ OpenFic 运行数据保存在容器的 `/data` 目录，通过 Docker 数据卷�
 
 ## 开发与验证
 
+在完成依赖安装后，从仓库根目录运行统一检查：
+
+```powershell
+.\scripts\check.ps1
+```
+
+默认会运行后端格式、lint、类型检查和测试，以及前端格式、lint、类型检查和构建。快速本地检查可跳过较耗时的测试或构建：
+
+```powershell
+.\scripts\check.ps1 -SkipTests -SkipBuild
+```
+
 后端使用 Python 3.12+ 和 uv：
 
 ```powershell
