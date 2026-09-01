@@ -22,6 +22,36 @@ from app.storage.repos.chapter_summary_repo import (
 )
 
 
+def test_summary_service_reexports_summary_policy() -> None:
+    from app.memory.chapter import summary_policy, summary_service
+
+    exported_names = (
+        "LONG_TERM_SUMMARY_INTERVAL",
+        "MIN_CHAPTER_SUMMARY_WORD_COUNT",
+        "SUMMARY_STALE_DIFF_THRESHOLD",
+        "LongTermSummaryWindow",
+        "parse_summary_list",
+        "encode_summary_list",
+        "is_chapter_summary_skipped",
+        "is_chapter_summary_stale",
+        "normalize_summary_source_content",
+        "_diff_character_count",
+        "chapter_summary_signature",
+        "_source_chapter_ids",
+        "_window_source_chapter_ids",
+        "_source_chapter_summary_signatures",
+        "is_long_term_summary_stale",
+        "_fixed_summary_windows",
+        "_build_long_term_window_from_group",
+        "build_long_term_summary_window",
+        "list_eligible_long_term_ranges",
+        "list_ready_unaggregated_long_term_windows",
+    )
+
+    for name in exported_names:
+        assert getattr(summary_service, name) is getattr(summary_policy, name)
+
+
 def _make_volume(volume_id: str, order: int) -> Volume:
     return Volume(
         id=volume_id,
