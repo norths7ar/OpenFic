@@ -75,6 +75,18 @@ import {
   type AssistantConversationStackState,
 } from "../lib/assistant-conversation-state";
 import type { AssistantSidebarState } from "../lib/assistant-state.types";
+import {
+  applyTaskUsageDelta,
+  applyTaskUsageSnapshot,
+  buildTaskConversationUsage,
+  createSessionTotalUsageState,
+  createTokenUsageState,
+  DEFAULT_CONTEXT_LENGTH,
+  getContextUsagePercent,
+  selectConversationUsage,
+  type SessionTotalUsageState,
+  type TaskUsagePayload,
+} from "../lib/assistant-usage-state";
 import type { AssistantView } from "../lib/assistant.types";
 import type {
   SceneDraftApplyRequest,
@@ -113,18 +125,8 @@ export interface AssistantSidebarHandle {
 const ASSISTANT_MODEL_STORAGE_KEY = "openfic.agent.selectedModelId";
 const ASSISTANT_AGENT_STORAGE_KEY = "openfic.agent.selectedAgentKey";
 const ASSISTANT_REASONING_EFFORT_STORAGE_KEY = "openfic.agent.reasoningEffort";
-const DEFAULT_CONTEXT_LENGTH = 128000;
-
 const CONTEXT_MID_FIELD_CHAPTER_COUNT = 10;
 const CONTEXT_NEAR_FIELD_CHAPTER_COUNT = 9;
-interface SessionTotalUsageState {
-  sessionId: string;
-  taskId: string | null;
-  tokenInput: number;
-  tokenOutput: number;
-  tokenCache: number;
-  cost: number;
-}
 
 function upsertActiveSubagent(
   items: ActiveSubagentState[],
@@ -142,30 +144,6 @@ function needsContextCompletionWarning(status: string, isStale: boolean): boolea
   return (
     status === "not_generated" || status === "failed" || status === "queued" || status === "running"
   );
-}
-
-function createTokenUsageState(contextLength = DEFAULT_CONTEXT_LENGTH): TokenUsageState {
-  return {
-    tokenInput: 0,
-    tokenOutput: 0,
-    tokenCache: 0,
-    contextInputTokens: 0,
-    contextLength,
-  };
-}
-
-function createSessionTotalUsageState(
-  sessionId = "",
-  taskId: string | null = null,
-): SessionTotalUsageState {
-  return {
-    sessionId,
-    taskId,
-    tokenInput: 0,
-    tokenOutput: 0,
-    tokenCache: 0,
-    cost: 0,
-  };
 }
 
 function getStoredReasoningEffort(modelId: string, supportsReasoning: boolean): ReasoningEffort {
@@ -273,24 +251,6 @@ function AnimatedTokenCount({ value }: { value: number }) {
       className="ai-sidebar-token-number"
     />
   );
-}
-
-function buildTaskConversationUsage(
-  task: {
-    tokenInput: number;
-    tokenOutput: number;
-    tokenCache: number;
-    contextInputTokens: number;
-  },
-  contextLength: number,
-): TokenUsageState {
-  return {
-    tokenInput: task.tokenInput,
-    tokenOutput: task.tokenOutput,
-    tokenCache: task.tokenCache,
-    contextInputTokens: task.contextInputTokens,
-    contextLength,
-  };
 }
 
 export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSidebarProps>(
@@ -586,50 +546,14 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
     );
 
     const handleTaskUsageSnapshot = useCallback(
-      (payload: {
-        sessionId: string;
-        taskId: string;
-        tokenInput: number;
-        tokenOutput: number;
-        tokenCache: number;
-        cost: number;
-      }) => {
-        setSessionTotalUsage((current) => {
-          if (current.sessionId && current.sessionId !== payload.sessionId) return current;
-          return {
-            sessionId: payload.sessionId,
-            taskId: payload.taskId,
-            tokenInput: payload.tokenInput,
-            tokenOutput: payload.tokenOutput,
-            tokenCache: payload.tokenCache,
-            cost: payload.cost,
-          };
-        });
-      },
+      (payload: TaskUsagePayload) =>
+        setSessionTotalUsage((current) => applyTaskUsageSnapshot(current, payload)),
       [],
     );
 
     const handleTaskUsageDelta = useCallback(
-      (payload: {
-        sessionId: string;
-        taskId: string;
-        tokenInput: number;
-        tokenOutput: number;
-        tokenCache: number;
-        cost: number;
-      }) => {
-        setSessionTotalUsage((current) => {
-          if (current.sessionId && current.sessionId !== payload.sessionId) return current;
-          return {
-            sessionId: payload.sessionId,
-            taskId: payload.taskId,
-            tokenInput: current.tokenInput + payload.tokenInput,
-            tokenOutput: current.tokenOutput + payload.tokenOutput,
-            tokenCache: current.tokenCache + payload.tokenCache,
-            cost: current.cost + payload.cost,
-          };
-        });
-      },
+      (payload: TaskUsagePayload) =>
+        setSessionTotalUsage((current) => applyTaskUsageDelta(current, payload)),
       [],
     );
 
@@ -720,25 +644,23 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
         : agentSidebarSessionId ||
           (currentConversation?.kind === "parent" ? currentConversation.sessionId : "") ||
           "";
-    const currentConversationUsage = useMemo<TokenUsageState>(() => {
-      if (isViewingSubagent) {
-        return (
-          conversationUsageBySession[currentConversationSessionId] ??
-          subagentSession.tokenUsage ??
-          createTokenUsageState(currentModel?.contextWindow ?? DEFAULT_CONTEXT_LENGTH)
-        );
-      }
-      return (
-        conversationUsageBySession[currentConversationSessionId] ??
-        createTokenUsageState(currentModel?.contextWindow ?? DEFAULT_CONTEXT_LENGTH)
-      );
-    }, [
-      conversationUsageBySession,
-      currentConversationSessionId,
-      currentModel?.contextWindow,
-      isViewingSubagent,
-      subagentSession.tokenUsage,
-    ]);
+    const currentConversationUsage = useMemo(
+      () =>
+        selectConversationUsage({
+          usageBySession: conversationUsageBySession,
+          sessionId: currentConversationSessionId,
+          isSubagent: isViewingSubagent,
+          subagentUsage: subagentSession.tokenUsage,
+          contextLength: currentModel?.contextWindow ?? DEFAULT_CONTEXT_LENGTH,
+        }),
+      [
+        conversationUsageBySession,
+        currentConversationSessionId,
+        currentModel?.contextWindow,
+        isViewingSubagent,
+        subagentSession.tokenUsage,
+      ],
+    );
 
     const sessionTotalDisplay = useMemo(
       () => ({
@@ -755,16 +677,7 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
       ],
     );
 
-    const contextUsagePercent = Math.min(
-      100,
-      Math.max(
-        0,
-        currentConversationUsage.contextLength > 0
-          ? (currentConversationUsage.contextInputTokens / currentConversationUsage.contextLength) *
-              100
-          : 0,
-      ),
-    );
+    const contextUsagePercent = getContextUsagePercent(currentConversationUsage);
     const contextUsageTooltip = t("assistant.contextUsageTooltip", {
       used: `${formatTokenCount(currentConversationUsage.contextInputTokens)} (${contextUsagePercent.toFixed(1)}%)`,
       total: formatTokenCount(currentConversationUsage.contextLength),
