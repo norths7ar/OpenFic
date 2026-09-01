@@ -1,6 +1,6 @@
 import { useParams } from "react-router";
 
-import { AssistantSidebarHost } from "@/features/app-shell";
+import { AssistantSidebarHost } from "@/features/app-shell/components/assistant-sidebar-host";
 
 export function DiscussionPage() {
   const { projectId } = useParams<{ projectId: string }>();

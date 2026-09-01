@@ -3,7 +3,7 @@ import { ChevronDown } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import type { ComponentPropsWithoutRef, ReactNode } from "react";
 
-import { useAppShell } from "@/features/app-shell/components/app-shell-context";
+import { useAppShell } from "@/app/app-shell-context";
 
 import "./message-shell.css";
 import { joinClassNames } from "./message-shell-utils";

@@ -4,15 +4,7 @@
  * 模型设置面板，管理和配置 AI 模型。
  */
 
-import {
-  Badge,
-  Box,
-  DropdownMenu,
-  Flex,
-  IconButton,
-  Tabs,
-  Text,
-} from "@radix-ui/themes";
+import { Badge, Box, DropdownMenu, Flex, IconButton, Tabs, Text } from "@radix-ui/themes";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Edit, MoreHorizontal, Trash2 } from "lucide-react";
 import { useState, useCallback, useEffect, useMemo } from "react";

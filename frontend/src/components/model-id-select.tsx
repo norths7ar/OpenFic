@@ -16,7 +16,6 @@ import { startTransition, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
-import { Spinner } from "@/components";
 import { ProviderIcon } from "@/features/settings/lib/provider-icons";
 import type { AvailableModel, TaskType } from "@/lib/model.types";
 
@@ -26,6 +25,7 @@ import {
   getModelCapabilityKeys,
   formatContextWindow,
 } from "./model-capability-tags";
+import { Spinner } from "./spinner";
 
 const MotionBox = motion.create(Box);
 

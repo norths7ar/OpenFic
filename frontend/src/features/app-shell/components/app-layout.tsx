@@ -1,18 +1,19 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Outlet } from "react-router";
 
-import { AssistantSidebar } from "@/features/assistant";
-import type { AssistantSidebarHandle } from "@/features/assistant";
-import type { SceneDraftRequest } from "@/features/assistant";
+import { AppShellContext, type AssistantSidebarHostRegistration } from "@/app/app-shell-context";
+import {
+  AssistantSidebar,
+  type AssistantSidebarHandle,
+} from "@/features/assistant/components/assistant-sidebar";
+import type { SceneDraftRequest } from "@/features/assistant/lib/scene-draft";
 import { SettingsDialog } from "@/features/settings";
 import type { SettingsDialogRoute } from "@/features/settings/lib/settings-route";
 
-import { AppShellContext } from "./app-shell-context";
 import { AppSidebar } from "./app-sidebar";
 import {
   clearAssistantSidebarHost as clearAssistantSidebarHostState,
   registerAssistantSidebarHost as registerAssistantSidebarHostState,
-  type AssistantSidebarHostRegistration,
   type AssistantSidebarHostState,
 } from "./assistant-sidebar-host-state";
 import {

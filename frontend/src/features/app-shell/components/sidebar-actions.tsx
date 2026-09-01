@@ -2,10 +2,7 @@ import { Box, Text, Tooltip } from "@radix-ui/themes";
 import { Settings } from "lucide-react";
 import { motion } from "motion/react";
 
-import {
-  SIDEBAR_ICON_SIZE,
-  SIDEBAR_ITEM_HEIGHT,
-} from "./app-sidebar.constants";
+import { SIDEBAR_ICON_SIZE, SIDEBAR_ITEM_HEIGHT } from "./app-sidebar.constants";
 
 interface SidebarActionsProps {
   isExpanded: boolean;
@@ -13,11 +10,7 @@ interface SidebarActionsProps {
   onOpenSettings: () => void;
 }
 
-export function SidebarActions({
-  isExpanded,
-  settingsLabel,
-  onOpenSettings,
-}: SidebarActionsProps) {
+export function SidebarActions({ isExpanded, settingsLabel, onOpenSettings }: SidebarActionsProps) {
   const action = (
     <motion.button
       type="button"
@@ -61,7 +54,9 @@ export function SidebarActions({
     </motion.button>
   );
 
-  return isExpanded ? action : (
+  return isExpanded ? (
+    action
+  ) : (
     <Tooltip
       content={settingsLabel}
       side="right"

@@ -184,9 +184,7 @@ export function ProviderModelsDialog({
     },
     onSuccess: (_model, variables) => {
       void queryClient.invalidateQueries({ queryKey: ["models"] });
-      toast.success(
-        variables.enabled ? t("models.modelEnabled") : t("models.modelDisabled"),
-      );
+      toast.success(variables.enabled ? t("models.modelEnabled") : t("models.modelDisabled"));
     },
     onError: (error) => {
       toast.error(getErrorMessage(error, t("models.updateFailed")));
@@ -363,7 +361,10 @@ export function ProviderModelsDialog({
                         {isPending || isValidating ? (
                           <Spinner size={18} />
                         ) : (
-                          <Flex align="center" gap="2">
+                          <Flex
+                            align="center"
+                            gap="2"
+                          >
                             {row.saved ? (
                               <Button
                                 variant="soft"
@@ -384,9 +385,7 @@ export function ProviderModelsDialog({
                                 row.saved?.isBuiltin
                               }
                               aria-label={t("models.toggleModel", { model: row.remote.name })}
-                              onCheckedChange={(enabled) =>
-                                toggleMutation.mutate({ row, enabled })
-                              }
+                              onCheckedChange={(enabled) => toggleMutation.mutate({ row, enabled })}
                             />
                           </Flex>
                         )}

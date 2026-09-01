@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useParams } from "react-router";
 
-import { AssistantSidebarHost } from "@/features/app-shell";
+import { AssistantSidebarHost } from "@/features/app-shell/components/assistant-sidebar-host";
 import type { AssistantSidebarState } from "@/features/assistant";
 import { buildNoteMentionTag } from "@/features/assistant/lib/mention-text";
 import type { DocumentType } from "@/lib/note.types";

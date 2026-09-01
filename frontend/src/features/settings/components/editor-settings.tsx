@@ -216,12 +216,25 @@ export function EditorSettings() {
           />
         </Flex>
 
-        <Flex align="center" justify="between" gap="4">
-          <Flex direction="column" gap="1">
-            <Text size="2" weight="medium">
+        <Flex
+          align="center"
+          justify="between"
+          gap="4"
+        >
+          <Flex
+            direction="column"
+            gap="1"
+          >
+            <Text
+              size="2"
+              weight="medium"
+            >
               {t("settings.editorShowLineNumbers")}
             </Text>
-            <Text size="1" color="gray">
+            <Text
+              size="1"
+              color="gray"
+            >
               {t("settings.editorShowLineNumbersHint")}
             </Text>
           </Flex>

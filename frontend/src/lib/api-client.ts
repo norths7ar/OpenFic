@@ -6,6 +6,7 @@
 
 import axios from "axios";
 
+import { handleAuthenticationFailure } from "./auth-failure";
 import { getConfiguredBackendBaseUrl, getRuntimeConfig } from "./runtime-config";
 
 export function getApiBaseUrl(): string {
@@ -39,14 +40,6 @@ export const apiClient = axios.create({
     "Content-Type": "application/json",
   },
 });
-
-let isAuthenticationRedirecting = false;
-
-export function handleAuthenticationFailure(): void {
-  if (typeof window === "undefined" || isAuthenticationRedirecting) return;
-  isAuthenticationRedirecting = true;
-  window.location.reload();
-}
 
 function isAuthenticationRequest(url: string | undefined): boolean {
   return url?.includes("/auth/") ?? false;

@@ -8,7 +8,7 @@
     "dev": "vp dev",
     "format": "oxfmt . --write",
     "format:check": "oxfmt . --check",
-    "lint": "oxlint .",
+    "lint": "oxlint . --import-plugin -D import/no-cycle",
     "preview": "vp preview",
     "test:e2e": "playwright test",
     "type-check": "oxlint . --type-aware --type-check"

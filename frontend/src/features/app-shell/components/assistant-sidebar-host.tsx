@@ -1,7 +1,6 @@
 import { useId, useLayoutEffect, useRef } from "react";
 
-import { useAppShell } from "./app-shell-context";
-import type { AssistantSidebarHostRegistration } from "./assistant-sidebar-host-state";
+import { useAppShell, type AssistantSidebarHostRegistration } from "@/app/app-shell-context";
 
 interface AssistantSidebarHostProps extends Omit<
   AssistantSidebarHostRegistration,

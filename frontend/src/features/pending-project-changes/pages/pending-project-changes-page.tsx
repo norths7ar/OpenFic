@@ -1,7 +1,7 @@
 import { Box } from "@radix-ui/themes";
 import { useParams } from "react-router";
 
-import { MobileAppSidebarTrigger } from "@/features/app-shell";
+import { MobileAppSidebarTrigger } from "@/features/app-shell/components/mobile-app-sidebar-trigger";
 
 import { PendingProjectChangesPanel } from "../components/pending-project-changes-panel";
 

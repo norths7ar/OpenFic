@@ -2,7 +2,7 @@ import { HoverCard, Text } from "@radix-ui/themes";
 import { useMemo, useSyncExternalStore, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
-import { useAppShell } from "@/features/app-shell/components/app-shell-context";
+import { useAppShell } from "@/app/app-shell-context";
 import { useOverallIndexStatus, type ProjectIndexStatus } from "@/lib/index-status";
 import { getSocketConnectionStatus, subscribeSocketConnectionStatus } from "@/lib/socket-client";
 

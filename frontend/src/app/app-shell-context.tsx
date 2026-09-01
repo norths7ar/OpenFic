@@ -1,9 +1,27 @@
 import { createContext, useContext } from "react";
 
-import type { SceneDraftRequest } from "@/features/assistant/lib/scene-draft";
+import type { AssistantSidebarState } from "@/features/assistant/lib/assistant-state.types";
+import type {
+  SceneDraftApplyRequest,
+  SceneDraftRequest,
+} from "@/features/assistant/lib/scene-draft";
 import type { SettingsDialogRoute } from "@/features/settings/lib/settings-route";
 
-import type { AssistantSidebarHostRegistration } from "./assistant-sidebar-host-state";
+export interface AssistantSidebarHostRegistration {
+  id: string;
+  host: HTMLElement | null;
+  projectId: string;
+  isMobileOverlay: boolean;
+  isOpen: boolean;
+  preferredAgentKey?: string;
+  initialComposerMarkup?: string;
+  replaceComposerWithInitialMarkup?: boolean;
+  discussionWorkspace?: boolean;
+  onStateChange?: (state: AssistantSidebarState) => void;
+  onOpenMentionChapter?: (chapterId: string, chapterTitle: string) => void;
+  onApplySceneDraft?: (request: SceneDraftApplyRequest) => Promise<boolean>;
+  onClose?: () => void;
+}
 
 interface AppShellContextValue {
   isMobile: boolean;

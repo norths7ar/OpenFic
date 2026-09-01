@@ -3,7 +3,8 @@
  */
 
 import i18n from "@/i18n";
-import { apiClient, getApiBaseUrl, handleAuthenticationFailure } from "@/lib/api-client";
+import { apiClient, getApiBaseUrl } from "@/lib/api-client";
+import { handleAuthenticationFailure } from "@/lib/auth-failure";
 
 /** 预览章节信息 */
 export interface PreviewChapter {

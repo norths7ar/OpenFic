@@ -1,21 +1,4 @@
-import type { AssistantSidebarState } from "@/features/assistant/lib/assistant-state.types";
-import type { SceneDraftApplyRequest } from "@/features/assistant/lib/scene-draft";
-
-export interface AssistantSidebarHostRegistration {
-  id: string;
-  host: HTMLElement | null;
-  projectId: string;
-  isMobileOverlay: boolean;
-  isOpen: boolean;
-  preferredAgentKey?: string;
-  initialComposerMarkup?: string;
-  replaceComposerWithInitialMarkup?: boolean;
-  discussionWorkspace?: boolean;
-  onStateChange?: (state: AssistantSidebarState) => void;
-  onOpenMentionChapter?: (chapterId: string, chapterTitle: string) => void;
-  onApplySceneDraft?: (request: SceneDraftApplyRequest) => Promise<boolean>;
-  onClose?: () => void;
-}
+import type { AssistantSidebarHostRegistration } from "@/app/app-shell-context";
 
 export interface AssistantSidebarHostState extends AssistantSidebarHostRegistration {
   isActive: boolean;

@@ -12,7 +12,7 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { ConfirmDialog, Spinner, toast } from "@/components";
-import { MobileAppSidebarTrigger } from "@/features/app-shell";
+import { MobileAppSidebarTrigger } from "@/features/app-shell/components/mobile-app-sidebar-trigger";
 import type { Project } from "@/lib/project.types";
 
 import { ImportDialog } from "../components/import-dialog";

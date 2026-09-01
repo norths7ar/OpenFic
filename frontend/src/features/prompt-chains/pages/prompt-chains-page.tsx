@@ -15,8 +15,9 @@ import "./prompt-chains-page.css";
 import { useSearchParams } from "react-router";
 import { v4 as uuidv4 } from "uuid";
 
+import { useAppShell } from "@/app/app-shell-context";
 import { ConfirmDialog, PanelLayoutLoading, PromptChainDialog } from "@/components";
-import { MobileAppSidebarTrigger, useAppShell } from "@/features/app-shell";
+import { MobileAppSidebarTrigger } from "@/features/app-shell/components/mobile-app-sidebar-trigger";
 import { usePersistedPanelLayout } from "@/hooks/use-persisted-panel-layout";
 import { fetchPromptChainsMetadata, compilePromptChain, resetPromptChain } from "@/lib/api-client";
 import type { PromptEntryData, CompileResponse } from "@/lib/prompt-chain.types";

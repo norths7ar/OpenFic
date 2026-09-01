@@ -6,7 +6,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import { Spinner } from "@/components";
+import { Spinner } from "@/components/spinner";
 
 import { scheduleProviderIconRequest } from "./provider-icon-request-queue";
 import { getProviderIconUrl } from "./provider-icon-url";

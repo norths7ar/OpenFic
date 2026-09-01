@@ -20,10 +20,10 @@ import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent } 
 import { useTranslation } from "react-i18next";
 import { useLocation, useNavigate, useParams } from "react-router";
 
+import { useAppShell } from "@/app/app-shell-context";
 import { toast } from "@/components";
 import { fetchProject, fetchProjects } from "@/lib/api-client";
 
-import { useAppShell } from "./app-shell-context";
 import {
   SIDEBAR_COLLAPSED_WIDTH,
   SIDEBAR_EXPANDED_WIDTH,

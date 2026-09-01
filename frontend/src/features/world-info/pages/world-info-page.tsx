@@ -15,9 +15,11 @@ import { useParams, useSearchParams } from "react-router";
 
 import "./world-info-page.css";
 
+import { useAppShell } from "@/app/app-shell-context";
 import { PanelLayoutLoading } from "@/components";
 import { toast } from "@/components/toast";
-import { AssistantSidebarHost, MobileAppSidebarTrigger, useAppShell } from "@/features/app-shell";
+import { AssistantSidebarHost } from "@/features/app-shell/components/assistant-sidebar-host";
+import { MobileAppSidebarTrigger } from "@/features/app-shell/components/mobile-app-sidebar-trigger";
 import type { AssistantSidebarState } from "@/features/assistant";
 import { buildWorldInfoEntryMentionTag } from "@/features/assistant/lib/mention-text";
 import { usePersistedPanelLayout } from "@/hooks/use-persisted-panel-layout";

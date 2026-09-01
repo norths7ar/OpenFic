@@ -25,14 +25,14 @@ import {
 } from "react";
 import { useTranslation } from "react-i18next";
 
+import { useAppShell } from "@/app/app-shell-context";
 import { CircularProgress, ConfirmDialog, Spinner, toast, getModelValue } from "@/components";
 import { AgentBrandIcon } from "@/components/agent-brand-icon";
-import { useAppShell } from "@/features/app-shell";
 import {
   appendMentionMarkup,
   replaceAutomaticMentionMarkup,
 } from "@/features/assistant/lib/mention-text";
-import { PendingProjectChangesDialog } from "@/features/pending-project-changes";
+import { PendingProjectChangesDialog } from "@/features/pending-project-changes/components/pending-project-changes-dialog";
 import { fetchAgentDefinitions } from "@/features/settings/lib/agent-definitions-api";
 import { fetchSettings, updateSettings } from "@/features/settings/lib/settings-api";
 import { useSummaryPanel } from "@/features/writing/hooks/use-summaries";

@@ -4,7 +4,7 @@ import { BarChart3, BookOpenText, ListTree } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { MobileAppSidebarTrigger } from "@/features/app-shell";
+import { MobileAppSidebarTrigger } from "@/features/app-shell/components/mobile-app-sidebar-trigger";
 
 import { DashboardFilters } from "../components/dashboard-filters";
 import { DashboardRecordsTab } from "../components/dashboard-records-tab";

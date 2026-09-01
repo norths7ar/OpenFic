@@ -1,7 +1,7 @@
 import { io, type Socket } from "socket.io-client";
 
 import i18n from "../i18n";
-import { handleAuthenticationFailure } from "./api-client";
+import { handleAuthenticationFailure } from "./auth-failure";
 import { publishSocketDiagnostic, type SocketDiagnosticPayload } from "./desktop-appearance-bridge";
 import { getConfiguredBackendBaseUrl, getRuntimeConfig } from "./runtime-config";
 

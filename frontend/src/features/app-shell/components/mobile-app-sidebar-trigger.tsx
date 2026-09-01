@@ -2,7 +2,7 @@ import { IconButton, Tooltip } from "@radix-ui/themes";
 import { PanelLeft } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
-import { useAppShell } from "./app-shell-context";
+import { useAppShell } from "@/app/app-shell-context";
 
 export function MobileAppSidebarTrigger() {
   const { t } = useTranslation();

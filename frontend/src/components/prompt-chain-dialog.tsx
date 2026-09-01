@@ -5,8 +5,9 @@ import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { PhotoProvider, PhotoView } from "react-photo-view";
 
-import { Spinner } from "@/components";
 import { countTokens } from "@/lib/tiktoken-utils";
+
+import { Spinner } from "./spinner";
 
 import "./prompt-chain-dialog.css";
 import "react-photo-view/dist/react-photo-view.css";
