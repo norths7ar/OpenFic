@@ -28,6 +28,11 @@ from app.agent_runtime.attachments import (
 from app.agent_runtime.context.compaction.service import CompactionError
 from app.agent_runtime.fork import fork_agent_session_at_revision
 from app.agent_runtime.model_config import without_api_key
+from app.agent_runtime.model_resolution import (
+    build_model_config,
+    resolve_legacy_model_config,
+    resolve_model_config,
+)
 from app.agent_runtime.persistence.child_runs import (
     TERMINAL_CHILD_RUN_STATUSES,
     cancel_child_run,
@@ -82,12 +87,8 @@ from app.api.schemas.agent import (
 )
 from app.background.jobs import service as background_service
 from app.background.jobs.session_title_jobs import enqueue_session_title_job
-from app.core.encryption import EncryptionService
 from app.core.errors import NotFoundError
 from app.core.ids import generate_id
-from app.models.repos import model_provider_repo, model_repo
-from app.models.services.model_provider_service import ModelProviderService
-from app.settings import settings
 from app.socket import emit
 from app.socket.handlers import agent_session_room, background_project_room
 from app.storage.database import get_session
@@ -482,32 +483,13 @@ async def _build_model_config(
     reasoning_effort: str | None = None,
     custom_headers: dict[str, str] | None = None,
 ) -> dict:
-    model_config = {
-        "model_record_id": model.id,
-        "provider_type": provider.provider_type,
-        "base_url": provider.url,
-        "api_key": api_key,
-        "model_id": model.model_id,
-        "max_context_tokens": model.context_length,
-        "input_price": getattr(model, "input_price", 0.0),
-        "output_price": getattr(model, "output_price", 0.0),
-        "cache_read_price": getattr(model, "cache_read_price", 0.0),
-        "cache_write_price": getattr(model, "cache_write_price", 0.0),
-        "temperature": model.temperature,
-        "top_p": model.top_p,
-        "top_k": model.top_k,
-        "min_p": model.min_p,
-        "top_a": model.top_a,
-        "max_tokens": model.max_tokens,
-        "frequency_penalty": model.frequency_penalty,
-        "presence_penalty": model.presence_penalty,
-        "repetition_penalty": model.repetition_penalty,
-    }
-    if reasoning_effort and reasoning_effort != "off":
-        model_config["reasoning_effort"] = reasoning_effort
-    if custom_headers:
-        model_config["custom_headers"] = custom_headers
-    return model_config
+    return await build_model_config(
+        model,
+        provider,
+        api_key,
+        reasoning_effort,
+        custom_headers,
+    )
 
 
 async def _validate_primary_agent(session: AsyncSession, agent_key: str) -> AgentDefinition:
@@ -534,56 +516,14 @@ async def _validate_primary_agent(session: AsyncSession, agent_key: str) -> Agen
 async def _resolve_model_config(
     session: AsyncSession, model_id: str, reasoning_effort: str | None = None
 ) -> dict:
-    model = await model_repo.get_by_id(session, model_id)
-    if model is None:
-        raise NotFoundError(f"模型不存在：{model_id}")
-
-    provider = await model_provider_repo.get_by_id(session, model.provider_id)
-    if provider is None:
-        raise NotFoundError(f"模型提供商不存在：{model.provider_id}")
-
-    encryption_service = EncryptionService(settings.encryption_key)
-    try:
-        api_key = encryption_service.decrypt(provider.api_key_encrypted)
-    except Exception as exc:
-        raise ValueError("API密钥解密失败") from exc
-
-    custom_headers = ModelProviderService(encryption_service).get_decrypted_custom_headers(provider)
-    return await _build_model_config(
-        model,
-        provider,
-        api_key,
-        reasoning_effort,
-        custom_headers,
-    )
+    return await resolve_model_config(session, model_id, reasoning_effort)
 
 
 async def _resolve_legacy_model_config(
     session: AsyncSession,
     legacy_model_config: dict[str, object],
 ) -> dict:
-    model_id = legacy_model_config.get("model_id")
-    provider_type = legacy_model_config.get("provider_type")
-    base_url = legacy_model_config.get("base_url")
-    if (
-        not isinstance(model_id, str)
-        or not model_id
-        or not isinstance(provider_type, str)
-        or not provider_type
-        or not isinstance(base_url, str)
-        or not base_url
-    ):
-        raise NotFoundError("会话模型配置无法恢复")
-
-    model = await model_repo.get_by_legacy_agent_config(
-        session,
-        model_id=model_id,
-        provider_type=provider_type,
-        base_url=base_url,
-    )
-    if model is None:
-        raise NotFoundError("会话模型配置无法恢复")
-    return await _resolve_model_config(session, model.id)
+    return await resolve_legacy_model_config(session, legacy_model_config)
 
 
 async def _set_task_running_state(
