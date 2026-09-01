@@ -4,7 +4,7 @@ Notes Router - 笔记与分类 CRUD API。
 
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Query, status
 from loguru import logger
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -35,7 +35,6 @@ from app.api.schemas.note import (
     ReorderResponse,
 )
 from app.background.jobs import service as background_service
-from app.core.errors import NotFoundError
 from app.storage.database import get_session
 from app.storage.services import mention_service, note_service
 
@@ -68,21 +67,16 @@ async def create_category(
     data: NoteCategoryCreate,
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> NoteCategoryResponse:
-    try:
-        logger.info(f"创建笔记分类: project_id={project_id}, title={data.title}")
-        category = await note_service.create_category(
-            session,
-            project_id=project_id,
-            parent_id=data.parent_id,
-            title=data.title,
-            document_type=data.document_type,
-        )
-        await background_service.commit_and_notify(session)
-        return NoteCategoryResponse.model_validate(category)
-    except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+    logger.info(f"创建笔记分类: project_id={project_id}, title={data.title}")
+    category = await note_service.create_category(
+        session,
+        project_id=project_id,
+        parent_id=data.parent_id,
+        title=data.title,
+        document_type=data.document_type,
+    )
+    await background_service.commit_and_notify(session)
+    return NoteCategoryResponse.model_validate(category)
 
 
 @router.patch(
@@ -95,15 +89,10 @@ async def update_category(
     data: NoteCategoryUpdate,
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> NoteCategoryResponse:
-    try:
-        logger.info(f"更新笔记分类: {category_id}")
-        category = await note_service.update_category(session, category_id, title=data.title)
-        await background_service.commit_and_notify(session)
-        return NoteCategoryResponse.model_validate(category)
-    except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+    logger.info(f"更新笔记分类: {category_id}")
+    category = await note_service.update_category(session, category_id, title=data.title)
+    await background_service.commit_and_notify(session)
+    return NoteCategoryResponse.model_validate(category)
 
 
 @router.delete(
@@ -115,12 +104,9 @@ async def delete_category(
     category_id: str,
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> None:
-    try:
-        logger.info(f"删除笔记分类: {category_id}")
-        await note_service.delete_category(session, category_id)
-        await background_service.commit_and_notify(session)
-    except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
+    logger.info(f"删除笔记分类: {category_id}")
+    await note_service.delete_category(session, category_id)
+    await background_service.commit_and_notify(session)
 
 
 @router.post(
@@ -133,29 +119,23 @@ async def move_item(
     data: NoteItemMove,
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> NoteMoveResult:
-    try:
-        logger.info(f"移动: kind={data.kind}, item_id={data.item_id}")
-        result = await note_service.move_item(
-            session,
-            item_kind=data.kind,
-            item_id=data.item_id,
-            target_category_id=data.target_category_id,
+    logger.info(f"移动: kind={data.kind}, item_id={data.item_id}")
+    result = await note_service.move_item(
+        session,
+        item_kind=data.kind,
+        item_id=data.item_id,
+        target_category_id=data.target_category_id,
+    )
+    await background_service.commit_and_notify(session)
+    if data.kind == "note":
+        return NoteMoveResult(
+            kind="note",
+            note=NoteResponse.model_validate(result),
         )
-        await background_service.commit_and_notify(session)
-        if data.kind == "note":
-            return NoteMoveResult(
-                kind="note",
-                note=NoteResponse.model_validate(result),
-            )
-        else:
-            return NoteMoveResult(
-                kind="category",
-                category=NoteCategoryResponse.model_validate(result),
-            )
-    except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+    return NoteMoveResult(
+        kind="category",
+        category=NoteCategoryResponse.model_validate(result),
+    )
 
 
 @router.post(
@@ -167,21 +147,16 @@ async def reorder_note_items(
     data: NoteItemsReorderRequest,
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> ReorderResponse:
-    try:
-        updated_count = await note_service.reorder_items(
-            session,
-            project_id,
-            item_kind=data.kind,
-            parent_id=data.parent_id,
-            ordered_ids=data.ordered_ids,
-            document_type=data.document_type,
-        )
-        await background_service.commit_and_notify(session)
-        return ReorderResponse(updated_count=updated_count)
-    except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+    updated_count = await note_service.reorder_items(
+        session,
+        project_id,
+        item_kind=data.kind,
+        parent_id=data.parent_id,
+        ordered_ids=data.ordered_ids,
+        document_type=data.document_type,
+    )
+    await background_service.commit_and_notify(session)
+    return ReorderResponse(updated_count=updated_count)
 
 
 @router.post(
@@ -193,20 +168,15 @@ async def reorder_mixed_note_items(
     data: NoteItemsMixedReorderRequest,
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> ReorderResponse:
-    try:
-        updated_count = await note_service.reorder_mixed_items(
-            session,
-            project_id,
-            parent_id=data.parent_id,
-            ordered_items=[(item.kind, item.id) for item in data.ordered_items],
-            document_type=data.document_type,
-        )
-        await background_service.commit_and_notify(session)
-        return ReorderResponse(updated_count=updated_count)
-    except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+    updated_count = await note_service.reorder_mixed_items(
+        session,
+        project_id,
+        parent_id=data.parent_id,
+        ordered_items=[(item.kind, item.id) for item in data.ordered_items],
+        document_type=data.document_type,
+    )
+    await background_service.commit_and_notify(session)
+    return ReorderResponse(updated_count=updated_count)
 
 
 @router.post(
@@ -220,22 +190,17 @@ async def create_note(
     data: NoteCreate,
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> NoteResponse:
-    try:
-        logger.info(f"创建笔记: project_id={project_id}, title={data.title}")
-        note = await note_service.create_note(
-            session,
-            project_id=project_id,
-            category_id=data.category_id,
-            title=data.title,
-            content=data.content,
-            document_type=data.document_type,
-        )
-        await background_service.commit_and_notify(session)
-        return NoteResponse.model_validate(note)
-    except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+    logger.info(f"创建笔记: project_id={project_id}, title={data.title}")
+    note = await note_service.create_note(
+        session,
+        project_id=project_id,
+        category_id=data.category_id,
+        title=data.title,
+        content=data.content,
+        document_type=data.document_type,
+    )
+    await background_service.commit_and_notify(session)
+    return NoteResponse.model_validate(note)
 
 
 @router.get(
@@ -248,15 +213,12 @@ async def list_notes(
     session: Annotated[AsyncSession, Depends(get_session)],
     document_type: Annotated[DocumentType, Query(description="文档类型")] = "note",
 ) -> NoteTreeResponse:
-    try:
-        result = await note_service.list_notes(session, project_id, document_type)
-        return NoteTreeResponse(
-            categories=[_build_category_item(node) for node in result.categories],
-            root_notes=[NoteListItem.model_validate(n) for n in result.root_notes],
-            total_notes=result.total_notes,
-        )
-    except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
+    result = await note_service.list_notes(session, project_id, document_type)
+    return NoteTreeResponse(
+        categories=[_build_category_item(node) for node in result.categories],
+        root_notes=[NoteListItem.model_validate(n) for n in result.root_notes],
+        total_notes=result.total_notes,
+    )
 
 
 @router.get(
@@ -268,11 +230,8 @@ async def get_note(
     note_id: str,
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> NoteResponse:
-    try:
-        note = await note_service.get_note(session, note_id)
-        return NoteResponse.model_validate(note)
-    except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
+    note = await note_service.get_note(session, note_id)
+    return NoteResponse.model_validate(note)
 
 
 @router.patch(
@@ -285,21 +244,16 @@ async def update_note(
     data: NoteUpdate,
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> NoteResponse:
-    try:
-        logger.info(f"更新笔记: {note_id}")
-        note = await note_service.update_note(
-            session,
-            note_id,
-            title=data.title,
-            content=data.content,
-            is_writing_visible=data.is_writing_visible,
-        )
-        await background_service.commit_and_notify(session)
-        return NoteResponse.model_validate(note)
-    except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+    logger.info(f"更新笔记: {note_id}")
+    note = await note_service.update_note(
+        session,
+        note_id,
+        title=data.title,
+        content=data.content,
+        is_writing_visible=data.is_writing_visible,
+    )
+    await background_service.commit_and_notify(session)
+    return NoteResponse.model_validate(note)
 
 
 @router.delete(
@@ -311,12 +265,9 @@ async def delete_note(
     note_id: str,
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> None:
-    try:
-        logger.info(f"删除笔记: {note_id}")
-        await note_service.delete_note(session, note_id)
-        await background_service.commit_and_notify(session)
-    except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
+    logger.info(f"删除笔记: {note_id}")
+    await note_service.delete_note(session, note_id)
+    await background_service.commit_and_notify(session)
 
 
 @router.patch(
@@ -329,12 +280,9 @@ async def toggle_note_lock(
     data: NoteLockToggle,
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> NoteResponse:
-    try:
-        note = await note_service.set_note_locked(session, note_id, data.is_locked)
-        await background_service.commit_and_notify(session)
-        return NoteResponse.model_validate(note)
-    except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
+    note = await note_service.set_note_locked(session, note_id, data.is_locked)
+    await background_service.commit_and_notify(session)
+    return NoteResponse.model_validate(note)
 
 
 @router.patch(
@@ -347,12 +295,9 @@ async def toggle_note_hidden(
     data: NoteHiddenToggle,
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> NoteResponse:
-    try:
-        note = await note_service.set_note_hidden(session, note_id, data.is_hidden)
-        await background_service.commit_and_notify(session)
-        return NoteResponse.model_validate(note)
-    except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
+    note = await note_service.set_note_hidden(session, note_id, data.is_hidden)
+    await background_service.commit_and_notify(session)
+    return NoteResponse.model_validate(note)
 
 
 @router.get(
@@ -378,28 +323,25 @@ async def search_mention_candidates(
         Query(description="候选类型过滤"),
     ] = None,
 ) -> MentionCandidateSearchResponse:
-    try:
-        items = await mention_service.search_all_mention_candidates(
-            session,
-            project_id,
-            query,
-            limit=limit,
-            kind=kind,
-        )
-        return MentionCandidateSearchResponse(
-            items=[
-                MentionCandidateItem(
-                    kind=item.kind,
-                    id=item.id,
-                    title=item.title,
-                    label=item.label,
-                    description=item.description,
-                )
-                for item in items
-            ]
-        )
-    except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
+    items = await mention_service.search_all_mention_candidates(
+        session,
+        project_id,
+        query,
+        limit=limit,
+        kind=kind,
+    )
+    return MentionCandidateSearchResponse(
+        items=[
+            MentionCandidateItem(
+                kind=item.kind,
+                id=item.id,
+                title=item.title,
+                label=item.label,
+                description=item.description,
+            )
+            for item in items
+        ]
+    )
 
 
 @router.get(
@@ -414,23 +356,20 @@ async def search_notes(
     document_type: Annotated[DocumentType, Query(description="文档类型")] = "note",
 ) -> NoteSearchResponse:
     """按内容搜索笔记，返回匹配的笔记及匹配行。"""
-    try:
-        result = await note_service.search_notes(session, project_id, q, document_type)
-        return NoteSearchResponse(
-            results=[
-                NoteSearchResult(
-                    note_id=r.note_id,
-                    note_title=r.note_title,
-                    category_path=r.category_path,
-                    matches=[
-                        NoteSearchMatch(line_number=m.line_number, line_text=m.line_text)
-                        for m in r.matches
-                    ],
-                )
-                for r in result.results
-            ],
-            total_notes=result.total_notes,
-            total_matches=result.total_matches,
-        )
-    except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
+    result = await note_service.search_notes(session, project_id, q, document_type)
+    return NoteSearchResponse(
+        results=[
+            NoteSearchResult(
+                note_id=r.note_id,
+                note_title=r.note_title,
+                category_path=r.category_path,
+                matches=[
+                    NoteSearchMatch(line_number=m.line_number, line_text=m.line_text)
+                    for m in r.matches
+                ],
+            )
+            for r in result.results
+        ],
+        total_notes=result.total_notes,
+        total_matches=result.total_matches,
+    )
