@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 WorldInfo Entry API 测试。
 """
@@ -100,9 +99,7 @@ async def test_create_entry_uses_unique_name_suffix(
 
 
 @pytest.mark.asyncio
-async def test_update_entry_rejects_duplicate_name(
-    client: AsyncClient, world_info_id: str
-) -> None:
+async def test_update_entry_rejects_duplicate_name(client: AsyncClient, world_info_id: str) -> None:
     """条目重命名不能改成已有名称。"""
     first = await client.post(
         f"/api/v1/world-info/{world_info_id}/entries",
@@ -278,7 +275,7 @@ async def test_toggle_entry(client: AsyncClient, world_info_id: str) -> None:
 @pytest.mark.asyncio
 async def test_preview_world_info_import(client: AsyncClient) -> None:
     """测试预览 SillyTavern 世界书导入。"""
-    content = '{"entries":{"0":{"uid":0,"key":["alpha"],"keysecondary":[],"comment":"名称","content":"内容","constant":true,"selective":true,"disable":false,"order":100}}}'.encode("utf-8")
+    content = '{"entries":{"0":{"uid":0,"key":["alpha"],"keysecondary":[],"comment":"名称","content":"内容","constant":true,"selective":true,"disable":false,"order":100}}}'.encode()
 
     response = await client.post(
         "/api/v1/world-info/import/preview",
@@ -302,7 +299,7 @@ async def test_import_world_info_entries_stream_append_overwrites_same_name(
         f"/api/v1/world-info/{world_info_id}/entries",
         json={"name": "人物", "content": "旧内容", "is_enabled": False},
     )
-    content = '{"entries":{"0":{"uid":0,"comment":"人物","content":"新内容","disable":false,"order":100},"1":{"uid":1,"comment":"背景","content":"世界观","disable":true,"order":101}}}'.encode("utf-8")
+    content = '{"entries":{"0":{"uid":0,"comment":"人物","content":"新内容","disable":false,"order":100},"1":{"uid":1,"comment":"背景","content":"世界观","disable":true,"order":101}}}'.encode()
 
     response = await client.post(
         f"/api/v1/world-info/{world_info_id}/entries/import-stream?mode=append",
@@ -334,7 +331,7 @@ async def test_import_world_info_entries_stream_overwrite_clears_existing_entrie
         f"/api/v1/world-info/{world_info_id}/entries",
         json={"name": "地点", "content": "旧地点"},
     )
-    content = '{"entries":{"0":{"uid":0,"comment":"背景","content":"新世界观","disable":false,"order":100}}}'.encode("utf-8")
+    content = '{"entries":{"0":{"uid":0,"comment":"背景","content":"新世界观","disable":false,"order":100}}}'.encode()
 
     response = await client.post(
         f"/api/v1/world-info/{world_info_id}/entries/import-stream?mode=overwrite",
@@ -380,10 +377,7 @@ async def test_import_world_info_entries_stream_overwrite_rejects_oversized_cont
         for line in response.text.splitlines()
         if line.startswith("data: ")
     ]
-    assert any(
-        event["type"] == "error" and "内容超出限制" in event["message"]
-        for event in events
-    )
+    assert any(event["type"] == "error" and "内容超出限制" in event["message"] for event in events)
     assert all(event["type"] != "complete" for event in events)
     list_response = await client.get(f"/api/v1/world-info/{world_info_id}/entries")
     items = list_response.json()["items"]

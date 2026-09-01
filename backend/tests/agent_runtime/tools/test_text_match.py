@@ -8,7 +8,6 @@ from app.agent_runtime.tools.text_match import (
     normalize_for_fuzzy_match,
 )
 
-
 # ---------------------------------------------------------------------------
 # normalize_for_fuzzy_match
 # ---------------------------------------------------------------------------
@@ -116,17 +115,13 @@ def test_fuzzy_match_preserves_unchanged_lines() -> None:
     # from the normalized base.
     content = "keep\u00a0me   \nchange\u00a0me\n"
     result = fuzzy_replace(content, "change me", "CHANGED")
-    assert result == FuzzyReplaceResult(
-        "keep\u00a0me   \nCHANGED\n", used_fuzzy_match=True
-    )
+    assert result == FuzzyReplaceResult("keep\u00a0me   \nCHANGED\n", used_fuzzy_match=True)
 
 
 def test_fuzzy_match_preserves_unchanged_lines_multi_replacement() -> None:
     content = "line\u00a0one   \ntar\u00a0get\ntwo tar\u00a0get\nend"
     result = fuzzy_replace(content, "tar get", "T", replace_all=True)
-    assert result == FuzzyReplaceResult(
-        "line\u00a0one   \nT\ntwo T\nend", used_fuzzy_match=True
-    )
+    assert result == FuzzyReplaceResult("line\u00a0one   \nT\ntwo T\nend", used_fuzzy_match=True)
 
 
 def test_fuzzy_match_replace_all() -> None:
@@ -140,9 +135,7 @@ def test_fuzzy_match_single_when_replace_all_false() -> None:
     # its original NBSP and trailing whitespace.
     content = "x\u00a0x\u00a0x\nkeep\u00a0me   "
     result = fuzzy_replace(content, "x x", "y", replace_all=False)
-    assert result == FuzzyReplaceResult(
-        "y x\nkeep\u00a0me   ", used_fuzzy_match=True
-    )
+    assert result == FuzzyReplaceResult("y x\nkeep\u00a0me   ", used_fuzzy_match=True)
 
 
 def test_fuzzy_match_spans_multiple_lines() -> None:
@@ -202,9 +195,7 @@ def test_duplicate_normalized_line_aligned_by_range() -> None:
     # quotes verbatim.
     content = "a\u201cdup\u201d   \na\u201cdup\u201d\n"
     result = fuzzy_replace(content, 'a"dup"', "X", replace_all=False)
-    assert result == FuzzyReplaceResult(
-        "X\na\u201cdup\u201d\n", used_fuzzy_match=True
-    )
+    assert result == FuzzyReplaceResult("X\na\u201cdup\u201d\n", used_fuzzy_match=True)
 
 
 # ---------------------------------------------------------------------------
@@ -266,9 +257,7 @@ def test_escaped_whitespace_sequences_are_decoded_for_search_and_replacement(
     expected_new_text: str,
 ) -> None:
     result = fuzzy_replace(f"before{actual_old_text}after", old_text, new_text)
-    assert result == FuzzyReplaceResult(
-        f"before{expected_new_text}after", used_fuzzy_match=False
-    )
+    assert result == FuzzyReplaceResult(f"before{expected_new_text}after", used_fuzzy_match=False)
 
 
 @pytest.mark.parametrize(
@@ -340,9 +329,7 @@ def test_query_trailing_space_does_not_match_prefix() -> None:
 def test_query_trailing_space_does_not_match_prefix_cjk() -> None:
     # The exact scenario from the bug report: "角色代号：foo " (trailing space)
     # must not match the "角色代号：foo" head of "角色代号：foobar".
-    assert (
-        fuzzy_replace("角色代号：foobar", "角色代号：foo ", "角色代号：已修正") is None
-    )
+    assert fuzzy_replace("角色代号：foobar", "角色代号：foo ", "角色代号：已修正") is None
 
 
 def test_query_trailing_space_aligns_with_content_trailing_ws() -> None:
@@ -369,9 +356,7 @@ def test_query_trailing_space_skips_prefix_keeps_genuine_single() -> None:
     # instead, and the prefix line is left untouched.
     content = "角色代号：foobar\n代号：foo\u00a0"
     result = fuzzy_replace(content, "代号：foo ", "代号：已修正")
-    assert result == FuzzyReplaceResult(
-        "角色代号：foobar\n代号：已修正", used_fuzzy_match=True
-    )
+    assert result == FuzzyReplaceResult("角色代号：foobar\n代号：已修正", used_fuzzy_match=True)
 
 
 def test_query_trailing_space_skips_prefix_keeps_genuine_replace_all() -> None:

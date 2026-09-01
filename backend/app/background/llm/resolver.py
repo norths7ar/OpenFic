@@ -54,9 +54,7 @@ async def resolve_background_llm(
 
     encryption_service = EncryptionService(settings.encryption_key)
     api_key = encryption_service.decrypt(provider.api_key_encrypted)
-    custom_headers = ModelProviderService(
-        encryption_service
-    ).get_decrypted_custom_headers(provider)
+    custom_headers = ModelProviderService(encryption_service).get_decrypted_custom_headers(provider)
     return ResolvedLLM(
         client=LLMClient(
             LLMConfig(

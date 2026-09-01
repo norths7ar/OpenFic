@@ -28,6 +28,8 @@ async def _has_running_agent_task(session: AsyncSession) -> bool:
         .limit(1)
     )
     return result.scalar_one_or_none() is not None
+
+
 async def _has_active_child_run(session: AsyncSession) -> bool:
     result = await session.execute(
         select(AgentChildRun)

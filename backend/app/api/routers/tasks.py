@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Task Router - 任务API路由。"""
 
 from typing import Literal, cast
@@ -9,15 +8,14 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col
 
-from app.agent_runtime.modes import AgentMode
 from app.agent_runtime.attachments import delete_attachments_for_task
+from app.agent_runtime.modes import AgentMode
 from app.agent_runtime.persistence.child_runs import list_child_runs_for_parent
 from app.agent_runtime.persistence.task_projection import (
     load_task_messages_for_agent_session,
     load_task_messages_for_archive,
 )
 from app.agent_runtime.runner.checkpointer import delete_checkpoints_for_thread, get_checkpointer
-
 from app.api.schemas.task import (
     TaskListItem,
     TaskListResponse,
@@ -64,13 +62,17 @@ async def _has_pending_interrupt(checkpointer, session_id: str | None) -> bool:
     if not session_id:
         return False
     checkpoint = await checkpointer.aget_tuple({"configurable": {"thread_id": session_id}})
-    return any(
-        len(pending_write) >= 3
-        and pending_write[1] == "__interrupt__"
-        and isinstance(pending_write[2], list)
-        and pending_write[2]
-        for pending_write in checkpoint.pending_writes or []
-    ) if checkpoint is not None else False
+    return (
+        any(
+            len(pending_write) >= 3
+            and pending_write[1] == "__interrupt__"
+            and isinstance(pending_write[2], list)
+            and pending_write[2]
+            for pending_write in checkpoint.pending_writes or []
+        )
+        if checkpoint is not None
+        else False
+    )
 
 
 async def _delete_checkpoint_threads(
@@ -93,9 +95,7 @@ async def get_task(
     try:
         task = await task_service.get_task(session, task_id)
         if task.is_imported_archive:
-            task_messages = await load_task_messages_for_archive(
-                session, task.id, task.project_id
-            )
+            task_messages = await load_task_messages_for_archive(session, task.id, task.project_id)
         elif task.agent_session_id:
             task_messages = await load_task_messages_for_agent_session(
                 session,
@@ -126,7 +126,7 @@ async def get_task(
             updated_at=task.updated_at,
         )
     except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
 
 
 @router.get("/projects/{project_id}/tasks", response_model=TaskListResponse)
@@ -201,7 +201,7 @@ async def list_tasks(
 
         return TaskListResponse(items=items, total=result.total)
     except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
 
 
 @router.patch("/tasks/{task_id}", response_model=TaskResponse)
@@ -219,9 +219,7 @@ async def update_task(
         )
         await session.commit()
         if task.is_imported_archive:
-            task_messages = await load_task_messages_for_archive(
-                session, task.id, task.project_id
-            )
+            task_messages = await load_task_messages_for_archive(session, task.id, task.project_id)
         elif task.agent_session_id:
             task_messages = await load_task_messages_for_agent_session(
                 session,
@@ -252,14 +250,14 @@ async def update_task(
             updated_at=task.updated_at,
         )
     except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
     except Exception as e:
         logger.error(f"更新任务失败：{e}")
         await session.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"更新任务失败：{str(e)}",
-        )
+        ) from e
 
 
 @router.delete("/tasks/{task_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -285,14 +283,14 @@ async def delete_task(
     except HTTPException:
         raise
     except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
     except Exception as e:
         logger.error(f"删除任务失败：{e}")
         await session.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"删除任务失败：{str(e)}",
-        )
+        ) from e
 
 
 @router.delete("/projects/{project_id}/tasks", status_code=status.HTTP_200_OK)
@@ -334,11 +332,11 @@ async def delete_all_tasks(
     except HTTPException:
         raise
     except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
     except Exception as e:
         logger.error(f"批量删除任务失败：{e}")
         await session.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"批量删除任务失败：{str(e)}",
-        )
+        ) from e

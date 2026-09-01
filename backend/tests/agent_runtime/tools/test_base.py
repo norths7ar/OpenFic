@@ -1,8 +1,10 @@
 import json
-import pytest
-from pydantic import BaseModel
-from unittest.mock import patch
 from typing import Literal
+from unittest.mock import patch
+
+import pytest
+from langgraph.errors import GraphInterrupt
+from pydantic import BaseModel
 
 from app.agent_runtime.tools.base import AgentTool, HookContext, HookResult
 from app.agent_runtime.tools.errors import normalize_tool_failure_result
@@ -64,6 +66,7 @@ class FailingTool(AgentTool):
 
     async def _execute(self, value: str) -> str:
         from app.agent_runtime.tools.errors import ToolExecutionError
+
         raise ToolExecutionError("something went wrong", code="not_found")
 
 
@@ -136,9 +139,7 @@ async def test_agent_tool_execution_error_logs_exception_traceback():
     bound_logger = logger.bind.return_value
     bound_logger.opt.assert_called_once()
     assert isinstance(bound_logger.opt.call_args.kwargs["exception"], Exception)
-    bound_logger.opt.return_value.error.assert_called_once_with(
-        "Agent 工具执行失败"
-    )
+    bound_logger.opt.return_value.error.assert_called_once_with("Agent 工具执行失败")
 
 
 async def test_agent_tool_preserves_unexpected_exception_message_and_logs_exception():
@@ -234,12 +235,10 @@ async def test_agent_tool_normalizes_legacy_error_result():
 
 
 def test_normalize_tool_failure_result_caches_parsed_payload() -> None:
-    result, failure = normalize_tool_failure_result(
-        '{"success":true,"items":[{"id":"chapter-1"}]}'
-    )
+    result, failure = normalize_tool_failure_result('{"success":true,"items":[{"id":"chapter-1"}]}')
 
     assert failure is None
-    assert getattr(result, "payload") == {
+    assert result.payload == {
         "success": True,
         "items": [{"id": "chapter-1"}],
     }
@@ -250,8 +249,9 @@ async def test_agent_tool_pre_hook_can_block():
         return HookResult(proceed=False, interrupt_payload={"type": "test"})
 
     tool = DummyTool(_state=_make_state(), _pre_hooks=[blocking_hook])
-    with pytest.raises(Exception):
-        await tool.ainvoke({"value": "hello"})
+    with patch("langgraph.types.interrupt", side_effect=GraphInterrupt(())):
+        with pytest.raises(GraphInterrupt):
+            await tool.ainvoke({"value": "hello"})
 
 
 async def test_agent_tool_builds_tool_preview_for_tool_approval_interrupt():

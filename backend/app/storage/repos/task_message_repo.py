@@ -1,9 +1,9 @@
-# -*- coding: utf-8 -*-
 """Task message repository."""
 
 from datetime import UTC, datetime
 
-from sqlalchemy import delete as sql_delete, select
+from sqlalchemy import delete as sql_delete
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col
 
@@ -17,9 +17,7 @@ async def create(session: AsyncSession, message: TaskMessage) -> TaskMessage:
     return message
 
 
-async def create_many(
-    session: AsyncSession, messages: list[TaskMessage]
-) -> list[TaskMessage]:
+async def create_many(session: AsyncSession, messages: list[TaskMessage]) -> list[TaskMessage]:
     if not messages:
         return []
     session.add_all(messages)
@@ -67,9 +65,7 @@ async def delete_by_task(session: AsyncSession, task_id: str) -> None:
 async def delete_by_task_ids(session: AsyncSession, task_ids: list[str]) -> None:
     if not task_ids:
         return
-    await session.execute(
-        sql_delete(TaskMessage).where(col(TaskMessage.task_id).in_(task_ids))
-    )
+    await session.execute(sql_delete(TaskMessage).where(col(TaskMessage.task_id).in_(task_ids)))
     await session.flush()
 
 

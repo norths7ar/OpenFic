@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Embedding Strategy - Embedding模型策略。
 

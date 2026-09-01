@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 AgentDefinition Service - Business logic for agent definitions CRUD.
 """
@@ -171,8 +170,8 @@ async def update_definition(
     if record is None:
         try:
             default = get_default_agent_definition(key)
-        except KeyError:
-            raise NotFoundError(f"智能体定义不存在: {key}")
+        except KeyError as exc:
+            raise NotFoundError(f"智能体定义不存在: {key}") from exc
         record = _build_record(key, default)
 
     if display_name is not None:

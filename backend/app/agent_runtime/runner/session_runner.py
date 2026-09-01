@@ -1,8 +1,9 @@
 import asyncio
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from contextvars import ContextVar
 from datetime import UTC, datetime
-from typing import Any, AsyncIterator, Literal, cast
+from typing import Any, Literal, cast
 
 from langchain_core.messages import BaseMessage
 from langchain_core.runnables import RunnableConfig
@@ -25,14 +26,11 @@ from app.agent_runtime.graph.orchestrator.graph import build_orchestrator_graph
 from app.agent_runtime.graph.react_agent import _to_history_dict
 from app.agent_runtime.graph.state import AgentRuntimeState
 from app.agent_runtime.model_config import without_api_key
-from app.agent_runtime.persistence import (
-    MessagePersister,
-    PersistenceError,
-    compaction_repo,
-    load_history,
-    repo,
-)
+from app.agent_runtime.persistence import compaction_repo, repo
+from app.agent_runtime.persistence.errors import PersistenceError
+from app.agent_runtime.persistence.loader import load_history
 from app.agent_runtime.persistence.model import AgentRunMessage
+from app.agent_runtime.persistence.persister import MessagePersister
 from app.agent_runtime.revisions import begin_user_revision, finalize_revision_status
 from app.agent_runtime.runner.checkpointer import (
     get_checkpointer,
@@ -125,7 +123,7 @@ class SessionRunner:
         model_config: dict,
         project_id: str = "",
         agent_key: str = "build",
-        context_mode: str = "local",
+        context_mode: Literal["global", "local"] = "local",
     ):
         self._validate_model_config(model_config)
         self.session_id = session_id
@@ -473,8 +471,7 @@ class SessionRunner:
             "context_length": int(self.model_config.get("max_context_tokens", 0)),
             **(
                 {"usage_kind": event_data["usage_kind"]}
-                if isinstance(event_data.get("usage_kind"), str)
-                and event_data.get("usage_kind")
+                if isinstance(event_data.get("usage_kind"), str) and event_data.get("usage_kind")
                 else {}
             ),
         }
@@ -591,7 +588,7 @@ class SessionRunner:
                 "inject_message_consumed_sink": self._mark_injected_user_message_sent,
                 "inject_message_attachments": self._get_injected_user_message_attachments,
                 "model_config": self.model_config,
-            }
+            },
         }
 
     async def _mark_injected_user_message_sent(self, message_id: str) -> bool:
@@ -768,21 +765,24 @@ class SessionRunner:
         try:
             history_messages = await load_history(session, self.session_id)
             node_messages = [_to_history_dict(message) for message in history_messages]
-            state = cast(AgentRuntimeState, {
-                "session_id": self.session_id,
-                "task_id": self.task_id,
-                "project_id": self.project_id,
-                "context_mode": self.context_mode,
-                "model_config": without_api_key(self.model_config),
-                "active_agent": None,
-                "agent_key": self.agent_key,
-                "is_completed": False,
-                "error": None,
-                "retry_count": 0,
-                "user_request": "",
-                "user_attachments": [],
-                "current_revision_id": None,
-            })
+            state = cast(
+                AgentRuntimeState,
+                {
+                    "session_id": self.session_id,
+                    "task_id": self.task_id,
+                    "project_id": self.project_id,
+                    "context_mode": self.context_mode,
+                    "model_config": without_api_key(self.model_config),
+                    "active_agent": None,
+                    "agent_key": self.agent_key,
+                    "is_completed": False,
+                    "error": None,
+                    "retry_count": 0,
+                    "user_request": "",
+                    "user_attachments": [],
+                    "current_revision_id": None,
+                },
+            )
             agent_name = state.get("active_agent") or state.get("agent_key") or "build"
             parts = await build_context_parts(
                 state,
@@ -790,11 +790,7 @@ class SessionRunner:
                 node_messages,
                 session,
             )
-            history = [
-                part
-                for part in parts
-                if (part.metadata or {}).get("part") == "history"
-            ]
+            history = [part for part in parts if (part.metadata or {}).get("part") == "history"]
             existing_compactions = await compaction_repo.list_by_session(
                 session,
                 self.session_id,
@@ -896,9 +892,7 @@ class SessionRunner:
                 "referenced_skill_ids": list(referenced_skill_ids),
                 "messages": history_messages,
             }
-            async for event in graph.astream_events(
-                initial_state, config=config, version="v2"
-            ):
+            async for event in graph.astream_events(initial_state, config=config, version="v2"):
                 event_dict = cast(dict[str, Any], event)
                 if self._cancel_event.is_set():
                     reason = "cancelled"
@@ -967,9 +961,7 @@ class SessionRunner:
             await self._prune_thread_checkpoints()
 
         # Check for interrupt after stream ends
-        state = await graph.aget_state(
-            {"configurable": {"thread_id": self.session_id}}
-        )
+        state = await graph.aget_state({"configurable": {"thread_id": self.session_id}})
         if state.next:
             status_session = await create_session()
             try:
@@ -987,9 +979,7 @@ class SessionRunner:
         else:
             status_session = await create_session()
             try:
-                finalized = await finalize_revision_status(
-                    status_session, revision.id, "completed"
-                )
+                finalized = await finalize_revision_status(status_session, revision.id, "completed")
                 await status_session.commit()
             finally:
                 await status_session.close()
@@ -1023,9 +1013,7 @@ class SessionRunner:
             finally:
                 await session.close()
         except Exception:
-            logger.exception(
-                f"Failed to prune checkpoints for session {self.session_id}"
-            )
+            logger.exception(f"Failed to prune checkpoints for session {self.session_id}")
 
     async def inject_message(
         self,
@@ -1160,9 +1148,7 @@ class SessionRunner:
         self._cancelled_user_message_ids.clear()
         self._inject_queue = asyncio.Queue()
 
-    async def resume_interrupt_batch(
-        self, batch_id: str, responses: list[dict[str, Any]]
-    ) -> None:
+    async def resume_interrupt_batch(self, batch_id: str, responses: list[dict[str, Any]]) -> None:
         await self.resume(
             {
                 "action_type": "interrupt_batch",
@@ -1174,9 +1160,7 @@ class SessionRunner:
     async def resume(self, payload: dict) -> None:
         graph = await self._get_graph()
         runtime_session = await create_session()
-        snapshot = await graph.aget_state(
-            {"configurable": {"thread_id": self.session_id}}
-        )
+        snapshot = await graph.aget_state({"configurable": {"thread_id": self.session_id}})
         values = snapshot.values if isinstance(getattr(snapshot, "values", None), dict) else {}
         revision_id = values.get("current_revision_id")
         revision_id = revision_id if isinstance(revision_id, str) and revision_id else None
@@ -1213,9 +1197,7 @@ class SessionRunner:
             resume_value: dict[str, Any] | dict[str, dict[str, Any]] = payload
             is_terminal_skip_resume = payload.get("skipped") is True
             if payload.get("action_type") == "interrupt_batch":
-                state = await graph.aget_state(
-                    {"configurable": {"thread_id": self.session_id}}
-                )
+                state = await graph.aget_state({"configurable": {"thread_id": self.session_id}})
                 pending = _interrupt_payloads(state)
                 pending_by_id = {
                     item["interrupt_id"]: item
@@ -1231,9 +1213,7 @@ class SessionRunner:
                     for response in responses
                 ):
                     raise ValueError("存在无效或已处理的并行中断响应")
-                if set(response["interrupt_id"] for response in responses) != set(
-                    pending_by_id
-                ):
+                if set(response["interrupt_id"] for response in responses) != set(pending_by_id):
                     raise ValueError("必须一次提交本批全部并行中断响应")
                 is_terminal_skip_resume = any(
                     isinstance(response, dict)
@@ -1241,46 +1221,30 @@ class SessionRunner:
                     and response.get("skipped") is True
                     for response in responses
                 )
-                resume_value = {
-                    response["interrupt_id"]: response for response in responses
-                }
+                resume_value = {response["interrupt_id"]: response for response in responses}
             elif payload.get("action_type") == "tool_approval":
-                state = await graph.aget_state(
-                    {"configurable": {"thread_id": self.session_id}}
-                )
+                state = await graph.aget_state({"configurable": {"thread_id": self.session_id}})
                 interrupt_payloads = _interrupt_payloads(state)
                 resume_id = _interrupt_resume_id(payload)
                 matching = next(
-                    (
-                        item
-                        for item in interrupt_payloads
-                        if item.get("approval_id") == resume_id
-                    ),
+                    (item for item in interrupt_payloads if item.get("approval_id") == resume_id),
                     None,
                 )
                 if matching is None or not resume_id:
                     raise ValueError("待恢复的工具审批不存在或已处理")
                 resume_value = {resume_id: payload}
             elif payload.get("action_type") == "clarification":
-                state = await graph.aget_state(
-                    {"configurable": {"thread_id": self.session_id}}
-                )
+                state = await graph.aget_state({"configurable": {"thread_id": self.session_id}})
                 interrupt_payloads = _interrupt_payloads(state)
                 resume_id = _interrupt_resume_id(payload)
                 matching = next(
-                    (
-                        item
-                        for item in interrupt_payloads
-                        if item.get("action_id") == resume_id
-                    ),
+                    (item for item in interrupt_payloads if item.get("action_id") == resume_id),
                     None,
                 )
                 if matching is None or not resume_id:
                     raise ValueError("待恢复的问题不存在或已处理")
                 resume_value = {resume_id: payload}
-            stream_options = (
-                {"durability": "exit"} if is_terminal_skip_resume else {}
-            )
+            stream_options = {"durability": "exit"} if is_terminal_skip_resume else {}
             async for event in graph.astream_events(
                 Command(resume=resume_value),
                 config=config,
@@ -1344,9 +1308,7 @@ class SessionRunner:
         finally:
             await runtime_session.close()
 
-        state = await graph.aget_state(
-            {"configurable": {"thread_id": self.session_id}}
-        )
+        state = await graph.aget_state({"configurable": {"thread_id": self.session_id}})
         if state.next:
             status_session = await create_session()
             try:
@@ -1364,9 +1326,7 @@ class SessionRunner:
         else:
             status_session = await create_session()
             try:
-                finalized = await finalize_revision_status(
-                    status_session, revision_id, "completed"
-                )
+                finalized = await finalize_revision_status(status_session, revision_id, "completed")
                 await status_session.commit()
             finally:
                 await status_session.close()

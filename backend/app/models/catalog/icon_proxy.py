@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Catalog icon proxy with per-icon source fallback."""
 
 from __future__ import annotations
@@ -41,9 +40,7 @@ class _IconHttpClient(Protocol):
     async def aclose(self) -> None: ...
 
 
-_MODELS_DEV_SOURCE = _IconSourceConfig(
-    "models_dev", "https://models.dev/logos/{provider_id}.svg"
-)
+_MODELS_DEV_SOURCE = _IconSourceConfig("models_dev", "https://models.dev/logos/{provider_id}.svg")
 _JSDELIVR_SOURCE = _IconSourceConfig(
     "jsdelivr",
     "https://cdn.jsdelivr.net/gh/sst/models.dev@dev/providers/{provider_id}/logo.svg",
@@ -53,9 +50,7 @@ _JSDELIVR_SOURCE = _IconSourceConfig(
 class CatalogIconProxyService:
     """Serve catalog icons through a single backend entrypoint."""
 
-    def __init__(
-        self, timeout: float = 5.0, client: _IconHttpClient | None = None
-    ) -> None:
+    def __init__(self, timeout: float = 5.0, client: _IconHttpClient | None = None) -> None:
         self._client = client or httpx.AsyncClient(timeout=timeout, follow_redirects=True)
         self._request_semaphore = asyncio.Semaphore(_MAX_CONCURRENT_UPSTREAM_REQUESTS)
         self._models_dev_unavailable_until = 0.0

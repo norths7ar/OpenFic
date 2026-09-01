@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Dashboard Service - LLM API 仪表盘查询编排。
 """
@@ -140,9 +139,7 @@ async def get_filter_options(session: AsyncSession) -> DashboardFilterOptionsRes
     """获取全局筛选选项。"""
     return DashboardFilterOptionsResult(
         project_ids=await dashboard_repo.list_distinct_values(session, "project_id"),
-        model_providers=await dashboard_repo.list_distinct_values(
-            session, "model_provider"
-        ),
+        model_providers=await dashboard_repo.list_distinct_values(session, "model_provider"),
         model_ids=await dashboard_repo.list_distinct_values(session, "model_id"),
         categories=await dashboard_repo.list_distinct_values(session, "category"),
         operations=await dashboard_repo.list_distinct_values(session, "operation"),
@@ -162,9 +159,7 @@ def _build_summary(
     rows: list[dashboard_repo.DashboardMetricRow],
 ) -> dashboard_repo.DashboardSummaryRow:
     latency_values = [row.latency_ms for row in rows if row.latency_ms is not None]
-    first_token_values = [
-        row.first_token_ms for row in rows if row.first_token_ms is not None
-    ]
+    first_token_values = [row.first_token_ms for row in rows if row.first_token_ms is not None]
     return dashboard_repo.DashboardSummaryRow(
         calls_total=len(rows),
         success_total=sum(1 for row in rows if row.status == "success"),

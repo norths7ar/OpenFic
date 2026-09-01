@@ -20,12 +20,8 @@ class StubEncoding:
         return list(range(7))
 
 
-@pytest.mark.parametrize(
-    "encoding_name, expected_hash", EXPECTED_ENCODING_HASHES.items()
-)
-def test_bundles_required_encoding_resource(
-    encoding_name: str, expected_hash: str
-) -> None:
+@pytest.mark.parametrize("encoding_name, expected_hash", EXPECTED_ENCODING_HASHES.items())
+def test_bundles_required_encoding_resource(encoding_name: str, expected_hash: str) -> None:
     resource_path = (
         Path(__file__).parents[2]
         / "app"

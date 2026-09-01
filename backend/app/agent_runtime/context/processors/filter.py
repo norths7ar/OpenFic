@@ -23,8 +23,10 @@ def filter_invalid(parts: list[ContextMessage]) -> list[ContextMessage]:
         if not _is_history(m):
             keep.append(True)
             continue
-        if (not m.content or not m.content.strip()) and not m.attachments and not (
-            m.role == "assistant" and m.tool_calls
+        if (
+            (not m.content or not m.content.strip())
+            and not m.attachments
+            and not (m.role == "assistant" and m.tool_calls)
         ):
             keep.append(False)
             continue
@@ -91,9 +93,9 @@ def filter_invalid(parts: list[ContextMessage]) -> list[ContextMessage]:
                 for tool_call in message.tool_calls
                 if isinstance(tool_call_id := tool_call.get("id"), str) and tool_call_id
             ]
-            if len(tool_call_ids) != len(message.tool_calls) or len(
-                set(tool_call_ids)
-            ) != len(tool_call_ids):
+            if len(tool_call_ids) != len(message.tool_calls) or len(set(tool_call_ids)) != len(
+                tool_call_ids
+            ):
                 keep[index] = False
                 continue
             pending_assistant_index = index
@@ -107,7 +109,7 @@ def filter_invalid(parts: list[ContextMessage]) -> list[ContextMessage]:
 
     drop_pending_group()
 
-    return [m for m, k in zip(parts, keep) if k]
+    return [message for message, should_keep in zip(parts, keep, strict=True) if should_keep]
 
 
 def filter_tool_result_metadata(parts: list[ContextMessage]) -> list[ContextMessage]:
@@ -159,17 +161,11 @@ def filter_tool_result_metadata_content(content: str) -> str:
         else:
             message = message.strip()
         visible_fields = {
-            key: payload[key]
-            for key in _MODEL_VISIBLE_FAILURE_FIELDS
-            if key in payload
+            key: payload[key] for key in _MODEL_VISIBLE_FAILURE_FIELDS if key in payload
         }
         if visible_fields:
             return json.dumps(
-                {
-                    key: payload[key]
-                    for key in ("type", "success", "code")
-                    if key in payload
-                }
+                {key: payload[key] for key in ("type", "success", "code") if key in payload}
                 | {"message": message, **visible_fields},
                 ensure_ascii=False,
             )
@@ -178,9 +174,7 @@ def filter_tool_result_metadata_content(content: str) -> str:
     if isinstance(error, str) and error.strip():
         message = error.strip()
         if visible_fields := {
-            key: payload[key]
-            for key in _MODEL_VISIBLE_FAILURE_FIELDS
-            if key in payload
+            key: payload[key] for key in _MODEL_VISIBLE_FAILURE_FIELDS if key in payload
         }:
             return json.dumps(
                 {

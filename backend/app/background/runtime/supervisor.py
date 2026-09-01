@@ -10,13 +10,13 @@ from loguru import logger
 from app.background.events.publisher import BackgroundEventPublisher
 from app.background.jobs import repos as job_repo
 from app.background.jobs import service as job_service
-from app.background.runtime.worker import BackgroundWorker
 from app.background.runtime.watchdog import BackgroundWatchdog, get_watchdog_interval_seconds
+from app.background.runtime.worker import BackgroundWorker
 from app.background.transport.messages import BackgroundEventMessage, JobNotification
 from app.background.transport.zmq import ZmqBackgroundTransport
+from app.settings import settings
 from app.socket import emit
 from app.socket.handlers import agent_session_room, background_project_room
-from app.settings import settings
 from app.storage.database import create_session
 
 
@@ -116,9 +116,7 @@ class BackgroundSupervisor:
             except asyncio.CancelledError:
                 raise
             except Exception as exc:
-                logger.opt(exception=True).error(
-                    f"background event bridge iteration failed: {exc}"
-                )
+                logger.opt(exception=True).error(f"background event bridge iteration failed: {exc}")
 
     async def _recover_stale_jobs(self) -> None:
         assert self._transport is not None
@@ -154,7 +152,11 @@ class BackgroundSupervisor:
         project_id = message.payload.get("project_id")
         if isinstance(project_id, str) and project_id:
             return project_id
-        if message.subject_type == "project" and isinstance(message.subject_id, str) and message.subject_id:
+        if (
+            message.subject_type == "project"
+            and isinstance(message.subject_id, str)
+            and message.subject_id
+        ):
             return message.subject_id
         return None
 

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """AgentMemory Repository - 记忆数据访问层。"""
 
 from sqlalchemy import func, select
@@ -55,9 +54,7 @@ async def get_max_order_index(session: AsyncSession) -> int:
 async def get_by_ids(session: AsyncSession, memory_ids: list[str]) -> list[AgentMemory]:
     if not memory_ids:
         return []
-    result = await session.execute(
-        select(AgentMemory).where(col(AgentMemory.id).in_(memory_ids))
-    )
+    result = await session.execute(select(AgentMemory).where(col(AgentMemory.id).in_(memory_ids)))
     return list(result.scalars().all())
 
 

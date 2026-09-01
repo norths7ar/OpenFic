@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import pytest
 from httpx import AsyncClient
 
@@ -100,9 +98,7 @@ async def test_delete_reference_doc(client: AsyncClient) -> None:
     )
     doc_id = create_response.json()["id"]
 
-    delete_response = await client.delete(
-        f"/api/v1/skills/{skill_db_id}/reference-docs/{doc_id}"
-    )
+    delete_response = await client.delete(f"/api/v1/skills/{skill_db_id}/reference-docs/{doc_id}")
     assert delete_response.status_code == 204
 
     list_response = await client.get(f"/api/v1/skills/{skill_db_id}/reference-docs")
@@ -126,9 +122,7 @@ async def test_reference_doc_not_found_for_other_skill(client: AsyncClient) -> N
     )
     assert update_response.status_code == 404
 
-    delete_response = await client.delete(
-        f"/api/v1/skills/{skill_b}/reference-docs/{doc_id}"
-    )
+    delete_response = await client.delete(f"/api/v1/skills/{skill_b}/reference-docs/{doc_id}")
     assert delete_response.status_code == 404
 
 

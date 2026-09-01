@@ -84,11 +84,7 @@ def _node_event_payload(row: PersistedMessage) -> dict[str, Any]:
     metadata = row.metadata
     status = metadata.get("node_status")
     if status not in {"running", "completed", "error"}:
-        status = (
-            "running"
-            if row.message_type == "node_start"
-            else _message_status(row.status)
-        )
+        status = "running" if row.message_type == "node_start" else _message_status(row.status)
     phase = metadata.get("phase")
     if phase not in {"start", "end"}:
         phase = "start" if row.message_type == "node_start" else "end"
@@ -252,11 +248,7 @@ def _project_rows(
 ) -> list[TaskMessage]:
     if _has_dispatch_subagent(rows):
         subagent_tool_call_ids = _subagent_tool_call_ids(rows)
-        rows = [
-            row
-            for row in rows
-            if not _is_subagent_internal_row(row, subagent_tool_call_ids)
-        ]
+        rows = [row for row in rows if not _is_subagent_internal_row(row, subagent_tool_call_ids)]
     rows = _projection_order(rows)
     tool_args_by_id: dict[str, dict[str, Any]] = {}
     for row in rows:

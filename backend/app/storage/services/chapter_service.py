@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Chapter Service - 章节业务逻辑层。
 """
@@ -464,9 +463,7 @@ async def update_chapter(
         validate_editor_content(content)
         chapter.content = content
         # 优先使用前端传递的字数，否则后端计算
-        chapter.word_count = (
-            word_count if word_count is not None else _count_words(content)
-        )
+        chapter.word_count = word_count if word_count is not None else _count_words(content)
         content_changed = True
     elif word_count is not None and word_count != chapter.word_count:
         # 如果只传了 word_count 没传 content，也只在字数实际变化时更新
@@ -546,10 +543,8 @@ async def delete_chapter(
     schedule_emit_index_status(session, project_id)
 
     await chapter_summary_repo.delete_by_chapter_id(session, chapter_id)
-    long_term_summaries = (
-        await chapter_summary_repo.list_long_term_summaries_by_project(
-            session, project_id
-        )
+    long_term_summaries = await chapter_summary_repo.list_long_term_summaries_by_project(
+        session, project_id
     )
     affected_ranges = list(
         {
@@ -587,9 +582,7 @@ async def delete_chapter(
     max_order = await chapter_repo.get_max_order(session, volume_id)
     if deleted_volume_order <= max_order:
         # 将所有 order > deleted_volume_order 的章节 order 减 1
-        await chapter_repo.shift_orders(
-            session, volume_id, deleted_volume_order + 1, max_order, -1
-        )
+        await chapter_repo.shift_orders(session, volume_id, deleted_volume_order + 1, max_order, -1)
 
     # 更新项目统计
     await _update_volume_stats(session, volume_id)
@@ -607,9 +600,7 @@ async def delete_chapters_in_volume(session: AsyncSession, volume_id: str) -> No
     volumes = await volume_repo.list_by_project(session, project_id)
     global_orders = global_order_index(project_chapters, volumes)
     deleted_global_orders = [
-        global_orders[chapter.id]
-        for chapter in chapters
-        if chapter.id in global_orders
+        global_orders[chapter.id] for chapter in chapters if chapter.id in global_orders
     ]
 
     from app.retrieval.chapter_index import ChapterIndexIntegrationService
@@ -620,14 +611,10 @@ async def delete_chapters_in_volume(session: AsyncSession, volume_id: str) -> No
         await index_service.delete_chapter_index(session, chapter)
     schedule_emit_index_status(session, project_id)
 
-    await chapter_summary_repo.delete_by_chapter_ids(
-        session, [chapter.id for chapter in chapters]
-    )
+    await chapter_summary_repo.delete_by_chapter_ids(session, [chapter.id for chapter in chapters])
     if deleted_global_orders:
-        long_term_summaries = (
-            await chapter_summary_repo.list_long_term_summaries_by_project(
-                session, project_id
-            )
+        long_term_summaries = await chapter_summary_repo.list_long_term_summaries_by_project(
+            session, project_id
         )
         first_deleted_order = min(deleted_global_orders)
         affected_ranges = [

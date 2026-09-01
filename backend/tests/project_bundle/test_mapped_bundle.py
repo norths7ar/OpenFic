@@ -54,9 +54,7 @@ def _source_bundle(
     }
     return build_zip(
         {
-            "openfic-import.yaml": yaml.safe_dump(
-                config, allow_unicode=True, sort_keys=True
-            ),
+            "openfic-import.yaml": yaml.safe_dump(config, allow_unicode=True, sort_keys=True),
             "world.md": f"# 世界\n## 体系\n{world_body}",
             "character.md": "# 主角\n\n角色内容",
             "outline.md": (
@@ -105,9 +103,7 @@ async def test_mapped_bundle_round_trip_and_three_way_baseline(session) -> None:
     }
     changed_source = _source_bundle(project.id, volume_body="卷内容 v2")
     changed = await build_mapped_project_bundle(session, project.id, changed_source)
-    changed_preview = await preview_project_bundle(
-        session, project.id, changed.data, "merge"
-    )
+    changed_preview = await preview_project_bundle(session, project.id, changed.data, "merge")
     assert changed_preview.summary["update"] == 1
     await apply_project_bundle(session, project.id, changed.data, "merge")
     await persist_mapped_import_bindings(session, project.id, changed.bindings)
@@ -125,9 +121,9 @@ async def test_mapped_bundle_round_trip_and_three_way_baseline(session) -> None:
     third = await build_mapped_project_bundle(session, project.id, third_source)
     conflict = await preview_project_bundle(session, project.id, third.data, "merge")
     assert conflict.summary["conflict"] == 1
-    assert next(
-        item for item in conflict.items if item.action == "conflict"
-    ).reason == ("current_changed")
+    assert next(item for item in conflict.items if item.action == "conflict").reason == (
+        "current_changed"
+    )
 
     bindings = list(
         (
@@ -148,18 +144,10 @@ async def test_mapped_ids_are_isolated_between_projects(session) -> None:
     session.add_all([first, second])
     await session.flush()
 
-    first_bundle = await build_mapped_project_bundle(
-        session, first.id, _source_bundle(first.id)
-    )
-    second_bundle = await build_mapped_project_bundle(
-        session, second.id, _source_bundle(second.id)
-    )
-    first_targets = {
-        (spec.target_kind, spec.target_id) for spec in first_bundle.bindings
-    }
-    second_targets = {
-        (spec.target_kind, spec.target_id) for spec in second_bundle.bindings
-    }
+    first_bundle = await build_mapped_project_bundle(session, first.id, _source_bundle(first.id))
+    second_bundle = await build_mapped_project_bundle(session, second.id, _source_bundle(second.id))
+    first_targets = {(spec.target_kind, spec.target_id) for spec in first_bundle.bindings}
+    second_targets = {(spec.target_kind, spec.target_id) for spec in second_bundle.bindings}
     assert first_targets.isdisjoint(second_targets)
 
 
@@ -180,14 +168,10 @@ async def test_mapped_world_uids_follow_existing_book_and_remain_stable(
     session.add_all([project, world, existing])
     await session.flush()
 
-    first = await build_mapped_project_bundle(
-        session, project.id, _source_bundle(project.id)
-    )
+    first = await build_mapped_project_bundle(session, project.id, _source_bundle(project.id))
     parsed_first = parse_project_bundle(first.data, project.id)
     first_entry = next(
-        document
-        for document in parsed_first.documents
-        if document.kind == "world_entry"
+        document for document in parsed_first.documents if document.kind == "world_entry"
     )
     assert first_entry.semantic_fields["uid"] == 2
     await apply_project_bundle(session, project.id, first.data, "merge")

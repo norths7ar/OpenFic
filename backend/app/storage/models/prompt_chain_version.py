@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 PromptChainVersion 数据模型。
 """

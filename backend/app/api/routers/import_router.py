@@ -1,10 +1,9 @@
-# -*- coding: utf-8 -*-
 """
 Import Router - TXT 文件导入 API。
 """
 
-from typing import Annotated
 import json
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from fastapi.responses import StreamingResponse
@@ -183,7 +182,7 @@ async def confirm_import(
             volumes=parse_result.volumes,
         )
     except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
     return ImportConfirmResponse(
         project_id=result.project_id,

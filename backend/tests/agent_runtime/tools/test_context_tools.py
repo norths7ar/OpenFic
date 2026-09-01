@@ -36,19 +36,21 @@ async def test_read_chapter_summaries_reads_project_page() -> None:
         SimpleNamespace(chapter_id="c3", summary="第三章摘要"),
     ]
 
-    with patch(
-        "app.agent_runtime.tools.impls.context.read_chapter_summaries.create_session"
-    ) as mock_cs, patch(
-        "app.agent_runtime.tools.impls.context.read_chapter_summaries.chapter_repo"
-    ) as mock_chapter_repo, patch(
-        "app.agent_runtime.tools.impls.context.read_chapter_summaries.chapter_summary_repo"
-    ) as mock_summary_repo:
+    with (
+        patch(
+            "app.agent_runtime.tools.impls.context.read_chapter_summaries.create_session"
+        ) as mock_cs,
+        patch(
+            "app.agent_runtime.tools.impls.context.read_chapter_summaries.chapter_repo"
+        ) as mock_chapter_repo,
+        patch(
+            "app.agent_runtime.tools.impls.context.read_chapter_summaries.chapter_summary_repo"
+        ) as mock_summary_repo,
+    ):
         mock_session = AsyncMock()
         mock_cs.return_value = mock_session
         mock_chapter_repo.list_by_project_page = AsyncMock(return_value=chapters)
-        mock_summary_repo.list_chapter_summaries_by_chapter_ids = AsyncMock(
-            return_value=summaries
-        )
+        mock_summary_repo.list_chapter_summaries_by_chapter_ids = AsyncMock(return_value=summaries)
 
         result = await tool.ainvoke({"offset": 1, "limit": 2})
 
@@ -70,20 +72,22 @@ async def test_read_chapter_summaries_prefers_page_query_over_orders() -> None:
     chapters = [SimpleNamespace(id="c4", order=4, title="第四章")]
     summaries = [SimpleNamespace(chapter_id="c4", summary="第四章摘要")]
 
-    with patch(
-        "app.agent_runtime.tools.impls.context.read_chapter_summaries.create_session"
-    ) as mock_cs, patch(
-        "app.agent_runtime.tools.impls.context.read_chapter_summaries.chapter_repo"
-    ) as mock_chapter_repo, patch(
-        "app.agent_runtime.tools.impls.context.read_chapter_summaries.chapter_summary_repo"
-    ) as mock_summary_repo:
+    with (
+        patch(
+            "app.agent_runtime.tools.impls.context.read_chapter_summaries.create_session"
+        ) as mock_cs,
+        patch(
+            "app.agent_runtime.tools.impls.context.read_chapter_summaries.chapter_repo"
+        ) as mock_chapter_repo,
+        patch(
+            "app.agent_runtime.tools.impls.context.read_chapter_summaries.chapter_summary_repo"
+        ) as mock_summary_repo,
+    ):
         mock_session = AsyncMock()
         mock_cs.return_value = mock_session
         mock_chapter_repo.list_by_project_page = AsyncMock(return_value=chapters)
         mock_chapter_repo.list_by_project = AsyncMock()
-        mock_summary_repo.list_chapter_summaries_by_chapter_ids = AsyncMock(
-            return_value=summaries
-        )
+        mock_summary_repo.list_chapter_summaries_by_chapter_ids = AsyncMock(return_value=summaries)
 
         result = await tool.ainvoke({"offset": 0, "limit": 1, "orders": [9, 7]})
 
@@ -111,19 +115,21 @@ async def test_read_chapter_summaries_reads_exact_orders_when_requested() -> Non
         SimpleNamespace(chapter_id="c2", summary="第二章摘要"),
     ]
 
-    with patch(
-        "app.agent_runtime.tools.impls.context.read_chapter_summaries.create_session"
-    ) as mock_cs, patch(
-        "app.agent_runtime.tools.impls.context.read_chapter_summaries.chapter_repo"
-    ) as mock_chapter_repo, patch(
-        "app.agent_runtime.tools.impls.context.read_chapter_summaries.chapter_summary_repo"
-    ) as mock_summary_repo:
+    with (
+        patch(
+            "app.agent_runtime.tools.impls.context.read_chapter_summaries.create_session"
+        ) as mock_cs,
+        patch(
+            "app.agent_runtime.tools.impls.context.read_chapter_summaries.chapter_repo"
+        ) as mock_chapter_repo,
+        patch(
+            "app.agent_runtime.tools.impls.context.read_chapter_summaries.chapter_summary_repo"
+        ) as mock_summary_repo,
+    ):
         mock_session = AsyncMock()
         mock_cs.return_value = mock_session
         mock_chapter_repo.list_by_project = AsyncMock(return_value=chapters)
-        mock_summary_repo.list_chapter_summaries_by_chapter_ids = AsyncMock(
-            return_value=summaries
-        )
+        mock_summary_repo.list_chapter_summaries_by_chapter_ids = AsyncMock(return_value=summaries)
 
         result = await tool.ainvoke({"orders": [5, 2]})
 
@@ -148,16 +154,17 @@ async def test_read_range_summaries_returns_ascending_page() -> None:
         SimpleNamespace(start_order=1, end_order=10, summary="1-10"),
     ]
 
-    with patch(
-        "app.agent_runtime.tools.impls.context.read_range_summaries.create_session"
-    ) as mock_cs, patch(
-        "app.agent_runtime.tools.impls.context.read_range_summaries.chapter_summary_repo"
-    ) as mock_summary_repo:
+    with (
+        patch(
+            "app.agent_runtime.tools.impls.context.read_range_summaries.create_session"
+        ) as mock_cs,
+        patch(
+            "app.agent_runtime.tools.impls.context.read_range_summaries.chapter_summary_repo"
+        ) as mock_summary_repo,
+    ):
         mock_session = AsyncMock()
         mock_cs.return_value = mock_session
-        mock_summary_repo.list_long_term_summaries_by_project = AsyncMock(
-            return_value=summaries
-        )
+        mock_summary_repo.list_long_term_summaries_by_project = AsyncMock(return_value=summaries)
 
         result = await tool.ainvoke({"offset": 1, "limit": 2})
 
@@ -191,11 +198,12 @@ async def test_list_characters_returns_project_character_names() -> None:
         ),
     ]
 
-    with patch(
-        "app.agent_runtime.tools.impls.context.character.create_session"
-    ) as mock_cs, patch(
-        "app.agent_runtime.tools.impls.context.character.character_repo"
-    ) as mock_character_repo:
+    with (
+        patch("app.agent_runtime.tools.impls.context.character.create_session") as mock_cs,
+        patch(
+            "app.agent_runtime.tools.impls.context.character.character_repo"
+        ) as mock_character_repo,
+    ):
         mock_session = AsyncMock()
         mock_cs.return_value = mock_session
         mock_character_repo.list_all_by_project = AsyncMock(return_value=characters)
@@ -225,11 +233,12 @@ async def test_read_character_reads_description_by_name() -> None:
         ),
     ]
 
-    with patch(
-        "app.agent_runtime.tools.impls.context.character.create_session"
-    ) as mock_cs, patch(
-        "app.agent_runtime.tools.impls.context.character.character_repo"
-    ) as mock_character_repo:
+    with (
+        patch("app.agent_runtime.tools.impls.context.character.create_session") as mock_cs,
+        patch(
+            "app.agent_runtime.tools.impls.context.character.character_repo"
+        ) as mock_character_repo,
+    ):
         mock_session = AsyncMock()
         mock_cs.return_value = mock_session
         mock_character_repo.list_all_by_project = AsyncMock(return_value=characters)
@@ -257,15 +266,18 @@ async def test_create_character_returns_diff() -> None:
         is_favorited=False,
     )
 
-    with patch(
-        "app.agent_runtime.tools.impls.context.character.create_session"
-    ) as mock_cs, patch(
-        "app.agent_runtime.tools.impls.context.character.character_repo"
-    ) as mock_character_repo, patch(
-        "app.agent_runtime.tools.impls.context.character.character_service"
-    ) as mock_character_service, patch(
-        "app.agent_runtime.tools.impls.context.character.record_character_diffs"
-    ) as mock_record_diffs:
+    with (
+        patch("app.agent_runtime.tools.impls.context.character.create_session") as mock_cs,
+        patch(
+            "app.agent_runtime.tools.impls.context.character.character_repo"
+        ) as mock_character_repo,
+        patch(
+            "app.agent_runtime.tools.impls.context.character.character_service"
+        ) as mock_character_service,
+        patch(
+            "app.agent_runtime.tools.impls.context.character.record_character_diffs"
+        ) as mock_record_diffs,
+    ):
         mock_session = AsyncMock()
         mock_cs.return_value = mock_session
         mock_character_repo.list_all_by_project = AsyncMock(return_value=[])
@@ -316,29 +328,22 @@ async def test_create_character_serializes_parallel_creates_per_project() -> Non
 
     created = SimpleNamespace(id="char-1", project_id="proj-1", name="林舟", description="主角")
     ch_name = "app.agent_runtime.tools.impls.context.character"
-    with patch(f"{ch_name}.create_session") as mock_cs, patch(
-        f"{ch_name}.character_repo"
-    ) as mock_repo, patch(
-        f"{ch_name}.character_service"
-    ) as mock_service, patch(
-        f"{ch_name}.record_character_diffs", AsyncMock()
+    with (
+        patch(f"{ch_name}.create_session") as mock_cs,
+        patch(f"{ch_name}.character_repo") as mock_repo,
+        patch(f"{ch_name}.character_service") as mock_service,
+        patch(f"{ch_name}.record_character_diffs", AsyncMock()),
     ):
         mock_cs.return_value = AsyncMock()
         mock_repo.list_all_by_project = AsyncMock(side_effect=list_characters)
         mock_service.create_character = AsyncMock(return_value=created)
 
         def make_tool():
-            return ch.CreateCharacterTool(
-                _state={**_make_state(), "current_revision_id": "rev-1"}
-            )
+            return ch.CreateCharacterTool(_state={**_make_state(), "current_revision_id": "rev-1"})
 
-        task1 = asyncio.create_task(
-            make_tool().ainvoke({"name": "林舟", "description": "主角"})
-        )
+        task1 = asyncio.create_task(make_tool().ainvoke({"name": "林舟", "description": "主角"}))
         await entered.wait()
-        task2 = asyncio.create_task(
-            make_tool().ainvoke({"name": "林舟", "description": "主角"})
-        )
+        task2 = asyncio.create_task(make_tool().ainvoke({"name": "林舟", "description": "主角"}))
         await asyncio.sleep(0.05)
         assert not task2.done()
         release.set()
@@ -370,11 +375,13 @@ def test_edit_character_input_rejects_empty_old_description() -> None:
     from app.agent_runtime.tools.impls.context.character import EditCharacterInput
 
     with pytest.raises(ValidationError):
-        EditCharacterInput.model_validate({
-            "name": "林舟",
-            "old_description": "",
-            "new_description": "x",
-        })
+        EditCharacterInput.model_validate(
+            {
+                "name": "林舟",
+                "old_description": "",
+                "new_description": "x",
+            }
+        )
 
 
 @pytest.mark.asyncio
@@ -399,15 +406,18 @@ async def test_edit_character_replaces_description_text() -> None:
         is_writing_visible=True,
     )
 
-    with patch(
-        "app.agent_runtime.tools.impls.context.character.create_session"
-    ) as mock_cs, patch(
-        "app.agent_runtime.tools.impls.context.character.character_repo"
-    ) as mock_character_repo, patch(
-        "app.agent_runtime.tools.impls.context.character.character_service"
-    ) as mock_character_service, patch(
-        "app.agent_runtime.tools.impls.context.character.record_character_diffs"
-    ) as mock_record_diffs:
+    with (
+        patch("app.agent_runtime.tools.impls.context.character.create_session") as mock_cs,
+        patch(
+            "app.agent_runtime.tools.impls.context.character.character_repo"
+        ) as mock_character_repo,
+        patch(
+            "app.agent_runtime.tools.impls.context.character.character_service"
+        ) as mock_character_service,
+        patch(
+            "app.agent_runtime.tools.impls.context.character.record_character_diffs"
+        ) as mock_record_diffs,
+    ):
         mock_session = AsyncMock()
         mock_cs.return_value = mock_session
         mock_character_repo.list_all_by_project = AsyncMock(return_value=[character])
@@ -456,13 +466,15 @@ async def test_edit_character_rejects_over_limit_replacement_without_updating() 
         is_writing_visible=True,
     )
 
-    with patch(
-        "app.agent_runtime.tools.impls.context.character.create_session"
-    ) as mock_cs, patch(
-        "app.agent_runtime.tools.impls.context.character.character_repo"
-    ) as mock_character_repo, patch(
-        "app.agent_runtime.tools.impls.context.character.character_service"
-    ) as mock_character_service:
+    with (
+        patch("app.agent_runtime.tools.impls.context.character.create_session") as mock_cs,
+        patch(
+            "app.agent_runtime.tools.impls.context.character.character_repo"
+        ) as mock_character_repo,
+        patch(
+            "app.agent_runtime.tools.impls.context.character.character_service"
+        ) as mock_character_service,
+    ):
         mock_cs.return_value = AsyncMock()
         mock_character_repo.list_all_by_project = AsyncMock(return_value=[character])
         mock_character_service.update_character = AsyncMock()
@@ -493,15 +505,18 @@ async def test_delete_character_removes_name() -> None:
         is_writing_visible=True,
     )
 
-    with patch(
-        "app.agent_runtime.tools.impls.context.character.create_session"
-    ) as mock_cs, patch(
-        "app.agent_runtime.tools.impls.context.character.character_repo"
-    ) as mock_character_repo, patch(
-        "app.agent_runtime.tools.impls.context.character.character_service"
-    ) as mock_character_service, patch(
-        "app.agent_runtime.tools.impls.context.character.record_character_diffs"
-    ) as mock_record_diffs:
+    with (
+        patch("app.agent_runtime.tools.impls.context.character.create_session") as mock_cs,
+        patch(
+            "app.agent_runtime.tools.impls.context.character.character_repo"
+        ) as mock_character_repo,
+        patch(
+            "app.agent_runtime.tools.impls.context.character.character_service"
+        ) as mock_character_service,
+        patch(
+            "app.agent_runtime.tools.impls.context.character.record_character_diffs"
+        ) as mock_record_diffs,
+    ):
         mock_session = AsyncMock()
         mock_cs.return_value = mock_session
         mock_character_repo.list_all_by_project = AsyncMock(return_value=[character])
@@ -528,13 +543,15 @@ async def test_list_world_entries_returns_enabled_entry_titles() -> None:
         SimpleNamespace(id="e2", name="势力", uid=2, order=2, content="青岚会"),
     ]
 
-    with patch(
-        "app.agent_runtime.tools.impls.context.world_entry.create_session"
-    ) as mock_cs, patch(
-        "app.agent_runtime.tools.impls.context.world_entry.world_info_repo"
-    ) as mock_world_repo, patch(
-        "app.agent_runtime.tools.impls.context.world_entry.world_info_entry_repo"
-    ) as mock_entry_repo:
+    with (
+        patch("app.agent_runtime.tools.impls.context.world_entry.create_session") as mock_cs,
+        patch(
+            "app.agent_runtime.tools.impls.context.world_entry.world_info_repo"
+        ) as mock_world_repo,
+        patch(
+            "app.agent_runtime.tools.impls.context.world_entry.world_info_entry_repo"
+        ) as mock_entry_repo,
+    ):
         mock_session = AsyncMock()
         mock_cs.return_value = mock_session
         mock_world_repo.get_by_project_id = AsyncMock(return_value=SimpleNamespace(id="world-1"))
@@ -559,13 +576,15 @@ async def test_read_world_entry_reads_content_by_title() -> None:
         SimpleNamespace(id="e1", name="主角", uid=1, order=1, content="林舟\n旧友"),
     ]
 
-    with patch(
-        "app.agent_runtime.tools.impls.context.world_entry.create_session"
-    ) as mock_cs, patch(
-        "app.agent_runtime.tools.impls.context.world_entry.world_info_repo"
-    ) as mock_world_repo, patch(
-        "app.agent_runtime.tools.impls.context.world_entry.world_info_entry_repo"
-    ) as mock_entry_repo:
+    with (
+        patch("app.agent_runtime.tools.impls.context.world_entry.create_session") as mock_cs,
+        patch(
+            "app.agent_runtime.tools.impls.context.world_entry.world_info_repo"
+        ) as mock_world_repo,
+        patch(
+            "app.agent_runtime.tools.impls.context.world_entry.world_info_entry_repo"
+        ) as mock_entry_repo,
+    ):
         mock_session = AsyncMock()
         mock_cs.return_value = mock_session
         mock_world_repo.get_by_project_id = AsyncMock(return_value=SimpleNamespace(id="world-1"))
@@ -596,13 +615,15 @@ async def test_read_world_entry_prefers_visible_entry_id() -> None:
             content="内容",
         ),
     ]
-    with patch(
-        "app.agent_runtime.tools.impls.context.world_entry.create_session"
-    ) as mock_cs, patch(
-        "app.agent_runtime.tools.impls.context.world_entry.world_info_repo"
-    ) as mock_world_repo, patch(
-        "app.agent_runtime.tools.impls.context.world_entry.world_info_entry_repo"
-    ) as mock_entry_repo:
+    with (
+        patch("app.agent_runtime.tools.impls.context.world_entry.create_session") as mock_cs,
+        patch(
+            "app.agent_runtime.tools.impls.context.world_entry.world_info_repo"
+        ) as mock_world_repo,
+        patch(
+            "app.agent_runtime.tools.impls.context.world_entry.world_info_entry_repo"
+        ) as mock_entry_repo,
+    ):
         mock_session = AsyncMock()
         mock_cs.return_value = mock_session
         mock_world_repo.get_by_project_id = AsyncMock(return_value=SimpleNamespace(id="world-1"))
@@ -627,13 +648,15 @@ async def test_read_world_entry_normalizes_quote_punctuation_in_legacy_title() -
             content="内容",
         ),
     ]
-    with patch(
-        "app.agent_runtime.tools.impls.context.world_entry.create_session"
-    ) as mock_cs, patch(
-        "app.agent_runtime.tools.impls.context.world_entry.world_info_repo"
-    ) as mock_world_repo, patch(
-        "app.agent_runtime.tools.impls.context.world_entry.world_info_entry_repo"
-    ) as mock_entry_repo:
+    with (
+        patch("app.agent_runtime.tools.impls.context.world_entry.create_session") as mock_cs,
+        patch(
+            "app.agent_runtime.tools.impls.context.world_entry.world_info_repo"
+        ) as mock_world_repo,
+        patch(
+            "app.agent_runtime.tools.impls.context.world_entry.world_info_entry_repo"
+        ) as mock_entry_repo,
+    ):
         mock_session = AsyncMock()
         mock_cs.return_value = mock_session
         mock_world_repo.get_by_project_id = AsyncMock(return_value=SimpleNamespace(id="world-1"))
@@ -654,13 +677,15 @@ async def test_read_world_entry_rejects_duplicate_titles() -> None:
         SimpleNamespace(id="e2", name="主角", uid=2, order=2, content="二"),
     ]
 
-    with patch(
-        "app.agent_runtime.tools.impls.context.world_entry.create_session"
-    ) as mock_cs, patch(
-        "app.agent_runtime.tools.impls.context.world_entry.world_info_repo"
-    ) as mock_world_repo, patch(
-        "app.agent_runtime.tools.impls.context.world_entry.world_info_entry_repo"
-    ) as mock_entry_repo:
+    with (
+        patch("app.agent_runtime.tools.impls.context.world_entry.create_session") as mock_cs,
+        patch(
+            "app.agent_runtime.tools.impls.context.world_entry.world_info_repo"
+        ) as mock_world_repo,
+        patch(
+            "app.agent_runtime.tools.impls.context.world_entry.world_info_entry_repo"
+        ) as mock_entry_repo,
+    ):
         mock_session = AsyncMock()
         mock_cs.return_value = mock_session
         mock_world_repo.get_by_project_id = AsyncMock(return_value=SimpleNamespace(id="world-1"))
@@ -678,13 +703,15 @@ async def test_read_world_entry_rejects_disabled_entry_by_title() -> None:
     from app.agent_runtime.tools.impls.context.world_entry import ReadWorldEntryTool
 
     tool = ReadWorldEntryTool(_state=_make_state())
-    with patch(
-        "app.agent_runtime.tools.impls.context.world_entry.create_session"
-    ) as mock_cs, patch(
-        "app.agent_runtime.tools.impls.context.world_entry.world_info_repo"
-    ) as mock_world_repo, patch(
-        "app.agent_runtime.tools.impls.context.world_entry.world_info_entry_repo"
-    ) as mock_entry_repo:
+    with (
+        patch("app.agent_runtime.tools.impls.context.world_entry.create_session") as mock_cs,
+        patch(
+            "app.agent_runtime.tools.impls.context.world_entry.world_info_repo"
+        ) as mock_world_repo,
+        patch(
+            "app.agent_runtime.tools.impls.context.world_entry.world_info_entry_repo"
+        ) as mock_entry_repo,
+    ):
         mock_session = AsyncMock()
         mock_cs.return_value = mock_session
         mock_world_repo.get_by_project_id = AsyncMock(return_value=SimpleNamespace(id="world-1"))
@@ -704,13 +731,15 @@ async def test_read_world_entry_rejects_disabled_entry_by_id() -> None:
     from app.agent_runtime.tools.impls.context.world_entry import ReadWorldEntryTool
 
     tool = ReadWorldEntryTool(_state=_make_state())
-    with patch(
-        "app.agent_runtime.tools.impls.context.world_entry.create_session"
-    ) as mock_cs, patch(
-        "app.agent_runtime.tools.impls.context.world_entry.world_info_repo"
-    ) as mock_world_repo, patch(
-        "app.agent_runtime.tools.impls.context.world_entry.world_info_entry_repo"
-    ) as mock_entry_repo:
+    with (
+        patch("app.agent_runtime.tools.impls.context.world_entry.create_session") as mock_cs,
+        patch(
+            "app.agent_runtime.tools.impls.context.world_entry.world_info_repo"
+        ) as mock_world_repo,
+        patch(
+            "app.agent_runtime.tools.impls.context.world_entry.world_info_entry_repo"
+        ) as mock_entry_repo,
+    ):
         mock_session = AsyncMock()
         mock_cs.return_value = mock_session
         mock_world_repo.get_by_project_id = AsyncMock(return_value=SimpleNamespace(id="world-1"))
@@ -729,17 +758,17 @@ async def test_read_world_entry_duplicate_title_ignores_disabled_entry() -> None
 
     tool = ReadWorldEntryTool(_state=_make_state())
     entries = [
-        SimpleNamespace(
-            id="e1", name="主角", uid=1, order=1, content="启用", is_enabled=True
-        ),
+        SimpleNamespace(id="e1", name="主角", uid=1, order=1, content="启用", is_enabled=True),
     ]
-    with patch(
-        "app.agent_runtime.tools.impls.context.world_entry.create_session"
-    ) as mock_cs, patch(
-        "app.agent_runtime.tools.impls.context.world_entry.world_info_repo"
-    ) as mock_world_repo, patch(
-        "app.agent_runtime.tools.impls.context.world_entry.world_info_entry_repo"
-    ) as mock_entry_repo:
+    with (
+        patch("app.agent_runtime.tools.impls.context.world_entry.create_session") as mock_cs,
+        patch(
+            "app.agent_runtime.tools.impls.context.world_entry.world_info_repo"
+        ) as mock_world_repo,
+        patch(
+            "app.agent_runtime.tools.impls.context.world_entry.world_info_entry_repo"
+        ) as mock_entry_repo,
+    ):
         mock_session = AsyncMock()
         mock_cs.return_value = mock_session
         mock_world_repo.get_by_project_id = AsyncMock(return_value=SimpleNamespace(id="world-1"))
@@ -766,17 +795,21 @@ async def test_create_world_entry_returns_diff() -> None:
         is_enabled=True,
     )
 
-    with patch(
-        "app.agent_runtime.tools.impls.context.world_entry.create_session"
-    ) as mock_cs, patch(
-        "app.agent_runtime.tools.impls.context.world_entry.world_info_repo"
-    ) as mock_world_repo, patch(
-        "app.agent_runtime.tools.impls.context.world_entry.world_info_entry_repo"
-    ) as mock_entry_repo, patch(
-        "app.agent_runtime.tools.impls.context.world_entry.world_info_entry_service"
-    ) as mock_entry_service, patch(
-        "app.agent_runtime.tools.impls.context.world_entry.record_world_entry_diffs"
-    ) as mock_record_diffs:
+    with (
+        patch("app.agent_runtime.tools.impls.context.world_entry.create_session") as mock_cs,
+        patch(
+            "app.agent_runtime.tools.impls.context.world_entry.world_info_repo"
+        ) as mock_world_repo,
+        patch(
+            "app.agent_runtime.tools.impls.context.world_entry.world_info_entry_repo"
+        ) as mock_entry_repo,
+        patch(
+            "app.agent_runtime.tools.impls.context.world_entry.world_info_entry_service"
+        ) as mock_entry_service,
+        patch(
+            "app.agent_runtime.tools.impls.context.world_entry.record_world_entry_diffs"
+        ) as mock_record_diffs,
+    ):
         mock_session = AsyncMock()
         mock_cs.return_value = mock_session
         mock_world_repo.get_by_project_id = AsyncMock(return_value=SimpleNamespace(id="world-1"))
@@ -838,14 +871,12 @@ async def test_create_world_entry_serializes_parallel_creates_per_world() -> Non
         is_enabled=True,
     )
     we_name = "app.agent_runtime.tools.impls.context.world_entry"
-    with patch(f"{we_name}.create_session") as mock_cs, patch(
-        f"{we_name}.world_info_repo"
-    ) as mock_world_repo, patch(
-        f"{we_name}.world_info_entry_repo"
-    ) as mock_entry_repo, patch(
-        f"{we_name}.world_info_entry_service"
-    ) as mock_entry_service, patch(
-        f"{we_name}.record_world_entry_diffs", AsyncMock(return_value=["e1"])
+    with (
+        patch(f"{we_name}.create_session") as mock_cs,
+        patch(f"{we_name}.world_info_repo") as mock_world_repo,
+        patch(f"{we_name}.world_info_entry_repo") as mock_entry_repo,
+        patch(f"{we_name}.world_info_entry_service") as mock_entry_service,
+        patch(f"{we_name}.record_world_entry_diffs", AsyncMock(return_value=["e1"])),
     ):
         mock_cs.return_value = AsyncMock()
         mock_world_repo.get_by_project_id = AsyncMock(return_value=SimpleNamespace(id="world-1"))
@@ -853,17 +884,11 @@ async def test_create_world_entry_serializes_parallel_creates_per_world() -> Non
         mock_entry_service.create_entry = AsyncMock(return_value=created)
 
         def make_tool():
-            return we.CreateWorldEntryTool(
-                _state={**_make_state(), "current_revision_id": "rev-1"}
-            )
+            return we.CreateWorldEntryTool(_state={**_make_state(), "current_revision_id": "rev-1"})
 
-        task1 = asyncio.create_task(
-            make_tool().ainvoke({"title": "主角", "content": "林舟"})
-        )
+        task1 = asyncio.create_task(make_tool().ainvoke({"title": "主角", "content": "林舟"}))
         await entered.wait()
-        task2 = asyncio.create_task(
-            make_tool().ainvoke({"title": "配角", "content": "林舟"})
-        )
+        task2 = asyncio.create_task(make_tool().ainvoke({"title": "配角", "content": "林舟"}))
         await asyncio.sleep(0.05)
         assert not task2.done()
         release.set()
@@ -876,13 +901,15 @@ async def test_create_world_entry_rejects_duplicate_title() -> None:
 
     tool = CreateWorldEntryTool(_state={**_make_state(), "current_revision_id": "rev-1"})
 
-    with patch(
-        "app.agent_runtime.tools.impls.context.world_entry.create_session"
-    ) as mock_cs, patch(
-        "app.agent_runtime.tools.impls.context.world_entry.world_info_repo"
-    ) as mock_world_repo, patch(
-        "app.agent_runtime.tools.impls.context.world_entry.world_info_entry_repo"
-    ) as mock_entry_repo:
+    with (
+        patch("app.agent_runtime.tools.impls.context.world_entry.create_session") as mock_cs,
+        patch(
+            "app.agent_runtime.tools.impls.context.world_entry.world_info_repo"
+        ) as mock_world_repo,
+        patch(
+            "app.agent_runtime.tools.impls.context.world_entry.world_info_entry_repo"
+        ) as mock_entry_repo,
+    ):
         mock_session = AsyncMock()
         mock_cs.return_value = mock_session
         mock_world_repo.get_by_project_id = AsyncMock(return_value=SimpleNamespace(id="world-1"))
@@ -922,11 +949,13 @@ def test_edit_world_entry_input_rejects_empty_old_content() -> None:
     from app.agent_runtime.tools.impls.context.world_entry import EditWorldEntryInput
 
     with pytest.raises(ValidationError):
-        EditWorldEntryInput.model_validate({
-            "title": "主角",
-            "old_content": "",
-            "new_content": "x",
-        })
+        EditWorldEntryInput.model_validate(
+            {
+                "title": "主角",
+                "old_content": "",
+                "new_content": "x",
+            }
+        )
 
 
 @pytest.mark.asyncio
@@ -955,17 +984,21 @@ async def test_edit_world_entry_returns_diff() -> None:
         is_enabled=True,
     )
 
-    with patch(
-        "app.agent_runtime.tools.impls.context.world_entry.create_session"
-    ) as mock_cs, patch(
-        "app.agent_runtime.tools.impls.context.world_entry.world_info_repo"
-    ) as mock_world_repo, patch(
-        "app.agent_runtime.tools.impls.context.world_entry.world_info_entry_repo"
-    ) as mock_entry_repo, patch(
-        "app.agent_runtime.tools.impls.context.world_entry.world_info_entry_service"
-    ) as mock_entry_service, patch(
-        "app.agent_runtime.tools.impls.context.world_entry.record_world_entry_diffs"
-    ) as mock_record_diffs:
+    with (
+        patch("app.agent_runtime.tools.impls.context.world_entry.create_session") as mock_cs,
+        patch(
+            "app.agent_runtime.tools.impls.context.world_entry.world_info_repo"
+        ) as mock_world_repo,
+        patch(
+            "app.agent_runtime.tools.impls.context.world_entry.world_info_entry_repo"
+        ) as mock_entry_repo,
+        patch(
+            "app.agent_runtime.tools.impls.context.world_entry.world_info_entry_service"
+        ) as mock_entry_service,
+        patch(
+            "app.agent_runtime.tools.impls.context.world_entry.record_world_entry_diffs"
+        ) as mock_record_diffs,
+    ):
         mock_session = AsyncMock()
         mock_cs.return_value = mock_session
         mock_world_repo.get_by_project_id = AsyncMock(return_value=SimpleNamespace(id="world-1"))
@@ -1018,15 +1051,18 @@ async def test_edit_world_entry_rejects_over_limit_replacement_without_updating(
         is_enabled=True,
     )
 
-    with patch(
-        "app.agent_runtime.tools.impls.context.world_entry.create_session"
-    ) as mock_cs, patch(
-        "app.agent_runtime.tools.impls.context.world_entry.world_info_repo"
-    ) as mock_world_repo, patch(
-        "app.agent_runtime.tools.impls.context.world_entry.world_info_entry_repo"
-    ) as mock_entry_repo, patch(
-        "app.agent_runtime.tools.impls.context.world_entry.world_info_entry_service"
-    ) as mock_entry_service:
+    with (
+        patch("app.agent_runtime.tools.impls.context.world_entry.create_session") as mock_cs,
+        patch(
+            "app.agent_runtime.tools.impls.context.world_entry.world_info_repo"
+        ) as mock_world_repo,
+        patch(
+            "app.agent_runtime.tools.impls.context.world_entry.world_info_entry_repo"
+        ) as mock_entry_repo,
+        patch(
+            "app.agent_runtime.tools.impls.context.world_entry.world_info_entry_service"
+        ) as mock_entry_service,
+    ):
         mock_cs.return_value = AsyncMock()
         mock_world_repo.get_by_project_id = AsyncMock(return_value=SimpleNamespace(id="world-1"))
         mock_entry_repo.list_all_by_world_info = AsyncMock(return_value=[entry])
@@ -1050,21 +1086,19 @@ async def test_edit_world_entry_rejects_duplicate_new_title() -> None:
 
     tool = EditWorldEntryTool(_state={**_make_state(), "current_revision_id": "rev-1"})
     entries = [
-        SimpleNamespace(
-            id="e1", name="主角", uid=1, order=1, content="林舟", is_enabled=True
-        ),
-        SimpleNamespace(
-            id="e2", name="反派", uid=2, order=2, content="沈墨", is_enabled=True
-        ),
+        SimpleNamespace(id="e1", name="主角", uid=1, order=1, content="林舟", is_enabled=True),
+        SimpleNamespace(id="e2", name="反派", uid=2, order=2, content="沈墨", is_enabled=True),
     ]
 
-    with patch(
-        "app.agent_runtime.tools.impls.context.world_entry.create_session"
-    ) as mock_cs, patch(
-        "app.agent_runtime.tools.impls.context.world_entry.world_info_repo"
-    ) as mock_world_repo, patch(
-        "app.agent_runtime.tools.impls.context.world_entry.world_info_entry_repo"
-    ) as mock_entry_repo:
+    with (
+        patch("app.agent_runtime.tools.impls.context.world_entry.create_session") as mock_cs,
+        patch(
+            "app.agent_runtime.tools.impls.context.world_entry.world_info_repo"
+        ) as mock_world_repo,
+        patch(
+            "app.agent_runtime.tools.impls.context.world_entry.world_info_entry_repo"
+        ) as mock_entry_repo,
+    ):
         mock_session = AsyncMock()
         mock_cs.return_value = mock_session
         mock_world_repo.get_by_project_id = AsyncMock(return_value=SimpleNamespace(id="world-1"))
@@ -1093,17 +1127,21 @@ async def test_delete_world_entry_removes_title() -> None:
         is_enabled=True,
     )
 
-    with patch(
-        "app.agent_runtime.tools.impls.context.world_entry.create_session"
-    ) as mock_cs, patch(
-        "app.agent_runtime.tools.impls.context.world_entry.world_info_repo"
-    ) as mock_world_repo, patch(
-        "app.agent_runtime.tools.impls.context.world_entry.world_info_entry_repo"
-    ) as mock_entry_repo, patch(
-        "app.agent_runtime.tools.impls.context.world_entry.world_info_entry_service"
-    ) as mock_entry_service, patch(
-        "app.agent_runtime.tools.impls.context.world_entry.record_world_entry_diffs"
-    ) as mock_record_diffs:
+    with (
+        patch("app.agent_runtime.tools.impls.context.world_entry.create_session") as mock_cs,
+        patch(
+            "app.agent_runtime.tools.impls.context.world_entry.world_info_repo"
+        ) as mock_world_repo,
+        patch(
+            "app.agent_runtime.tools.impls.context.world_entry.world_info_entry_repo"
+        ) as mock_entry_repo,
+        patch(
+            "app.agent_runtime.tools.impls.context.world_entry.world_info_entry_service"
+        ) as mock_entry_service,
+        patch(
+            "app.agent_runtime.tools.impls.context.world_entry.record_world_entry_diffs"
+        ) as mock_record_diffs,
+    ):
         mock_session = AsyncMock()
         mock_cs.return_value = mock_session
         mock_world_repo.get_by_project_id = AsyncMock(return_value=SimpleNamespace(id="world-1"))

@@ -1,21 +1,24 @@
-from contextlib import closing
-from dataclasses import dataclass
 import os
 import sqlite3
 import tempfile
+from contextlib import closing
+from dataclasses import dataclass
 from pathlib import Path
 from types import SimpleNamespace
 from typing import cast
 from unittest.mock import AsyncMock
 
-import app.agent_runtime.runner.checkpointer as checkpointer_mod
 import aiosqlite
+import pytest
 from langchain_core.messages import AIMessage
 from langchain_core.runnables import RunnableConfig
 from langgraph.checkpoint.base import Checkpoint
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
-import pytest
 from sqlalchemy import select
+
+import app.agent_runtime.runner.checkpointer as checkpointer_mod
+from app.agent_runtime.persistence.child_runs import create_child_run
+from app.agent_runtime.persistence.model import AgentChildRunRequest
 from app.agent_runtime.runner.checkpointer import (
     cleanup_unreachable_checkpoints,
     close_checkpointer,
@@ -29,8 +32,6 @@ from app.agent_runtime.runner.checkpointer import (
     vacuum_checkpoint_database,
 )
 from app.agent_runtime.tools.impls.interaction.ask_user import Question, QuestionOption
-from app.agent_runtime.persistence.child_runs import create_child_run
-from app.agent_runtime.persistence.model import AgentChildRunRequest
 from app.storage.models.revision import Revision
 from app.storage.models.task import Task
 
@@ -123,9 +124,7 @@ def test_checkpoint_serializer_skips_sanitization_for_serializable_values(monkey
 
 
 @pytest.mark.asyncio
-async def test_get_checkpointer_restores_legacy_question_checkpoint(
-    monkeypatch, tmp_path
-):
+async def test_get_checkpointer_restores_legacy_question_checkpoint(monkeypatch, tmp_path):
     db_path = tmp_path / "test_checkpoints.db"
     monkeypatch.setenv("AGENT_CHECKPOINT_DB", str(db_path))
     await reset_checkpointer()
@@ -620,10 +619,7 @@ async def test_cleanup_unreachable_checkpoints_noops_for_empty_checkpoint_store(
     await reset_checkpointer()
 
     try:
-        assert (
-            await cleanup_unreachable_checkpoints(session, await get_checkpointer())
-            == 0
-        )
+        assert await cleanup_unreachable_checkpoints(session, await get_checkpointer()) == 0
     finally:
         await reset_checkpointer()
 
@@ -748,9 +744,7 @@ async def test_prune_reachable_checkpoints_keeps_revision_and_child_boundaries(
         request={"task": "write", "input": {}, "metadata": {}},
     )
     request_result = await session.execute(
-        select(AgentChildRunRequest).where(
-            AgentChildRunRequest.child_run_id == child.id
-        )
+        select(AgentChildRunRequest).where(AgentChildRunRequest.child_run_id == child.id)
     )
     child_request = request_result.scalar_one()
     child_request.pre_request_checkpoint_id = "child-002"
@@ -849,9 +843,7 @@ async def test_cleanup_unreachable_checkpoints_removes_inactive_child_thread(
     deleted_rows = await cleanup_unreachable_checkpoints(session, checkpointer)
 
     assert deleted_rows == 2
-    cursor = await checkpointer.conn.execute(
-        "SELECT thread_id FROM checkpoints ORDER BY thread_id"
-    )
+    cursor = await checkpointer.conn.execute("SELECT thread_id FROM checkpoints ORDER BY thread_id")
     try:
         assert await cursor.fetchall() == [
             ("agent-root",),
@@ -859,9 +851,7 @@ async def test_cleanup_unreachable_checkpoints_removes_inactive_child_thread(
         ]
     finally:
         await cursor.close()
-    cursor = await checkpointer.conn.execute(
-        "SELECT thread_id FROM writes ORDER BY thread_id"
-    )
+    cursor = await checkpointer.conn.execute("SELECT thread_id FROM writes ORDER BY thread_id")
     try:
         assert await cursor.fetchall() == [
             ("agent-root",),
@@ -883,9 +873,7 @@ async def test_vacuum_checkpoint_database_only_runs_above_free_space_threshold(
     await checkpointer.conn.execute("PRAGMA page_size = 4096")
     await checkpointer.conn.execute("PRAGMA journal_mode = DELETE")
     await checkpointer.conn.execute("CREATE TABLE test_data (value BLOB)")
-    await checkpointer.conn.execute(
-        "INSERT INTO test_data(value) VALUES (zeroblob(32768))"
-    )
+    await checkpointer.conn.execute("INSERT INTO test_data(value) VALUES (zeroblob(32768))")
     await checkpointer.conn.execute("DELETE FROM test_data")
     await checkpointer.conn.commit()
     await reset_checkpointer()
@@ -902,9 +890,7 @@ async def test_vacuum_checkpoint_database_skips_small_free_space(
     await reset_checkpointer()
     checkpointer = await get_checkpointer()
     await checkpointer.conn.execute("CREATE TABLE test_data (value BLOB)")
-    await checkpointer.conn.execute(
-        "INSERT INTO test_data(value) VALUES (zeroblob(4096))"
-    )
+    await checkpointer.conn.execute("INSERT INTO test_data(value) VALUES (zeroblob(4096))")
     await checkpointer.conn.execute("DELETE FROM test_data")
     await checkpointer.conn.commit()
     await reset_checkpointer()

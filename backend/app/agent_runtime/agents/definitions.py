@@ -65,7 +65,7 @@ DEFAULT_AGENT_DEFINITIONS: Mapping[str, AgentDefinition] = MappingProxyType(
                 "note_read",
                 "note_write",
                 "character_read",
-                "character_write"
+                "character_write",
             ),
             enabled_skills=(),
             metadata=MappingProxyType({}),
@@ -113,10 +113,7 @@ DEFAULT_AGENT_DEFINITIONS: Mapping[str, AgentDefinition] = MappingProxyType(
         "discuss": AgentDefinition(
             key="discuss",
             display_name="Discuss",
-            description=(
-                "围绕当前项目讨论设定与剧情，按所选范围读取资料，"
-                "并保持信息边界"
-            ),
+            description=("围绕当前项目讨论设定与剧情，按所选范围读取资料，并保持信息边界"),
             kind="primary",
             prompt_agent_name="discuss",
             model_id=None,
@@ -151,9 +148,7 @@ DEFAULT_AGENT_DEFINITIONS: Mapping[str, AgentDefinition] = MappingProxyType(
                 "character_read",
             ),
             enabled_skills=(),
-            metadata=MappingProxyType(
-                {"workflow_only": True, "supports_global_context": True}
-            ),
+            metadata=MappingProxyType({"workflow_only": True, "supports_global_context": True}),
             color="amber",
             icon="file-pen-line",
             delegatable_agents=(),
@@ -170,7 +165,7 @@ DEFAULT_AGENT_DEFINITIONS: Mapping[str, AgentDefinition] = MappingProxyType(
                 "summary_read",
                 "world_read",
                 "note_read",
-                "character_read"
+                "character_read",
             ),
             enabled_skills=(),
             metadata=MappingProxyType({}),
@@ -191,7 +186,7 @@ DEFAULT_AGENT_DEFINITIONS: Mapping[str, AgentDefinition] = MappingProxyType(
                 "note_read",
                 "note_write",
                 "character_read",
-                "character_write"
+                "character_write",
             ),
             enabled_skills=(),
             metadata=MappingProxyType({}),
@@ -209,7 +204,7 @@ DEFAULT_AGENT_DEFINITIONS: Mapping[str, AgentDefinition] = MappingProxyType(
                 "world_read",
                 "plan",
                 "note_read",
-                "character_read"
+                "character_read",
             ),
             enabled_skills=(),
             metadata=MappingProxyType({}),
@@ -229,7 +224,7 @@ DEFAULT_AGENT_DEFINITIONS: Mapping[str, AgentDefinition] = MappingProxyType(
                 "chapter_write",
                 "note_read",
                 "note_write",
-                "character_read"
+                "character_read",
             ),
             enabled_skills=(),
             metadata=MappingProxyType({}),
@@ -251,7 +246,7 @@ DEFAULT_AGENT_DEFINITIONS: Mapping[str, AgentDefinition] = MappingProxyType(
                 "note_read",
                 "note_write",
                 "character_read",
-                "character_write"
+                "character_write",
             ),
             enabled_skills=(),
             metadata=MappingProxyType({}),
@@ -269,7 +264,7 @@ DEFAULT_AGENT_DEFINITIONS: Mapping[str, AgentDefinition] = MappingProxyType(
                 "world_read",
                 "plan",
                 "character_read",
-                "note_read"
+                "note_read",
             ),
             enabled_skills=(),
             metadata=MappingProxyType({}),

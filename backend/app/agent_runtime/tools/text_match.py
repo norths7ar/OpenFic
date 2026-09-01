@@ -54,7 +54,7 @@ def _apply_replacements(
     result = content
     for match_index, match_length, new_text in reversed(replacements):
         idx = match_index - offset
-        result = result[:idx] + new_text + result[idx + match_length:]
+        result = result[:idx] + new_text + result[idx + match_length :]
     return result
 
 
@@ -109,18 +109,14 @@ def _apply_replacements_preserving_unchanged(
             groups[-1]["end_line"] = max(groups[-1]["end_line"], end_line)
             groups[-1]["replacements"].append(rep)
             continue
-        groups.append(
-            {"start_line": start_line, "end_line": end_line, "replacements": [rep]}
-        )
+        groups.append({"start_line": start_line, "end_line": end_line, "replacements": [rep]})
     # Collect fragments into a list and join once at the end. Repeated
     # ``result += ...`` would copy the growing accumulator on every group,
     # degrading to O(n^2) when ``replace_all`` produces many groups.
     fragments: list[str] = []
     original_line_index = 0
     for group in groups:
-        fragments.append(
-            "".join(original_lines[original_line_index:group["start_line"]])
-        )
+        fragments.append("".join(original_lines[original_line_index : group["start_line"]]))
         group_start_offset = base_spans[group["start_line"]][0]
         group_end_offset = base_spans[group["end_line"] - 1][1]
         fragments.append(
@@ -249,9 +245,7 @@ def fuzzy_replace(
     # position -- corrupting content with ``replace_all=False`` and looping
     # forever with ``replace_all=True``. Treat it as "not found".
     if not fuzzy_old_text:
-        return _replace_escaped_whitespace(
-            content, old_text, new_text, replace_all=replace_all
-        )
+        return _replace_escaped_whitespace(content, old_text, new_text, replace_all=replace_all)
 
     # When the query's trailing whitespace was stripped by normalization,
     # ``fuzzy_old_text`` may be a *prefix* of a longer run in the content --
@@ -284,11 +278,7 @@ def fuzzy_replace(
         start = match_end
 
     if not replacements:
-        return _replace_escaped_whitespace(
-            content, old_text, new_text, replace_all=replace_all
-        )
+        return _replace_escaped_whitespace(content, old_text, new_text, replace_all=replace_all)
 
-    new_content = _apply_replacements_preserving_unchanged(
-        content, fuzzy_content, replacements
-    )
+    new_content = _apply_replacements_preserving_unchanged(content, fuzzy_content, replacements)
     return FuzzyReplaceResult(new_content, used_fuzzy_match=True)

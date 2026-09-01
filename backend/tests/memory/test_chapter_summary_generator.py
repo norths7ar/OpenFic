@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
@@ -66,8 +64,8 @@ async def test_build_chapter_summary_prompt_includes_previous_chapter_and_target
         "<previous_chapter>\n"
         "  <title>第一章</title>\n"
         "  <start_time>地球历 2026-01-01 00:00</start_time>\n"
-        "  <characters>[\"张三\"]</characters>\n"
-        "  <locations>[\"京城\"]</locations>\n"
+        '  <characters>["张三"]</characters>\n'
+        '  <locations>["京城"]</locations>\n'
         "  <content>上一章原文</content>\n"
         "</previous_chapter>"
     )
@@ -196,9 +194,7 @@ async def test_build_chapter_summary_prompt_merges_system_messages_when_enabled(
 
     with patch(
         "app.agent_runtime.context.processors.compress.setting_repo.get_by_key",
-        new=AsyncMock(
-            return_value=SimpleNamespace(key="compress_system_prompts", value="true")
-        ),
+        new=AsyncMock(return_value=SimpleNamespace(key="compress_system_prompts", value="true")),
     ):
         prompt = await build_chapter_summary_prompt(session, target_chapter.id)
 
@@ -238,9 +234,7 @@ async def test_build_long_term_summary_prompt_merges_system_messages_when_enable
 
     with patch(
         "app.agent_runtime.context.processors.compress.setting_repo.get_by_key",
-        new=AsyncMock(
-            return_value=SimpleNamespace(key="compress_system_prompts", value="true")
-        ),
+        new=AsyncMock(return_value=SimpleNamespace(key="compress_system_prompts", value="true")),
     ):
         prompt = await build_long_term_summary_prompt(session, [summary], [chapter])
 

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Chunking helpers for retrieval indexing.
 
@@ -112,9 +111,7 @@ def _hard_split(text: str, chunk_size: int) -> list[str]:
     return pieces
 
 
-def _with_overlap(
-    chunks: list[str], current: str, chunk_overlap: int
-) -> str:
+def _with_overlap(chunks: list[str], current: str, chunk_overlap: int) -> str:
     if chunk_overlap <= 0 or not chunks:
         return current
     tail = chunks[-1][-chunk_overlap:]

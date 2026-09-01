@@ -1,5 +1,5 @@
-from unittest.mock import AsyncMock, patch
 from types import SimpleNamespace
+from unittest.mock import AsyncMock, patch
 
 from app.agent_runtime.tools.base import HookContext
 from app.agent_runtime.tools.hooks.auth import auth_hook
@@ -7,9 +7,7 @@ from app.agent_runtime.tools.hooks.auth import auth_hook
 
 def _mock_db_session() -> SimpleNamespace:
     return SimpleNamespace(
-        execute=AsyncMock(
-            return_value=SimpleNamespace(scalar_one_or_none=lambda: None)
-        )
+        execute=AsyncMock(return_value=SimpleNamespace(scalar_one_or_none=lambda: None))
     )
 
 
@@ -104,7 +102,9 @@ async def test_fallback_to_default_metadata_ask():
 
 async def test_fallback_to_access_level_readonly():
     with _patch_permissions({}):
-        result = await auth_hook(_make_context(tool_name="unregistered_readonly", access_level="readonly"))
+        result = await auth_hook(
+            _make_context(tool_name="unregistered_readonly", access_level="readonly")
+        )
     assert result.proceed is True
 
 

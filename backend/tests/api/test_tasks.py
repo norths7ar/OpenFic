@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Task API contract tests for agent-runtime backed tasks."""
 
 from types import SimpleNamespace
@@ -11,8 +10,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agent_runtime.modes import AgentMode
-from app.agent_runtime.persistence.child_runs import create_child_run
 from app.agent_runtime.persistence import repo as agent_run_repo
+from app.agent_runtime.persistence.child_runs import create_child_run
 from app.agent_runtime.persistence.model import (
     AgentChildRun,
     AgentChildRunRequest,
@@ -71,9 +70,7 @@ class TestTaskAPI:
     async def test_context_mode_round_trips_and_is_not_patchable(
         self, client: AsyncClient, session: AsyncSession
     ) -> None:
-        task, project_id, _ = await self.create_agent_task(
-            client, session, title="全局上下文任务"
-        )
+        task, project_id, _ = await self.create_agent_task(client, session, title="全局上下文任务")
         task.context_mode = "global"
         await session.commit()
 
@@ -98,7 +95,10 @@ class TestTaskAPI:
             },
         )
 
-        assert response.status_code in {status.HTTP_404_NOT_FOUND, status.HTTP_405_METHOD_NOT_ALLOWED}
+        assert response.status_code in {
+            status.HTTP_404_NOT_FOUND,
+            status.HTTP_405_METHOD_NOT_ALLOWED,
+        }
 
     async def test_get_task_uses_agent_runtime_projection_with_agent_mode(
         self,
@@ -224,7 +224,9 @@ class TestTaskAPI:
         client: AsyncClient,
         session: AsyncSession,
     ) -> None:
-        task, project_id, _chapter_id = await self.create_agent_task(client, session, title="任务 1")
+        task, project_id, _chapter_id = await self.create_agent_task(
+            client, session, title="任务 1"
+        )
         task.is_running = True
         await session.commit()
 
@@ -321,7 +323,9 @@ class TestTaskAPI:
         client: AsyncClient,
         session: AsyncSession,
     ) -> None:
-        _task, project_id, chapter_id = await self.create_agent_task(client, session, title="任务 1")
+        _task, project_id, chapter_id = await self.create_agent_task(
+            client, session, title="任务 1"
+        )
         await task_service.create_task(
             session,
             project_id=project_id,

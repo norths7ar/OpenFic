@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 重命名笔记分类。
 """
@@ -16,11 +15,11 @@ from app.agent_runtime.revisions import (
 )
 from app.agent_runtime.tools.base import AgentTool
 from app.agent_runtime.tools.errors import ToolExecutionError
+from app.agent_runtime.tools.impls._locks import keyed_lock
 from app.agent_runtime.tools.impls.note.refs import (
     CategoryRef,
     resolve_category_from_list,
 )
-from app.agent_runtime.tools.impls._locks import keyed_lock
 from app.agent_runtime.tools.registry import ToolRegistry
 from app.storage.database import create_session
 from app.storage.repos import note_category_repo
@@ -91,9 +90,7 @@ class EditNoteCategoryTool(AgentTool):
                 if category is None:
                     raise ToolExecutionError(f"分类不存在: {ref.id}")
             else:
-                categories = await note_category_repo.list_by_project(
-                    session, self.project_id
-                )
+                categories = await note_category_repo.list_by_project(session, self.project_id)
                 category = resolve_category_from_list(categories, ref)
             if category.project_id != self.project_id:
                 raise ToolExecutionError("分类不属于当前项目")

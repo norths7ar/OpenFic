@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import asyncio
 import copy
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
-from typing import Any, AsyncIterator
-
+from typing import Any
 
 BUFFERED_AGENT_EVENT_NAMES = {
     "agent:node",
@@ -54,21 +54,14 @@ class AgentEventReplayBuffer:
         if name == "agent:retry":
             events[:] = [event for event in events if event.name != name]
         if name in COMPACTION_TERMINAL_EVENT_NAMES:
-            events[:] = [
-                event
-                for event in events
-                if event.name != "agent:compaction_start"
-            ]
+            events[:] = [event for event in events if event.name != "agent:compaction_start"]
         if name == "agent:subagent_status":
             child_run_id = data.get("child_run_id")
             if isinstance(child_run_id, str) and child_run_id:
                 events[:] = [
                     event
                     for event in events
-                    if not (
-                        event.name == name
-                        and event.data.get("child_run_id") == child_run_id
-                    )
+                    if not (event.name == name and event.data.get("child_run_id") == child_run_id)
                 ]
         events.append(BufferedAgentEvent(name=name, data=copy.deepcopy(data)))
         if len(events) > self._max_events_per_session:
@@ -94,9 +87,7 @@ class AgentEventReplayBuffer:
         events = self._events.get(session_id)
         if not events:
             return
-        self._events[session_id] = [
-            event for event in events if event.data.get("run_id") != run_id
-        ]
+        self._events[session_id] = [event for event in events if event.data.get("run_id") != run_id]
         if not self._events[session_id]:
             self._events.pop(session_id, None)
 

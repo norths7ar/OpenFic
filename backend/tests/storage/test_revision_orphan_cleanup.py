@@ -4,8 +4,6 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 from sqlmodel import SQLModel
 
-from tests.model_registry import register_sqlmodel_models
-
 from app.core.ids import generate_id
 from app.storage.models.commit import Commit
 from app.storage.models.project import Project
@@ -19,6 +17,7 @@ from app.storage.models.revision_note_snapshot import (
 from app.storage.models.revision_world_entry_snapshot import RevisionWorldEntrySnapshot
 from app.storage.models.task import Task
 from app.storage.services.revision_service import cleanup_orphaned_revision_data
+from tests.model_registry import register_sqlmodel_models
 
 
 def _revision(revision_id: str, project_id: str, task_id: str | None = None) -> Revision:
@@ -47,9 +46,7 @@ async def revision_cleanup_session():
 
 
 async def _count(session: AsyncSession, model) -> int:
-    return int(
-        (await session.execute(select(func.count()).select_from(model))).scalar_one()
-    )
+    return int((await session.execute(select(func.count()).select_from(model))).scalar_one())
 
 
 async def test_cleanup_removes_dangling_children_and_orphan_revisions(
@@ -68,19 +65,57 @@ async def test_cleanup_removes_dangling_children_and_orphan_revisions(
         )
     )
     # dangling children: revision ids that do not exist
-    session.add(Commit(id=generate_id(), revision_id="rev-missing", chapter_id="c1", operation="update"))
-    session.add(RevisionChapterSnapshot(id=generate_id(), revision_id="rev-missing", chapter_id="c1", project_id="proj-live"))
-    session.add(RevisionNoteSnapshot(id=generate_id(), revision_id="rev-missing", note_id="n1", project_id="proj-live"))
-    session.add(RevisionNoteCategorySnapshot(id=generate_id(), revision_id="rev-missing", category_id="cat1", project_id="proj-live"))
-    session.add(RevisionCharacterSnapshot(id=generate_id(), revision_id="rev-missing", character_id="char1", project_id="proj-live"))
-    session.add(RevisionWorldEntrySnapshot(id=generate_id(), revision_id="rev-missing", entry_id="e1", project_id="proj-live"))
+    session.add(
+        Commit(id=generate_id(), revision_id="rev-missing", chapter_id="c1", operation="update")
+    )
+    session.add(
+        RevisionChapterSnapshot(
+            id=generate_id(), revision_id="rev-missing", chapter_id="c1", project_id="proj-live"
+        )
+    )
+    session.add(
+        RevisionNoteSnapshot(
+            id=generate_id(), revision_id="rev-missing", note_id="n1", project_id="proj-live"
+        )
+    )
+    session.add(
+        RevisionNoteCategorySnapshot(
+            id=generate_id(), revision_id="rev-missing", category_id="cat1", project_id="proj-live"
+        )
+    )
+    session.add(
+        RevisionCharacterSnapshot(
+            id=generate_id(),
+            revision_id="rev-missing",
+            character_id="char1",
+            project_id="proj-live",
+        )
+    )
+    session.add(
+        RevisionWorldEntrySnapshot(
+            id=generate_id(), revision_id="rev-missing", entry_id="e1", project_id="proj-live"
+        )
+    )
     # orphan revision whose project is gone
     session.add(_revision("rev-project-gone", "proj-gone"))
-    session.add(Commit(id=generate_id(), revision_id="rev-project-gone", chapter_id="c1", operation="update"))
-    session.add(RevisionChapterSnapshot(id=generate_id(), revision_id="rev-project-gone", chapter_id="c1", project_id="proj-gone"))
+    session.add(
+        Commit(
+            id=generate_id(), revision_id="rev-project-gone", chapter_id="c1", operation="update"
+        )
+    )
+    session.add(
+        RevisionChapterSnapshot(
+            id=generate_id(),
+            revision_id="rev-project-gone",
+            chapter_id="c1",
+            project_id="proj-gone",
+        )
+    )
     # orphan revision whose task is gone (project still exists)
     session.add(_revision("rev-task-gone", "proj-live", task_id="task-gone"))
-    session.add(Commit(id=generate_id(), revision_id="rev-task-gone", chapter_id="c1", operation="update"))
+    session.add(
+        Commit(id=generate_id(), revision_id="rev-task-gone", chapter_id="c1", operation="update")
+    )
     await session.commit()
 
     deleted = await cleanup_orphaned_revision_data(session)
@@ -112,8 +147,14 @@ async def test_cleanup_preserves_valid_revision_history(
         )
     )
     session.add(_revision("rev-live", "proj-live", task_id="task-live"))
-    session.add(Commit(id=generate_id(), revision_id="rev-live", chapter_id="c1", operation="update"))
-    session.add(RevisionChapterSnapshot(id=generate_id(), revision_id="rev-live", chapter_id="c1", project_id="proj-live"))
+    session.add(
+        Commit(id=generate_id(), revision_id="rev-live", chapter_id="c1", operation="update")
+    )
+    session.add(
+        RevisionChapterSnapshot(
+            id=generate_id(), revision_id="rev-live", chapter_id="c1", project_id="proj-live"
+        )
+    )
     await session.commit()
 
     deleted = await cleanup_orphaned_revision_data(session)

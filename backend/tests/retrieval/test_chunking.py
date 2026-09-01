@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """结构感知分块器单元测试。"""
 
 from app.retrieval.internal.indexing.chunking import RecursiveCharacterChunker

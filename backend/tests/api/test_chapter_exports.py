@@ -1,17 +1,17 @@
-# -*- coding: utf-8 -*-
 """章节导出 API 测试。"""
+
+from urllib.parse import unquote
 
 import pytest
 from httpx import AsyncClient
-from urllib.parse import unquote
 
+from app.api.routers import chapter_exports as chapter_exports_router
 from app.background.events.publisher import BackgroundEventPublisher
 from app.background.jobs import service as background_service
+from app.background.jobs.models import BackgroundJob
 from app.background.runtime.context import JobContext
 from app.background.runtime.dispatcher import dispatch_job
 from app.chapter_export import service as chapter_export_service
-from app.background.jobs.models import BackgroundJob
-from app.api.routers import chapter_exports as chapter_exports_router
 from app.storage.repos import chapter_repo
 
 
@@ -72,7 +72,9 @@ async def test_create_full_volume_export_uses_volume_filename_and_snapshot_selec
     client: AsyncClient,
 ) -> None:
     project_id, volume_id = await _create_project(client)
-    first = await _create_chapter(client, project_id, volume_id, "第一章", "第一章正文\r\n第二行", 5)
+    first = await _create_chapter(
+        client, project_id, volume_id, "第一章", "第一章正文\r\n第二行", 5
+    )
     second = await _create_chapter(client, project_id, volume_id, "第二章", "第二章正文", 5)
 
     response = await client.post(
@@ -95,7 +97,9 @@ async def test_create_full_volume_export_uses_volume_filename_and_snapshot_selec
 
 
 @pytest.mark.asyncio
-async def test_export_creation_does_not_load_chapter_bodies(client: AsyncClient, monkeypatch) -> None:
+async def test_export_creation_does_not_load_chapter_bodies(
+    client: AsyncClient, monkeypatch
+) -> None:
     project_id, volume_id = await _create_project(client)
     chapter = await _create_chapter(client, project_id, volume_id, "第一章", "正文", 2)
 
@@ -117,7 +121,9 @@ async def test_export_creation_does_not_load_chapter_bodies(client: AsyncClient,
 
 
 @pytest.mark.asyncio
-async def test_only_cancel_endpoint_preempts_running_export(client: AsyncClient, monkeypatch) -> None:
+async def test_only_cancel_endpoint_preempts_running_export(
+    client: AsyncClient, monkeypatch
+) -> None:
     class Supervisor:
         def __init__(self) -> None:
             self.cancelled_job_ids: list[str] = []
@@ -226,7 +232,9 @@ async def test_export_task_writes_full_volume_txt_and_serves_download(
     monkeypatch.setattr(chapter_export_service.settings, "chapter_exports_dir", tmp_path)
     monkeypatch.setattr(JobContext, "check_cancelled", skip_cancellation_check)
     project_id, volume_id = await _create_project(client)
-    first = await _create_chapter(client, project_id, volume_id, "第一章", "第一章正文\r\n第二行", 5)
+    first = await _create_chapter(
+        client, project_id, volume_id, "第一章", "第一章正文\r\n第二行", 5
+    )
     second = await _create_chapter(client, project_id, volume_id, "第二章", "第二章正文", 5)
     created = await client.post(
         f"/api/v1/projects/{project_id}/chapter-exports",
@@ -248,9 +256,7 @@ async def test_export_task_writes_full_volume_txt_and_serves_download(
     await background_service.mark_succeeded(session, context.publisher, context.job, result=result)
     await session.commit()
 
-    status_response = await client.get(
-        f"/api/v1/projects/{project_id}/chapter-exports/{job.id}"
-    )
+    status_response = await client.get(f"/api/v1/projects/{project_id}/chapter-exports/{job.id}")
     assert status_response.status_code == 200
     assert status_response.json()["current"] == 2
     assert status_response.json()["total"] == 2
@@ -265,8 +271,7 @@ async def test_export_task_writes_full_volume_txt_and_serves_download(
         download_response.headers["content-disposition"]
     )
     assert download_response.content.decode("utf-8-sig") == (
-        "第一卷 第一卷\n"
-        "第一章\n第一章正文\n第二行\n\n第二章\n第二章正文"
+        "第一卷 第一卷\n第一章\n第一章正文\n第二行\n\n第二章\n第二章正文"
     )
     assert result == {
         "filename": "测试小说-全本-2026-07-28.txt",
@@ -302,9 +307,7 @@ async def test_cancelled_export_removes_partial_file(
     part_path.write_text("partial", encoding="utf-8")
     output_path.write_text("complete", encoding="utf-8")
 
-    cancelled = await client.post(
-        f"/api/v1/projects/{project_id}/chapter-exports/{job_id}/cancel"
-    )
+    cancelled = await client.post(f"/api/v1/projects/{project_id}/chapter-exports/{job_id}/cancel")
 
     assert cancelled.status_code == 200
     assert cancelled.json()["status"] == "cancelled"

@@ -35,9 +35,7 @@ def _rewrite_manifest(bundle: bytes, mutate) -> bytes:
 @pytest.mark.asyncio
 async def test_export_then_preview_is_unchanged_and_edit_is_update(session) -> None:
     project = Project(id="import-project", title="导入项目")
-    note = Note(
-        id="import-note", project_id=project.id, title="笔记", content="原文", order=1
-    )
+    note = Note(id="import-note", project_id=project.id, title="笔记", content="原文", order=1)
     session.add_all([project, note])
     await session.flush()
     bundle = await export_project_bundle(session, project.id)
@@ -89,9 +87,7 @@ async def test_preview_modes_and_concurrent_change_rules(session) -> None:
     assert concurrent.items[0].action == "conflict"
     assert concurrent.items[0].reason == "current_changed"
 
-    unchanged_source = await preview_project_bundle(
-        session, project.id, bundle, "merge"
-    )
+    unchanged_source = await preview_project_bundle(session, project.id, bundle, "merge")
     assert unchanged_source.items[0].action == "unchanged"
     assert unchanged_source.items[0].reason == "incoming_matches_base"
 
@@ -109,9 +105,7 @@ async def test_preview_modes_and_concurrent_change_rules(session) -> None:
 async def test_category_edit_and_cross_project_id_are_previewed(session) -> None:
     target = Project(id="category-target", title="目标")
     other = Project(id="category-other", title="其他")
-    category = NoteCategory(
-        id="category-edit", project_id=target.id, title="旧分类", order=1
-    )
+    category = NoteCategory(id="category-edit", project_id=target.id, title="旧分类", order=1)
     note = Note(
         id="cross-note",
         project_id=target.id,
@@ -126,12 +120,8 @@ async def test_category_edit_and_cross_project_id_are_previewed(session) -> None
         bundle,
         lambda manifest: manifest["note_categories"][0].update(title="新分类"),
     )
-    category_preview = await preview_project_bundle(
-        session, target.id, edited_category, "merge"
-    )
-    category_item = next(
-        item for item in category_preview.items if item.kind == "note_category"
-    )
+    category_preview = await preview_project_bundle(session, target.id, edited_category, "merge")
+    category_item = next(item for item in category_preview.items if item.kind == "note_category")
     assert category_item.action == "update"
 
     note.project_id = other.id
@@ -177,18 +167,14 @@ async def test_preview_rejects_same_name_with_different_id(session) -> None:
 @pytest.mark.asyncio
 async def test_parser_rejects_identity_tampering_and_unlisted_files(session) -> None:
     project = Project(id="tamper-project", title="篡改")
-    note = Note(
-        id="tamper-note", project_id=project.id, title="笔记", content="正文", order=1
-    )
+    note = Note(id="tamper-note", project_id=project.id, title="笔记", content="正文", order=1)
     session.add_all([project, note])
     await session.flush()
     bundle = await export_project_bundle(session, project.id)
 
     mismatched = _rewrite_manifest(
         bundle,
-        lambda manifest: manifest["documents"][0].update(
-            base_hash="sha256:" + "0" * 64
-        ),
+        lambda manifest: manifest["documents"][0].update(base_hash="sha256:" + "0" * 64),
     )
     with pytest.raises(BundleFormatError, match="identity mismatch"):
         parse_project_bundle(mismatched, project.id)
@@ -222,9 +208,7 @@ async def test_parser_rejects_orphan_category_and_discussion_message(session) ->
     note_path = next(path for path in files if path.endswith(".md"))
     document = parse_markdown_document(files[note_path].decode())
     document.frontmatter["category_id"] = "missing-category"
-    files[note_path] = render_markdown_document(
-        document.frontmatter, document.title, document.body
-    )
+    files[note_path] = render_markdown_document(document.frontmatter, document.title, document.body)
     with pytest.raises(BundleFormatError, match="note category is missing"):
         parse_project_bundle(build_zip(files), project.id)
 
@@ -250,9 +234,7 @@ async def test_parser_rejects_orphan_category_and_discussion_message(session) ->
     discussion_bundle = await export_project_bundle(session, project.id)
     discussion_files = read_zip(discussion_bundle)
     manifest = yaml.safe_load(discussion_files["openfic.yaml"])
-    discussion_item = next(
-        item for item in manifest["documents"] if item["kind"] == "discussion"
-    )
+    discussion_item = next(item for item in manifest["documents"] if item["kind"] == "discussion")
     message_item = next(
         item for item in manifest["documents"] if item["kind"] == "discussion_message"
     )
@@ -268,9 +250,7 @@ async def test_parser_rejects_orphan_category_and_discussion_message(session) ->
         parse_project_bundle(build_zip(invalid_discussion_files), project.id)
 
     invalid_message_files = dict(discussion_files)
-    message_doc = parse_markdown_document(
-        invalid_message_files[message_item["path"]].decode()
-    )
+    message_doc = parse_markdown_document(invalid_message_files[message_item["path"]].decode())
     invalid_message_files[message_item["path"]] = render_markdown_document(
         message_doc.frontmatter, "被改坏的消息标题", message_doc.body
     )
@@ -278,9 +258,7 @@ async def test_parser_rejects_orphan_category_and_discussion_message(session) ->
         parse_project_bundle(build_zip(invalid_message_files), project.id)
 
     invalid_time_files = dict(discussion_files)
-    time_doc = parse_markdown_document(
-        invalid_time_files[message_item["path"]].decode()
-    )
+    time_doc = parse_markdown_document(invalid_time_files[message_item["path"]].decode())
     time_doc.frontmatter["created_at"] = "2026-01-02T03:04:05"
     invalid_time_files[message_item["path"]] = render_markdown_document(
         time_doc.frontmatter, time_doc.title, time_doc.body
@@ -297,13 +275,9 @@ async def test_parser_rejects_orphan_category_and_discussion_message(session) ->
     with pytest.raises(BundleFormatError, match="pending discussion"):
         parse_project_bundle(build_zip(pending_files), project.id)
 
-    manifest["documents"] = [
-        item for item in manifest["documents"] if item is not discussion_item
-    ]
+    manifest["documents"] = [item for item in manifest["documents"] if item is not discussion_item]
     del discussion_files[discussion_item["path"]]
-    discussion_files["openfic.yaml"] = yaml.safe_dump(
-        manifest, allow_unicode=True, sort_keys=True
-    )
+    discussion_files["openfic.yaml"] = yaml.safe_dump(manifest, allow_unicode=True, sort_keys=True)
     with pytest.raises(BundleFormatError, match="message parent is missing"):
         parse_project_bundle(build_zip(discussion_files), project.id)
 
@@ -314,12 +288,8 @@ async def test_parser_and_preview_reject_internal_and_world_book_collisions(
 ) -> None:
     target = Project(id="bundle-collision-target", title="目标")
     other = Project(id="bundle-collision-other", title="其他")
-    target_world = WorldInfo(
-        id="bundle-target-world", project_id=target.id, name="目标世界书"
-    )
-    other_world = WorldInfo(
-        id="bundle-other-world", project_id=other.id, name="其他世界书"
-    )
+    target_world = WorldInfo(id="bundle-target-world", project_id=target.id, name="目标世界书")
+    other_world = WorldInfo(id="bundle-other-world", project_id=other.id, name="其他世界书")
     entry = WorldInfoEntry(
         id="bundle-collision-entry",
         world_info_id=target_world.id,
@@ -356,26 +326,20 @@ async def test_parser_and_preview_reject_internal_and_world_book_collisions(
 
     files = read_zip(bundle)
     manifest = yaml.safe_load(files["openfic.yaml"])
-    world_item = next(
-        item for item in manifest["documents"] if item["kind"] == "world_entry"
-    )
+    world_item = next(item for item in manifest["documents"] if item["kind"] == "world_entry")
     world_doc = parse_markdown_document(files[world_item["path"]].decode())
     world_doc.frontmatter["world_info_id"] = other_world.id
     files[world_item["path"]] = render_markdown_document(
         world_doc.frontmatter, world_doc.title, world_doc.body
     )
-    preview = await preview_project_bundle(
-        session, target.id, build_zip(files), "merge"
-    )
+    preview = await preview_project_bundle(session, target.id, build_zip(files), "merge")
     entry_item = next(item for item in preview.items if item.id == entry.id)
     assert entry_item.action == "conflict"
     assert entry_item.reason == "cross_project_world_book_id"
 
 
 @pytest.mark.asyncio
-async def test_preview_api_validates_input_and_does_not_write(
-    session, client, monkeypatch
-) -> None:
+async def test_preview_api_validates_input_and_does_not_write(session, client, monkeypatch) -> None:
     project = Project(id="api-import-project", title="API 导入")
     session.add(project)
     await session.flush()
@@ -421,9 +385,7 @@ async def test_preview_api_validates_input_and_does_not_write(
 
 
 @pytest.mark.asyncio
-async def test_archive_task_messages_are_projected_and_exported(
-    session, client
-) -> None:
+async def test_archive_task_messages_are_projected_and_exported(session, client) -> None:
     project = Project(id="archive-project", title="档案项目")
     other_project = Project(id="archive-other-project", title="其他项目")
     task = Task(

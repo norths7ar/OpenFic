@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Structured summary generation using tool calls."""
 
 import json
@@ -135,7 +134,7 @@ def _target_chapter_message(chapter: Chapter) -> str:
 
 
 def _summaries_target_message(chapter_summaries: str) -> str:
-    return "以下部分是你需要总结的摘要内容\n" f"{chapter_summaries}"
+    return f"以下部分是你需要总结的摘要内容\n{chapter_summaries}"
 
 
 def _usage_token_count(usage: dict[str, Any] | None, fallback_text: str) -> int:
@@ -177,10 +176,16 @@ async def build_chapter_summary_prompt(
         prompt_id="memory-chapter-summary",
     )
     chapters = await chapter_repo.list_by_volume(session, chapter.volume_id)
-    previous_chapter = next((item for item in reversed(chapters) if item.order < chapter.order), None)
+    previous_chapter = next(
+        (item for item in reversed(chapters) if item.order < chapter.order), None
+    )
     if previous_chapter:
-        previous_summary = await chapter_summary_repo.get_by_chapter_id(session, previous_chapter.id)
-        messages.append(SystemMessage(content=_previous_chapter_message(previous_chapter, previous_summary)))
+        previous_summary = await chapter_summary_repo.get_by_chapter_id(
+            session, previous_chapter.id
+        )
+        messages.append(
+            SystemMessage(content=_previous_chapter_message(previous_chapter, previous_summary))
+        )
     messages.append(SystemMessage(content=_target_chapter_message(chapter)))
     if await is_compress_system_prompts_enabled(session):
         messages = merge_consecutive_system_messages(messages)
@@ -253,11 +258,7 @@ async def build_long_term_summary_prompt(
             _xml_tag("content", item.summary),
         ]
         content = "\n    ".join(part for part in summary_parts if part)
-        parts.append(
-            f"  <sum{index}>\n"
-            f"    {content}\n"
-            f"  </sum{index}>"
-        )
+        parts.append(f"  <sum{index}>\n    {content}\n  </sum{index}>")
     if not parts:
         raise NotFoundError("没有可聚合的章节摘要")
     summaries_text = "<target_summaries>\n" + "\n".join(parts) + "\n</target_summaries>"

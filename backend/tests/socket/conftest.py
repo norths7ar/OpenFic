@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Socket 测试专用 conftest — 覆盖顶层 fixtures 避免与真实 uvicorn 服务器冲突。"""
 
 import pytest

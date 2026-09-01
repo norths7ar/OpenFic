@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import json
 import re
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from typing import Any, Awaitable, Callable, TypeAlias, cast
+from typing import Any, cast
 
-from langchain_core.runnables.config import var_child_runnable_config
 from langchain_core.runnables import RunnableConfig
+from langchain_core.runnables.config import var_child_runnable_config
 from langchain_core.tools import BaseTool
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,7 +20,6 @@ from app.agent_runtime.tools.errors import (
     serialize_tool_failure,
     tool_failure_from_exception,
 )
-
 
 _PYDANTIC_HELP_URL = re.compile(
     r"\s*For further information visit https://errors\.pydantic\.dev/\S+"
@@ -98,8 +98,8 @@ class HookResult:
     output: str | None = None
 
 
-ToolHook: TypeAlias = Callable[[HookContext], Awaitable[HookResult]]
-ToolBuildHook: TypeAlias = Callable[["AgentTool"], None]
+type ToolHook = Callable[[HookContext], Awaitable[HookResult]]
+type ToolBuildHook = Callable[[AgentTool], None]
 
 
 class AgentTool(BaseTool):

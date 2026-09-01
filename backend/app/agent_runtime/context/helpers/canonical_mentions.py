@@ -94,8 +94,7 @@ def _infer_kind(attrs: dict[str, str]) -> str:
 
 def _is_expanded_mention(mention: CanonicalMention) -> bool:
     return bool(
-        mention.attrs.get("line_start", "").strip()
-        and mention.attrs.get("line_end", "").strip()
+        mention.attrs.get("line_start", "").strip() and mention.attrs.get("line_end", "").strip()
     )
 
 
@@ -108,9 +107,7 @@ class _MentionResolver:
         include_all_knowledge: bool = False,
     ) -> None:
         self._session = session
-        self._project_id = (
-            project_id.strip() if project_id and project_id.strip() else None
-        )
+        self._project_id = project_id.strip() if project_id and project_id.strip() else None
         self._include_all_knowledge = include_all_knowledge
         self._volume_cache: dict[str, str | None] = {}
         self._chapter_path_cache: dict[str, str | None] = {}
@@ -149,9 +146,7 @@ class _MentionResolver:
             ):
                 return False
             world_info = await get_world_info_by_id(session, entry.world_info_id)
-            return bool(
-                world_info and self._is_current_project(world_info.project_id)
-            )
+            return bool(world_info and self._is_current_project(world_info.project_id))
         if mention.kind == "character":
             character_id = mention.attrs.get("character_id", "").strip()
             if not character_id:
@@ -228,11 +223,7 @@ class _MentionResolver:
         if session is None:
             return None
         chapter = await get_chapter_by_id(session, chapter_id)
-        if (
-            chapter is None
-            or not chapter.title
-            or not self._is_current_project(chapter.project_id)
-        ):
+        if chapter is None or not chapter.title or not self._is_current_project(chapter.project_id):
             self._chapter_path_cache[chapter_id] = None
             return None
         if self._project_id is not None:
@@ -278,11 +269,7 @@ class _MentionResolver:
         category = await get_note_category_by_id(session, category_id)
         title = (
             category.title.strip()
-            if (
-                category
-                and category.title
-                and self._is_current_project(category.project_id)
-            )
+            if (category and category.title and self._is_current_project(category.project_id))
             else None
         )
         self._note_category_cache[category_id] = title
@@ -308,10 +295,7 @@ class _MentionResolver:
         world_info = await get_world_info_by_id(session, entry.world_info_id)
         title = (
             entry.name.strip()
-            if (
-                world_info is not None
-                and self._is_current_project(world_info.project_id)
-            )
+            if (world_info is not None and self._is_current_project(world_info.project_id))
             else None
         )
         self._world_info_entry_cache[entry_id] = title
@@ -359,7 +343,7 @@ async def compile_canonical_mentions(
     )
     compiled: list[str] = []
 
-    for index, part in enumerate(parts):
+    for part in parts:
         if isinstance(part, str):
             compiled.append(part)
             continue
@@ -390,18 +374,14 @@ def _fallback_label(mention: CanonicalMention) -> str:
     return mention.raw
 
 
-async def _compile_compact_mention(
-    mention: CanonicalMention, resolver: _MentionResolver
-) -> str:
+async def _compile_compact_mention(mention: CanonicalMention, resolver: _MentionResolver) -> str:
     anchor = await _build_anchor(mention, resolver)
     if anchor is None:
         return mention.raw
     return f" {anchor} "
 
 
-async def _compile_expanded_mention(
-    mention: CanonicalMention, resolver: _MentionResolver
-) -> str:
+async def _compile_expanded_mention(mention: CanonicalMention, resolver: _MentionResolver) -> str:
     anchor = await _build_anchor(mention, resolver, include_line_range=True)
     if anchor is None:
         return mention.raw

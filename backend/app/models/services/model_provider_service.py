@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Model Provider Service - 模型服务提供商业务逻辑层。
 
@@ -19,7 +18,6 @@ from app.models.catalog import CatalogMatch, ModelProviderCatalogService
 from app.models.entities.model_provider import ModelProvider
 from app.models.registry import AdapterRegistry
 from app.models.repos import model_provider_repo
-
 
 CUSTOM_PROVIDER_TYPES = frozenset(
     {
@@ -64,9 +62,7 @@ class ModelProviderService:
         return await model_provider_repo.get_all(session)
 
     async def get_catalog_match(self, provider: ModelProvider) -> CatalogMatch | None:
-        return await self.catalog_service.match_saved_provider(
-            provider.provider_type, provider.url
-        )
+        return await self.catalog_service.match_saved_provider(provider.provider_type, provider.url)
 
     async def get_supported_task_types(
         self,
@@ -153,9 +149,7 @@ class ModelProviderService:
             raise ValueError("自定义请求头仅支持自定义类型提供商")
         return normalized
 
-    async def get_provider_by_id(
-        self, session: AsyncSession, provider_id: str
-    ) -> ModelProvider:
+    async def get_provider_by_id(self, session: AsyncSession, provider_id: str) -> ModelProvider:
         """
         根据ID获取提供商。
 
@@ -282,9 +276,7 @@ class ModelProviderService:
                 self.get_decrypted_custom_headers(existing),
             )
             encrypted_headers = (
-                self.encryption_service.encrypt(
-                    json.dumps(normalized_headers, ensure_ascii=False)
-                )
+                self.encryption_service.encrypt(json.dumps(normalized_headers, ensure_ascii=False))
                 if normalized_headers
                 else ""
             )
@@ -533,9 +525,7 @@ class ModelProviderService:
         except KeyError:
             return enriched_models
 
-        catalog_models_by_id = {
-            model.model_id: model for model in catalog_models.models
-        }
+        catalog_models_by_id = {model.model_id: model for model in catalog_models.models}
 
         for model in enriched_models:
             matched_model = catalog_models_by_id.get(model["id"])

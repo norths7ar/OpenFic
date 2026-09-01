@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Dashboard Repository - LLM API 仪表盘只读查询。
 """
@@ -249,9 +248,7 @@ async def list_records(
 ) -> list[DashboardRecordRow]:
     """获取筛选后的审计记录。"""
     sort_column = SORT_COLUMNS.get(sort_by, LLMAuditLog.created_at)
-    order_expression = (
-        col(sort_column).asc() if sort_order == "asc" else col(sort_column).desc()
-    )
+    order_expression = col(sort_column).asc() if sort_order == "asc" else col(sort_column).desc()
     query = (
         select(
             col(LLMAuditLog.id),
@@ -278,9 +275,9 @@ async def list_records(
             col(LLMAuditLog.error_message),
             col(LLMAuditLog.error_status_code),
             col(LLMAuditLog.tool_calls_count),
-            (
-                func.coalesce(func.length(func.trim(col(LLMAuditLog.request_messages))), 0) > 0
-            ).label("has_request_messages"),
+            (func.coalesce(func.length(func.trim(col(LLMAuditLog.request_messages))), 0) > 0).label(
+                "has_request_messages"
+            ),
             col(LLMAuditLog.tool_references),
             col(LLMAuditLog.response_content),
             col(LLMAuditLog.response_tool_calls),

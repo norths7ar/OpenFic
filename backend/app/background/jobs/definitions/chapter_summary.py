@@ -3,10 +3,17 @@
 from pydantic import BaseModel
 
 from app.audit import AuditContext
-from app.background.events.types import EVENT_CHAPTER_SUMMARY_UPDATED, EVENT_LONG_TERM_SUMMARY_UPDATED
+from app.background.events.types import (
+    EVENT_CHAPTER_SUMMARY_UPDATED,
+    EVENT_LONG_TERM_SUMMARY_UPDATED,
+)
 from app.background.jobs import service as job_service
 from app.background.jobs.base import JobDefinition
-from app.background.jobs.constants import JOB_QUEUE_LLM, JOB_TYPE_CHAPTER_SUMMARY, JOB_TYPE_LONG_TERM_SUMMARY
+from app.background.jobs.constants import (
+    JOB_QUEUE_LLM,
+    JOB_TYPE_CHAPTER_SUMMARY,
+    JOB_TYPE_LONG_TERM_SUMMARY,
+)
 from app.background.jobs.definitions.summary_batch import (
     ERROR_MSG_INSUFFICIENT_SOURCE,
     PROGRESS_MSG_CHAPTER_COMPLETED,
@@ -61,7 +68,9 @@ async def handle_chapter_summary(context: JobContext) -> dict[str, str] | None:
                 model_id=metadata.model_id,
             )
         except BackgroundModelUnavailableError as exc:
-            await _mark_chapter_failed(context, payload.chapter_id, str(exc), session=session, job=job)
+            await _mark_chapter_failed(
+                context, payload.chapter_id, str(exc), session=session, job=job
+            )
             await job_service.mark_skipped(session, context.publisher, job, reason=str(exc))
             return None, None, None
         row = await summary_service.mark_chapter_summary_running(
@@ -157,7 +166,9 @@ async def handle_long_term_summary(context: JobContext) -> dict[str, str] | None
             session, payload.project_id, payload.start_order, payload.end_order
         )
         if window is None:
-            await job_service.mark_skipped(session, context.publisher, job, reason=ERROR_MSG_INSUFFICIENT_SOURCE)
+            await job_service.mark_skipped(
+                session, context.publisher, job, reason=ERROR_MSG_INSUFFICIENT_SOURCE
+            )
             return None, None, None, None
         source = window.source_summaries
         chapters = await chapter_repo.list_by_project(session, payload.project_id)

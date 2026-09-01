@@ -1,18 +1,16 @@
-# -*- coding: utf-8 -*-
 """
 AgentDefinition Repository - Data access for agent_definitions table.
 """
 
-from sqlalchemy import delete as sa_delete, select
+from sqlalchemy import delete as sa_delete
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col
 
 from app.agent_runtime.persistence.model import AgentDefinitionRecord
 
 
-async def get_by_key(
-    session: AsyncSession, key: str
-) -> AgentDefinitionRecord | None:
+async def get_by_key(session: AsyncSession, key: str) -> AgentDefinitionRecord | None:
     result = await session.execute(
         select(AgentDefinitionRecord).where(col(AgentDefinitionRecord.key) == key)
     )
@@ -26,18 +24,14 @@ async def list_all(session: AsyncSession) -> list[AgentDefinitionRecord]:
     return list(result.scalars().all())
 
 
-async def create(
-    session: AsyncSession, record: AgentDefinitionRecord
-) -> AgentDefinitionRecord:
+async def create(session: AsyncSession, record: AgentDefinitionRecord) -> AgentDefinitionRecord:
     session.add(record)
     await session.flush()
     await session.refresh(record)
     return record
 
 
-async def update(
-    session: AsyncSession, record: AgentDefinitionRecord
-) -> AgentDefinitionRecord:
+async def update(session: AsyncSession, record: AgentDefinitionRecord) -> AgentDefinitionRecord:
     session.add(record)
     await session.flush()
     await session.refresh(record)

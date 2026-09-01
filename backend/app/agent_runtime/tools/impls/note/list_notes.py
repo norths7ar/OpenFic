@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 列出某分类下的直接子项（笔记 + 子分类）。
 """
@@ -28,8 +27,7 @@ class ListNotesInput(BaseModel):
 class ListNotesTool(AgentTool):
     name: str = "list_notes"
     description: str = (
-        "列出指定分类路径下的直接子项（笔记和子分类，不递归）。"
-        "'/' 表示根层级，返回根下的笔记和分类"
+        "列出指定分类路径下的直接子项（笔记和子分类，不递归）。'/' 表示根层级，返回根下的笔记和分类"
     )
     access_level: str = "readonly"
     args_schema: type[BaseModel] = ListNotesInput
@@ -37,16 +35,10 @@ class ListNotesTool(AgentTool):
     async def _execute(self, path: str = "/") -> str:
         session = await create_session()
         try:
-            categories = await note_category_repo.list_by_project(
-                session, self.project_id
-            )
-            notes = await note_repo.list_by_project(
-                session, self.project_id, include_hidden=False
-            )
+            categories = await note_category_repo.list_by_project(session, self.project_id)
+            notes = await note_repo.list_by_project(session, self.project_id, include_hidden=False)
             include_all = includes_all_knowledge(self._state)
-            notes = [
-                note for note in notes if note_is_visible(note, include_all=include_all)
-            ]
+            notes = [note for note in notes if note_is_visible(note, include_all=include_all)]
 
             target_category_id: str | None = None
             if path == "/":
@@ -56,20 +48,14 @@ class ListNotesTool(AgentTool):
                 current_id: str | None = None
                 for segment in segments:
                     children = [
-                        c
-                        for c in categories
-                        if c.parent_id == current_id and c.title == segment
+                        c for c in categories if c.parent_id == current_id and c.title == segment
                     ]
                     if not children:
-                        return json.dumps(
-                            {"error": f"未找到路径: {path}"}, ensure_ascii=False
-                        )
+                        return json.dumps({"error": f"未找到路径: {path}"}, ensure_ascii=False)
                     current_id = children[0].id
                 target_category_id = current_id
 
-            sub_categories = [
-                c for c in categories if c.parent_id == target_category_id
-            ]
+            sub_categories = [c for c in categories if c.parent_id == target_category_id]
             sub_notes = [n for n in notes if n.category_id == target_category_id]
 
             items: list[dict] = []

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Model Router - 模型 API。
 """
@@ -106,9 +105,7 @@ async def get_models(
             include_disabled=include_disabled,
         )
     else:
-        all_models = await service.get_all_models(
-            session, include_disabled=include_disabled
-        )
+        all_models = await service.get_all_models(session, include_disabled=include_disabled)
         # 如果指定task_type，进行过滤
         if task_type:
             models = [m for m in all_models if m.task_type == task_type]
@@ -116,6 +113,7 @@ async def get_models(
             models = all_models
 
     return [_to_response(m) for m in models]
+
 
 @router.get(
     "/{model_id}",
@@ -145,7 +143,7 @@ async def get_model(
         model = await service.get_model_by_id(session, model_id)
         return _to_response(model)
     except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
 
 
 @router.post(
@@ -157,17 +155,13 @@ async def validate_model(
     model_id: str,
     session: Annotated[AsyncSession, Depends(get_session)],
     service: Annotated[ModelService, Depends(get_model_service)],
-    validation_service: Annotated[
-        ModelValidationService, Depends(get_model_validation_service)
-    ],
+    validation_service: Annotated[ModelValidationService, Depends(get_model_validation_service)],
 ) -> ModelValidationResponse:
     """Validate one saved provider/model pair without changing its configuration."""
     try:
         model = await service.get_model_by_id(session, model_id)
     except NotFoundError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
-        ) from exc
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
 
     provider = await model_provider_repo.get_by_id(session, model.provider_id)
     if provider is None:
@@ -236,7 +230,7 @@ async def create_model(
             is_enabled=request.is_enabled,
         )
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
 
     return _to_response(model)
 
@@ -299,9 +293,9 @@ async def update_model(
 
         return _to_response(model)
     except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
 
 
 @router.delete(
@@ -331,6 +325,6 @@ async def delete_model(
     try:
         await service.delete_model(session, model_id)
     except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e

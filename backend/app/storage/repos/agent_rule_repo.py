@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """AgentRule Repository - 规则数据访问层。"""
 
 from sqlalchemy import func, or_, select
@@ -79,18 +78,14 @@ async def get_max_order_index(
     project_id: str | None = None,
 ) -> int:
     scope_cond = _scope_filter(scope, project_id)
-    result = await session.execute(
-        select(func.max(col(AgentRule.order_index))).where(scope_cond)
-    )
+    result = await session.execute(select(func.max(col(AgentRule.order_index))).where(scope_cond))
     return result.scalar_one() or 0
 
 
 async def get_by_ids(session: AsyncSession, rule_ids: list[str]) -> list[AgentRule]:
     if not rule_ids:
         return []
-    result = await session.execute(
-        select(AgentRule).where(col(AgentRule.id).in_(rule_ids))
-    )
+    result = await session.execute(select(AgentRule).where(col(AgentRule.id).in_(rule_ids)))
     return list(result.scalars().all())
 
 

@@ -1,5 +1,5 @@
-import json
 import importlib
+import json
 from dataclasses import dataclass
 from typing import Any
 
@@ -1015,7 +1015,9 @@ async def test_search_chapters_rerank_path_uses_limited_top_n_and_invokes_rerank
     await session.commit()
 
     rerank_client = _FakeRerankClient()
-    monkeypatch.setattr(module, "_build_rerank_client", lambda *_a, **_k: _async_return(rerank_client))
+    monkeypatch.setattr(
+        module, "_build_rerank_client", lambda *_a, **_k: _async_return(rerank_client)
+    )
     retrieval = FakeRetrievalService(
         [
             _chunk(

@@ -11,8 +11,8 @@ from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 from langgraph.types import Command
 from pydantic import BaseModel
 
-from app.agent_runtime.runner.session_runner import SessionRunner
 from app.agent_runtime.context.types import ContextMessage
+from app.agent_runtime.runner.session_runner import SessionRunner
 from app.agent_runtime.tools.base import AgentTool, HookResult
 from app.agent_runtime.tools.registry import ToolRegistry
 
@@ -45,7 +45,9 @@ def test_build_orchestrator_graph_has_only_primary_runtime_node():
 
 
 @pytest.mark.asyncio
-async def test_primary_messages_preserves_attachment_metadata_without_embedding_image_data() -> None:
+async def test_primary_messages_preserves_attachment_metadata_without_embedding_image_data() -> (
+    None
+):
     from app.agent_runtime.graph.orchestrator.graph import _primary_messages
 
     attachment = {
@@ -72,23 +74,28 @@ async def test_primary_messages_preserves_attachment_metadata_without_embedding_
 async def test_primary_tool_names_forward_explicit_skill_references() -> None:
     from app.agent_runtime.graph.orchestrator.graph import _primary_tool_names
 
-    with patch(
-        "app.agent_runtime.graph.orchestrator.graph.load_agent_definition",
-        AsyncMock(
-            return_value=SimpleNamespace(
-                enabled_tool_categories=(),
-                enabled_skills=[],
-            )
+    with (
+        patch(
+            "app.agent_runtime.graph.orchestrator.graph.load_agent_definition",
+            AsyncMock(
+                return_value=SimpleNamespace(
+                    enabled_tool_categories=(),
+                    enabled_skills=[],
+                )
+            ),
         ),
-    ), patch(
-        "app.agent_runtime.graph.orchestrator.graph.get_tool_names_for_categories",
-        return_value=(),
-    ), patch(
-        "app.agent_runtime.graph.orchestrator.graph.skill_tool_names_for_definition",
-        AsyncMock(return_value=("activate_skill", "reference_skill")),
-    ) as skill_tools, patch(
-        "app.agent_runtime.graph.orchestrator.graph.setting_repo.get_by_key",
-        AsyncMock(return_value=None),
+        patch(
+            "app.agent_runtime.graph.orchestrator.graph.get_tool_names_for_categories",
+            return_value=(),
+        ),
+        patch(
+            "app.agent_runtime.graph.orchestrator.graph.skill_tool_names_for_definition",
+            AsyncMock(return_value=("activate_skill", "reference_skill")),
+        ) as skill_tools,
+        patch(
+            "app.agent_runtime.graph.orchestrator.graph.setting_repo.get_by_key",
+            AsyncMock(return_value=None),
+        ),
     ):
         result = await _primary_tool_names(
             {"configurable": {"db_session": object()}},
@@ -112,18 +119,23 @@ async def test_primary_tool_names_hides_unconfigured_embedding_tools() -> None:
         enabled_tool_categories=("chapter_read",),
         enabled_skills=[],
     )
-    with patch(
-        "app.agent_runtime.graph.orchestrator.graph.load_agent_definition",
-        AsyncMock(return_value=definition),
-    ), patch(
-        "app.agent_runtime.graph.orchestrator.graph.get_tool_names_for_categories",
-        return_value=("list_chapters", "search_chapters", "update_index"),
-    ), patch(
-        "app.agent_runtime.graph.orchestrator.graph.skill_tool_names_for_definition",
-        AsyncMock(return_value=()),
-    ), patch(
-        "app.agent_runtime.graph.orchestrator.graph.setting_repo.get_by_key",
-        AsyncMock(return_value=None),
+    with (
+        patch(
+            "app.agent_runtime.graph.orchestrator.graph.load_agent_definition",
+            AsyncMock(return_value=definition),
+        ),
+        patch(
+            "app.agent_runtime.graph.orchestrator.graph.get_tool_names_for_categories",
+            return_value=("list_chapters", "search_chapters", "update_index"),
+        ),
+        patch(
+            "app.agent_runtime.graph.orchestrator.graph.skill_tool_names_for_definition",
+            AsyncMock(return_value=()),
+        ),
+        patch(
+            "app.agent_runtime.graph.orchestrator.graph.setting_repo.get_by_key",
+            AsyncMock(return_value=None),
+        ),
     ):
         result = await _primary_tool_names({"configurable": {"db_session": object()}})
 
@@ -138,18 +150,23 @@ async def test_primary_tool_names_keeps_configured_embedding_tools() -> None:
         enabled_tool_categories=("chapter_read",),
         enabled_skills=[],
     )
-    with patch(
-        "app.agent_runtime.graph.orchestrator.graph.load_agent_definition",
-        AsyncMock(return_value=definition),
-    ), patch(
-        "app.agent_runtime.graph.orchestrator.graph.get_tool_names_for_categories",
-        return_value=("list_chapters", "search_chapters", "update_index"),
-    ), patch(
-        "app.agent_runtime.graph.orchestrator.graph.skill_tool_names_for_definition",
-        AsyncMock(return_value=()),
-    ), patch(
-        "app.agent_runtime.graph.orchestrator.graph.setting_repo.get_by_key",
-        AsyncMock(return_value=SimpleNamespace(value="embedding-model-1")),
+    with (
+        patch(
+            "app.agent_runtime.graph.orchestrator.graph.load_agent_definition",
+            AsyncMock(return_value=definition),
+        ),
+        patch(
+            "app.agent_runtime.graph.orchestrator.graph.get_tool_names_for_categories",
+            return_value=("list_chapters", "search_chapters", "update_index"),
+        ),
+        patch(
+            "app.agent_runtime.graph.orchestrator.graph.skill_tool_names_for_definition",
+            AsyncMock(return_value=()),
+        ),
+        patch(
+            "app.agent_runtime.graph.orchestrator.graph.setting_repo.get_by_key",
+            AsyncMock(return_value=SimpleNamespace(value="embedding-model-1")),
+        ),
     ):
         result = await _primary_tool_names({"configurable": {"db_session": object()}})
 
@@ -164,18 +181,23 @@ async def test_discuss_primary_tool_names_never_include_write_plan() -> None:
         enabled_tool_categories=("interaction", "plan"),
         enabled_skills=[],
     )
-    with patch(
-        "app.agent_runtime.graph.orchestrator.graph.load_agent_definition",
-        AsyncMock(return_value=definition),
-    ), patch(
-        "app.agent_runtime.graph.orchestrator.graph.get_tool_names_for_categories",
-        return_value=("ask_user", "write_plan"),
-    ), patch(
-        "app.agent_runtime.graph.orchestrator.graph.skill_tool_names_for_definition",
-        AsyncMock(return_value=()),
-    ), patch(
-        "app.agent_runtime.graph.orchestrator.graph.setting_repo.get_by_key",
-        AsyncMock(return_value=None),
+    with (
+        patch(
+            "app.agent_runtime.graph.orchestrator.graph.load_agent_definition",
+            AsyncMock(return_value=definition),
+        ),
+        patch(
+            "app.agent_runtime.graph.orchestrator.graph.get_tool_names_for_categories",
+            return_value=("ask_user", "write_plan"),
+        ),
+        patch(
+            "app.agent_runtime.graph.orchestrator.graph.skill_tool_names_for_definition",
+            AsyncMock(return_value=()),
+        ),
+        patch(
+            "app.agent_runtime.graph.orchestrator.graph.setting_repo.get_by_key",
+            AsyncMock(return_value=None),
+        ),
     ):
         result = await _primary_tool_names(
             {"configurable": {"db_session": object()}},
@@ -339,13 +361,11 @@ async def test_orchestrator_resumes_all_parallel_tool_approvals_once() -> None:
                 pass
             state = await graph.aget_state(runtime_config)
             interrupts = [
-                interrupt
-                for task in state.tasks
-                for interrupt in getattr(task, "interrupts", ())
+                interrupt for task in state.tasks for interrupt in getattr(task, "interrupts", ())
             ]
-            assert {
-                interrupt.value["tool_call_id"] for interrupt in interrupts
-            } == {f"call_{index}" for index in range(1, 6)}
+            assert {interrupt.value["tool_call_id"] for interrupt in interrupts} == {
+                f"call_{index}" for index in range(1, 6)
+            }
             pending_interrupts = list(interrupts)
             for index in range(1, 6):
                 interrupt = pending_interrupts.pop(0)
@@ -484,9 +504,7 @@ async def test_orchestrator_sqlite_checkpoint_survives_batch_approval_completion
             await graph.ainvoke(initial_state, config=runtime_config)
             state = await graph.aget_state(runtime_config)
             interrupts = [
-                interrupt
-                for task in state.tasks
-                for interrupt in getattr(task, "interrupts", ())
+                interrupt for task in state.tasks for interrupt in getattr(task, "interrupts", ())
             ]
             assert len(interrupts) == 2
             resume = {

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 ModelProviderService Tests.
 """
@@ -26,9 +25,7 @@ class _FakeAdapter:
     ) -> list[dict[str, str]]:
         return [{"id": "embedding-1", "name": "Embedding 1"}]
 
-    async def get_rerank_models(
-        self, client, base_url: str, api_key: str
-    ) -> list[dict[str, str]]:
+    async def get_rerank_models(self, client, base_url: str, api_key: str) -> list[dict[str, str]]:
         return [{"id": "rerank-1", "name": "Rerank 1"}]
 
     def supports_llm(self) -> bool:
@@ -52,7 +49,9 @@ async def test_get_available_models_routes_rerank_to_rerank_models(monkeypatch):
         provider_type="openai",
     )
 
-    monkeypatch.setattr(AdapterRegistry, "get_adapter", classmethod(lambda cls, provider_type: _FakeAdapter()))
+    monkeypatch.setattr(
+        AdapterRegistry, "get_adapter", classmethod(lambda cls, provider_type: _FakeAdapter())
+    )
 
     models = await service.get_available_models(provider, "rerank")
 
@@ -297,7 +296,9 @@ async def test_create_provider_uses_catalog_api_for_directory_provider(monkeypat
             return None
 
     service.catalog_service = _CatalogService()
-    monkeypatch.setattr("app.models.services.model_provider_service.model_provider_repo.create", create)
+    monkeypatch.setattr(
+        "app.models.services.model_provider_service.model_provider_repo.create", create
+    )
 
     await service.create_provider(
         session=_Session(),
@@ -340,7 +341,9 @@ async def test_create_provider_uses_supplied_url_when_directory_provider_lacks_a
             return None
 
     service.catalog_service = _CatalogService()
-    monkeypatch.setattr("app.models.services.model_provider_service.model_provider_repo.create", create)
+    monkeypatch.setattr(
+        "app.models.services.model_provider_service.model_provider_repo.create", create
+    )
 
     await service.create_provider(
         session=_Session(),

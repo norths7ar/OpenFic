@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Models Module - 模型相关功能模块。
 

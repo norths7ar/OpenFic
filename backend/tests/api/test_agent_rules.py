@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import pytest
 from httpx import AsyncClient
 
@@ -46,8 +44,8 @@ async def test_create_update_and_list_agent_rules_with_title(client: AsyncClient
 
 @pytest.mark.asyncio
 async def test_create_project_rule_and_list_scopes(client: AsyncClient, session) -> None:
-    from app.storage.repos import project_repo
     from app.storage.models.project import Project
+    from app.storage.repos import project_repo
 
     project = Project(title="测试项目")
     await project_repo.create(session, project)
@@ -110,8 +108,8 @@ async def test_create_project_rule_without_project_returns_400(client: AsyncClie
 
 @pytest.mark.asyncio
 async def test_list_all_rules_puts_global_first(client: AsyncClient, session) -> None:
-    from app.storage.repos import project_repo
     from app.storage.models.project import Project
+    from app.storage.repos import project_repo
     from app.storage.services import agent_rule_service
 
     project = Project(title="排序测试项目")

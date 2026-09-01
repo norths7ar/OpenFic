@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Tests for Chapter Context API."""
 
 import pytest
@@ -15,9 +14,13 @@ from app.memory.chapter.summary_service import (
     encode_summary_list,
     normalize_summary_source_content,
 )
-from app.storage.repos import chapter_summary_repo
 from app.storage.models.chapter_summary import ChapterSummary
-from app.storage.repos.chapter_summary_repo import SUMMARY_STATUS_FAILED, SUMMARY_STATUS_READY, SUMMARY_TYPE_LONG_TERM
+from app.storage.repos import chapter_summary_repo
+from app.storage.repos.chapter_summary_repo import (
+    SUMMARY_STATUS_FAILED,
+    SUMMARY_STATUS_READY,
+    SUMMARY_TYPE_LONG_TERM,
+)
 
 
 class _FakeResponse:
@@ -184,7 +187,9 @@ class TestChapterSummaries:
         list_response = await client.get(
             f"/api/v1/projects/{test_project['id']}/chapter-context/summaries/chapters"
         )
-        list_item = next(item for item in list_response.json()["items"] if item["chapter_id"] == chapter["id"])
+        list_item = next(
+            item for item in list_response.json()["items"] if item["chapter_id"] == chapter["id"]
+        )
         assert list_item["status"] == "queued"
 
     async def test_summary_stale_is_dynamic_by_content_diff(
@@ -665,9 +670,9 @@ class TestChapterSummaries:
         panel_response = await _summary_panel_response(session, test_project["id"])
         assert panel_response.status_code == 200
         maintenance = panel_response.json()["maintenance"]
-        assert [item["chapter_title"] for item in maintenance["missing_or_failed_chapter_summaries"]] == [
-            "长章节"
-        ]
+        assert [
+            item["chapter_title"] for item in maintenance["missing_or_failed_chapter_summaries"]
+        ] == ["长章节"]
         assert maintenance["skipped_chapter_summaries"] == [
             {
                 "chapter_id": short_response.json()["id"],
@@ -1150,7 +1155,9 @@ class TestChapterSummaries:
 
         panel_response = await _summary_panel_response(session, test_project["id"])
         assert panel_response.status_code == 200
-        missing_long_terms = panel_response.json()["maintenance"]["missing_or_failed_long_term_summaries"]
+        missing_long_terms = panel_response.json()["maintenance"][
+            "missing_or_failed_long_term_summaries"
+        ]
         assert missing_long_terms == [
             {
                 "start_order": 1,

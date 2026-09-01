@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 移动笔记到目标分类。
 """
@@ -64,14 +63,8 @@ class MoveNoteTool(AgentTool):
                 notes = await note_repo.list_by_project(
                     session, self.project_id, include_hidden=False
                 )
-                notes = [
-                    note
-                    for note in notes
-                    if note_is_visible(note, include_all=include_all)
-                ]
-                cats = await note_category_repo.list_by_project(
-                    session, self.project_id
-                )
+                notes = [note for note in notes if note_is_visible(note, include_all=include_all)]
+                cats = await note_category_repo.list_by_project(session, self.project_id)
                 note = resolve_note_from_list(notes, ref, categories=cats)
 
             if note.project_id != self.project_id:
@@ -92,9 +85,7 @@ class MoveNoteTool(AgentTool):
                     if target is None:
                         raise ToolExecutionError(f"分类不存在: {tref.id}")
                 else:
-                    cats = await note_category_repo.list_by_project(
-                        session, self.project_id
-                    )
+                    cats = await note_category_repo.list_by_project(session, self.project_id)
                     target = resolve_category_from_list(cats, tref)
                 if target.project_id != self.project_id:
                     raise ToolExecutionError("目标分类不属于当前项目")
@@ -102,18 +93,12 @@ class MoveNoteTool(AgentTool):
                 target_category_title = target.title
 
             before = note_images_by_id(
-                await note_repo.list_by_project(
-                    session, self.project_id, include_hidden=True
-                )
+                await note_repo.list_by_project(session, self.project_id, include_hidden=True)
             )
-            moved = await note_service.move_item(
-                session, "note", note.id, target_category_id
-            )
+            moved = await note_service.move_item(session, "note", note.id, target_category_id)
             moved_category_id = getattr(moved, "category_id", None)
             after = note_images_by_id(
-                await note_repo.list_by_project(
-                    session, self.project_id, include_hidden=True
-                )
+                await note_repo.list_by_project(session, self.project_id, include_hidden=True)
             )
             await record_note_diffs(
                 session,

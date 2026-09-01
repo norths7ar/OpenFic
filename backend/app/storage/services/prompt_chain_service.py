@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 PromptChain Service - 提示词链业务逻辑层。
 """
@@ -23,6 +22,7 @@ from app.storage.repos import (
 @dataclass
 class PromptEntryData:
     """提示词条目数据传输对象。"""
+
     id: str | None = None
     uid: str | None = None
     name: str = ""
@@ -36,6 +36,7 @@ class PromptEntryData:
 @dataclass
 class VersionWithEntries:
     """版本及其条目数据。"""
+
     version: PromptChainVersion
     entries: list[PromptEntry]
 
@@ -70,13 +71,11 @@ class PromptEntrySearchResponse:
 def _build_custom_agent_default_entries(kind: str) -> list[PromptEntryData]:
     if kind == "primary":
         system_content = (
-            "你是一个主智能体，负责协调和调度子智能体完成复杂任务。"
-            "请根据任务需求规划并委派工作。"
+            "你是一个主智能体，负责协调和调度子智能体完成复杂任务。请根据任务需求规划并委派工作。"
         )
     else:
         system_content = (
-            "你是一个子智能体，负责执行主智能体委派的具体任务。"
-            "请专注于完成当前分配的工作。"
+            "你是一个子智能体，负责执行主智能体委派的具体任务。请专注于完成当前分配的工作。"
         )
 
     return [
@@ -241,14 +240,10 @@ async def get_latest_version(
 
 
 async def list_versions(
-    session: AsyncSession,
-    prompt_id: str,
-    active_only: bool = False
+    session: AsyncSession, prompt_id: str, active_only: bool = False
 ) -> list[PromptChainVersion]:
     """获取提示词链的所有版本。"""
-    versions = await prompt_chain_version_repo.list_by_chain_key(
-        session, prompt_id, active_only
-    )
+    versions = await prompt_chain_version_repo.list_by_chain_key(session, prompt_id, active_only)
     if prompt_id.startswith("custom-agent--"):
         return versions
 
@@ -359,9 +354,7 @@ async def create_new_version(
     if parent_version.prompt_id != prompt_id:
         raise ValidationError("父版本不属于该提示词链")
 
-    max_version_number = await prompt_chain_version_repo.get_max_version_number(
-        session, prompt_id
-    )
+    max_version_number = await prompt_chain_version_repo.get_max_version_number(session, prompt_id)
     new_version_number = max_version_number + 1
 
     if parent_version.version_number < max_version_number:

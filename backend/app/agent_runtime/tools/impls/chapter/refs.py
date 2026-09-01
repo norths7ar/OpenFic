@@ -1,5 +1,5 @@
 from collections.abc import Sequence
-from typing import Any, Literal, Protocol, TypeVar
+from typing import Any, Literal, Protocol
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -43,13 +43,10 @@ class _OrderedTitled(Protocol):
     title: str
 
 
-_TOrderedTitled = TypeVar("_TOrderedTitled", bound=_OrderedTitled)
-
-
-def resolve_volume_from_list(
-    volumes: Sequence[_TOrderedTitled],
+def resolve_volume_from_list[TOrderedTitled: _OrderedTitled](
+    volumes: Sequence[TOrderedTitled],
     ref: VolumeRef,
-) -> _TOrderedTitled:
+) -> TOrderedTitled:
     if ref.type == "order":
         match = next((volume for volume in volumes if volume.order == ref.value), None)
     else:
@@ -59,10 +56,10 @@ def resolve_volume_from_list(
     return match
 
 
-def resolve_chapter_from_list(
-    chapters: Sequence[_TOrderedTitled],
+def resolve_chapter_from_list[TOrderedTitled: _OrderedTitled](
+    chapters: Sequence[TOrderedTitled],
     ref: ChapterRef,
-) -> _TOrderedTitled:
+) -> TOrderedTitled:
     if ref.type == "order":
         match = next((chapter for chapter in chapters if chapter.order == ref.value), None)
     else:

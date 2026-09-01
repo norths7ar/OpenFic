@@ -135,15 +135,11 @@ def _validate_rule(rule: Any) -> dict[str, Any]:
         if not isinstance(levels, list) or not levels:
             _fail("headings split requires item_levels")
         parsed = [_int(level, "item level") for level in levels]
-        if parsed != sorted(set(parsed)) or any(
-            level < 2 or level > 6 for level in parsed
-        ):
+        if parsed != sorted(set(parsed)) or any(level < 2 or level > 6 for level in parsed):
             _fail("item_levels must be unique, ascending, and between 2 and 6")
     elif "item_levels" in split:
         _fail("file split cannot have item_levels")
-    if split_type == "file" and any(
-        key in rule for key in ("section_level", "category_levels")
-    ):
+    if split_type == "file" and any(key in rule for key in ("section_level", "category_levels")):
         _fail("section_level and category_levels require headings split")
     if "section_level" in rule:
         if target != "worldbook":
@@ -152,13 +148,9 @@ def _validate_rule(rule: Any) -> dict[str, Any]:
         if section_level < 1 or section_level >= min(levels):
             _fail("section_level must be below all item levels")
     if "category_levels" in rule:
-        if target not in {"notes", "outlines"} or not isinstance(
-            rule["category_levels"], list
-        ):
+        if target not in {"notes", "outlines"} or not isinstance(rule["category_levels"], list):
             _fail("category_levels is only valid as a list for notes or outlines")
-        category_levels = [
-            _int(level, "category_levels") for level in rule["category_levels"]
-        ]
+        category_levels = [_int(level, "category_levels") for level in rule["category_levels"]]
         if (
             category_levels != sorted(set(category_levels))
             or any(level < 2 or level > 6 for level in category_levels)
@@ -169,9 +161,7 @@ def _validate_rule(rule: Any) -> dict[str, Any]:
     if "category_path" in rule and (
         target not in {"notes", "outlines"}
         or not isinstance(rule["category_path"], list)
-        or any(
-            not isinstance(value, str) or not value for value in rule["category_path"]
-        )
+        or any(not isinstance(value, str) or not value for value in rule["category_path"])
     ):
         _fail("category_path must be a list of non-empty strings for notes or outlines")
     if "writing_visible" in rule and (
@@ -197,9 +187,7 @@ def _validate_rule(rule: Any) -> dict[str, Any]:
     ):
         _fail("target_id is only valid for one file-split source")
     if "order" in rule and (
-        split_type != "file"
-        or not has_source
-        or _int(rule["order"], "order") < 0
+        split_type != "file" or not has_source or _int(rule["order"], "order") < 0
     ):
         _fail("order is only valid as a non-negative file rule integer")
     if "category_target_ids" in rule:
@@ -291,9 +279,7 @@ def _mapped_items(path: str, text: str, rule: dict[str, Any]) -> list[MappedSour
             None,
         )
         categories = list(rule.get("category_path", []))
-        categories.extend(
-            item.title for item in ancestors if item.level in category_levels
-        )
+        categories.extend(item.title for item in ancestors if item.level in category_levels)
         if len(categories) > 2:
             _fail("category path cannot exceed two levels")
         anchor = "/".join(
@@ -344,10 +330,7 @@ def _read_source_mapping_manifest(
     if (
         config.get("schema") != "openfic.import-map"
         or config.get("version") != 1
-        or (
-            configured_project_id is not None
-            and configured_project_id != target_project_id
-        )
+        or (configured_project_id is not None and configured_project_id != target_project_id)
     ):
         _fail("invalid import map identity")
     rules = config.get("rules")
@@ -356,9 +339,7 @@ def _read_source_mapping_manifest(
     return config, config_bytes.decode("utf-8")
 
 
-def read_source_mapping_manifest(
-    data: bytes, target_project_id: str
-) -> tuple[dict[str, Any], str]:
+def read_source_mapping_manifest(data: bytes, target_project_id: str) -> tuple[dict[str, Any], str]:
     return _read_source_mapping_manifest(read_zip(data), target_project_id)
 
 
@@ -378,9 +359,7 @@ def parse_source_mapping(data: bytes, target_project_id: str) -> list[MappedSour
         if isinstance(rule.get("source"), str) and rule["source"]:
             matches = [rule["source"]] if rule["source"] in files else []
         else:
-            matches = sorted(
-                path for path in files if fnmatch.fnmatchcase(path, rule["glob"])
-            )
+            matches = sorted(path for path in files if fnmatch.fnmatchcase(path, rule["glob"]))
         if not matches:
             if rule.get("required", True):
                 _fail("source rule has no matching files")

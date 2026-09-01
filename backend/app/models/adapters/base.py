@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Base Adapter - 适配器基类。
 

@@ -18,9 +18,7 @@ async def create_job(session: AsyncSession, job: BackgroundJob) -> BackgroundJob
 
 
 async def get_job(session: AsyncSession, job_id: str) -> BackgroundJob | None:
-    result = await session.execute(
-        select(BackgroundJob).where(col(BackgroundJob.id) == job_id)
-    )
+    result = await session.execute(select(BackgroundJob).where(col(BackgroundJob.id) == job_id))
     return result.scalar_one_or_none()
 
 
@@ -122,7 +120,9 @@ async def next_event_sequence(session: AsyncSession, job_id: str) -> int:
     return job.event_sequence
 
 
-async def list_expired_running_jobs(session: AsyncSession, *, limit: int = 50) -> list[BackgroundJob]:
+async def list_expired_running_jobs(
+    session: AsyncSession, *, limit: int = 50
+) -> list[BackgroundJob]:
     now = datetime.now(UTC)
     result = await session.execute(
         select(BackgroundJob)

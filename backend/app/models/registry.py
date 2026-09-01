@@ -1,15 +1,12 @@
-# -*- coding: utf-8 -*-
 """
 Adapter Registry - 适配器注册表。
 
 根据provider_type选择对应的Adapter。
 """
 
-from typing import Type
-
-from app.models.adapters.base import BaseAdapter
 from app.models.adapters.anthropic import AnthropicAdapter
 from app.models.adapters.anthropic_compatible import AnthropicCompatibleAdapter
+from app.models.adapters.base import BaseAdapter
 from app.models.adapters.deepseek import DeepSeekAdapter
 from app.models.adapters.google_genai import GoogleGenAIAdapter
 from app.models.adapters.mistral import MistralAdapter
@@ -32,7 +29,7 @@ class AdapterRegistry:
     """Adapter注册表，管理Provider到Adapter的映射关系。"""
 
     # Adapter映射关系：provider_type -> Adapter类
-    _registry: dict[str, Type[BaseAdapter]] = {
+    _registry: dict[str, type[BaseAdapter]] = {
         "openai": OpenAIAdapter,
         "anthropic": AnthropicAdapter,
         "anthropic-compatible": AnthropicCompatibleAdapter,
@@ -87,7 +84,7 @@ class AdapterRegistry:
             是否支持。
         """
         adapter = cls.get_adapter(provider_type)
-        
+
         if task_type == "llm":
             return adapter.supports_llm()
         elif task_type == "embedding":

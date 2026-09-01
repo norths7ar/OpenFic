@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 FastEmbed Embeddings - 将 fastembed 本地模型包装为 LangChain Embeddings 接口。
 
@@ -55,7 +54,6 @@ def _download_with_timeout(url: str, dest: Path, *, timeout_seconds: int) -> Non
     网络不可达时在超时内失败并抛出清晰错误，而非无限挂起。
     每 10 MiB 记录一次进度日志。
     """
-    import socket
 
     opener = _build_opener()
     try:
@@ -81,10 +79,8 @@ def _download_with_timeout(url: str, dest: Path, *, timeout_seconds: int) -> Non
                         )
                         last_report = written
             if total > 0 and written != total:
-                raise IOError(
-                    f"模型下载不完整: 已写 {written} 字节, 预期 {total} 字节"
-                )
-    except (urllib.error.URLError, socket.timeout, TimeoutError) as exc:
+                raise OSError(f"模型下载不完整: 已写 {written} 字节, 预期 {total} 字节")
+    except (urllib.error.URLError, TimeoutError) as exc:
         dest.unlink(missing_ok=True)
         raise RuntimeError(
             f"内置模型下载失败（网络不可达或超时）: {url}\n"
@@ -217,7 +213,6 @@ def _ensure_model_from_hf(
 
     返回 True 表示模型文件已就绪。预检不可达时 5 秒内快速失败。
     """
-    import socket
 
     spec = _list_supported_models(model_class, model_name)
     if spec is None:
@@ -260,7 +255,7 @@ def _ensure_model_from_hf(
             allow_patterns=allow_patterns,
             cache_dir=str(cache_dir),
         )
-    except (urllib.error.URLError, socket.timeout, TimeoutError, OSError) as exc:
+    except (urllib.error.URLError, TimeoutError, OSError) as exc:
         raise RuntimeError(
             f"内置模型下载失败（HuggingFace 不可达或超时）: {hf_repo}\n"
             f"错误: {exc}\n"
@@ -331,9 +326,7 @@ class FastEmbedEmbeddings(Embeddings):
         try:
             from fastembed import TextEmbedding
         except ModuleNotFoundError as exc:
-            raise ImportError(
-                "fastembed 未安装。请运行 uv sync 安装依赖。"
-            ) from exc
+            raise ImportError("fastembed 未安装。请运行 uv sync 安装依赖。") from exc
 
         self._model_name = model_name
         self._model = _load_fastembed_model(TextEmbedding, model_name)

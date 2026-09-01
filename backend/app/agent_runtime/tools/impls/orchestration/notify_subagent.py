@@ -14,9 +14,9 @@ from app.agent_runtime.tools.base import AgentTool
 from app.agent_runtime.tools.errors import ToolExecutionError
 from app.agent_runtime.tools.impls.orchestration.common import (
     close_session,
+    emit_subagent_tool_preview,
     ensure_child_processing,
     ensure_primary,
-    emit_subagent_tool_preview,
     get_configurable,
     make_subagent_runner,
     open_session,
@@ -78,13 +78,10 @@ class NotifySubagentTool(AgentTool):
                 request_id=request_id,
             )
             assistant_content = (
-                resolution.request.assistant_content
-                or resolution.child_run.last_assistant_content
+                resolution.request.assistant_content or resolution.child_run.last_assistant_content
             )
             if not assistant_content:
-                raise ToolExecutionError(
-                    "subagent turn completed without assistant content"
-                )
+                raise ToolExecutionError("subagent turn completed without assistant content")
             return assistant_content
 
     async def _execute(
@@ -102,12 +99,8 @@ class NotifySubagentTool(AgentTool):
         if not row.is_active:
             raise ToolExecutionError("subagent thread is inactive")
         current_revision_id = self._state.get("current_revision_id")
-        parent_revision_id = (
-            current_revision_id if isinstance(current_revision_id, str) else None
-        )
-        pre_request_checkpoint_id = await latest_checkpoint_id_for_thread(
-            row.child_thread_id
-        )
+        parent_revision_id = current_revision_id if isinstance(current_revision_id, str) else None
+        pre_request_checkpoint_id = await latest_checkpoint_id_for_thread(row.child_thread_id)
 
         session = await open_session(configurable.get("session_factory"))
         try:
@@ -156,9 +149,7 @@ class NotifySubagentTool(AgentTool):
             child_run_id=row.id,
             request_id=request_row.id,
             runner=runner,
-            start_processing=not (
-                isinstance(pending_approval, dict) and pending_approval
-            ),
+            start_processing=not (isinstance(pending_approval, dict) and pending_approval),
         )
         return json.dumps(
             {

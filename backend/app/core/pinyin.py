@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Utilities for Chinese pinyin search and ordering."""
 
 from functools import lru_cache

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Revision 数据模型 - 项目级版本记录。
 """
@@ -28,9 +27,7 @@ class Revision(SQLModel, table=True):
     project_id: str = Field(index=True, foreign_key="projects.id")
 
     message: str = Field(description="版本描述/操作说明")
-    agent_session_id: str | None = Field(
-        default=None, description="关联的 Agent 会话 ID"
-    )
+    agent_session_id: str | None = Field(default=None, description="关联的 Agent 会话 ID")
 
     status: str = Field(
         default="active",
@@ -40,9 +37,7 @@ class Revision(SQLModel, table=True):
     revision_type: str = Field(
         default="manual", index=True, description="Revision 类型: agent/manual/rollback"
     )
-    parent_revision_id: str | None = Field(
-        default=None, index=True, foreign_key="revisions.id"
-    )
+    parent_revision_id: str | None = Field(default=None, index=True, foreign_key="revisions.id")
     task_id: str | None = Field(
         default=None,
         sa_column=Column(
@@ -72,9 +67,7 @@ class Revision(SQLModel, table=True):
         index=True,
         description="LangGraph thread_id",
     )
-    is_checkpoint: bool = Field(
-        default=False, index=True, description="是否为用户可见的检查点"
-    )
+    is_checkpoint: bool = Field(default=False, index=True, description="是否为用户可见的检查点")
 
     project_snapshot_title: str = Field(max_length=200)
     project_snapshot_description: str | None = Field(default=None)

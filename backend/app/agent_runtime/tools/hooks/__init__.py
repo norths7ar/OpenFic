@@ -1,6 +1,6 @@
 from app.agent_runtime.tools.hooks.auth import auth_hook
-from app.agent_runtime.tools.hooks.character_refresh import character_refresh_post_hook
 from app.agent_runtime.tools.hooks.chapter_refresh import chapter_refresh_post_hook
+from app.agent_runtime.tools.hooks.character_refresh import character_refresh_post_hook
 from app.agent_runtime.tools.hooks.dispatch_description import (
     build_dispatch_subagent_description_hook,
 )

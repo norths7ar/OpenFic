@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import cast
 from datetime import UTC, datetime
+from typing import cast
 
 from sqlalchemy import delete, select
 from sqlalchemy.exc import SQLAlchemyError
@@ -38,9 +38,7 @@ def _validate_new_compaction(
             f"invalid compaction source_input_tokens: {source_input_tokens}"
         )
     if summary_tokens < 0:
-        raise PersistenceWriteError(
-            f"invalid compaction summary_tokens: {summary_tokens}"
-        )
+        raise PersistenceWriteError(f"invalid compaction summary_tokens: {summary_tokens}")
     if start_seq > end_seq:
         raise PersistenceWriteError(
             f"invalid compaction range: start_seq={start_seq} end_seq={end_seq}"
@@ -54,7 +52,9 @@ def _mapped_contiguous_range(
     seq_map: Mapping[int, int],
 ) -> tuple[int, int] | None:
     source_seq_values = range(start_seq, end_seq + 1)
-    target_seq_values = [seq_map[source_seq] for source_seq in source_seq_values if source_seq in seq_map]
+    target_seq_values = [
+        seq_map[source_seq] for source_seq in source_seq_values if source_seq in seq_map
+    ]
     if len(target_seq_values) != end_seq - start_seq + 1:
         return None
     if any(

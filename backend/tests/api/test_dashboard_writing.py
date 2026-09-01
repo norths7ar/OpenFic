@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Dashboard writing activity API 测试。
 """
@@ -95,7 +94,9 @@ async def test_writing_dashboard_separates_sources(client: AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
-async def test_writing_dashboard_groups_activity_by_user_timezone(client: AsyncClient, session: AsyncSession) -> None:
+async def test_writing_dashboard_groups_activity_by_user_timezone(
+    client: AsyncClient, session: AsyncSession
+) -> None:
     """测试写作活动按用户时区归属日期，而不是直接使用 UTC 日期。"""
     project_id, volume_id = await _create_project(client)
 

@@ -8,8 +8,8 @@ from typing import Any, cast
 from loguru import logger
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.background.jobs.models import BackgroundJob, BackgroundJobEvent
 from app.background.jobs import repos as job_repo
+from app.background.jobs.models import BackgroundJob, BackgroundJobEvent
 from app.background.transport.base import BackgroundTransport
 from app.background.transport.messages import BackgroundEventMessage
 

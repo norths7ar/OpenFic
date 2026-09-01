@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Volume API Schemas - 卷请求/响应模型。
 """
@@ -18,9 +17,7 @@ class VolumeCreate(BaseModel):
 class VolumeUpdate(BaseModel):
     """更新卷请求。"""
 
-    title: str | None = Field(
-        default=None, min_length=1, max_length=200, description="卷名"
-    )
+    title: str | None = Field(default=None, min_length=1, max_length=200, description="卷名")
     description: str | None = Field(default=None, description="卷说明")
 
 

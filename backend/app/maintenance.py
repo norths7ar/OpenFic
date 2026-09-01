@@ -68,20 +68,12 @@ class MaintenanceState:
                 progress=progress,
                 message=message,
                 deleted_rows=(
-                    self._snapshot.deleted_rows
-                    if deleted_rows is None
-                    else deleted_rows
+                    self._snapshot.deleted_rows if deleted_rows is None else deleted_rows
                 ),
                 reclaimed_pages=(
-                    self._snapshot.reclaimed_pages
-                    if reclaimed_pages is None
-                    else reclaimed_pages
+                    self._snapshot.reclaimed_pages if reclaimed_pages is None else reclaimed_pages
                 ),
-                total_pages=(
-                    self._snapshot.total_pages
-                    if total_pages is None
-                    else total_pages
-                ),
+                total_pages=(self._snapshot.total_pages if total_pages is None else total_pages),
                 error=None,
             )
 
@@ -123,10 +115,10 @@ class MaintenanceState:
     def is_checkpoint_locked(self) -> bool:
         """True while maintenance holds the checkpoint DB exclusively."""
         with self._lock:
-            return (
-                self._snapshot.status == "running"
-                and self._snapshot.phase in {"migrating", "vacuuming"}
-            )
+            return self._snapshot.status == "running" and self._snapshot.phase in {
+                "migrating",
+                "vacuuming",
+            }
 
     def _elapsed_seconds(self) -> float:
         if self._started_at is None:

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 WorldInfo API 测试。
 """
@@ -68,9 +67,7 @@ async def test_update_world_info_endpoint_is_disabled(client: AsyncClient) -> No
         "/api/v1/projects",
         data={"title": "测试小说"},
     )
-    world_info_resp = await client.get(
-        f"/api/v1/projects/{project_resp.json()['id']}/world-info"
-    )
+    world_info_resp = await client.get(f"/api/v1/projects/{project_resp.json()['id']}/world-info")
     world_info_id = world_info_resp.json()["id"]
 
     response = await client.patch(

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Tool schemas for structured summary generation."""
 
 from langchain_core.tools import StructuredTool

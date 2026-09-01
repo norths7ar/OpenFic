@@ -38,7 +38,6 @@ from app.retrieval.service import OpenFicRetrievalService
 from app.settings import settings
 from app.storage.repos import retrieval_chapter_index_state_repo, setting_repo
 
-
 SETTING_KEY_DEFAULT_EMBEDDING_MODEL = "default_embedding_model"
 
 # 每次 Embedding 请求最多处理的分块数。章节可跨请求，但只会在
@@ -89,9 +88,7 @@ async def _commit_and_emit(context: JobContext, project_id: str) -> None:
     await job_service.notify_submitted_jobs(context.session)
 
 
-async def _finalize_and_abort(
-    context: JobContext, *, project_id: str, reason: str
-) -> NoReturn:
+async def _finalize_and_abort(context: JobContext, *, project_id: str, reason: str) -> NoReturn:
     """标记剩余未完成 item 为失败、提交进度，然后抛出异常使任务标记为失败。
 
     由于不允许对部分章节单独索引，任一子批次出错后应停止整个任务，
@@ -232,18 +229,12 @@ async def handle_retrieval_chapter_index_batch(context: JobContext) -> dict[str,
 
     await context.check_cancelled()
     items = await job_service.list_job_items(context.session, job_id=context.job_id)
-    pending_items = [
-        item for item in items if item.status == JOB_STATUS_PENDING
-    ]
+    pending_items = [item for item in items if item.status == JOB_STATUS_PENDING]
     if not pending_items:
         return {
             "total": len(items),
-            "succeeded": sum(
-                1 for item in items if item.status == JOB_STATUS_SUCCEEDED
-            ),
-            "failed": sum(
-                1 for item in items if item.status == JOB_STATUS_FAILED
-            ),
+            "succeeded": sum(1 for item in items if item.status == JOB_STATUS_SUCCEEDED),
+            "failed": sum(1 for item in items if item.status == JOB_STATUS_FAILED),
         }
 
     chapter_ids: list[str] = []
@@ -267,12 +258,8 @@ async def handle_retrieval_chapter_index_batch(context: JobContext) -> dict[str,
         items = await job_service.list_job_items(context.session, job_id=context.job_id)
         return {
             "total": len(items),
-            "succeeded": sum(
-                1 for item in items if item.status == JOB_STATUS_SUCCEEDED
-            ),
-            "failed": sum(
-                1 for item in items if item.status == JOB_STATUS_FAILED
-            ),
+            "succeeded": sum(1 for item in items if item.status == JOB_STATUS_SUCCEEDED),
+            "failed": sum(1 for item in items if item.status == JOB_STATUS_FAILED),
         }
 
     # 按 INDEX_BATCH_CHUNK_SIZE 拆分为子批次，每批独立提交事务并推送进度。
@@ -282,9 +269,7 @@ async def handle_retrieval_chapter_index_batch(context: JobContext) -> dict[str,
     # 都会终止整个任务：当前批次标记失败后，剩余未处理章节统一标记失败，
     # 以便用户发现问题后重新发起完整索引。
     try:
-        model = await model_repo.get_by_id(
-            context.session, metadata.embedding_model_ref_id
-        )
+        model = await model_repo.get_by_id(context.session, metadata.embedding_model_ref_id)
         if model is None or model.task_type != "embedding":
             raise ValueError("default_embedding_model 不存在或不是 embedding 模型")
 
@@ -317,16 +302,12 @@ async def handle_retrieval_chapter_index_batch(context: JobContext) -> dict[str,
     except JobCancelledError:
         raise
     except Exception as exc:
-        await _finalize_and_abort(
-            context, project_id=project_id, reason=f"索引中止：{exc}"
-        )
+        await _finalize_and_abort(context, project_id=project_id, reason=f"索引中止：{exc}")
 
     items = await job_service.list_job_items(context.session, job_id=context.job_id)
     return {
         "total": len(items),
-        "succeeded": sum(
-            1 for item in items if item.status == JOB_STATUS_SUCCEEDED
-        ),
+        "succeeded": sum(1 for item in items if item.status == JOB_STATUS_SUCCEEDED),
         "failed": sum(1 for item in items if item.status == JOB_STATUS_FAILED),
     }
 

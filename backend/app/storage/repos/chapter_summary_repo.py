@@ -1,10 +1,10 @@
-# -*- coding: utf-8 -*-
 """Repository helpers for structured chapter summaries."""
 
 from datetime import UTC, datetime
 from typing import Any, cast
 
-from sqlalchemy import and_, delete as sql_delete, func, or_, select
+from sqlalchemy import and_, func, or_, select
+from sqlalchemy import delete as sql_delete
 from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col
@@ -56,9 +56,7 @@ async def delete_by_id(session: AsyncSession, summary_id: str) -> bool:
     return cast("CursorResult[Any]", result).rowcount > 0
 
 
-async def get_by_chapter_id(
-    session: AsyncSession, chapter_id: str
-) -> ChapterSummary | None:
+async def get_by_chapter_id(session: AsyncSession, chapter_id: str) -> ChapterSummary | None:
     result = await session.execute(
         select(ChapterSummary).where(
             and_(
@@ -112,9 +110,7 @@ async def count_chapter_summaries_by_project(
     if volume_id is not None:
         conditions.append(col(ChapterSummary.volume_id) == volume_id)
     result = await session.execute(
-        select(func.count())
-        .select_from(ChapterSummary)
-        .where(and_(*conditions))
+        select(func.count()).select_from(ChapterSummary).where(and_(*conditions))
     )
     return int(result.scalar_one())
 
@@ -179,9 +175,7 @@ async def list_long_term_summaries_by_project(
     return list(result.scalars().all())
 
 
-async def count_long_term_summaries_by_project(
-    session: AsyncSession, project_id: str
-) -> int:
+async def count_long_term_summaries_by_project(session: AsyncSession, project_id: str) -> int:
     result = await session.execute(
         select(func.count())
         .select_from(ChapterSummary)
@@ -299,9 +293,7 @@ async def delete_by_chapter_ids(session: AsyncSession, chapter_ids: list[str]) -
     await session.flush()
 
 
-async def delete_all_chapter_summaries_by_project(
-    session: AsyncSession, project_id: str
-) -> None:
+async def delete_all_chapter_summaries_by_project(session: AsyncSession, project_id: str) -> None:
     await session.execute(
         sql_delete(ChapterSummary).where(
             and_(
@@ -338,9 +330,7 @@ async def delete_long_term_summaries_by_ranges(
     await session.flush()
 
 
-async def delete_all_long_term_summaries_by_project(
-    session: AsyncSession, project_id: str
-) -> None:
+async def delete_all_long_term_summaries_by_project(session: AsyncSession, project_id: str) -> None:
     await session.execute(
         sql_delete(ChapterSummary).where(
             and_(

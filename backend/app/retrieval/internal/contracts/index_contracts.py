@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Helpers for retrieval index contract persistence and validation.
 """
@@ -38,12 +37,8 @@ def build_index_create_kwargs(
             ensure_ascii=False,
         ),
         "vector_index_type": contract.vector_index_type,
-        "vector_index_params_json": json.dumps(
-            contract.vector_index_params, ensure_ascii=False
-        ),
-        "fts_index_params_json": json.dumps(
-            contract.fts_index_params, ensure_ascii=False
-        ),
+        "vector_index_params_json": json.dumps(contract.vector_index_params, ensure_ascii=False),
+        "fts_index_params_json": json.dumps(contract.fts_index_params, ensure_ascii=False),
         "schema_version": contract.schema_version,
     }
 

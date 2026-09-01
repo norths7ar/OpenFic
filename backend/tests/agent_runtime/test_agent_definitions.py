@@ -48,9 +48,7 @@ def test_default_agent_definitions_include_scene_draft_workflow_agent():
 
     discuss = get_default_agent_definition("discuss")
     assert discuss.display_name == "Discuss"
-    assert discuss.description == (
-        "围绕当前项目讨论设定与剧情，按所选范围读取资料，并保持信息边界"
-    )
+    assert discuss.description == ("围绕当前项目讨论设定与剧情，按所选范围读取资料，并保持信息边界")
     assert discuss.kind == "primary"
     assert discuss.prompt_agent_name == "discuss"
     assert discuss.model_id is None
@@ -66,18 +64,14 @@ def test_default_agent_definitions_include_scene_draft_workflow_agent():
     assert discuss.color == "purple"
     assert discuss.icon == "lightbulb"
     assert discuss.delegatable_agents == ()
-    assert not any(
-        category.endswith("_write") for category in discuss.enabled_tool_categories
-    )
+    assert not any(category.endswith("_write") for category in discuss.enabled_tool_categories)
 
     draft = get_default_agent_definition("draft")
     assert draft.kind == "primary"
     assert draft.prompt_agent_name == "draft"
     assert draft.metadata["workflow_only"] is True
     assert draft.metadata["supports_global_context"] is True
-    assert not any(
-        category.endswith("_write") for category in draft.enabled_tool_categories
-    )
+    assert not any(category.endswith("_write") for category in draft.enabled_tool_categories)
 
     for key in DEFAULT_AGENT_KEYS[2:]:
         definition = get_default_agent_definition(key)

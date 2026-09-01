@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Setting 数据模型。
 """

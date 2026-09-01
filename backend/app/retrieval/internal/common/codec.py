@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Serialization helpers for retrieval rows.
 """

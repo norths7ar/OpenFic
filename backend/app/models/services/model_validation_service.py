@@ -45,9 +45,7 @@ class ModelValidationService:
         self.encryption_service = encryption_service
         self.provider_service = ModelProviderService(encryption_service)
 
-    async def validate(
-        self, model: Model, provider: ModelProvider
-    ) -> ModelValidationResult:
+    async def validate(self, model: Model, provider: ModelProvider) -> ModelValidationResult:
         if not self._supports_task_type(provider, model.task_type):
             return self._failure(
                 "capability_incompatible",
@@ -62,23 +60,15 @@ class ModelValidationService:
             )
 
         try:
-            custom_headers = self.provider_service.get_decrypted_custom_headers(
-                provider
-            )
+            custom_headers = self.provider_service.get_decrypted_custom_headers(provider)
             if model.task_type == "llm":
                 await self._validate_llm(model, provider, api_key or "", custom_headers)
             elif model.task_type == "embedding":
-                await self._validate_embedding(
-                    model, provider, api_key or "", custom_headers
-                )
+                await self._validate_embedding(model, provider, api_key or "", custom_headers)
             elif model.task_type == "rerank":
-                await self._validate_rerank(
-                    model, provider, api_key or "", custom_headers
-                )
+                await self._validate_rerank(model, provider, api_key or "", custom_headers)
             else:
-                return self._failure(
-                    "capability_incompatible", "未知模型任务类型，无法验证。"
-                )
+                return self._failure("capability_incompatible", "未知模型任务类型，无法验证。")
         except Exception as exc:  # Provider SDKs expose heterogeneous error classes.
             return self._classify_exception(exc)
 
@@ -203,9 +193,7 @@ class ModelValidationService:
                 detail,
             )
         if isinstance(exc, httpx.HTTPError):
-            return self._failure(
-                "connection_failed", "请求提供商时发生网络错误。", detail
-            )
+            return self._failure("connection_failed", "请求提供商时发生网络错误。", detail)
         return self._failure("unknown_error", "模型验证失败。", detail)
 
     @staticmethod

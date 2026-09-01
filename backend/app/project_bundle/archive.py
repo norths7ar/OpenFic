@@ -91,9 +91,7 @@ def read_zip(data: bytes) -> dict[str, bytes]:
                     continue
                 path = _safe_path(info.filename)
                 if info.flag_bits & 0x1:
-                    raise BundleFormatError(
-                        "encrypted archive entries are not supported"
-                    )
+                    raise BundleFormatError("encrypted archive entries are not supported")
                 if path in seen_paths:
                     raise BundleFormatError(f"duplicate archive path: {path!r}")
                 seen_paths.add(path)
@@ -103,13 +101,9 @@ def read_zip(data: bytes) -> dict[str, bytes]:
                     while chunk := source.read(_READ_CHUNK_SIZE):
                         file_size += len(chunk)
                         if file_size > MAX_FILE_UNCOMPRESSED:
-                            raise BundleFormatError(
-                                "archive file exceeds uncompressed size limit"
-                            )
+                            raise BundleFormatError("archive file exceeds uncompressed size limit")
                         if total + file_size > MAX_TOTAL_UNCOMPRESSED:
-                            raise BundleFormatError(
-                                "archive exceeds uncompressed size limit"
-                            )
+                            raise BundleFormatError("archive exceeds uncompressed size limit")
                         chunks.append(chunk)
                 file_data = b"".join(chunks)
                 total += len(file_data)

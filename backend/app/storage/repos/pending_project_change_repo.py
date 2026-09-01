@@ -111,8 +111,6 @@ async def claim_for_apply(
 async def delete_by_project(session: AsyncSession, project_id: str) -> None:
     """删除项目下的所有待审变更。"""
     await session.execute(
-        delete(PendingProjectChange).where(
-            col(PendingProjectChange.project_id) == project_id
-        )
+        delete(PendingProjectChange).where(col(PendingProjectChange.project_id) == project_id)
     )
     await session.flush()

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 删除笔记分类及其下的所有内容。
 """
@@ -72,9 +71,7 @@ class DeleteNoteCategoryTool(AgentTool):
             return None
 
         affected_category_ids = _collect_descendant_category_ids(category.id, categories)
-        notes = await note_repo.list_by_project(
-            session, self.project_id, include_hidden=True
-        )
+        notes = await note_repo.list_by_project(session, self.project_id, include_hidden=True)
         return {
             "type": "preview",
             "success": True,
@@ -103,9 +100,7 @@ class DeleteNoteCategoryTool(AgentTool):
                 if category is None:
                     raise ToolExecutionError(f"分类不存在: {ref.id}")
             else:
-                categories = await note_category_repo.list_by_project(
-                    session, self.project_id
-                )
+                categories = await note_category_repo.list_by_project(session, self.project_id)
                 category = resolve_category_from_list(categories, ref)
             if category.project_id != self.project_id:
                 raise ToolExecutionError("分类不属于当前项目")
@@ -114,9 +109,7 @@ class DeleteNoteCategoryTool(AgentTool):
                 await note_category_repo.list_by_project(session, self.project_id)
             )
             before_notes = note_images_by_id(
-                await note_repo.list_by_project(
-                    session, self.project_id, include_hidden=True
-                )
+                await note_repo.list_by_project(session, self.project_id, include_hidden=True)
             )
             category_id = category.id
             category_title = category.title
@@ -125,9 +118,7 @@ class DeleteNoteCategoryTool(AgentTool):
                 await note_category_repo.list_by_project(session, self.project_id)
             )
             after_notes = note_images_by_id(
-                await note_repo.list_by_project(
-                    session, self.project_id, include_hidden=True
-                )
+                await note_repo.list_by_project(session, self.project_id, include_hidden=True)
             )
             await record_note_category_diffs(
                 session,

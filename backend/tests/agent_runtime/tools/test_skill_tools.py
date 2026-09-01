@@ -21,7 +21,9 @@ def _make_state():
     }
 
 
-def _skill(id="skill-1", name="pdf-processing", summary="摘要", content="# PDF 内容", is_enabled=True):
+def _skill(
+    id="skill-1", name="pdf-processing", summary="摘要", content="# PDF 内容", is_enabled=True
+):
     return SimpleNamespace(
         id=id,
         name=name,
@@ -75,13 +77,16 @@ async def test_skill_tool_names_for_definition_with_skills():
 async def test_skill_tool_names_for_definition_with_explicit_reference():
     from app.agent_runtime.tools.impls.skill.skill import skill_tool_names_for_definition
 
-    with patch(
-        "app.agent_runtime.tools.impls.skill.skill.skill_service.list_enabled_skills_by_ids",
-        AsyncMock(return_value=[]),
-    ), patch(
-        "app.agent_runtime.tools.impls.skill.skill.skill_service.list_enabled_skills",
-        AsyncMock(return_value=[_skill(id="skill-explicit", name="显式引用技能")]),
-        create=True,
+    with (
+        patch(
+            "app.agent_runtime.tools.impls.skill.skill.skill_service.list_enabled_skills_by_ids",
+            AsyncMock(return_value=[]),
+        ),
+        patch(
+            "app.agent_runtime.tools.impls.skill.skill.skill_service.list_enabled_skills",
+            AsyncMock(return_value=[_skill(id="skill-explicit", name="显式引用技能")]),
+            create=True,
+        ),
     ):
         result = await skill_tool_names_for_definition(
             _definition([]),
@@ -122,13 +127,18 @@ async def test_activate_skill_returns_content_and_references():
     tool = ActivateSkillTool(_state=_make_state())
     docs = [_ref()]
     patches = _patch_env(_definition(["skill-1"]), _skill(), docs)
-    with patch(
-        "app.agent_runtime.tools.impls.skill.skill.create_session",
-        AsyncMock(return_value=AsyncMock()),
-    ), patches[0], patches[1], patches[2]:
+    with (
+        patch(
+            "app.agent_runtime.tools.impls.skill.skill.create_session",
+            AsyncMock(return_value=AsyncMock()),
+        ),
+        patches[0],
+        patches[1],
+        patches[2],
+    ):
         result = await tool.ainvoke({"skill_name": "pdf-processing"})
 
-    assert "<skill_content name=\"pdf-processing\">" in result
+    assert '<skill_content name="pdf-processing">' in result
     assert "# PDF 内容" in result
     assert "<skill_references>" in result
     assert "<ref>参考文档1</ref>" in result
@@ -140,27 +150,30 @@ async def test_activate_skill_no_references():
 
     tool = ActivateSkillTool(_state=_make_state())
     patches = _patch_env(_definition(["skill-1"]), _skill(), [])
-    with patch(
-        "app.agent_runtime.tools.impls.skill.skill.create_session",
-        AsyncMock(return_value=AsyncMock()),
-    ), patches[0], patches[1], patches[2]:
+    with (
+        patch(
+            "app.agent_runtime.tools.impls.skill.skill.create_session",
+            AsyncMock(return_value=AsyncMock()),
+        ),
+        patches[0],
+        patches[1],
+        patches[2],
+    ):
         result = await tool.ainvoke({"skill_name": "pdf-processing"})
 
     assert "<skill_references>" not in result
-    assert "<skill_content name=\"pdf-processing\">" in result
+    assert '<skill_content name="pdf-processing">' in result
 
 
 @pytest.mark.asyncio
 async def test_builtin_skill_tools_read_content_and_references_from_yaml(monkeypatch):
-    from app.agent_runtime.tools.impls.skill.skill import ActivateSkillTool, ReferenceSkillTool
-    from app.skills import load_builtin_skills
     import app.storage.database as database
     import app.storage.services.skill_service as skill_service
+    from app.agent_runtime.tools.impls.skill.skill import ActivateSkillTool, ReferenceSkillTool
+    from app.skills import load_builtin_skills
 
     builtin_skill = next(
-        skill
-        for skill in load_builtin_skills()
-        if skill.is_enabled and skill.references
+        skill for skill in load_builtin_skills() if skill.is_enabled and skill.references
     )
     reference = builtin_skill.references[0]
     session = AsyncMock()
@@ -175,12 +188,15 @@ async def test_builtin_skill_tools_read_content_and_references_from_yaml(monkeyp
     )
     monkeypatch.setattr("app.storage.repos.skill_repo.list_by_ids", AsyncMock(return_value=[]))
 
-    with patch(
-        "app.agent_runtime.tools.impls.skill.skill.skill_service.list_enabled_skills_by_ids",
-        skill_service.list_enabled_skills_by_ids,
-    ), patch(
-        "app.agent_runtime.tools.impls.skill.skill.skill_service.list_reference_docs",
-        skill_service.list_reference_docs,
+    with (
+        patch(
+            "app.agent_runtime.tools.impls.skill.skill.skill_service.list_enabled_skills_by_ids",
+            skill_service.list_enabled_skills_by_ids,
+        ),
+        patch(
+            "app.agent_runtime.tools.impls.skill.skill.skill_service.list_reference_docs",
+            skill_service.list_reference_docs,
+        ),
     ):
         activated = await ActivateSkillTool(_state=_make_state()).ainvoke(
             {"skill_name": builtin_skill.name}
@@ -201,15 +217,19 @@ async def test_activate_skill_rejects_unauthorized_skill():
     from app.agent_runtime.tools.impls.skill.skill import ActivateSkillTool
 
     tool = ActivateSkillTool(_state=_make_state())
-    with patch(
-        "app.agent_runtime.tools.impls.skill.skill.load_agent_definition",
-        AsyncMock(return_value=_definition(["other-id"])),
-    ), patch(
-        "app.agent_runtime.tools.impls.skill.skill.skill_service.list_enabled_skills_by_ids",
-        AsyncMock(return_value=[]),
-    ), patch(
-        "app.agent_runtime.tools.impls.skill.skill.create_session",
-        AsyncMock(return_value=AsyncMock()),
+    with (
+        patch(
+            "app.agent_runtime.tools.impls.skill.skill.load_agent_definition",
+            AsyncMock(return_value=_definition(["other-id"])),
+        ),
+        patch(
+            "app.agent_runtime.tools.impls.skill.skill.skill_service.list_enabled_skills_by_ids",
+            AsyncMock(return_value=[]),
+        ),
+        patch(
+            "app.agent_runtime.tools.impls.skill.skill.create_session",
+            AsyncMock(return_value=AsyncMock()),
+        ),
     ):
         result = await tool.ainvoke({"skill_name": "pdf-processing"})
 
@@ -225,16 +245,20 @@ async def test_activate_skill_accepts_explicitly_referenced_global_skill():
     state["referenced_skill_ids"] = [skill.id]
     session = AsyncMock()
 
-    with patch(
-        "app.agent_runtime.tools.impls.skill.skill.load_agent_definition",
-        AsyncMock(return_value=_definition([])),
-    ), patch(
-        "app.agent_runtime.tools.impls.skill.skill.skill_service.list_enabled_skills_by_ids",
-        AsyncMock(return_value=[]),
-    ), patch(
-        "app.agent_runtime.tools.impls.skill.skill.skill_service.list_enabled_skills",
-        AsyncMock(return_value=[skill]),
-        create=True,
+    with (
+        patch(
+            "app.agent_runtime.tools.impls.skill.skill.load_agent_definition",
+            AsyncMock(return_value=_definition([])),
+        ),
+        patch(
+            "app.agent_runtime.tools.impls.skill.skill.skill_service.list_enabled_skills_by_ids",
+            AsyncMock(return_value=[]),
+        ),
+        patch(
+            "app.agent_runtime.tools.impls.skill.skill.skill_service.list_enabled_skills",
+            AsyncMock(return_value=[skill]),
+            create=True,
+        ),
     ):
         resolved = await _resolve_authorized_skill(session, state, skill.name)
 
@@ -248,15 +272,19 @@ async def test_activate_skill_rejects_disabled_skill():
     from app.agent_runtime.tools.impls.skill.skill import ActivateSkillTool
 
     tool = ActivateSkillTool(_state=_make_state())
-    with patch(
-        "app.agent_runtime.tools.impls.skill.skill.load_agent_definition",
-        AsyncMock(return_value=_definition(["skill-1"])),
-    ), patch(
-        "app.agent_runtime.tools.impls.skill.skill.skill_service.list_enabled_skills_by_ids",
-        AsyncMock(return_value=[]),
-    ), patch(
-        "app.agent_runtime.tools.impls.skill.skill.create_session",
-        AsyncMock(return_value=AsyncMock()),
+    with (
+        patch(
+            "app.agent_runtime.tools.impls.skill.skill.load_agent_definition",
+            AsyncMock(return_value=_definition(["skill-1"])),
+        ),
+        patch(
+            "app.agent_runtime.tools.impls.skill.skill.skill_service.list_enabled_skills_by_ids",
+            AsyncMock(return_value=[]),
+        ),
+        patch(
+            "app.agent_runtime.tools.impls.skill.skill.create_session",
+            AsyncMock(return_value=AsyncMock()),
+        ),
     ):
         result = await tool.ainvoke({"skill_name": "pdf-processing"})
 
@@ -270,13 +298,16 @@ async def test_reference_skill_returns_content():
     tool = ReferenceSkillTool(_state=_make_state())
     docs = [_ref("参考文档1", "参考内容1"), _ref("参考文档2", "参考内容2")]
     patches = _patch_env(_definition(["skill-1"]), _skill(), docs)
-    with patch(
-        "app.agent_runtime.tools.impls.skill.skill.create_session",
-        AsyncMock(return_value=AsyncMock()),
-    ), patches[0], patches[1], patches[2]:
-        result = await tool.ainvoke(
-            {"skill_name": "pdf-processing", "reference_name": "参考文档2"}
-        )
+    with (
+        patch(
+            "app.agent_runtime.tools.impls.skill.skill.create_session",
+            AsyncMock(return_value=AsyncMock()),
+        ),
+        patches[0],
+        patches[1],
+        patches[2],
+    ):
+        result = await tool.ainvoke({"skill_name": "pdf-processing", "reference_name": "参考文档2"})
 
     assert '<reference_content skill_name="pdf-processing" reference_name="参考文档2">' in result
     assert "参考内容2" in result
@@ -291,13 +322,16 @@ async def test_reference_skill_rejects_unknown_reference():
     tool = ReferenceSkillTool(_state=_make_state())
     docs = [_ref("参考文档1", "参考内容1")]
     patches = _patch_env(_definition(["skill-1"]), _skill(), docs)
-    with patch(
-        "app.agent_runtime.tools.impls.skill.skill.create_session",
-        AsyncMock(return_value=AsyncMock()),
-    ), patches[0], patches[1], patches[2]:
-        result = await tool.ainvoke(
-            {"skill_name": "pdf-processing", "reference_name": "不存在"}
-        )
+    with (
+        patch(
+            "app.agent_runtime.tools.impls.skill.skill.create_session",
+            AsyncMock(return_value=AsyncMock()),
+        ),
+        patches[0],
+        patches[1],
+        patches[2],
+    ):
+        result = await tool.ainvoke({"skill_name": "pdf-processing", "reference_name": "不存在"})
 
     assert "参考文档不存在" in json.loads(result)["message"]
 

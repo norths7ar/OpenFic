@@ -59,9 +59,7 @@ async def next_seq(session: AsyncSession, session_id: str) -> int:
         current = result.scalar_one_or_none()
         return 0 if current is None else current + 1
     except SQLAlchemyError as e:
-        raise PersistenceLoadError(
-            f"next_seq failed for session {session_id}"
-        ) from e
+        raise PersistenceLoadError(f"next_seq failed for session {session_id}") from e
 
 
 async def insert_message(
@@ -129,9 +127,7 @@ async def insert_message(
         ) from e
 
 
-async def list_by_session(
-    session: AsyncSession, session_id: str
-) -> list[PersistedMessage]:
+async def list_by_session(session: AsyncSession, session_id: str) -> list[PersistedMessage]:
     """按 seq 升序返回该 session 的全部消息。"""
     try:
         result = await session.execute(
@@ -142,9 +138,7 @@ async def list_by_session(
         rows = result.scalars().all()
         return [_row_to_dto(r) for r in rows]
     except SQLAlchemyError as e:
-        raise PersistenceLoadError(
-            f"list_by_session failed for session {session_id}"
-        ) from e
+        raise PersistenceLoadError(f"list_by_session failed for session {session_id}") from e
 
 
 async def list_by_task(
@@ -165,9 +159,7 @@ async def list_by_task(
         raise PersistenceLoadError(f"list_by_task failed for task {task_id}") from e
 
 
-async def delete_from_seq(
-    session: AsyncSession, session_id: str, seq: int
-) -> int:
+async def delete_from_seq(session: AsyncSession, session_id: str, seq: int) -> int:
     """硬删 seq >= 指定值的所有行；返回删除条数。用于业务 revision rollback。"""
     try:
         result = await session.execute(
@@ -185,9 +177,7 @@ async def delete_from_seq(
         ) from e
 
 
-async def delete_pending_by_session(
-    session: AsyncSession, session_id: str
-) -> int:
+async def delete_pending_by_session(session: AsyncSession, session_id: str) -> int:
     """删除该 session 所有 status='pending' 的 user 行；返回删除条数。"""
     try:
         result = await session.execute(
@@ -206,16 +196,12 @@ async def delete_pending_by_session(
         ) from e
 
 
-async def update_status(
-    session: AsyncSession, message_id: str, status: Status
-) -> None:
+async def update_status(session: AsyncSession, message_id: str, status: Status) -> None:
     """更新单条消息的 status + updated_at。"""
     try:
         row = await session.get(AgentRunMessage, message_id)
         if row is None:
-            raise PersistenceWriteError(
-                f"update_status: message {message_id} not found"
-            )
+            raise PersistenceWriteError(f"update_status: message {message_id} not found")
         row.status = status
         row.updated_at = datetime.now(UTC)
         session.add(row)
@@ -225,9 +211,7 @@ async def update_status(
         raise
     except SQLAlchemyError as e:
         await session.rollback()
-        raise PersistenceWriteError(
-            f"update_status failed for message {message_id}"
-        ) from e
+        raise PersistenceWriteError(f"update_status failed for message {message_id}") from e
 
 
 async def update_latest_tool_message_content(
@@ -277,6 +261,4 @@ async def delete_by_id(session: AsyncSession, message_id: str) -> bool:
         return (getattr(result, "rowcount", 0) or 0) > 0
     except SQLAlchemyError as e:
         await session.rollback()
-        raise PersistenceWriteError(
-            f"delete_by_id failed for message {message_id}"
-        ) from e
+        raise PersistenceWriteError(f"delete_by_id failed for message {message_id}") from e

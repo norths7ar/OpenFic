@@ -73,6 +73,5 @@ def test_agent_subagents_room_formats_room_name():
 
 def test_agent_subagent_session_room_formats_room_name():
     assert (
-        agent_subagent_session_room("child-thread-123")
-        == "agent_subagent_session:child-thread-123"
+        agent_subagent_session_room("child-thread-123") == "agent_subagent_session:child-thread-123"
     )

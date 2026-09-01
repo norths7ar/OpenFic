@@ -1,8 +1,8 @@
 """Base types for background job definitions."""
 
+from builtins import type as builtin_type
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from builtins import type as builtin_type
 from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel, ConfigDict

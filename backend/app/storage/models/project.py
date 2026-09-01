@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Project 数据模型。
 """

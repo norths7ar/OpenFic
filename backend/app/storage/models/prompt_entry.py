@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 PromptEntry 数据模型。
 """

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Prompt Chain Runner - 统一提示词链运行器。
 
@@ -19,7 +18,6 @@ from app.macro.compiler import EntryInput, PromptChainCompiler
 from app.storage.repos import task_message_repo
 from app.storage.services import prompt_chain_service
 
-
 THINKING_MESSAGE_TYPES = {"reasoning", "agent_thinking"}
 UI_ONLY_MESSAGE_TYPES = {
     "approval",
@@ -33,7 +31,15 @@ UI_ONLY_EVENT_TYPES = {"clarification", "tool_approval_required"}
 AGENT_TOOL_NAMES: dict[str, set[str]] = {
     "explore": {"ask_user", "confirm_plan", "use_skill", "uninstall_skill"},
     "designer": {"confirm_outline", "use_skill", "uninstall_skill"},
-    "writer": {"read_chapter", "create_chapter", "write_chapter", "edit_chapter", "delete_chapter", "use_skill", "uninstall_skill"},
+    "writer": {
+        "read_chapter",
+        "create_chapter",
+        "write_chapter",
+        "edit_chapter",
+        "delete_chapter",
+        "use_skill",
+        "uninstall_skill",
+    },
     "reviewer": {"review_feedback", "use_skill", "uninstall_skill"},
 }
 
@@ -203,7 +209,8 @@ def _compact_task_history(
         if not (
             message.get("role") == "assistant"
             and any(
-                isinstance(tool_call, dict) and str(tool_call.get("id") or "") in pending_tool_call_ids
+                isinstance(tool_call, dict)
+                and str(tool_call.get("id") or "") in pending_tool_call_ids
                 for tool_call in message.get("tool_calls") or []
             )
         )

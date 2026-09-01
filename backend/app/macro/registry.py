@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Macro Registry - 宏注册表。
 

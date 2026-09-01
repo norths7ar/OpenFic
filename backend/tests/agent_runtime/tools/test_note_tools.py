@@ -70,9 +70,7 @@ async def test_read_note_rejects_hidden_note() -> None:
     note = _make_note(note_id="note-1", title="隐藏", is_hidden=True)
     tool = ReadNoteTool(_state=_make_state())
 
-    with patch(
-        "app.agent_runtime.tools.impls.note.read_note.create_session"
-    ) as mock_cs:
+    with patch("app.agent_runtime.tools.impls.note.read_note.create_session") as mock_cs:
         mock_session = AsyncMock()
         mock_cs.return_value = mock_session
         with patch(
@@ -90,14 +88,10 @@ async def test_read_note_rejects_hidden_note() -> None:
 async def test_edit_note_rejects_locked_note() -> None:
     from app.agent_runtime.tools.impls.note.edit_note import EditNoteTool
 
-    note = _make_note(
-        note_id="note-1", title="锁定笔记", is_locked=True, content="旧内容"
-    )
+    note = _make_note(note_id="note-1", title="锁定笔记", is_locked=True, content="旧内容")
     tool = EditNoteTool(_state=_make_state())
 
-    with patch(
-        "app.agent_runtime.tools.impls.note.edit_note.create_session"
-    ) as mock_cs:
+    with patch("app.agent_runtime.tools.impls.note.edit_note.create_session") as mock_cs:
         mock_session = AsyncMock()
         mock_cs.return_value = mock_session
         with patch(
@@ -124,9 +118,7 @@ async def test_edit_note_returns_success_and_diff_metadata() -> None:
     note = _make_note(note_id="note-1", title="测试笔记", content="旧内容")
     tool = EditNoteTool(_state=_make_state())
 
-    with patch(
-        "app.agent_runtime.tools.impls.note.edit_note.create_session"
-    ) as mock_cs:
+    with patch("app.agent_runtime.tools.impls.note.edit_note.create_session") as mock_cs:
         mock_session = AsyncMock()
         mock_cs.return_value = mock_session
         with (
@@ -231,9 +223,7 @@ async def test_delete_note_rejects_hidden_note() -> None:
     note = _make_note(note_id="note-1", title="隐藏笔记", is_hidden=True)
     tool = DeleteNoteTool(_state=_make_state())
 
-    with patch(
-        "app.agent_runtime.tools.impls.note.delete_note.create_session"
-    ) as mock_cs:
+    with patch("app.agent_runtime.tools.impls.note.delete_note.create_session") as mock_cs:
         mock_session = AsyncMock()
         mock_cs.return_value = mock_session
         with patch(
@@ -254,9 +244,7 @@ async def test_delete_note_rejects_locked_note() -> None:
     note = _make_note(note_id="note-1", title="锁定笔记", is_locked=True)
     tool = DeleteNoteTool(_state=_make_state())
 
-    with patch(
-        "app.agent_runtime.tools.impls.note.delete_note.create_session"
-    ) as mock_cs:
+    with patch("app.agent_runtime.tools.impls.note.delete_note.create_session") as mock_cs:
         mock_session = AsyncMock()
         mock_cs.return_value = mock_session
         with patch(
@@ -318,9 +306,7 @@ async def test_list_notes_returns_only_visible_notes() -> None:
 
     tool = ListNotesTool(_state=_make_state())
 
-    with patch(
-        "app.agent_runtime.tools.impls.note.list_notes.create_session"
-    ) as mock_cs:
+    with patch("app.agent_runtime.tools.impls.note.list_notes.create_session") as mock_cs:
         mock_session = AsyncMock()
         mock_cs.return_value = mock_session
         with (
@@ -348,9 +334,7 @@ async def test_read_note_returns_content_without_line_numbers() -> None:
     note = _make_note(content="第一段\n第二段")
     tool = ReadNoteTool(_state=_make_state())
 
-    with patch(
-        "app.agent_runtime.tools.impls.note.read_note.create_session"
-    ) as mock_cs:
+    with patch("app.agent_runtime.tools.impls.note.read_note.create_session") as mock_cs:
         mock_session = AsyncMock()
         mock_cs.return_value = mock_session
         with patch(
@@ -370,9 +354,7 @@ async def test_write_note_creates_note_and_returns_success() -> None:
 
     tool = WriteNoteTool(_state=_make_state())
 
-    with patch(
-        "app.agent_runtime.tools.impls.note.write_note.create_session"
-    ) as mock_cs:
+    with patch("app.agent_runtime.tools.impls.note.write_note.create_session") as mock_cs:
         mock_session = AsyncMock()
         mock_cs.return_value = mock_session
 
@@ -441,16 +423,13 @@ async def test_write_note_serializes_parallel_creates_per_category() -> None:
             patch(f"{wn_name}.record_note_diffs", AsyncMock(return_value=[])),
             patch("app.background.jobs.service.commit_and_notify", AsyncMock()),
         ):
+
             def make_tool():
                 return wn.WriteNoteTool(_state=_make_state())
 
-            task1 = asyncio.create_task(
-                make_tool().ainvoke({"title": "新笔记", "content": "正文"})
-            )
+            task1 = asyncio.create_task(make_tool().ainvoke({"title": "新笔记", "content": "正文"}))
             await entered.wait()
-            task2 = asyncio.create_task(
-                make_tool().ainvoke({"title": "新笔记", "content": "正文"})
-            )
+            task2 = asyncio.create_task(make_tool().ainvoke({"title": "新笔记", "content": "正文"}))
             await asyncio.sleep(0.05)
             assert not task2.done()
             release.set()
@@ -578,18 +557,14 @@ async def test_move_note_rejects_locked_note() -> None:
     note = _make_note(note_id="note-1", title="锁定笔记", is_locked=True)
     tool = MoveNoteTool(_state=_make_state())
 
-    with patch(
-        "app.agent_runtime.tools.impls.note.move_note.create_session"
-    ) as mock_cs:
+    with patch("app.agent_runtime.tools.impls.note.move_note.create_session") as mock_cs:
         mock_session = AsyncMock()
         mock_cs.return_value = mock_session
         with patch(
             "app.agent_runtime.tools.impls.note.move_note.note_repo.get_by_id",
             AsyncMock(return_value=note),
         ):
-            result = await tool.ainvoke(
-                {"note_ref": {"id": "note-1"}, "target_category_ref": None}
-            )
+            result = await tool.ainvoke({"note_ref": {"id": "note-1"}, "target_category_ref": None})
             mock_session.close.assert_called_once()
 
     data = json.loads(result)
@@ -656,9 +631,7 @@ async def test_create_note_category_returns_success_and_metadata() -> None:
     created = _make_category(category_id="cat-new", title="新分类", parent_id="cat-1")
     tool = CreateNoteCategoryTool(_state=_make_state())
 
-    with patch(
-        "app.agent_runtime.tools.impls.note.create_note_category.create_session"
-    ) as mock_cs:
+    with patch("app.agent_runtime.tools.impls.note.create_note_category.create_session") as mock_cs:
         mock_session = AsyncMock()
         mock_cs.return_value = mock_session
         with (
@@ -684,9 +657,7 @@ async def test_create_note_category_returns_success_and_metadata() -> None:
 
     assert json.loads(result) == {
         "success": True,
-        "metadata": {
-            "category": {"id": "cat-new", "title": "新分类", "parent_id": "cat-1"}
-        },
+        "metadata": {"category": {"id": "cat-new", "title": "新分类", "parent_id": "cat-1"}},
     }
 
 
@@ -710,25 +681,25 @@ async def test_create_note_category_serializes_parallel_creates_per_parent() -> 
     cnc_name = "app.agent_runtime.tools.impls.note.create_note_category"
     with patch(f"{cnc_name}.create_session") as mock_cs:
         mock_cs.return_value = AsyncMock()
-        with patch(
-            f"{cnc_name}.note_category_repo.list_by_project",
-            AsyncMock(side_effect=list_categories),
-        ), patch(
-            f"{cnc_name}.note_category_repo.create",
-            AsyncMock(side_effect=lambda _s, cat: cat),
-        ), patch(
-            f"{cnc_name}.record_note_category_diffs", AsyncMock(return_value=[])
-        ), patch("app.background.jobs.service.commit_and_notify", AsyncMock()):
+        with (
+            patch(
+                f"{cnc_name}.note_category_repo.list_by_project",
+                AsyncMock(side_effect=list_categories),
+            ),
+            patch(
+                f"{cnc_name}.note_category_repo.create",
+                AsyncMock(side_effect=lambda _s, cat: cat),
+            ),
+            patch(f"{cnc_name}.record_note_category_diffs", AsyncMock(return_value=[])),
+            patch("app.background.jobs.service.commit_and_notify", AsyncMock()),
+        ):
+
             def make_tool():
                 return cnc.CreateNoteCategoryTool(_state=_make_state())
 
-            task1 = asyncio.create_task(
-                make_tool().ainvoke({"title": "新分类"})
-            )
+            task1 = asyncio.create_task(make_tool().ainvoke({"title": "新分类"}))
             await entered.wait()
-            task2 = asyncio.create_task(
-                make_tool().ainvoke({"title": "新分类"})
-            )
+            task2 = asyncio.create_task(make_tool().ainvoke({"title": "新分类"}))
             await asyncio.sleep(0.05)
             assert not task2.done()
             release.set()
@@ -768,9 +739,7 @@ async def test_edit_note_category_returns_success_and_rename_metadata() -> None:
     renamed_category = _make_category(category_id="cat-1", title="新分类")
     tool = EditNoteCategoryTool(_state=_make_state())
 
-    with patch(
-        "app.agent_runtime.tools.impls.note.edit_note_category.create_session"
-    ) as mock_cs:
+    with patch("app.agent_runtime.tools.impls.note.edit_note_category.create_session") as mock_cs:
         mock_session = AsyncMock()
         mock_cs.return_value = mock_session
         with (
@@ -792,9 +761,7 @@ async def test_edit_note_category_returns_success_and_rename_metadata() -> None:
             ),
             patch("app.background.jobs.service.commit_and_notify", AsyncMock()),
         ):
-            result = await tool.ainvoke(
-                {"category_ref": {"id": "cat-1"}, "new_title": "新分类"}
-            )
+            result = await tool.ainvoke({"category_ref": {"id": "cat-1"}, "new_title": "新分类"})
 
     assert json.loads(result) == {
         "success": True,
@@ -816,12 +783,15 @@ async def test_edit_note_category_builds_approval_preview() -> None:
     tool = EditNoteCategoryTool(_state=_make_state())
     object.__setattr__(tool, "_config", {"configurable": {"db_session": runtime_session}})
 
-    with patch(
-        "app.agent_runtime.tools.impls.note.edit_note_category.note_category_repo.get_by_id",
-        AsyncMock(return_value=_make_category(category_id="cat-1", title="旧分类")),
-    ), patch(
-        "app.agent_runtime.tools.impls.note.edit_note_category.note_category_repo.list_by_project",
-        AsyncMock(return_value=[_make_category(category_id="cat-1", title="旧分类")]),
+    with (
+        patch(
+            "app.agent_runtime.tools.impls.note.edit_note_category.note_category_repo.get_by_id",
+            AsyncMock(return_value=_make_category(category_id="cat-1", title="旧分类")),
+        ),
+        patch(
+            "app.agent_runtime.tools.impls.note.edit_note_category.note_category_repo.list_by_project",
+            AsyncMock(return_value=[_make_category(category_id="cat-1", title="旧分类")]),
+        ),
     ):
         preview = await tool.build_interrupt_preview(
             {"category_ref": {"id": "cat-1"}, "new_title": "新分类"}
@@ -849,9 +819,7 @@ async def test_edit_note_category_rejects_duplicate_sibling_title() -> None:
     existing_sibling = _make_category(category_id="cat-2", title="新分类")
     tool = EditNoteCategoryTool(_state=_make_state())
 
-    with patch(
-        "app.agent_runtime.tools.impls.note.edit_note_category.create_session"
-    ) as mock_cs:
+    with patch("app.agent_runtime.tools.impls.note.edit_note_category.create_session") as mock_cs:
         mock_session = AsyncMock()
         mock_cs.return_value = mock_session
         with (
@@ -873,9 +841,7 @@ async def test_edit_note_category_rejects_duplicate_sibling_title() -> None:
             ),
             patch("app.background.jobs.service.commit_and_notify", AsyncMock()),
         ):
-            result = await tool.ainvoke(
-                {"category_ref": {"id": "cat-1"}, "new_title": "新分类"}
-            )
+            result = await tool.ainvoke({"category_ref": {"id": "cat-1"}, "new_title": "新分类"})
 
     assert json.loads(result)["message"] == "同级分类已存在同名标题: 新分类"
     update_category.assert_not_awaited()
@@ -887,18 +853,14 @@ async def test_edit_note_category_rejects_category_from_another_project() -> Non
     tool = EditNoteCategoryTool(_state=_make_state())
     category = _make_category(project_id="proj-other")
 
-    with patch(
-        "app.agent_runtime.tools.impls.note.edit_note_category.create_session"
-    ) as mock_cs:
+    with patch("app.agent_runtime.tools.impls.note.edit_note_category.create_session") as mock_cs:
         mock_session = AsyncMock()
         mock_cs.return_value = mock_session
         with patch(
             "app.agent_runtime.tools.impls.note.edit_note_category.note_category_repo.get_by_id",
             AsyncMock(return_value=category),
         ):
-            result = await tool.ainvoke(
-                {"category_ref": {"id": "cat-1"}, "new_title": "新分类"}
-            )
+            result = await tool.ainvoke({"category_ref": {"id": "cat-1"}, "new_title": "新分类"})
 
     assert json.loads(result)["message"] == "分类不属于当前项目"
 
@@ -912,9 +874,7 @@ async def test_delete_note_category_cascades_and_records_revisions() -> None:
     note = _make_note(note_id="note-1", title="分类内笔记", category_id="cat-1")
     tool = DeleteNoteCategoryTool(_state=_make_state())
 
-    with patch(
-        "app.agent_runtime.tools.impls.note.delete_note_category.create_session"
-    ) as mock_cs:
+    with patch("app.agent_runtime.tools.impls.note.delete_note_category.create_session") as mock_cs:
         mock_session = AsyncMock()
         mock_cs.return_value = mock_session
         with (
@@ -1015,9 +975,7 @@ async def test_delete_note_category_rejects_category_from_another_project() -> N
     tool = DeleteNoteCategoryTool(_state=_make_state())
     category = _make_category(project_id="proj-other")
 
-    with patch(
-        "app.agent_runtime.tools.impls.note.delete_note_category.create_session"
-    ) as mock_cs:
+    with patch("app.agent_runtime.tools.impls.note.delete_note_category.create_session") as mock_cs:
         mock_session = AsyncMock()
         mock_cs.return_value = mock_session
         with patch(
@@ -1038,8 +996,10 @@ def test_edit_note_input_rejects_empty_old_content() -> None:
     from app.agent_runtime.tools.impls.note.edit_note import EditNoteInput
 
     with pytest.raises(ValidationError):
-        EditNoteInput.model_validate({
-            "note_ref": {"id": "note-1"},
-            "old_content": "",
-            "new_content": "x",
-        })
+        EditNoteInput.model_validate(
+            {
+                "note_ref": {"id": "note-1"},
+                "old_content": "",
+                "new_content": "x",
+            }
+        )

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Google Generative AI Adapter - Google API适配器。
 
@@ -32,7 +31,7 @@ class GoogleGenAIAdapter(BaseAdapter):
     ) -> list[dict[str, str]]:
         """获取LLM模型列表（supportedGenerationMethods包含generateContent）。"""
         url = f"{self._normalize_url(base_url)}/models"
-        
+
         try:
             response = await client.get(url, params={"key": api_key})
             response.raise_for_status()
@@ -72,7 +71,7 @@ class GoogleGenAIAdapter(BaseAdapter):
     ) -> list[dict[str, str]]:
         """获取Embedding模型列表（supportedGenerationMethods包含embedContent）。"""
         url = f"{self._normalize_url(base_url)}/models"
-        
+
         try:
             response = await client.get(url, params={"key": api_key})
             response.raise_for_status()

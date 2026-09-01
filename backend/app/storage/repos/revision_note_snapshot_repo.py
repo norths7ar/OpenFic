@@ -1,7 +1,7 @@
-# -*- coding: utf-8 -*-
 """Revision note and note-category snapshot repositories."""
 
-from sqlalchemy import delete as sql_delete, select
+from sqlalchemy import delete as sql_delete
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col
 
@@ -28,9 +28,7 @@ async def replace_for_revision(
     snapshots: list[RevisionNoteSnapshot],
 ) -> list[RevisionNoteSnapshot]:
     await session.execute(
-        sql_delete(RevisionNoteSnapshot).where(
-            col(RevisionNoteSnapshot.revision_id) == revision_id
-        )
+        sql_delete(RevisionNoteSnapshot).where(col(RevisionNoteSnapshot.revision_id) == revision_id)
     )
     if snapshots:
         session.add_all(snapshots)

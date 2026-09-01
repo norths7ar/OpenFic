@@ -62,18 +62,12 @@ async def export_bundle(
     try:
         project = await session.get(Project, project_id)
         if project is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="项目不存在"
-            )
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="项目不存在")
         data = await export_project_bundle(session, project_id)
     except BundleFormatError as exc:
         if str(exc).startswith("project not found:"):
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
-            ) from exc
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
-        ) from exc
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     project_name = slugify_filename(project.title, project_id)
     display_filename = f"{project_name}.openfic.zip"
     return Response(
@@ -96,18 +90,12 @@ async def export_source_bundle(
     try:
         project = await session.get(Project, project_id)
         if project is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="项目不存在"
-            )
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="项目不存在")
         data = await export_markdown_source_bundle(session, project_id)
     except BundleFormatError as exc:
         if str(exc).startswith("project not found:"):
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
-            ) from exc
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
-        ) from exc
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     project_name = slugify_filename(project.title, project_id)
     display_filename = f"{project_name}.markdown.zip"
     return Response(
@@ -135,13 +123,9 @@ async def preview_bundle_import(
             session, project_id, data, cast(Literal["append", "update", "merge"], mode)
         )
     except NotFoundError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
-        ) from exc
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     except BundleFormatError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
-        ) from exc
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     return {
         "mode": preview.mode,
         "source_project": preview.source_project,
@@ -174,14 +158,10 @@ async def apply_bundle_import(
         ) from exc
     except NotFoundError as exc:
         await session.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
-        ) from exc
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     except BundleFormatError as exc:
         await session.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
-        ) from exc
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     except Exception:
         await session.rollback()
         raise
@@ -209,13 +189,9 @@ async def preview_source_bundle_import(
             cast(Literal["append", "update", "merge"], mode),
         )
     except NotFoundError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
-        ) from exc
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     except BundleFormatError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
-        ) from exc
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     return {
         "mode": preview.mode,
         "source_items": [_source_item_response(item) for item in mapped.source_items],
@@ -255,14 +231,10 @@ async def apply_source_bundle_import(
         ) from exc
     except NotFoundError as exc:
         await session.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
-        ) from exc
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     except BundleFormatError as exc:
         await session.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
-        ) from exc
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     except Exception:
         await session.rollback()
         raise

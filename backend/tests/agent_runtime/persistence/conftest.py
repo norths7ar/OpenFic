@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Persistence 测试的数据库 fixture。
 
 注意：此处刻意逐个导入具体模型而不使用 ``import app.storage.models``。
@@ -35,8 +34,9 @@ from app.storage.models.project import Project
 from app.storage.models.task import Task
 from app.storage.models.volume import Volume
 
+
 def _table(model: Any) -> Any:
-    return getattr(model, "__table__")
+    return model.__table__
 
 
 _PERSISTENCE_TABLES = [

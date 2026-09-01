@@ -5,14 +5,13 @@ from typing import Any
 
 from pydantic import BaseModel, Field, field_validator
 
-from app.agent_runtime.tools.base import AgentTool
-from app.core.editor_content_limits import EditorContentLimitError, validate_editor_content
 from app.agent_runtime.revisions import (
     current_revision_id_from_state,
     images_by_id,
     record_agent_activity_for_change,
     record_chapter_diffs,
 )
+from app.agent_runtime.tools.base import AgentTool
 from app.agent_runtime.tools.errors import ToolExecutionError
 from app.agent_runtime.tools.impls.chapter.diff_preview import (
     build_chapter_diff_preview,
@@ -27,6 +26,7 @@ from app.agent_runtime.tools.impls.chapter.refs import (
 )
 from app.agent_runtime.tools.registry import ToolRegistry
 from app.agent_runtime.tools.text_match import fuzzy_replace
+from app.core.editor_content_limits import EditorContentLimitError, validate_editor_content
 from app.storage.database import create_session
 from app.storage.repos import chapter_repo, volume_repo
 from app.storage.services.version_control_service import refresh_project_stats
@@ -140,9 +140,7 @@ class EditChapterTool(AgentTool):
                 ref_type=ref.type,
                 ref_value=ref.value,
             )
-            match = resolve_chapter_from_list(
-                [matched] if matched is not None else [], ref
-            )
+            match = resolve_chapter_from_list([matched] if matched is not None else [], ref)
             before = images_by_id([match])
             before_match = chapter_preview_from_object(match)
             if new_title is not None:

@@ -2,15 +2,16 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from datetime import UTC, datetime
-import json
 from typing import Literal
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.agent_runtime.persistence import compaction_repo, repo as message_repo
 from app.agent_runtime.attachments import delete_attachments_for_message_ids
+from app.agent_runtime.persistence import compaction_repo
+from app.agent_runtime.persistence import repo as message_repo
 from app.agent_runtime.persistence.child_runs import rollback_child_runs_for_parent_revisions
 from app.agent_runtime.persistence.model import AgentRunMessage
 from app.core.editor_content_limits import validate_editor_content
@@ -18,11 +19,10 @@ from app.core.errors import NotFoundError
 from app.storage.models.chapter import Chapter
 from app.storage.models.character import Character
 from app.storage.models.commit import Commit
-from app.storage.models.note import Note
-from app.storage.models.note import NoteCategory
+from app.storage.models.note import Note, NoteCategory
 from app.storage.models.revision import Revision
-from app.storage.models.revision_character_snapshot import RevisionCharacterSnapshot
 from app.storage.models.revision_chapter_snapshot import RevisionChapterSnapshot
+from app.storage.models.revision_character_snapshot import RevisionCharacterSnapshot
 from app.storage.models.revision_note_snapshot import (
     RevisionNoteCategorySnapshot,
     RevisionNoteSnapshot,
@@ -36,8 +36,8 @@ from app.storage.repos import (
     note_category_repo,
     note_repo,
     project_repo,
-    revision_character_snapshot_repo,
     revision_chapter_snapshot_repo,
+    revision_character_snapshot_repo,
     revision_content_blob_repo,
     revision_note_snapshot_repo,
     revision_repo,
@@ -47,8 +47,8 @@ from app.storage.repos import (
     world_info_entry_repo,
 )
 from app.storage.services import writing_activity_service
-from app.storage.services.volume_service import refresh_volume_chapter_count
 from app.storage.services.version_control_service import refresh_project_stats
+from app.storage.services.volume_service import refresh_volume_chapter_count
 
 
 @dataclass(frozen=True)
@@ -181,6 +181,8 @@ async def _snapshot_from_image(
         word_count=image.word_count,
         chapter_order=image.order,
     )
+
+
 def _has_changed(before: ChapterImage | None, after: ChapterImage | None) -> bool:
     if before is None or after is None:
         return before is not after
@@ -243,6 +245,8 @@ async def _commit_from_images(
         new_word_count=after.word_count if after else None,
         new_order=after.order if after else None,
     )
+
+
 def serialize_chapter(chapter: Chapter | ChapterImage) -> dict:
     created_at = getattr(chapter, "created_at", None)
     updated_at = getattr(chapter, "updated_at", None)
@@ -334,11 +338,10 @@ async def record_chapter_diffs(
     before: dict[str, ChapterImage],
     after: dict[str, ChapterImage],
 ) -> list[str]:
-    existing_snapshots = await revision_chapter_snapshot_repo.list_by_revision(
-        session, revision_id
-    )
+    existing_snapshots = await revision_chapter_snapshot_repo.list_by_revision(session, revision_id)
     snapshotted = {item.chapter_id for item in existing_snapshots}
     affected: list[str] = []
+
     def _chapter_order(chapter_id: str) -> int:
         image = after.get(chapter_id) or before.get(chapter_id)
         return image.order if image is not None else 0
@@ -349,7 +352,9 @@ async def record_chapter_diffs(
         if not _has_changed(old, new):
             continue
         affected.append(chapter_id)
-        await commit_repo.create(session, await _commit_from_images(session, revision_id, chapter_id, old, new))
+        await commit_repo.create(
+            session, await _commit_from_images(session, revision_id, chapter_id, old, new)
+        )
         if chapter_id not in snapshotted:
             await revision_chapter_snapshot_repo.create(
                 session,
@@ -390,9 +395,7 @@ def _image_from_note_snapshot(snapshot: RevisionNoteSnapshot) -> NoteImage | Non
         is_hidden=snapshot.is_hidden or False,
         order=snapshot.note_order or 0,
         is_writing_visible=(
-            snapshot.is_writing_visible
-            if snapshot.is_writing_visible is not None
-            else True
+            snapshot.is_writing_visible if snapshot.is_writing_visible is not None else True
         ),
     )
 
@@ -426,6 +429,8 @@ async def _snapshot_from_note_image(
         note_order=image.order,
         is_writing_visible=image.is_writing_visible,
     )
+
+
 def _note_has_changed(before: NoteImage | None, after: NoteImage | None) -> bool:
     if before is None or after is None:
         return before is not after
@@ -452,9 +457,7 @@ async def record_note_diffs(
     before: dict[str, NoteImage],
     after: dict[str, NoteImage],
 ) -> list[str]:
-    existing_snapshots = await revision_note_snapshot_repo.list_by_revision(
-        session, revision_id
-    )
+    existing_snapshots = await revision_note_snapshot_repo.list_by_revision(session, revision_id)
     snapshotted = {item.note_id for item in existing_snapshots}
     affected: list[str] = []
     for note_id in sorted(set(before) | set(after)):
@@ -546,10 +549,8 @@ async def record_note_category_diffs(
     before: dict[str, NoteCategoryImage],
     after: dict[str, NoteCategoryImage],
 ) -> list[str]:
-    existing_snapshots = (
-        await revision_note_snapshot_repo.list_category_snapshots_by_revision(
-            session, revision_id
-        )
+    existing_snapshots = await revision_note_snapshot_repo.list_category_snapshots_by_revision(
+        session, revision_id
     )
     snapshotted = {item.category_id for item in existing_snapshots}
     affected: list[str] = []
@@ -562,9 +563,7 @@ async def record_note_category_diffs(
         if category_id not in snapshotted:
             await revision_note_snapshot_repo.create_category_snapshot(
                 session,
-                _snapshot_from_note_category_image(
-                    revision_id, project_id, category_id, old
-                ),
+                _snapshot_from_note_category_image(revision_id, project_id, category_id, old),
             )
             snapshotted.add(category_id)
     return affected
@@ -634,6 +633,8 @@ async def _snapshot_from_world_entry_image(
         token_count=image.token_count,
         is_enabled=image.is_enabled,
     )
+
+
 def _world_entry_has_changed(
     before: WorldEntryImage | None,
     after: WorldEntryImage | None,
@@ -682,7 +683,9 @@ async def record_world_entry_diffs(
         if entry_id not in snapshotted:
             await revision_world_entry_snapshot_repo.create(
                 session,
-                await _snapshot_from_world_entry_image(session, revision_id, project_id, entry_id, old),
+                await _snapshot_from_world_entry_image(
+                    session, revision_id, project_id, entry_id, old
+                ),
             )
             snapshotted.add(entry_id)
     return affected
@@ -713,9 +716,7 @@ def _image_from_character_snapshot(
         is_favorited=snapshot.is_favorited if snapshot.is_favorited is not None else False,
         order=snapshot.character_order or 0,
         is_writing_visible=(
-            snapshot.is_writing_visible
-            if snapshot.is_writing_visible is not None
-            else True
+            snapshot.is_writing_visible if snapshot.is_writing_visible is not None else True
         ),
     )
 
@@ -747,6 +748,8 @@ async def _snapshot_from_character_image(
         character_order=image.order,
         is_writing_visible=image.is_writing_visible,
     )
+
+
 def _character_has_changed(
     before: CharacterImage | None,
     after: CharacterImage | None,
@@ -788,7 +791,9 @@ async def record_character_diffs(
         if character_id not in snapshotted:
             await revision_character_snapshot_repo.create(
                 session,
-                await _snapshot_from_character_image(session, revision_id, project_id, character_id, old),
+                await _snapshot_from_character_image(
+                    session, revision_id, project_id, character_id, old
+                ),
             )
             snapshotted.add(character_id)
     return affected
@@ -903,20 +908,14 @@ async def rollback_revision_for_session(
     restore_by_world_entry: dict[str, RevisionWorldEntrySnapshot] = {}
     restore_by_character: dict[str, RevisionCharacterSnapshot] = {}
     for revision in revisions:
-        snapshots = await revision_chapter_snapshot_repo.list_by_revision(
-            session, revision.id
-        )
+        snapshots = await revision_chapter_snapshot_repo.list_by_revision(session, revision.id)
         for snapshot in snapshots:
             restore_by_chapter.setdefault(snapshot.chapter_id, snapshot)
-        note_snapshots = await revision_note_snapshot_repo.list_by_revision(
-            session, revision.id
-        )
+        note_snapshots = await revision_note_snapshot_repo.list_by_revision(session, revision.id)
         for note_snapshot in note_snapshots:
             restore_by_note.setdefault(note_snapshot.note_id, note_snapshot)
-        category_snapshots = (
-            await revision_note_snapshot_repo.list_category_snapshots_by_revision(
-                session, revision.id
-            )
+        category_snapshots = await revision_note_snapshot_repo.list_category_snapshots_by_revision(
+            session, revision.id
         )
         for cat_snapshot in category_snapshots:
             restore_by_category.setdefault(cat_snapshot.category_id, cat_snapshot)
@@ -924,16 +923,12 @@ async def rollback_revision_for_session(
             session, revision.id
         )
         for world_entry_snapshot in world_entry_snapshots:
-            restore_by_world_entry.setdefault(
-                world_entry_snapshot.entry_id, world_entry_snapshot
-            )
+            restore_by_world_entry.setdefault(world_entry_snapshot.entry_id, world_entry_snapshot)
         character_snapshots = await revision_character_snapshot_repo.list_by_revision(
             session, revision.id
         )
         for character_snapshot in character_snapshots:
-            restore_by_character.setdefault(
-                character_snapshot.character_id, character_snapshot
-            )
+            restore_by_character.setdefault(character_snapshot.character_id, character_snapshot)
 
     restored_message_content = ""
     restored_attachments: list[dict] = []
@@ -1059,9 +1054,7 @@ async def rollback_revision_for_session(
     )
     for cat_snapshot in [*cat_deletes, *cat_upserts]:
         affected_note_categories.append(cat_snapshot.category_id)
-        current_cat = await note_category_repo.get_by_id(
-            session, cat_snapshot.category_id
-        )
+        current_cat = await note_category_repo.get_by_id(session, cat_snapshot.category_id)
         after_cat_image = _image_from_note_category_snapshot(cat_snapshot)
         if after_cat_image is None:
             if current_cat is not None:
@@ -1127,17 +1120,11 @@ async def rollback_revision_for_session(
             await note_repo.update_note(session, current_note)
 
     affected_world_entries: list[str] = []
-    world_entry_deletes = [
-        item for item in restore_by_world_entry.values() if not item.exists
-    ]
-    world_entry_upserts = [
-        item for item in restore_by_world_entry.values() if item.exists
-    ]
+    world_entry_deletes = [item for item in restore_by_world_entry.values() if not item.exists]
+    world_entry_upserts = [item for item in restore_by_world_entry.values() if item.exists]
     for entry_snapshot in [*world_entry_deletes, *world_entry_upserts]:
         affected_world_entries.append(entry_snapshot.entry_id)
-        current_entry = await world_info_entry_repo.get_by_id(
-            session, entry_snapshot.entry_id
-        )
+        current_entry = await world_info_entry_repo.get_by_id(session, entry_snapshot.entry_id)
         after_entry_image = _image_from_world_entry_snapshot(entry_snapshot)
         if after_entry_image is None:
             if current_entry is not None:
@@ -1174,9 +1161,7 @@ async def rollback_revision_for_session(
     character_upserts = [item for item in restore_by_character.values() if item.exists]
     for character_snapshot in [*character_deletes, *character_upserts]:
         affected_characters.append(character_snapshot.character_id)
-        current_character = await character_repo.get_by_id(
-            session, character_snapshot.character_id
-        )
+        current_character = await character_repo.get_by_id(session, character_snapshot.character_id)
         after_character_image = _image_from_character_snapshot(character_snapshot)
         if after_character_image is None:
             if current_character is not None:
@@ -1210,7 +1195,8 @@ async def rollback_revision_for_session(
         target.user_message_seq,
     )
     removed_messages = [
-        row for row in await message_repo.list_by_session(session, agent_session_id)
+        row
+        for row in await message_repo.list_by_session(session, agent_session_id)
         if row.seq >= target.user_message_seq
     ]
     removed_attachment_ids = {

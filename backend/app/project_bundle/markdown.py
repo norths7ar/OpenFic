@@ -56,15 +56,11 @@ def parse_markdown_document(text: str) -> ParsedMarkdownDocument:
         if not fenced and _H1.match(line):
             heading_indexes.append(index)
     if len(heading_indexes) != 1:
-        raise BundleFormatError(
-            "Markdown document must contain exactly one file-level H1"
-        )
+        raise BundleFormatError("Markdown document must contain exactly one file-level H1")
     heading_index = heading_indexes[0]
     heading_match = _H1.match(content[heading_index])
     if heading_match is None:
-        raise BundleFormatError(
-            "Markdown document must contain exactly one file-level H1"
-        )
+        raise BundleFormatError("Markdown document must contain exactly one file-level H1")
     title = heading_match.group(1).strip()
     if "\n" in title or "\r" in title:
         raise BundleFormatError("H1 title must be a single line")
@@ -82,9 +78,7 @@ def render_markdown_document(frontmatter: dict[str, Any], title: str, body: str)
     if not title.strip():
         raise BundleFormatError("H1 title must not be empty")
     normalized_body = body.replace("\r\n", "\n").replace("\r", "\n").strip("\n")
-    yaml_text = yaml.safe_dump(frontmatter, allow_unicode=True, sort_keys=True).rstrip(
-        "\n"
-    )
+    yaml_text = yaml.safe_dump(frontmatter, allow_unicode=True, sort_keys=True).rstrip("\n")
     result = f"---\n{yaml_text}\n---\n# {title.strip()}"
     rendered = f"{result}\n{normalized_body}\n" if normalized_body else f"{result}\n"
     parse_markdown_document(rendered)

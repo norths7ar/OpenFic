@@ -1,6 +1,6 @@
-from app.agent_runtime.types import TerminationCondition, ReactAgentConfig
-from app.agent_runtime.graph.state import AgentRuntimeState
 from app.agent_runtime.graph.orchestrator.state import OrchestratorState
+from app.agent_runtime.graph.state import AgentRuntimeState
+from app.agent_runtime.types import ReactAgentConfig, TerminationCondition
 
 
 def test_termination_condition_tool_success():
@@ -30,7 +30,12 @@ def test_agent_runtime_state_is_valid_typed_dict():
         "session_id": "sess_001",
         "task_id": "task_001",
         "project_id": "proj_001",
-        "model_config": {"provider_type": "openai", "model_id": "gpt-4o", "api_key": "sk-test", "base_url": ""},
+        "model_config": {
+            "provider_type": "openai",
+            "model_id": "gpt-4o",
+            "api_key": "sk-test",
+            "base_url": "",
+        },
         "active_agent": None,
         "is_completed": False,
         "error": None,
@@ -48,7 +53,12 @@ def test_orchestrator_state_extends_agent_runtime_state():
         "session_id": "sess_001",
         "task_id": "task_001",
         "project_id": "proj_001",
-        "model_config": {"provider_type": "openai", "model_id": "gpt-4o", "api_key": "sk-test", "base_url": ""},
+        "model_config": {
+            "provider_type": "openai",
+            "model_id": "gpt-4o",
+            "api_key": "sk-test",
+            "base_url": "",
+        },
         "active_agent": "explore",
         "is_completed": False,
         "error": None,

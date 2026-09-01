@@ -50,9 +50,7 @@ async def test_dispatch_subagent_rejects_empty_primary_delegatable_agents(
     monkeypatch.setattr(DispatchSubagentTool, "_load_definition", load_definition)
     tool = DispatchSubagentTool(_state={"active_agent": "build"})
 
-    with pytest.raises(
-        ToolExecutionError, match="not in the delegatable agents whitelist"
-    ):
+    with pytest.raises(ToolExecutionError, match="not in the delegatable agents whitelist"):
         await tool._validate_dispatch("explore", {})
 
 
@@ -114,9 +112,7 @@ async def test_ensure_primary_rejects_disabled_primary_agent(
     monkeypatch.setattr(common, "load_agent_definition", load_definition)
 
     with pytest.raises(ToolExecutionError, match="primary agent"):
-        await common.ensure_primary(
-            {"active_agent": "disabled-primary"}, lambda: Session()
-        )
+        await common.ensure_primary({"active_agent": "disabled-primary"}, lambda: Session())
 
 
 @pytest.mark.asyncio
@@ -176,15 +172,11 @@ async def test_dispatch_subagent_returns_dispatch_id_when_child_request_is_cance
         wait_for_assistant_content,
     )
     monkeypatch.setattr(dispatch_module, "latest_checkpoint_id_for_thread", noop)
-    monkeypatch.setattr(
-        dispatch_module, "persist_child_user_message", persist_child_user_message
-    )
+    monkeypatch.setattr(dispatch_module, "persist_child_user_message", persist_child_user_message)
     monkeypatch.setattr(dispatch_module, "open_session", open_session)
     monkeypatch.setattr(dispatch_module, "close_session", noop)
     monkeypatch.setattr(dispatch_module, "update_child_run_request_boundaries", noop)
-    monkeypatch.setattr(
-        dispatch_module, "make_subagent_runner", lambda **_kwargs: Runner()
-    )
+    monkeypatch.setattr(dispatch_module, "make_subagent_runner", lambda **_kwargs: Runner())
 
     tool = DispatchSubagentTool(
         _state={

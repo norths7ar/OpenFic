@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 LLM Client - LLM模型调用客户端。
 
@@ -6,18 +5,19 @@ LLM Client - LLM模型调用客户端。
 """
 
 import asyncio
-import time
-from dataclasses import dataclass
 import json
 import re
-from typing import AsyncGenerator, Any, Mapping, Protocol, cast
+import time
+from collections.abc import AsyncGenerator, Mapping
+from dataclasses import dataclass
+from typing import Any, Protocol, cast
 
 from langchain_core.language_models import LanguageModelInput
 from langchain_core.messages import (
     AIMessage,
+    BaseMessage,
     HumanMessage,
     SystemMessage,
-    BaseMessage,
 )
 from langchain_core.runnables import Runnable
 from langchain_core.tools import BaseTool
@@ -26,7 +26,6 @@ from loguru import logger
 from app.core.errors import LLMTimeoutError
 from app.models.clients.deepseek_payload import patch_deepseek_reasoning_payload
 from app.models.clients.model_factory import ModelConfig, ReasoningEffort, create_chat_model
-
 
 DEFAULT_LLM_TIMEOUT = 600
 _patch_deepseek_reasoning_payload = patch_deepseek_reasoning_payload
@@ -163,9 +162,7 @@ class LLMClient:
                 timeout=effective_timeout,
             )
             content = (
-                response.content
-                if isinstance(response.content, str)
-                else str(response.content)
+                response.content if isinstance(response.content, str) else str(response.content)
             )
             reasoning_content = self._extract_reasoning_content(response)
 
@@ -177,17 +174,15 @@ class LLMClient:
                 else None,
                 usage=self._extract_usage(response),
             )
-        except asyncio.TimeoutError:
-            raise LLMTimeoutError(f"LLM调用超时 ({effective_timeout}s)")
+        except TimeoutError as exc:
+            raise LLMTimeoutError(f"LLM调用超时 ({effective_timeout}s)") from exc
         except LLMTimeoutError:
             raise
         except Exception as e:
             logger.error(f"LLM调用失败: {e}")
             raise
 
-    async def generate_stream(
-        self, messages: list[dict[str, str]]
-    ) -> AsyncGenerator[str, None]:
+    async def generate_stream(self, messages: list[dict[str, str]]) -> AsyncGenerator[str, None]:
         """
         流式聊天调用。
 
@@ -291,8 +286,8 @@ class LLMClient:
                 tool_call_chunks_without_index=tool_call_chunks_without_index,
             )
             yield LLMStreamChunk(response=response)
-        except TimeoutError:
-            raise LLMTimeoutError(f"LLM工具流式调用超时 ({effective_timeout}s)")
+        except TimeoutError as exc:
+            raise LLMTimeoutError(f"LLM工具流式调用超时 ({effective_timeout}s)") from exc
         except LLMTimeoutError:
             raise
         except Exception as e:
@@ -335,8 +330,8 @@ class LLMClient:
                 usage=self._extract_usage(response),
                 tool_calls=tool_calls,
             )
-        except asyncio.TimeoutError:
-            raise LLMTimeoutError(f"LLM工具调用超时 ({effective_timeout}s)")
+        except TimeoutError as exc:
+            raise LLMTimeoutError(f"LLM工具调用超时 ({effective_timeout}s)") from exc
         except LLMTimeoutError:
             raise
         except Exception as e:
@@ -365,14 +360,10 @@ class LLMClient:
         for source_name in ("additional_kwargs", "response_metadata"):
             source = getattr(message_or_chunk, source_name, None)
             if isinstance(source, dict):
-                parts.append(
-                    cls._normalize_chunk_content(source.get("reasoning_content"))
-                )
+                parts.append(cls._normalize_chunk_content(source.get("reasoning_content")))
 
         parts.append(
-            cls._normalize_chunk_content(
-                getattr(message_or_chunk, "reasoning_content", None)
-            )
+            cls._normalize_chunk_content(getattr(message_or_chunk, "reasoning_content", None))
         )
 
         return "".join(part for part in parts if part)
@@ -394,9 +385,7 @@ class LLMClient:
 
         response_metadata = getattr(message_or_chunk, "response_metadata", None)
         if isinstance(response_metadata, dict):
-            metadata_usage = response_metadata.get("usage") or response_metadata.get(
-                "token_usage"
-            )
+            metadata_usage = response_metadata.get("usage") or response_metadata.get("token_usage")
             if isinstance(metadata_usage, dict) and metadata_usage:
                 return dict(metadata_usage)
         return None
@@ -467,9 +456,7 @@ class LLMClient:
         match = re.search(r"\{.*\}", args_raw, re.DOTALL)
         if match:
             candidates.append(match.group(0))
-        candidates.extend(
-            cls._repair_json_string(candidate) for candidate in list(candidates)
-        )
+        candidates.extend(cls._repair_json_string(candidate) for candidate in list(candidates))
         for candidate in candidates:
             try:
                 parsed = json.loads(candidate)
@@ -520,8 +507,7 @@ class LLMClient:
 
         if not tool_calls:
             merged_chunks = (
-                list(tool_call_chunks_by_index.values())
-                + tool_call_chunks_without_index
+                list(tool_call_chunks_by_index.values()) + tool_call_chunks_without_index
             )
             tool_calls = []
             for chunk in merged_chunks:
@@ -534,10 +520,7 @@ class LLMClient:
                     args = cls._parse_tool_args(args_raw)
                 tool_calls.append(
                     {
-                        "id": str(
-                            chunk.get("id")
-                            or f"call_{chunk.get('index', len(tool_calls))}"
-                        ),
+                        "id": str(chunk.get("id") or f"call_{chunk.get('index', len(tool_calls))}"),
                         "name": name,
                         "args": args,
                     }

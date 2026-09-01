@@ -58,6 +58,11 @@ from app.agent_runtime.graph.llm_invoke import (
     load_llm_invoke_settings,
 )
 from app.agent_runtime.persistence import compaction_repo
+from app.agent_runtime.tool_call_recovery import (
+    build_malformed_tool_call_error,
+    is_malformed_tool_call,
+    recover_message_tool_calls,
+)
 from app.agent_runtime.tools.base import AgentTool
 from app.agent_runtime.tools.errors import (
     ToolFailure,
@@ -66,11 +71,6 @@ from app.agent_runtime.tools.errors import (
     normalize_tool_failure_result,
     serialize_tool_failure,
     tool_failure_from_exception,
-)
-from app.agent_runtime.tool_call_recovery import (
-    build_malformed_tool_call_error,
-    is_malformed_tool_call,
-    recover_message_tool_calls,
 )
 from app.agent_runtime.types import ReactAgentConfig
 
@@ -84,9 +84,7 @@ if TYPE_CHECKING:
 # ---------------------------------------------------------------------------
 
 
-def _add_messages(
-    left: list[BaseMessage], right: list[BaseMessage]
-) -> list[BaseMessage]:
+def _add_messages(left: list[BaseMessage], right: list[BaseMessage]) -> list[BaseMessage]:
     """Simple message list reducer — appends new messages."""
     return left + right
 
@@ -124,8 +122,7 @@ def _checkpoint_safe_value(value: Any, active_ids: set[int] | None = None) -> An
     try:
         if isinstance(value, Mapping):
             return {
-                str(key): _checkpoint_safe_value(item, active_ids)
-                for key, item in value.items()
+                str(key): _checkpoint_safe_value(item, active_ids) for key, item in value.items()
             }
         if isinstance(value, (list, tuple)):
             return [_checkpoint_safe_value(item, active_ids) for item in value]
@@ -217,9 +214,7 @@ def _extract_usage(message: AIMessage) -> dict[str, Any] | None:
 
     response_metadata = getattr(message, "response_metadata", None)
     if isinstance(response_metadata, dict):
-        metadata_usage = response_metadata.get("usage") or response_metadata.get(
-            "token_usage"
-        )
+        metadata_usage = response_metadata.get("usage") or response_metadata.get("token_usage")
         if isinstance(metadata_usage, dict) and metadata_usage:
             return dict(metadata_usage)
         if metadata_usage is not None and hasattr(metadata_usage, "items"):
@@ -354,9 +349,7 @@ async def maybe_auto_compact(
             str(state.get("session_id") or ""),
         )
     except Exception as exc:
-        error = CompactionError(
-            "compaction_load_failed", "压缩状态加载失败，当前请求已中止"
-        )
+        error = CompactionError("compaction_load_failed", "压缩状态加载失败，当前请求已中止")
         await emit_error_once(error)
         raise error from exc
 
@@ -369,9 +362,7 @@ async def maybe_auto_compact(
     except CompactionNoWindowError:
         return False
     except Exception as exc:
-        error = CompactionError(
-            "compaction_window_failed", "压缩窗口选择失败，当前请求已中止"
-        )
+        error = CompactionError("compaction_window_failed", "压缩窗口选择失败，当前请求已中止")
         await emit_error_once(error)
         raise error from exc
 
@@ -444,9 +435,7 @@ async def _isolate_tool_config(
 
 
 def _clone_agent_tool_for_dispatch(tool_instance: BaseTool) -> BaseTool:
-    if not all(
-        hasattr(tool_instance, attr) for attr in ("_state", "_pre_hooks", "_post_hooks")
-    ):
+    if not all(hasattr(tool_instance, attr) for attr in ("_state", "_pre_hooks", "_post_hooks")):
         return tool_instance
     try:
         cloned = copy.copy(tool_instance)
@@ -644,9 +633,7 @@ def create_react_agent(
         if audit_context is None:
             return None
         runtime_state = configurable.get("runtime_state") or {}
-        model_cfg = (
-            runtime_state.get("model_config") if isinstance(runtime_state, dict) else {}
-        )
+        model_cfg = runtime_state.get("model_config") if isinstance(runtime_state, dict) else {}
         if not isinstance(model_cfg, dict):
             model_cfg = {}
 
@@ -666,7 +653,8 @@ def create_react_agent(
     # ------------------------------------------------------------------
 
     async def llm_call(
-        state: ReactState, config: Optional[RunnableConfig] = None
+        state: ReactState,
+        config: Optional[RunnableConfig] = None,  # noqa: UP045 - LangGraph inspects this annotation.
     ) -> dict:
         """Call the LLM with bound tools."""
         nonlocal active_audit
@@ -773,10 +761,7 @@ def create_react_agent(
                             consumed = await consumed
                         should_inject = consumed is not False
                     if should_inject:
-                        if (
-                            isinstance(content, str)
-                            and "<of-skill" in content
-                        ):
+                        if isinstance(content, str) and "<of-skill" in content:
                             injected_user_contents.append(content)
                         compiled_content = content
                         if (
@@ -803,7 +788,8 @@ def create_react_agent(
                         drained_injected_user_message = True
                         attachment_metadata = (
                             inject_message_attachments(message_id)
-                            if isinstance(message_id, str) and inject_message_attachments is not None
+                            if isinstance(message_id, str)
+                            and inject_message_attachments is not None
                             else []
                         )
                         attachments = await build_image_content_blocks(attachment_metadata)
@@ -855,10 +841,7 @@ def create_react_agent(
             and state["iteration_count"] > 0
         ):
             last_state_message = state["messages"][-1] if state["messages"] else None
-            if (
-                isinstance(last_state_message, AIMessage)
-                and not last_state_message.tool_calls
-            ):
+            if isinstance(last_state_message, AIMessage) and not last_state_message.tool_calls:
                 termination_hint = (
                     f"Call the `{termination.tool_name}` tool to finish this step. "
                     "Do not answer in plain text."
@@ -899,9 +882,7 @@ def create_react_agent(
         active_audit = audit
         try:
             session_id = (
-                runtime_state.get("session_id")
-                if isinstance(runtime_state, Mapping)
-                else None
+                runtime_state.get("session_id") if isinstance(runtime_state, Mapping) else None
             )
             response = await invoke_model_with_retry(
                 bound_model or model,
@@ -955,7 +936,8 @@ def create_react_agent(
         return update
 
     async def tool_exec(
-        state: ReactState, config: Optional[RunnableConfig] = None
+        state: ReactState,
+        config: Optional[RunnableConfig] = None,  # noqa: UP045 - LangGraph inspects this annotation.
     ) -> dict:
         """Execute one tool call in an isolated fan-out branch."""
         tool_call = state.get("tool_call")
@@ -969,17 +951,9 @@ def create_react_agent(
         tool_index = int(state.get("tool_index") or 0)
         started_at = time.perf_counter()
         phase = state.get("tool_phase") or "execute"
-        source_outcomes = (
-            state.get("tool_prepared_outcomes", [])
-            if phase == "execute"
-            else []
-        )
+        source_outcomes = state.get("tool_prepared_outcomes", []) if phase == "execute" else []
         prepared_outcome = next(
-            (
-                outcome
-                for outcome in source_outcomes
-                if outcome.get("tool_call_id") == tool_id
-            ),
+            (outcome for outcome in source_outcomes if outcome.get("tool_call_id") == tool_id),
             None,
         )
 
@@ -1016,18 +990,18 @@ def create_react_agent(
             result = serialize_tool_failure(failure)
             return outcome_update(
                 {
-                        "index": tool_index,
-                        "tool_call_id": tool_id,
-                        "tool_name": tool_name,
-                        "tool_args": tool_args,
-                        "message": ToolMessage(
-                            content=result,
-                            tool_call_id=tool_id,
-                            name=tool_name,
-                        ),
-                        "payload": payload,
-                        "success": False,
-                        "latency_ms": int((time.perf_counter() - started_at) * 1000),
+                    "index": tool_index,
+                    "tool_call_id": tool_id,
+                    "tool_name": tool_name,
+                    "tool_args": tool_args,
+                    "message": ToolMessage(
+                        content=result,
+                        tool_call_id=tool_id,
+                        name=tool_name,
+                    ),
+                    "payload": payload,
+                    "success": False,
+                    "latency_ms": int((time.perf_counter() - started_at) * 1000),
                 }
             )
 
@@ -1043,18 +1017,18 @@ def create_react_agent(
             result = serialize_tool_failure(failure)
             return outcome_update(
                 {
-                        "index": tool_index,
-                        "tool_call_id": tool_id,
-                        "tool_name": tool_name,
-                        "tool_args": tool_args,
-                        "message": ToolMessage(
-                            content=result,
-                            tool_call_id=tool_id,
-                            name=tool_name,
-                        ),
-                        "payload": payload,
-                        "success": False,
-                        "latency_ms": int((time.perf_counter() - started_at) * 1000),
+                    "index": tool_index,
+                    "tool_call_id": tool_id,
+                    "tool_name": tool_name,
+                    "tool_args": tool_args,
+                    "message": ToolMessage(
+                        content=result,
+                        tool_call_id=tool_id,
+                        name=tool_name,
+                    ),
+                    "payload": payload,
+                    "success": False,
+                    "latency_ms": int((time.perf_counter() - started_at) * 1000),
                 }
             )
 
@@ -1070,18 +1044,18 @@ def create_react_agent(
             result = serialize_tool_failure(failure)
             return outcome_update(
                 {
-                        "index": tool_index,
-                        "tool_call_id": tool_id,
-                        "tool_name": tool_name,
-                        "tool_args": tool_args,
-                        "message": ToolMessage(
-                            content=result,
-                            tool_call_id=tool_id,
-                            name=tool_name,
-                        ),
-                        "payload": payload,
-                        "success": False,
-                        "latency_ms": int((time.perf_counter() - started_at) * 1000),
+                    "index": tool_index,
+                    "tool_call_id": tool_id,
+                    "tool_name": tool_name,
+                    "tool_args": tool_args,
+                    "message": ToolMessage(
+                        content=result,
+                        tool_call_id=tool_id,
+                        name=tool_name,
+                    ),
+                    "payload": payload,
+                    "success": False,
+                    "latency_ms": int((time.perf_counter() - started_at) * 1000),
                 }
             )
 
@@ -1143,9 +1117,7 @@ def create_react_agent(
             if phase == "execute":
                 metadata["openfic_skip_pre_hooks"] = True
             invoke_config["metadata"] = metadata
-            if phase == "prepare" and not getattr(
-                tool_instance, "emit_prepare_events", False
-            ):
+            if phase == "prepare" and not getattr(tool_instance, "emit_prepare_events", False):
                 if hasattr(tool_instance, "_pre_hooks"):
                     result = await tool_instance._arun(
                         config=cast(RunnableConfig, invoke_config),
@@ -1169,9 +1141,7 @@ def create_react_agent(
                     interrupt_value.setdefault("tool_name", tool_name)
                     interrupt_value.setdefault("args", tool_args)
                     interrupt_value.setdefault("tool_index", tool_index)
-                    if "tool_result_preview" not in interrupt_value and callable(
-                        preview_builder
-                    ):
+                    if "tool_result_preview" not in interrupt_value and callable(preview_builder):
                         preview = await preview_builder(tool_args)
                         if isinstance(preview, dict):
                             interrupt_value["tool_result_preview"] = preview
@@ -1215,9 +1185,7 @@ def create_react_agent(
         if not isinstance(tool_instance, AgentTool):
             result, _ = normalize_tool_failure_result(result)
         payload, success = _tool_result_payload(result)
-        if phase == "prepare" and not getattr(
-            tool_instance, "execute_during_prepare", False
-        ):
+        if phase == "prepare" and not getattr(tool_instance, "execute_during_prepare", False):
             if not success:
                 prepared_payload = payload
                 prepared_result = result
@@ -1227,30 +1195,29 @@ def create_react_agent(
             payload = prepared_payload
             result = prepared_result
         outcome = {
-                    "index": tool_index,
-                    "tool_call_id": tool_id,
-                    "tool_name": tool_name,
-                    "tool_args": tool_args,
-                    "message": ToolMessage(
-                        content=str(result),
-                        tool_call_id=tool_id,
-                        name=tool_name,
-                    ),
-                    "payload": payload,
-                    "success": success,
-                    "latency_ms": int((time.perf_counter() - started_at) * 1000),
-                }
+            "index": tool_index,
+            "tool_call_id": tool_id,
+            "tool_name": tool_name,
+            "tool_args": tool_args,
+            "message": ToolMessage(
+                content=str(result),
+                tool_call_id=tool_id,
+                name=tool_name,
+            ),
+            "payload": payload,
+            "success": success,
+            "latency_ms": int((time.perf_counter() - started_at) * 1000),
+        }
         if phase == "prepare" and not success:
             return outcome_update(outcome)
         return outcome_update(outcome)
 
     async def tools_join(
-        state: ReactState, _config: Optional[RunnableConfig] = None
+        state: ReactState,
+        _config: Optional[RunnableConfig] = None,  # noqa: UP045 - LangGraph inspects this annotation.
     ) -> dict:
         """Join parallel tool results and restore model call order."""
-        outcomes = sorted(
-            state.get("tool_outcomes", []), key=lambda outcome: outcome["index"]
-        )
+        outcomes = sorted(state.get("tool_outcomes", []), key=lambda outcome: outcome["index"])
         if state.get("tool_phase") == "prepare":
             return {
                 "tool_outcomes": Overwrite([]),
@@ -1270,7 +1237,11 @@ def create_react_agent(
             ):
                 is_done = True
                 final_output = outcome["tool_args"]
-            if not is_done and tool_name == "ask_user" and outcome["payload"].get("status") == "user_skipped":
+            if (
+                not is_done
+                and tool_name == "ask_user"
+                and outcome["payload"].get("status") == "user_skipped"
+            ):
                 is_done = True
                 final_output = outcome["payload"]
             if active_audit is not None:
@@ -1299,13 +1270,11 @@ def create_react_agent(
     # ------------------------------------------------------------------
 
     async def dispatch_tools(
-        state: ReactState, config: Optional[RunnableConfig] = None
+        state: ReactState,
+        config: Optional[RunnableConfig] = None,  # noqa: UP045 - LangGraph inspects this annotation.
     ) -> dict:
         excess_outcomes: list[dict[str, Any]] = []
-        error_message = (
-            f"Agent 单轮最多调用 {TOOL_BATCH_SIZE} 个工具，"
-            "超出上限的工具调用未执行"
-        )
+        error_message = f"Agent 单轮最多调用 {TOOL_BATCH_SIZE} 个工具，超出上限的工具调用未执行"
         failure = ToolFailure(
             code="limit_exceeded",
             message=error_message,
@@ -1313,9 +1282,7 @@ def create_react_agent(
         )
         for message in reversed(state["messages"]):
             if isinstance(message, AIMessage) and message.tool_calls:
-                for offset, tool_call in enumerate(
-                    message.tool_calls[TOOL_BATCH_SIZE:]
-                ):
+                for offset, tool_call in enumerate(message.tool_calls[TOOL_BATCH_SIZE:]):
                     tool_name = str(tool_call.get("name") or "")
                     tool_id = str(tool_call.get("id") or "")
                     tool_args = tool_call.get("args")
@@ -1381,9 +1348,7 @@ def create_react_agent(
         for slot in range(TOOL_BATCH_SIZE):
             index = slot
             tool_call = (
-                last_message.tool_calls[index]
-                if index < len(last_message.tool_calls)
-                else None
+                last_message.tool_calls[index] if index < len(last_message.tool_calls) else None
             )
             denied = False
             if tool_call is not None and tool_call["name"] == "dispatch_subagent":
@@ -1397,9 +1362,7 @@ def create_react_agent(
                         "tool_call": tool_call,
                         "tool_dispatch_denied": denied,
                         "tool_phase": state.get("tool_phase", "prepare"),
-                        "tool_prepared_outcomes": state.get(
-                            "tool_prepared_outcomes", []
-                        ),
+                        "tool_prepared_outcomes": state.get("tool_prepared_outcomes", []),
                     },
                 )
             )

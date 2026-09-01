@@ -1,3 +1,4 @@
+import app.agent_runtime.tools.impls  # noqa: F401
 from app.agent_runtime.tools.base import (
     AgentTool,
     HookContext,
@@ -7,8 +8,6 @@ from app.agent_runtime.tools.base import (
 )
 from app.agent_runtime.tools.errors import ToolExecutionError
 from app.agent_runtime.tools.registry import ToolRegistry
-
-import app.agent_runtime.tools.impls  # noqa: F401
 
 __all__ = [
     "AgentTool",

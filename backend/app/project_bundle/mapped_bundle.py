@@ -151,9 +151,7 @@ class _Builder:
         target_kind: str,
         target_id_hint: str | None = None,
     ) -> tuple[str, str, ProjectImportBinding | None]:
-        key = _identity_key(
-            self.project.id, rule_id, source_path, source_anchor, target_kind
-        )
+        key = _identity_key(self.project.id, rule_id, source_path, source_anchor, target_kind)
         binding = self.existing.get(key)
         if binding is not None and not _binding_metadata_matches(
             binding,
@@ -229,9 +227,7 @@ class _Builder:
                 source_path="",
                 source_anchor=anchor,
                 target_kind="note_category",
-                target_id_hint=(target_id_hints or [])[depth - 1]
-                if target_id_hints
-                else None,
+                target_id_hint=(target_id_hints or [])[depth - 1] if target_id_hints else None,
             )
             parent_path = (document_type, current_path[:-1])
             next_order = self.category_sibling_orders.get(parent_path, 0)
@@ -343,9 +339,7 @@ class _Builder:
             "note_categories": self.categories,
         }
         self.files["openfic.yaml"] = _yaml(manifest)
-        return MappedProjectBundle(
-            build_zip(self.files), source_items, list(self.specs.values())
-        )
+        return MappedProjectBundle(build_zip(self.files), source_items, list(self.specs.values()))
 
 
 async def build_mapped_project_bundle(
@@ -380,9 +374,7 @@ async def build_mapped_project_bundle(
     existing_world_entries = list(
         (
             await session.execute(
-                select(WorldInfoEntry).where(
-                    col(WorldInfoEntry.world_info_id) == world_info_id
-                )
+                select(WorldInfoEntry).where(col(WorldInfoEntry.world_info_id) == world_info_id)
             )
         ).scalars()
     )

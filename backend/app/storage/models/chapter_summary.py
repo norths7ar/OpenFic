@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Chapter summary persistence models."""
 
 from datetime import UTC, datetime

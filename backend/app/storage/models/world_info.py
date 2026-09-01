@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 WorldInfo 数据模型。
 """
@@ -26,11 +25,8 @@ class WorldInfo(SQLModel, table=True):
     __tablename__ = "world_info"
 
     id: str = Field(default_factory=generate_id, primary_key=True)
-    project_id: str | None = Field(
-        default=None, index=True, unique=True, foreign_key="projects.id"
-    )
+    project_id: str | None = Field(default=None, index=True, unique=True, foreign_key="projects.id")
     name: str = Field(max_length=200)
     description: str = Field(default="")
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-

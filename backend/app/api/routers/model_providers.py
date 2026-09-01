@@ -1,10 +1,9 @@
-# -*- coding: utf-8 -*-
 """
 ModelProvider Router - 模型服务提供商 API。
 """
 
-from typing import Annotated
 import json
+from typing import Annotated
 
 from fastapi import (
     APIRouter,
@@ -18,6 +17,7 @@ from loguru import logger
 from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.agent_settings_lock import require_agent_settings_unlocked
 from app.api.schemas.model_provider import (
     AvailableModel,
     CatalogMatchResponse,
@@ -26,13 +26,12 @@ from app.api.schemas.model_provider import (
     ModelProviderValidateRequest,
     ModelProviderValidateResponse,
 )
-from app.api.agent_settings_lock import require_agent_settings_unlocked
-from app.models.catalog import ModelProviderCatalogService
 from app.core.encryption import EncryptionService
 from app.core.errors import NotFoundError
+from app.models.catalog import ModelProviderCatalogService
+from app.models.services import ModelProviderService
 from app.settings import settings
 from app.storage.database import get_session
-from app.models.services import ModelProviderService
 
 router = APIRouter(prefix="/model-providers", tags=["model-providers"])
 
@@ -49,9 +48,7 @@ def get_catalog_service() -> ModelProviderCatalogService:
 
 def get_provider_service(
     encryption_service: Annotated[EncryptionService, Depends(get_encryption_service)],
-    catalog_service: Annotated[
-        ModelProviderCatalogService, Depends(get_catalog_service)
-    ],
+    catalog_service: Annotated[ModelProviderCatalogService, Depends(get_catalog_service)],
 ) -> ModelProviderService:
     """获取提供商服务实例。"""
     return ModelProviderService(encryption_service, catalog_service)
@@ -68,10 +65,7 @@ def _parse_custom_headers(raw_headers: str | None) -> list[dict[str, str]] | Non
         payload = json.loads(raw_headers)
         if not isinstance(payload, list):
             raise ValueError
-        return [
-            CustomHeaderEntry.model_validate(item).model_dump(mode="json")
-            for item in payload
-        ]
+        return [CustomHeaderEntry.model_validate(item).model_dump(mode="json") for item in payload]
     except (ValueError, TypeError, ValidationError) as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -87,9 +81,7 @@ async def _build_provider_response(
     supported_task_types = await service.get_supported_task_types(
         provider, catalog_match=catalog_match
     )
-    icon_path = await service.get_effective_icon_path(
-        provider, catalog_match=catalog_match
-    )
+    icon_path = await service.get_effective_icon_path(provider, catalog_match=catalog_match)
 
     return ModelProviderResponse(
         id=provider.id,
@@ -161,7 +153,7 @@ async def get_provider(
         provider = await service.get_provider_by_id(session, provider_id)
         return await _build_provider_response(provider, service)
     except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
 
 
 @router.post(
@@ -260,9 +252,9 @@ async def update_provider(
 
         return await _build_provider_response(provider, service)
     except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
 
 
 @router.delete(
@@ -292,9 +284,9 @@ async def delete_provider(
     try:
         await service.delete_provider(session, provider_id)
     except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
 
 
 @router.post(
@@ -327,9 +319,7 @@ async def validate_provider(
         )
         return ModelProviderValidateResponse(
             success=True,
-            message="连接验证成功"
-            if models
-            else "连接验证成功，但该提供商可能不支持模型列表 API",
+            message="连接验证成功" if models else "连接验证成功，但该提供商可能不支持模型列表 API",
             models=[
                 AvailableModel(
                     id=m["id"],
@@ -445,7 +435,7 @@ async def get_provider_models(
             models=[AvailableModel.model_validate(model) for model in enriched_models],
         )
     except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
     except Exception as e:
         error_msg = str(e)
         # 使用 loguru 的参数化日志记录，避免 error_msg 中的花括号被误认为格式化占位符

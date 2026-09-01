@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Audit Router - 审计日志API路由。
 """
@@ -46,9 +45,7 @@ def serialize_audit_log(log) -> LLMAuditLogResponse:
     tool_call_results = None
     if log.tool_call_results:
         try:
-            tool_call_results = [
-                ToolCallResult(**tc) for tc in json.loads(log.tool_call_results)
-            ]
+            tool_call_results = [ToolCallResult(**tc) for tc in json.loads(log.tool_call_results)]
         except (json.JSONDecodeError, TypeError):
             tool_call_results = None
 
@@ -127,9 +124,7 @@ async def get_task_audit_aggregation(
     )
 
 
-@router.get(
-    "/audit-logs/session/{session_id}", response_model=LLMAuditLogListResponse
-)
+@router.get("/audit-logs/session/{session_id}", response_model=LLMAuditLogListResponse)
 async def list_session_audit_logs(
     session_id: str,
     db_session: AsyncSession = Depends(get_session),

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Builtin models - 基于 fastembed 的内置向量与重排模型定义。
 
@@ -94,9 +93,7 @@ async def seed_builtin_models(session: AsyncSession) -> None:
         provider_row.is_builtin = True
 
     for spec in BUILTIN_MODELS:
-        existing = await session.execute(
-            select(Model).where(col(Model.id) == spec.id)
-        )
+        existing = await session.execute(select(Model).where(col(Model.id) == spec.id))
         model_row = existing.scalar_one_or_none()
         if model_row is None:
             model_row = Model(

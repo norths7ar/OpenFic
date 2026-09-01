@@ -57,8 +57,7 @@ def _change(**overrides: object) -> SimpleNamespace:
     return SimpleNamespace(**values)
 
 
-def test_project_change_tools_are_registered_for_discuss_with_allow_permission(
-) -> None:
+def test_project_change_tools_are_registered_for_discuss_with_allow_permission() -> None:
     discuss = get_default_agent_definition("discuss")
 
     assert "project_change_proposal" in discuss.enabled_tool_categories
@@ -247,9 +246,7 @@ async def test_project_delete_uses_server_snapshot_without_after_payload() -> No
 async def test_project_change_rejects_missing_project() -> None:
     tool = ProposeProjectUpdateTool(_state=_state(project_id=None))
 
-    result = await tool.ainvoke(
-        {"target_type": "note", "target_id": "note-1", "body": "新正文"}
-    )
+    result = await tool.ainvoke({"target_type": "note", "target_id": "note-1", "body": "新正文"})
 
     payload = json.loads(result)
     assert payload["type"] == "fail"

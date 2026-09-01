@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Agent Definitions API 测试。"""
 
 from pathlib import Path
@@ -45,9 +44,7 @@ async def test_list_agent_definitions(client: AsyncClient):
         "note_read",
         "character_read",
     ]
-    assert not any(
-        category.endswith("_write") for category in discuss["enabled_tool_categories"]
-    )
+    assert not any(category.endswith("_write") for category in discuss["enabled_tool_categories"])
 
     ordered_keys = [d["key"] for d in data["definitions"]]
     builtin_order = (

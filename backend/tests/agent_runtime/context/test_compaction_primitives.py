@@ -108,10 +108,7 @@ def test_transcript_excludes_seq_and_tool_call_id_but_keeps_tool_names_and_args(
         '<tool-call name="search">{&quot;q&quot;:&quot;中文&quot;,&quot;limit&quot;:2}</tool-call>'
         in transcript
     )
-    assert (
-        '<tool-call name="read">{&quot;path&quot;:&quot;a.txt&quot;}</tool-call>'
-        in transcript
-    )
+    assert '<tool-call name="read">{&quot;path&quot;:&quot;a.txt&quot;}</tool-call>' in transcript
     assert '<tool name="search">result</tool>' in transcript
     assert "call-1" not in transcript
     assert "tool_call_id" not in transcript

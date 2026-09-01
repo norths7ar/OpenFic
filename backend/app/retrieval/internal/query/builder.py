@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Immutable retrieval query builder.
 """
@@ -41,52 +40,52 @@ class RetrievalQueryBuilder:
     ef_search: int | None = None
     filters: tuple[str, ...] = ()
 
-    def vector(self) -> "RetrievalQueryBuilder":
+    def vector(self) -> RetrievalQueryBuilder:
         return replace(self, mode="vector")
 
-    def bm25(self) -> "RetrievalQueryBuilder":
+    def bm25(self) -> RetrievalQueryBuilder:
         return replace(self, mode="bm25")
 
-    def hybrid(self) -> "RetrievalQueryBuilder":
+    def hybrid(self) -> RetrievalQueryBuilder:
         return replace(self, mode="hybrid")
 
-    def vector_top_k(self, count: int) -> "RetrievalQueryBuilder":
+    def vector_top_k(self, count: int) -> RetrievalQueryBuilder:
         if count <= 0:
             raise ValueError("vector_top_k must be greater than 0")
         return replace(self, vector_top_k_count=count)
 
-    def bm25_top_k(self, count: int) -> "RetrievalQueryBuilder":
+    def bm25_top_k(self, count: int) -> RetrievalQueryBuilder:
         if count <= 0:
             raise ValueError("bm25_top_k must be greater than 0")
         return replace(self, bm25_top_k_count=count)
 
-    def limit(self, count: int) -> "RetrievalQueryBuilder":
+    def limit(self, count: int) -> RetrievalQueryBuilder:
         if count <= 0:
             raise ValueError("limit must be greater than 0")
         return replace(self, limit_count=count)
 
-    def rrf(self, *, k: int) -> "RetrievalQueryBuilder":
+    def rrf(self, *, k: int) -> RetrievalQueryBuilder:
         if k <= 0:
             raise ValueError("rrf k must be greater than 0")
         return replace(self, rrf_k=k)
 
     def rerank(
         self, rerank_client: RerankClient, *, top_n: int | None = None
-    ) -> "RetrievalQueryBuilder":
+    ) -> RetrievalQueryBuilder:
         if top_n is not None and top_n <= 0:
             raise ValueError("rerank top_n must be greater than 0")
         return replace(self, rerank_client=rerank_client, rerank_top_n=top_n)
 
-    def ef(self, ef: int) -> "RetrievalQueryBuilder":
+    def ef(self, ef: int) -> RetrievalQueryBuilder:
         if ef <= 0:
             raise ValueError("ef must be greater than 0")
         return replace(self, ef_search=ef)
 
-    def filter_eq(self, field: str, value: Any) -> "RetrievalQueryBuilder":
+    def filter_eq(self, field: str, value: Any) -> RetrievalQueryBuilder:
         validate_query_filter(self.engine.contract, field, value)
         return replace(self, filters=self.filters + (build_eq_filter(field, value),))
 
-    def filter_in(self, field: str, values: Sequence[Any]) -> "RetrievalQueryBuilder":
+    def filter_in(self, field: str, values: Sequence[Any]) -> RetrievalQueryBuilder:
         values = tuple(values)
         if not values:
             raise ValueError("filter_in requires at least one value")
@@ -97,7 +96,7 @@ class RetrievalQueryBuilder:
 
     def filter_range(
         self, field: str, *, gte: Any | None = None, lte: Any | None = None
-    ) -> "RetrievalQueryBuilder":
+    ) -> RetrievalQueryBuilder:
         if gte is None and lte is None:
             raise ValueError("filter_range requires at least one bound")
         if gte is not None:
@@ -151,9 +150,9 @@ class RetrievalQueryBuilder:
             query_type="vector",
             vector_column_name="vector",
         )
-        vector_builder = vector_builder.distance_type(
-            self.engine.contract.distance_metric
-        ).limit(self.vector_top_k_count)
+        vector_builder = vector_builder.distance_type(self.engine.contract.distance_metric).limit(
+            self.vector_top_k_count
+        )
         if self.ef_search is not None:
             vector_builder = vector_builder.ef(self.ef_search)
 
@@ -168,7 +167,11 @@ class RetrievalQueryBuilder:
             vector_builder = vector_builder.where(where_clause)
             bm25_builder = bm25_builder.where(where_clause)
 
-        logger.info("检索: 执行 LanceDB 查询 vector_top_k={} bm25_top_k={}", self.vector_top_k_count, self.bm25_top_k_count)
+        logger.info(
+            "检索: 执行 LanceDB 查询 vector_top_k={} bm25_top_k={}",
+            self.vector_top_k_count,
+            self.bm25_top_k_count,
+        )
         vector_rows = await vector_builder.to_list()
         bm25_rows = await bm25_builder.to_list()
         logger.info("检索: LanceDB 查询完成 vector={} bm25={}", len(vector_rows), len(bm25_rows))
@@ -178,9 +181,7 @@ class RetrievalQueryBuilder:
 
         # 先将所有候选的 score 统一为归一化 RRF 置信度（0~1）。
         for candidate in ordered:
-            candidate["score"] = normalize_rrf_confidence(
-                candidate["rrf_score"], self.rrf_k
-            )
+            candidate["score"] = normalize_rrf_confidence(candidate["rrf_score"], self.rrf_k)
 
         if self.rerank_client is not None and ordered:
             top_n = min(self.rerank_top_n or len(ordered), len(ordered))
@@ -200,7 +201,4 @@ class RetrievalQueryBuilder:
             tail = [candidate for candidate in ordered if candidate["chunk_id"] not in seen]
             ordered = reranked_order + tail
 
-        return [
-            ChunkSearchResult.model_validate(row)
-            for row in ordered[: self.limit_count]
-        ]
+        return [ChunkSearchResult.model_validate(row) for row in ordered[: self.limit_count]]

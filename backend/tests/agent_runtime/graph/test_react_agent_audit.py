@@ -42,7 +42,7 @@ class _AuditProbe:
 
 
 def _submit_result(result: str) -> str:
-    return "{\"ok\": true}"
+    return '{"ok": true}'
 
 
 async def _async_submit_result(result: str) -> str:
@@ -108,7 +108,7 @@ async def test_react_agent_records_audit_for_model_and_tool_call() -> None:
     )
     config = ReactAgentConfig(
         name="writer",
-            tools=[_submit_tool()],
+        tools=[_submit_tool()],
         termination=TerminationCondition(
             mode="tool_success",
             tool_name="submit_result",
@@ -379,12 +379,15 @@ async def test_react_agent_finishes_audit_when_tool_approval_interrupts() -> Non
     async def _mock_invoke(*args, **kwargs):
         return response
 
-    with patch(
-        "app.agent_runtime.graph.react_agent._invoke_model",
-        side_effect=_mock_invoke,
-    ), patch(
-        "langgraph.types.interrupt",
-        side_effect=GraphInterrupt(()),
+    with (
+        patch(
+            "app.agent_runtime.graph.react_agent._invoke_model",
+            side_effect=_mock_invoke,
+        ),
+        patch(
+            "langgraph.types.interrupt",
+            side_effect=GraphInterrupt(()),
+        ),
     ):
         result = await graph.ainvoke(
             {

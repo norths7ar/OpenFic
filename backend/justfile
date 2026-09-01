@@ -7,12 +7,20 @@ uvicorn_loop_arg := if os() == "windows" { "--loop app.cli:_windows_selector_loo
 help:
     just --list
 
-# Run lint, type checks, and tests.
-check: lint type-check test
+# Run formatting, lint, type, and test checks.
+check: format-check lint type-check test
 
 # Run Ruff lint checks.
 lint:
     uv run ruff check .
+
+# Format Python sources with Ruff.
+format:
+    uv run ruff format .
+
+# Verify Python formatting without changing files.
+format-check:
+    uv run ruff format --check .
 
 # Run ty type checks.
 type-check:

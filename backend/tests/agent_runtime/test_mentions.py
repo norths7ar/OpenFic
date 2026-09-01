@@ -5,8 +5,8 @@ from app.agent_runtime.context.helpers import (
     compile_canonical_mentions,
     parse_canonical_mentions,
 )
-from app.storage.models.character import Character
 from app.storage.models.chapter import Chapter
+from app.storage.models.character import Character
 from app.storage.models.note import Note
 from app.storage.models.project import Project
 from app.storage.models.volume import Volume
@@ -72,9 +72,7 @@ async def _seed_note_world_and_character(session) -> tuple[Note, WorldInfoEntry,
 
 
 def test_parse_canonical_mentions_keeps_text_and_tag_segments():
-    parsed = parse_canonical_mentions(
-        '前文<of-mention chapter_id="chap_1" />后文'
-    )
+    parsed = parse_canonical_mentions('前文<of-mention chapter_id="chap_1" />后文')
 
     assert parsed[0] == "前文"
     assert isinstance(parsed[1], CanonicalMention)
@@ -146,11 +144,7 @@ async def test_compile_canonical_mentions_flattens_multiline_line_range_snapshot
     )
 
     assert compiled == (
-        "\n"
-        "@chapter:修订后第一卷/修订后第二章:15-20\n"
-        "```\n"
-        "第一行 第二行 第三行\n"
-        "```\n"
+        "\n@chapter:修订后第一卷/修订后第二章:15-20\n```\n第一行 第二行 第三行\n```\n"
     )
 
 
@@ -167,12 +161,7 @@ async def test_compile_canonical_mentions_falls_back_to_stored_labels_when_missi
     )
 
     assert compiled == (
-        " @volume:存档卷 \n"
-        " @chapter:存档章节 \n"
-        "@chapter:第二章 3-5:3-5\n"
-        "```\n"
-        "旧快照\n"
-        "```\n"
+        " @volume:存档卷 \n @chapter:存档章节 \n@chapter:第二章 3-5:3-5\n```\n旧快照\n```\n"
     )
 
 
@@ -205,13 +194,7 @@ async def test_compile_canonical_mentions_supports_expanded_note_content(session
         session,
     )
 
-    assert compiled == (
-        "\n"
-        f"@note:{note.title}:2-3\n"
-        "```\n"
-        "设定片段\n"
-        "```\n"
-    )
+    assert compiled == (f"\n@note:{note.title}:2-3\n```\n设定片段\n```\n")
 
 
 @pytest.mark.asyncio
@@ -244,14 +227,16 @@ async def test_compile_canonical_mentions_redacts_unavailable_compact_entries(
         project_id=foreign_project.id,
         name="不应读取的外部角色",
     )
-    session.add_all([
-        project,
-        foreign_project,
-        hidden_note,
-        world_info,
-        disabled_entry,
-        foreign_character,
-    ])
+    session.add_all(
+        [
+            project,
+            foreign_project,
+            hidden_note,
+            world_info,
+            disabled_entry,
+            foreign_character,
+        ]
+    )
     await session.commit()
 
     compiled = await compile_canonical_mentions(

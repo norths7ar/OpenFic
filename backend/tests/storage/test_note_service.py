@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """note_service 服务层测试。"""
 
 import pytest
@@ -62,12 +61,8 @@ async def test_create_notes_and_categories_append_within_each_parent(
 @pytest.mark.asyncio
 async def test_move_note_appends_to_target_category(session: AsyncSession) -> None:
     project = await _create_project(session)
-    source = await note_service.create_category(
-        session, project.id, parent_id=None, title="来源"
-    )
-    target = await note_service.create_category(
-        session, project.id, parent_id=None, title="目标"
-    )
+    source = await note_service.create_category(session, project.id, parent_id=None, title="来源")
+    target = await note_service.create_category(session, project.id, parent_id=None, title="目标")
     existing = await note_service.create_note(
         session, project.id, category_id=target.id, title="目标已有"
     )
@@ -87,9 +82,7 @@ async def test_locked_note_blocks_content_move_and_delete_but_allows_visibility(
     session: AsyncSession,
 ) -> None:
     project = await _create_project(session)
-    target = await note_service.create_category(
-        session, project.id, parent_id=None, title="目标"
-    )
+    target = await note_service.create_category(session, project.id, parent_id=None, title="目标")
     note = await note_service.create_note(
         session, project.id, category_id=None, title="锁定笔记", content="原文"
     )
@@ -102,18 +95,14 @@ async def test_locked_note_blocks_content_move_and_delete_but_allows_visibility(
     with pytest.raises(ConflictError, match="已锁定"):
         await note_service.delete_note(session, note.id)
 
-    updated = await note_service.update_note(
-        session, note.id, is_writing_visible=False
-    )
+    updated = await note_service.update_note(session, note.id, is_writing_visible=False)
     assert updated.is_writing_visible is False
 
 
 @pytest.mark.asyncio
 async def test_create_note_in_first_level_category(session: AsyncSession) -> None:
     project = await _create_project(session)
-    cat = await note_service.create_category(
-        session, project.id, parent_id=None, title="一级分类"
-    )
+    cat = await note_service.create_category(session, project.id, parent_id=None, title="一级分类")
     note = await note_service.create_note(
         session, project.id, category_id=cat.id, title="子笔记", content=""
     )
@@ -123,9 +112,7 @@ async def test_create_note_in_first_level_category(session: AsyncSession) -> Non
 @pytest.mark.asyncio
 async def test_create_note_in_second_level_category(session: AsyncSession) -> None:
     project = await _create_project(session)
-    parent = await note_service.create_category(
-        session, project.id, parent_id=None, title="一级"
-    )
+    parent = await note_service.create_category(session, project.id, parent_id=None, title="一级")
     child = await note_service.create_category(
         session, project.id, parent_id=parent.id, title="二级"
     )
@@ -138,24 +125,18 @@ async def test_create_note_in_second_level_category(session: AsyncSession) -> No
 @pytest.mark.asyncio
 async def test_create_category_third_level_rejected(session: AsyncSession) -> None:
     project = await _create_project(session)
-    parent = await note_service.create_category(
-        session, project.id, parent_id=None, title="一级"
-    )
+    parent = await note_service.create_category(session, project.id, parent_id=None, title="一级")
     child = await note_service.create_category(
         session, project.id, parent_id=parent.id, title="二级"
     )
     with pytest.raises(ValueError, match="层级不能超过两级"):
-        await note_service.create_category(
-            session, project.id, parent_id=child.id, title="三级"
-        )
+        await note_service.create_category(session, project.id, parent_id=child.id, title="三级")
 
 
 @pytest.mark.asyncio
 async def test_move_category_self_reference_rejected(session: AsyncSession) -> None:
     project = await _create_project(session)
-    cat = await note_service.create_category(
-        session, project.id, parent_id=None, title="分类A"
-    )
+    cat = await note_service.create_category(session, project.id, parent_id=None, title="分类A")
     with pytest.raises(ValueError, match="自身或其后代"):
         await note_service.move_item(session, "category", cat.id, cat.id)
 
@@ -165,12 +146,8 @@ async def test_move_category_descendant_reference_rejected(
     session: AsyncSession,
 ) -> None:
     project = await _create_project(session)
-    parent = await note_service.create_category(
-        session, project.id, parent_id=None, title="父"
-    )
-    child = await note_service.create_category(
-        session, project.id, parent_id=parent.id, title="子"
-    )
+    parent = await note_service.create_category(session, project.id, parent_id=None, title="父")
+    child = await note_service.create_category(session, project.id, parent_id=parent.id, title="子")
     with pytest.raises(ValueError, match="自身或其后代"):
         await note_service.move_item(session, "category", parent.id, child.id)
 
@@ -178,9 +155,7 @@ async def test_move_category_descendant_reference_rejected(
 @pytest.mark.asyncio
 async def test_move_category_second_level_to_root(session: AsyncSession) -> None:
     project = await _create_project(session)
-    parent = await note_service.create_category(
-        session, project.id, parent_id=None, title="一级"
-    )
+    parent = await note_service.create_category(session, project.id, parent_id=None, title="一级")
     child = await note_service.create_category(
         session, project.id, parent_id=parent.id, title="二级"
     )
@@ -202,9 +177,7 @@ async def test_hidden_notes_not_returned_in_list_notes_tool_mode(
     )
     session.add(hidden_note)
     await session.flush()
-    visible_notes = await note_repo.list_by_project(
-        session, project.id, include_hidden=False
-    )
+    visible_notes = await note_repo.list_by_project(session, project.id, include_hidden=False)
     assert all(n.is_hidden is False for n in visible_notes)
 
 

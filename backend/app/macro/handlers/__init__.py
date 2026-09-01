@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Macro Handlers - 宏处理器。
 """

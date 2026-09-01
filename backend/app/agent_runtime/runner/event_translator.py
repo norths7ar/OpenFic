@@ -3,7 +3,6 @@ from langgraph.errors import GraphInterrupt
 
 from app.agent_runtime.content_blocks import extract_reasoning_content, extract_text_content
 from app.agent_runtime.runner.event_scope import is_subagent_child_event
-from app.agent_runtime.tools.errors import tool_failure_from_error
 from app.agent_runtime.tool_call_recovery import (
     build_malformed_tool_call_error,
     is_malformed_tool_call,
@@ -11,6 +10,7 @@ from app.agent_runtime.tool_call_recovery import (
     synthesize_tool_call_id,
     tool_call_input,
 )
+from app.agent_runtime.tools.errors import tool_failure_from_error
 
 
 class EventTranslator:
@@ -25,10 +25,7 @@ class EventTranslator:
         self._streaming_tool_calls: dict[tuple[str, int], dict[str, str]] = {}
 
     def translate(self, event: dict) -> dict | list[dict] | None:
-        if (
-            is_subagent_child_event(event)
-            and not self._allow_subagent_child_events
-        ):
+        if is_subagent_child_event(event) and not self._allow_subagent_child_events:
             return None
 
         kind = event.get("event")
@@ -147,9 +144,7 @@ class EventTranslator:
 
         return None
 
-    def _extract_streaming_tool_call_events(
-        self, event: dict, chunk: object | None
-    ) -> list[dict]:
+    def _extract_streaming_tool_call_events(self, event: dict, chunk: object | None) -> list[dict]:
         if chunk is None:
             return []
 
@@ -233,9 +228,7 @@ class EventTranslator:
 
     def _clear_streaming_tool_calls(self, run_id: object) -> None:
         normalized_run_id = str(run_id or "default")
-        for key in [
-            key for key in self._streaming_tool_calls if key[0] == normalized_run_id
-        ]:
+        for key in [key for key in self._streaming_tool_calls if key[0] == normalized_run_id]:
             del self._streaming_tool_calls[key]
 
     @staticmethod
@@ -278,9 +271,7 @@ class EventTranslator:
 
         response_metadata = getattr(output, "response_metadata", None)
         if isinstance(response_metadata, dict):
-            metadata_usage = response_metadata.get("usage") or response_metadata.get(
-                "token_usage"
-            )
+            metadata_usage = response_metadata.get("usage") or response_metadata.get("token_usage")
             if isinstance(metadata_usage, dict) and metadata_usage:
                 return dict(metadata_usage)
             if metadata_usage is not None and hasattr(metadata_usage, "items"):

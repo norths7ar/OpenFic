@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 PromptChain API Schemas - 提示词链请求/响应模型。
 """

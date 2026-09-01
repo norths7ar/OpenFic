@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 ModelProvider API Tests - 模型服务提供商 API 测试。
 """
@@ -55,9 +54,7 @@ async def test_create_custom_provider_persists_encrypted_headers(
             "url": "https://gateway.example/v1",
             "api_key": "test-key",
             "provider_type": "openai-compatible",
-            "custom_headers": json.dumps(
-                [{"key": "X-Provider-Token", "value": "custom-token"}]
-            ),
+            "custom_headers": json.dumps([{"key": "X-Provider-Token", "value": "custom-token"}]),
         },
     )
 
@@ -99,11 +96,7 @@ async def test_update_custom_provider_headers_preserves_unchanged_values(
 
     update_response = await client.put(
         f"/api/v1/model-providers/{provider_id}",
-        data={
-            "custom_headers": json.dumps(
-                [{"key": "X-Provider-Token", "value": ""}]
-            )
-        },
+        data={"custom_headers": json.dumps([{"key": "X-Provider-Token", "value": ""}])},
     )
 
     assert update_response.status_code == 200
@@ -227,9 +220,7 @@ async def test_openai_compatible_provider_matches_non_default_catalog_provider_b
 
 @pytest.mark.asyncio
 @pytest.mark.asyncio
-async def test_create_provider_ignores_uploaded_icon(
-    client: AsyncClient, session: AsyncSession
-):
+async def test_create_provider_ignores_uploaded_icon(client: AsyncClient, session: AsyncSession):
     response = await client.post(
         "/api/v1/model-providers",
         data={
@@ -264,9 +255,7 @@ async def test_update_provider(client: AsyncClient, session: AsyncSession):
     await session.commit()
 
     update_data = {"name": "New Name"}
-    response = await client.put(
-        f"/api/v1/model-providers/{provider.id}", data=update_data
-    )
+    response = await client.put(f"/api/v1/model-providers/{provider.id}", data=update_data)
     assert response.status_code == 200
 
     data = response.json()
@@ -301,9 +290,7 @@ async def test_delete_provider(client: AsyncClient, session: AsyncSession):
 
 @pytest.mark.asyncio
 @respx.mock
-async def test_validate_provider_invalid_credentials(
-    client: AsyncClient, session: AsyncSession
-):
+async def test_validate_provider_invalid_credentials(client: AsyncClient, session: AsyncSession):
     """测试验证提供商连接（无效凭据）。"""
     respx.get("https://api.openai.com/v1/models").mock(
         return_value=httpx.Response(401, json={"error": {"message": "Invalid API key"}})
@@ -348,9 +335,7 @@ async def test_validate_anthropic_compatible_provider_discovers_models(
             "provider_type": "anthropic-compatible",
             "url": "https://gateway.example/v1",
             "api_key": "test-key",
-            "custom_headers": [
-                {"key": "X-Provider-Token", "value": "custom-token"}
-            ],
+            "custom_headers": [{"key": "X-Provider-Token", "value": "custom-token"}],
         },
     )
 
@@ -390,9 +375,7 @@ async def test_validate_openai_responses_compatible_provider_discovers_models(
             "provider_type": "openai-compatible-responses",
             "url": "https://gateway.example",
             "api_key": "test-key",
-            "custom_headers": [
-                {"key": "X-Provider-Token", "value": "custom-token"}
-            ],
+            "custom_headers": [{"key": "X-Provider-Token", "value": "custom-token"}],
         },
     )
 
@@ -476,9 +459,7 @@ async def test_create_openrouter_provider(client: AsyncClient, session: AsyncSes
 
 
 @pytest.mark.asyncio
-async def test_get_openrouter_provider_models(
-    client: AsyncClient, session: AsyncSession
-):
+async def test_get_openrouter_provider_models(client: AsyncClient, session: AsyncSession):
     """测试获取 OpenRouter 提供商的模型列表。"""
     from app.core.encryption import EncryptionService
     from app.settings import settings
@@ -505,5 +486,3 @@ async def test_get_openrouter_provider_models(
     assert "message" in data
     assert "models" in data
     assert isinstance(data["models"], list)
-
-

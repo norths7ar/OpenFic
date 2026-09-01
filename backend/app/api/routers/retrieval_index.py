@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Project chapter retrieval index APIs."""
 
 from typing import Annotated
@@ -6,13 +5,13 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.agent_settings_lock import require_agent_settings_unlocked
 from app.api.schemas.retrieval_index import (
     IndexOverallStatusResponse,
     IndexProjectStatusResponse,
     IndexStartResponse,
     IndexStopResponse,
 )
-from app.api.agent_settings_lock import require_agent_settings_unlocked
 from app.background.jobs import service as background_service
 from app.background.jobs.constants import JOB_TYPE_RETRIEVAL_CHAPTER_INDEX_BATCH
 from app.background.jobs.states import JOB_STATUS_PENDING, JOB_STATUS_RUNNING

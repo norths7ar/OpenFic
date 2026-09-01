@@ -1,8 +1,7 @@
-# -*- coding: utf-8 -*-
 """SkillReferenceDoc Service - 参考文档业务逻辑层。"""
 
-from datetime import UTC, datetime
 from collections.abc import Sequence
+from datetime import UTC, datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Prompt Chain Compiler - 提示词链编译器。
 

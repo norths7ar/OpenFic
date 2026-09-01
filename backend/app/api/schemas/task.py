@@ -1,10 +1,10 @@
-# -*- coding: utf-8 -*-
 """
 Task API Schemas - 任务请求/响应模型。
 """
 
 from datetime import datetime
 from typing import Literal
+
 from pydantic import BaseModel, Field
 
 from app.agent_runtime.modes import AgentMode
@@ -53,7 +53,9 @@ class TaskResponse(BaseModel):
     token_cache: int = Field(default=0, description="缓存命中 token 总数")
     context_input_tokens: int = Field(default=0, description="上一次 API 调用的输入 token 数")
     cost: float = Field(default=0.0, description="累计费用（美元）")
-    current_revision_id: str | None = Field(default=None, description="当前用户消息checkpoint对应的revision ID")
+    current_revision_id: str | None = Field(
+        default=None, description="当前用户消息checkpoint对应的revision ID"
+    )
     current_message_id: str | None = Field(default=None, description="当前最新用户消息 ID")
     agent_session_id: str | None = Field(default=None, description="Agent会话ID")
     is_imported_archive: bool = Field(default=False)

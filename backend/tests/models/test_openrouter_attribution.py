@@ -7,7 +7,6 @@ from app.models.clients.embedding_client import EmbeddingClient, EmbeddingConfig
 from app.models.clients.model_factory import ModelConfig, create_chat_model
 from app.models.clients.rerank_client import RerankClient, RerankConfig
 
-
 _APP_ATTRIBUTION_HEADERS = {
     "HTTP-Referer": "https://github.com/syrizelink/OpenFic",
     "X-OpenRouter-Title": "OpenFic",

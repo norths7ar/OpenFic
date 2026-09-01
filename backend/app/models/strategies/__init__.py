@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Strategies Module - 策略模块。
 """

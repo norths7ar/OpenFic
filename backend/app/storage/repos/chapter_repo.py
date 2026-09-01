@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Chapter Repository - 章节数据访问层。
 """
@@ -6,8 +5,8 @@ Chapter Repository - 章节数据访问层。
 from datetime import UTC, datetime
 from typing import Any, Literal, NamedTuple, cast
 
-from sqlalchemy import case, delete as sql_delete
-from sqlalchemy import func, or_, select, update
+from sqlalchemy import case, func, or_, select, update
+from sqlalchemy import delete as sql_delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import QueryableAttribute, load_only
 from sqlmodel import col
@@ -99,9 +98,7 @@ async def get_by_ids(session: AsyncSession, chapter_ids: list[str]) -> list[Chap
     """根据 ID 列表批量获取章节。"""
     if not chapter_ids:
         return []
-    result = await session.execute(
-        select(Chapter).where(col(Chapter.id).in_(chapter_ids))
-    )
+    result = await session.execute(select(Chapter).where(col(Chapter.id).in_(chapter_ids)))
     return list(result.scalars().all())
 
 
@@ -155,9 +152,7 @@ async def get_by_volume_ref(
     if ref_type == "order":
         stmt = stmt.where(col(Chapter.order) == int(ref_value))
     else:
-        stmt = stmt.where(col(Chapter.title) == str(ref_value)).order_by(
-            col(Chapter.order).asc()
-        )
+        stmt = stmt.where(col(Chapter.title) == str(ref_value)).order_by(col(Chapter.order).asc())
     result = await session.execute(stmt.limit(1))
     return result.scalar_one_or_none()
 
@@ -174,8 +169,7 @@ async def list_index_source_by_project(
         .order_by(col(Volume.order).asc(), col(Chapter.order).asc())
     )
     return [
-        ChapterIndexSource(project_id, chapter_id, content)
-        for chapter_id, content in result.all()
+        ChapterIndexSource(project_id, chapter_id, content) for chapter_id, content in result.all()
     ]
 
 
@@ -396,9 +390,7 @@ async def get_total_word_count(session: AsyncSession, project_id: str) -> int:
         总字数。
     """
     result = await session.execute(
-        select(func.sum(col(Chapter.word_count))).where(
-            col(Chapter.project_id) == project_id
-        )
+        select(func.sum(col(Chapter.word_count))).where(col(Chapter.project_id) == project_id)
     )
     total = result.scalar_one_or_none()
     return total if total is not None else 0
@@ -435,9 +427,7 @@ async def delete(session: AsyncSession, chapter: Chapter) -> None:
 
 async def delete_by_volume(session: AsyncSession, volume_id: str) -> None:
     """删除卷内全部章节。"""
-    await session.execute(
-        sql_delete(Chapter).where(col(Chapter.volume_id) == volume_id)
-    )
+    await session.execute(sql_delete(Chapter).where(col(Chapter.volume_id) == volume_id))
     await session.flush()
 
 
@@ -524,9 +514,7 @@ async def delete_by_project(session: AsyncSession, project_id: str) -> None:
         session: 数据库 session。
         project_id: 项目 ID。
     """
-    await session.execute(
-        sql_delete(Chapter).where(col(Chapter.project_id) == project_id)
-    )
+    await session.execute(sql_delete(Chapter).where(col(Chapter.project_id) == project_id))
     await session.flush()
 
 

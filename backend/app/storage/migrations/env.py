@@ -1,15 +1,7 @@
-from sqlalchemy import engine_from_config
-from sqlalchemy import pool
-
 from alembic import context
-
-from app.logging import configure_standard_logging
-# 导入应用配置和模型
-from app.settings import settings
+from sqlalchemy import engine_from_config, pool
 from sqlmodel import SQLModel
 
-# 注册所有表到 SQLModel.metadata 用于 autogenerate
-from app.storage.models import *  # noqa: F401, F403
 # agent_runtime 中还有部分模型未包含在 app.storage.models 中
 from app.agent_runtime.persistence.model import (  # noqa: F401, F403
     AgentChildRun,
@@ -18,6 +10,13 @@ from app.agent_runtime.persistence.model import (  # noqa: F401, F403
     PlanRecord,
     PlanTodoRecord,
 )
+from app.logging import configure_standard_logging
+
+# 导入应用配置和模型
+from app.settings import settings
+
+# 注册所有表到 SQLModel.metadata 用于 autogenerate
+from app.storage.models.registry import *  # noqa: F401, F403
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -79,9 +78,7 @@ def run_migrations_online() -> None:
     )
 
     with connectable.connect() as connection:
-        context.configure(
-            connection=connection, target_metadata=target_metadata
-        )
+        context.configure(connection=connection, target_metadata=target_metadata)
 
         with context.begin_transaction():
             context.run_migrations()

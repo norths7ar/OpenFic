@@ -1,9 +1,10 @@
 from types import SimpleNamespace
-from unittest.mock import patch, AsyncMock
+from unittest.mock import AsyncMock, patch
+
 import pytest
 
 from app.agent_runtime.context.parts.system_prompt import build_system_prompt
-from app.macro.compiler import CompileResult, CompiledEntry
+from app.macro.compiler import CompiledEntry, CompileResult
 
 
 @pytest.mark.asyncio
@@ -26,12 +27,13 @@ async def test_system_prompt_compiles_and_preserves_entry_roles(make_state, mock
         total_tokens=14,
     )
 
-    with patch(
-        "app.agent_runtime.context.parts.system_prompt.prompt_chain_service.get_latest_version_with_entries_or_default",
-        AsyncMock(return_value=version),
-    ), patch(
-        "app.agent_runtime.context.parts.system_prompt.PromptChainCompiler"
-    ) as MockCompiler:
+    with (
+        patch(
+            "app.agent_runtime.context.parts.system_prompt.prompt_chain_service.get_latest_version_with_entries_or_default",
+            AsyncMock(return_value=version),
+        ),
+        patch("app.agent_runtime.context.parts.system_prompt.PromptChainCompiler") as MockCompiler,
+    ):
         instance = MockCompiler.return_value
         instance.compile = AsyncMock(return_value=compile_result)
         messages = await build_system_prompt(state, "writer", mock_session)
@@ -40,7 +42,11 @@ async def test_system_prompt_compiles_and_preserves_entry_roles(make_state, mock
     assert "chapter_order" not in instance.compile.await_args.kwargs
     assert messages is not None
     assert [message.role for message in messages] == ["system", "user", "assistant"]
-    assert [message.content for message in messages] == ["角色：作家", "先给出章节目标", "已理解目标"]
+    assert [message.content for message in messages] == [
+        "角色：作家",
+        "先给出章节目标",
+        "已理解目标",
+    ]
     assert all(message.metadata == {"part": "system_prompt"} for message in messages)
 
 
@@ -62,9 +68,7 @@ async def test_system_prompt_loads_agent_prompt_chain_key(make_state, mock_sessi
 
 
 @pytest.mark.asyncio
-async def test_system_prompt_loads_discuss_builtin_prompt_chain_key(
-    make_state, mock_session
-):
+async def test_system_prompt_loads_discuss_builtin_prompt_chain_key(make_state, mock_session):
     state = make_state()
     version = SimpleNamespace(version=SimpleNamespace(id="v1"), entries=[])
 
@@ -81,9 +85,7 @@ async def test_system_prompt_loads_discuss_builtin_prompt_chain_key(
 
 
 @pytest.mark.asyncio
-async def test_system_prompt_loads_draft_builtin_prompt_chain_key(
-    make_state, mock_session
-):
+async def test_system_prompt_loads_draft_builtin_prompt_chain_key(make_state, mock_session):
     state = make_state()
     version = SimpleNamespace(version=SimpleNamespace(id="v1"), entries=[])
 
@@ -114,16 +116,19 @@ async def test_system_prompt_skips_disabled_entries(make_state, mock_session):
     async def _capture(entries, **kwargs):
         captured_entries.extend(entries)
         return CompileResult(
-            entries=[CompiledEntry(role="system", content=e.content, token_count=1) for e in entries],
+            entries=[
+                CompiledEntry(role="system", content=e.content, token_count=1) for e in entries
+            ],
             total_tokens=2,
         )
 
-    with patch(
-        "app.agent_runtime.context.parts.system_prompt.prompt_chain_service.get_latest_version_with_entries_or_default",
-        AsyncMock(return_value=version),
-    ), patch(
-        "app.agent_runtime.context.parts.system_prompt.PromptChainCompiler"
-    ) as MockCompiler:
+    with (
+        patch(
+            "app.agent_runtime.context.parts.system_prompt.prompt_chain_service.get_latest_version_with_entries_or_default",
+            AsyncMock(return_value=version),
+        ),
+        patch("app.agent_runtime.context.parts.system_prompt.PromptChainCompiler") as MockCompiler,
+    ):
         instance = MockCompiler.return_value
         instance.compile = AsyncMock(side_effect=_capture)
         await build_system_prompt(state, "writer", mock_session)
@@ -134,6 +139,7 @@ async def test_system_prompt_skips_disabled_entries(make_state, mock_session):
 @pytest.mark.asyncio
 async def test_system_prompt_compiler_failure_raises(make_state, mock_session):
     from app.agent_runtime.context.errors import ContextBuildError
+
     state = make_state()
     version = SimpleNamespace(
         version=SimpleNamespace(id="v1"),
@@ -141,12 +147,13 @@ async def test_system_prompt_compiler_failure_raises(make_state, mock_session):
             SimpleNamespace(role="system", content="A", order_index=0, is_enabled=True),
         ],
     )
-    with patch(
-        "app.agent_runtime.context.parts.system_prompt.prompt_chain_service.get_latest_version_with_entries_or_default",
-        AsyncMock(return_value=version),
-    ), patch(
-        "app.agent_runtime.context.parts.system_prompt.PromptChainCompiler"
-    ) as MockCompiler:
+    with (
+        patch(
+            "app.agent_runtime.context.parts.system_prompt.prompt_chain_service.get_latest_version_with_entries_or_default",
+            AsyncMock(return_value=version),
+        ),
+        patch("app.agent_runtime.context.parts.system_prompt.PromptChainCompiler") as MockCompiler,
+    ):
         instance = MockCompiler.return_value
         instance.compile = AsyncMock(side_effect=RuntimeError("boom"))
         with pytest.raises(ContextBuildError) as exc_info:

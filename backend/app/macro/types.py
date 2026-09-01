@@ -1,14 +1,13 @@
-# -*- coding: utf-8 -*-
 """
 Macro Types - 宏类型定义。
 """
 
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 
-class TokenType(str, Enum):
+class TokenType(StrEnum):
     """宏参数 Token 类型。"""
 
     IDENTIFIER = "identifier"

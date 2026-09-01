@@ -35,7 +35,11 @@ async def skill_tool_names_for_definition(
     ):
         return ()
 
-    if allow_runtime_skill_references and not definition.enabled_skills and not normalized_references:
+    if (
+        allow_runtime_skill_references
+        and not definition.enabled_skills
+        and not normalized_references
+    ):
         return SKILL_TOOL_NAMES
 
     available = []
@@ -155,9 +159,7 @@ class ReferenceSkillTool(AgentTool):
         doc = next((d for d in docs if d.title == normalized_ref), None)
         if doc is None:
             available = ", ".join(d.title for d in docs if d.title) or "无"
-            raise ToolExecutionError(
-                f"参考文档不存在: {normalized_ref}（可用: {available}）"
-            )
+            raise ToolExecutionError(f"参考文档不存在: {normalized_ref}（可用: {available}）")
 
         body = (doc.content or "").strip()
         return (

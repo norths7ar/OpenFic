@@ -45,7 +45,9 @@ class EditCharacterInput(BaseModel):
     name: str = Field(description="要编辑的角色名称")
     new_name: str | None = Field(default=None, description="可选的新角色名称")
     old_description: str | None = Field(default=None, description="要查找并替换的原始描述文本")
-    new_description: str | None = Field(default=None, description="用于替换 old_description 的新描述文本")
+    new_description: str | None = Field(
+        default=None, description="用于替换 old_description 的新描述文本"
+    )
     replace_all: bool = Field(default=False, description="是否替换命中的全部 old_description")
 
     @field_validator("old_description", mode="after")
@@ -89,8 +91,7 @@ def _format_content_with_line_numbers(content: str) -> str:
     if not content:
         return ""
     return "\n".join(
-        f"{line_number}|{line}"
-        for line_number, line in enumerate(content.splitlines(), start=1)
+        f"{line_number}|{line}" for line_number, line in enumerate(content.splitlines(), start=1)
     )
 
 
@@ -134,7 +135,11 @@ def _build_character_diff(
         lines = _diff_lines(before.description, None)
     else:
         operation = "edit"
-        lines = _diff_lines(before.description, after.description) if before.description != after.description else []
+        lines = (
+            _diff_lines(before.description, after.description)
+            if before.description != after.description
+            else []
+        )
     return {
         "operation": operation,
         "character_name": target.name,
@@ -222,8 +227,7 @@ class ListCharactersTool(AgentTool):
             return json.dumps(
                 {
                     "characters": [
-                        {"id": character.id, "name": character.name}
-                        for character in characters
+                        {"id": character.id, "name": character.name} for character in characters
                     ]
                 },
                 ensure_ascii=False,
@@ -365,7 +369,9 @@ class EditCharacterTool(AgentTool):
             description = before.description
             if old_description is not None and new_description is not None:
                 replace_result = fuzzy_replace(
-                    description, old_description, new_description,
+                    description,
+                    old_description,
+                    new_description,
                     replace_all=bool(args.get("replace_all")),
                 )
                 if replace_result is None:
@@ -419,7 +425,9 @@ class EditCharacterTool(AgentTool):
                 description = character.description
                 if old_description is not None and new_description is not None:
                     replace_result = fuzzy_replace(
-                        description, old_description, new_description,
+                        description,
+                        old_description,
+                        new_description,
                         replace_all=replace_all,
                     )
                     if replace_result is None:

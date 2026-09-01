@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 创建新笔记。
 """
@@ -8,21 +7,21 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from app.agent_runtime.tools.base import AgentTool
-from app.core.editor_content_limits import EditorContentLimitError, validate_editor_content
 from app.agent_runtime.revisions import (
     current_revision_id_from_state,
     note_images_by_id,
     record_note_diffs,
 )
+from app.agent_runtime.tools.base import AgentTool
 from app.agent_runtime.tools.errors import ToolExecutionError
+from app.agent_runtime.tools.impls._locks import keyed_lock
 from app.agent_runtime.tools.impls.note.refs import (
     CategoryRef,
     generate_unique_title,
     resolve_category_from_list,
 )
-from app.agent_runtime.tools.impls._locks import keyed_lock
 from app.agent_runtime.tools.registry import ToolRegistry
+from app.core.editor_content_limits import EditorContentLimitError, validate_editor_content
 from app.storage.database import create_session
 from app.storage.models.note import Note
 from app.storage.repos import note_category_repo, note_repo
@@ -122,9 +121,7 @@ class WriteNoteTool(AgentTool):
                     if cat is None:
                         raise ToolExecutionError(f"分类不存在: {ref.id}")
                 else:
-                    cats = await note_category_repo.list_by_project(
-                        session, self.project_id
-                    )
+                    cats = await note_category_repo.list_by_project(session, self.project_id)
                     cat = resolve_category_from_list(cats, ref)
                 if cat.project_id != self.project_id:
                     raise ToolExecutionError("目标分类不属于当前项目")
@@ -134,19 +131,18 @@ class WriteNoteTool(AgentTool):
                 notes = await note_repo.list_by_project(
                     session, self.project_id, include_hidden=False
                 )
-                sibling_titles = {
-                    n.title for n in notes if n.category_id == category_id
-                }
+                sibling_titles = {n.title for n in notes if n.category_id == category_id}
                 unique_title = generate_unique_title(title, sibling_titles)
-                next_order = max(
-                    (note.order for note in notes if note.category_id == category_id),
-                    default=0,
-                ) + 1
+                next_order = (
+                    max(
+                        (note.order for note in notes if note.category_id == category_id),
+                        default=0,
+                    )
+                    + 1
+                )
 
                 before = note_images_by_id(
-                    await note_repo.list_by_project(
-                        session, self.project_id, include_hidden=True
-                    )
+                    await note_repo.list_by_project(session, self.project_id, include_hidden=True)
                 )
                 note = Note(
                     project_id=self.project_id,
@@ -160,9 +156,7 @@ class WriteNoteTool(AgentTool):
                 )
                 note = await note_repo.create(session, note)
                 after = note_images_by_id(
-                    await note_repo.list_by_project(
-                        session, self.project_id, include_hidden=True
-                    )
+                    await note_repo.list_by_project(session, self.project_id, include_hidden=True)
                 )
                 await record_note_diffs(
                     session,

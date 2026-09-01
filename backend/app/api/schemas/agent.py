@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Agent API Schemas。
 """
@@ -11,6 +10,7 @@ from pydantic import BaseModel, Field
 from app.agent_runtime.types import DEFAULT_AGENT_MAX_ITERATIONS
 from app.api.schemas.task import TaskMessage
 from app.models.clients.model_params import ReasoningEffort
+
 
 class AgentSessionCreateRequest(BaseModel):
     """创建 Agent 会话请求。"""
@@ -133,7 +133,9 @@ class AgentQuestionAnswerRequest(BaseModel):
     """提交 Agent 澄清问题回答请求。"""
 
     action_id: str = Field(..., description="澄清请求ID")
-    answer: list["AgentQuestionAnswerItem"] = Field(default_factory=list, description="澄清问题回答")
+    answer: list["AgentQuestionAnswerItem"] = Field(
+        default_factory=list, description="澄清问题回答"
+    )
     skipped: bool = Field(default=False, description="是否忽略本次提问")
 
 
@@ -264,12 +266,8 @@ class AgentRollbackResponse(BaseModel):
     success: bool = Field(..., description="是否成功")
     session_id: str = Field(..., description="会话ID")
     revision_id: str | None = Field(None, description="rollback revision ID")
-    affected_chapters: list[str] = Field(
-        default_factory=list, description="受影响的章节ID列表"
-    )
-    affected_notes: list[str] = Field(
-        default_factory=list, description="受影响的笔记ID列表"
-    )
+    affected_chapters: list[str] = Field(default_factory=list, description="受影响的章节ID列表")
+    affected_notes: list[str] = Field(default_factory=list, description="受影响的笔记ID列表")
     affected_note_categories: list[str] = Field(
         default_factory=list, description="受影响的笔记分类ID列表"
     )

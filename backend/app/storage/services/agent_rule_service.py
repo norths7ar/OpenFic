@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """AgentRule Service - 规则业务逻辑层。"""
 
 from dataclasses import dataclass

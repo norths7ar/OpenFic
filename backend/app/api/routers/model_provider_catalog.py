@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Model provider catalog API."""
 
 from typing import Annotated
@@ -41,8 +40,8 @@ async def get_catalog_provider_models(
 ) -> CatalogProviderModelsResponse:
     try:
         return await service.get_provider_models(provider_type, task_type)
-    except KeyError:
+    except KeyError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Catalog provider '{provider_type}' not found",
-        )
+        ) from exc

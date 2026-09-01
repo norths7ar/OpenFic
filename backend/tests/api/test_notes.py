@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Note API 端点测试。"""
 
 import pytest
@@ -419,9 +418,7 @@ async def test_mentions_hidden_note_absent(client: AsyncClient) -> None:
     )
     assert resp.status_code == 200
     items = resp.json()["items"]
-    assert not any(
-        item["kind"] == "note" and item["title"] == "隐藏笔记" for item in items
-    )
+    assert not any(item["kind"] == "note" and item["title"] == "隐藏笔记" for item in items)
 
 
 @pytest.mark.asyncio
@@ -459,10 +456,7 @@ async def test_mentions_includes_note_category_kind(client: AsyncClient) -> None
     )
     assert resp.status_code == 200
     items = resp.json()["items"]
-    assert any(
-        item["kind"] == "note_category" and item["title"] == "世界观设定"
-        for item in items
-    )
+    assert any(item["kind"] == "note_category" and item["title"] == "世界观设定" for item in items)
 
 
 @pytest.mark.asyncio
@@ -506,8 +500,7 @@ async def test_mentions_include_world_info_entry_and_character(client: AsyncClie
     assert entry_search.status_code == 200
     entry_items = entry_search.json()["items"]
     assert any(
-        item["kind"] == "world_info_entry" and item["title"] == "帝国设定"
-        for item in entry_items
+        item["kind"] == "world_info_entry" and item["title"] == "帝国设定" for item in entry_items
     )
 
     character_search = await client.get(
@@ -516,10 +509,7 @@ async def test_mentions_include_world_info_entry_and_character(client: AsyncClie
     )
     assert character_search.status_code == 200
     character_items = character_search.json()["items"]
-    assert any(
-        item["kind"] == "character" and item["title"] == "林夏"
-        for item in character_items
-    )
+    assert any(item["kind"] == "character" and item["title"] == "林夏" for item in character_items)
 
 
 @pytest.mark.asyncio

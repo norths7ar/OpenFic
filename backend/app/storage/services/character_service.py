@@ -115,9 +115,7 @@ async def list_characters_by_project(
     return await character_repo.list_all_by_project(session, project_id)
 
 
-async def reorder_characters(
-    session: AsyncSession, project_id: str, ordered_ids: list[str]
-) -> int:
+async def reorder_characters(session: AsyncSession, project_id: str, ordered_ids: list[str]) -> int:
     project = await project_repo.get_by_id(session, project_id)
     if project is None:
         raise NotFoundError(f"项目不存在: {project_id}")
@@ -152,9 +150,7 @@ async def search_characters(
     if not stripped_query:
         return CharacterSearchResponse(results=[], total_characters=0, total_matches=0)
 
-    characters = await character_repo.search_by_project(
-        session, project_id, stripped_query
-    )
+    characters = await character_repo.search_by_project(session, project_id, stripped_query)
     lower_query = stripped_query.lower()
     results: list[CharacterSearchResult] = []
     total_matches = 0
@@ -163,14 +159,10 @@ async def search_characters(
         matches: list[CharacterSearchMatch] = []
         for line_number, line in enumerate(character.description.split("\n"), start=1):
             if lower_query in line.lower():
-                matches.append(
-                    CharacterSearchMatch(line_number=line_number, line_text=line)
-                )
+                matches.append(CharacterSearchMatch(line_number=line_number, line_text=line))
 
         if lower_query in character.name.lower():
-            matches.insert(
-                0, CharacterSearchMatch(line_number=0, line_text=character.name)
-            )
+            matches.insert(0, CharacterSearchMatch(line_number=0, line_text=character.name))
 
         if matches:
             results.append(
@@ -260,12 +252,8 @@ async def batch_delete_characters(
     if project is None:
         raise NotFoundError(f"项目不存在: {project_id}")
 
-    characters = await character_repo.list_by_project_and_ids(
-        session, project_id, character_ids
-    )
-    deleted_count = await character_repo.batch_delete(
-        session, project_id, character_ids
-    )
+    characters = await character_repo.list_by_project_and_ids(session, project_id, character_ids)
+    deleted_count = await character_repo.batch_delete(session, project_id, character_ids)
     for character in characters:
         if character.image_path:
             delete_character_image(character.image_path)

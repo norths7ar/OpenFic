@@ -85,8 +85,4 @@ class ReadChapterSummariesTool(AgentTool):
 
         chapters = await chapter_repo.list_by_project(session, self.project_id)
         chapter_by_order = {chapter.order: chapter for chapter in chapters}
-        return [
-            chapter_by_order[order]
-            for order in orders
-            if order in chapter_by_order
-        ]
+        return [chapter_by_order[order] for order in orders if order in chapter_by_order]

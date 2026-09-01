@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Dashboard LLM API 测试。
 """

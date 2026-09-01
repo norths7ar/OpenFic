@@ -1,13 +1,12 @@
-# -*- coding: utf-8 -*-
 """Character Repository - 角色数据访问层。"""
 
 from datetime import UTC, datetime
 from typing import Any, cast
 
 from sqlalchemy import delete as sql_delete
-from sqlalchemy.engine import CursorResult
 from sqlalchemy import func, or_, select
 from sqlalchemy import update as sql_update
+from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col
 
@@ -24,9 +23,7 @@ async def create(session: AsyncSession, character: Character) -> Character:
 
 async def get_by_id(session: AsyncSession, character_id: str) -> Character | None:
     """按 ID 获取角色。"""
-    result = await session.execute(
-        select(Character).where(col(Character.id) == character_id)
-    )
+    result = await session.execute(select(Character).where(col(Character.id) == character_id))
     return result.scalar_one_or_none()
 
 

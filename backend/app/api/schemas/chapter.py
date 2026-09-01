@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Chapter API Schemas - 章节请求/响应模型。
 """
@@ -15,21 +14,15 @@ class ChapterCreate(BaseModel):
     volume_id: str = Field(description="所属卷 ID")
     title: str = Field(min_length=1, max_length=200, description="章节标题")
     content: str = Field(default="", description="章节内容")
-    word_count: int | None = Field(
-        default=None, ge=0, description="章节字数（前端计算）"
-    )
+    word_count: int | None = Field(default=None, ge=0, description="章节字数（前端计算）")
 
 
 class ChapterUpdate(BaseModel):
     """更新章节请求。"""
 
-    title: str | None = Field(
-        default=None, min_length=1, max_length=200, description="章节标题"
-    )
+    title: str | None = Field(default=None, min_length=1, max_length=200, description="章节标题")
     content: str | None = Field(default=None, description="章节内容")
-    word_count: int | None = Field(
-        default=None, ge=0, description="章节字数（前端计算）"
-    )
+    word_count: int | None = Field(default=None, ge=0, description="章节字数（前端计算）")
 
 
 class ChapterReorder(BaseModel):

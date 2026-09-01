@@ -1,9 +1,9 @@
-# -*- coding: utf-8 -*-
 """
 PromptChainVersion Repository - 提示词链版本数据访问层。
 """
 
-from sqlalchemy import and_, delete as sa_delete, select
+from sqlalchemy import and_, select
+from sqlalchemy import delete as sa_delete
 from sqlalchemy import update as sa_update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col
@@ -11,9 +11,7 @@ from sqlmodel import col
 from app.storage.models.prompt_chain_version import PromptChainVersion
 
 
-async def create(
-    session: AsyncSession, version: PromptChainVersion
-) -> PromptChainVersion:
+async def create(session: AsyncSession, version: PromptChainVersion) -> PromptChainVersion:
     """创建版本。"""
     session.add(version)
     await session.flush()
@@ -21,9 +19,7 @@ async def create(
     return version
 
 
-async def get_by_id(
-    session: AsyncSession, version_id: str
-) -> PromptChainVersion | None:
+async def get_by_id(session: AsyncSession, version_id: str) -> PromptChainVersion | None:
     """根据ID获取版本。"""
     result = await session.execute(
         select(PromptChainVersion).where(col(PromptChainVersion.id) == version_id)
@@ -31,14 +27,10 @@ async def get_by_id(
     return result.scalar_one_or_none()
 
 
-async def get_by_hash(
-    session: AsyncSession, version_hash: str
-) -> PromptChainVersion | None:
+async def get_by_hash(session: AsyncSession, version_hash: str) -> PromptChainVersion | None:
     """根据hash获取版本。"""
     result = await session.execute(
-        select(PromptChainVersion).where(
-            col(PromptChainVersion.version_hash) == version_hash
-        )
+        select(PromptChainVersion).where(col(PromptChainVersion.version_hash) == version_hash)
     )
     return result.scalar_one_or_none()
 
@@ -112,16 +104,12 @@ async def deactivate_versions_after(
     ]
 
     await session.execute(
-        sa_update(PromptChainVersion)
-        .where(and_(*conditions))
-        .values(is_active=False)
+        sa_update(PromptChainVersion).where(and_(*conditions)).values(is_active=False)
     )
     await session.flush()
 
 
-async def update(
-    session: AsyncSession, version: PromptChainVersion
-) -> PromptChainVersion:
+async def update(session: AsyncSession, version: PromptChainVersion) -> PromptChainVersion:
     """更新版本。"""
     session.add(version)
     await session.flush()
@@ -155,21 +143,15 @@ async def delete_by_chain_key(
 
     conditions = [col(PromptChainVersion.prompt_id) == prompt_id]
 
-    version_ids = await session.execute(
-        select(col(PromptChainVersion.id)).where(and_(*conditions))
-    )
+    version_ids = await session.execute(select(col(PromptChainVersion.id)).where(and_(*conditions)))
     version_id_list = [v[0] for v in version_ids.fetchall()]
 
     if version_id_list:
         await session.execute(
-            sa_delete(PromptEntry).where(
-                col(PromptEntry.version_id).in_(version_id_list)
-            )
+            sa_delete(PromptEntry).where(col(PromptEntry.version_id).in_(version_id_list))
         )
 
-        await session.execute(
-            sa_delete(PromptChainVersion).where(and_(*conditions))
-        )
+        await session.execute(sa_delete(PromptChainVersion).where(and_(*conditions)))
         await session.flush()
         return len(version_id_list)
 

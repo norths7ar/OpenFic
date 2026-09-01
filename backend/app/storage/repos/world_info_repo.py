@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 WorldInfo Repository - 世界书数据访问层。
 """
@@ -38,9 +37,7 @@ async def get_by_id(session: AsyncSession, world_info_id: str) -> WorldInfo | No
     Returns:
         世界书实例，如果不存在则返回 None。
     """
-    result = await session.execute(
-        select(WorldInfo).where(col(WorldInfo.id) == world_info_id)
-    )
+    result = await session.execute(select(WorldInfo).where(col(WorldInfo.id) == world_info_id))
     return result.scalar_one_or_none()
 
 
@@ -55,9 +52,7 @@ async def get_by_project_id(session: AsyncSession, project_id: str) -> WorldInfo
     Returns:
         世界书实例，如果不存在则返回 None。
     """
-    result = await session.execute(
-        select(WorldInfo).where(col(WorldInfo.project_id) == project_id)
-    )
+    result = await session.execute(select(WorldInfo).where(col(WorldInfo.project_id) == project_id))
     return result.scalar_one_or_none()
 
 
@@ -82,10 +77,7 @@ async def get_all(
 
     offset = (page - 1) * page_size
     result = await session.execute(
-        select(WorldInfo)
-        .order_by(col(WorldInfo.updated_at).desc())
-        .offset(offset)
-        .limit(page_size)
+        select(WorldInfo).order_by(col(WorldInfo.updated_at).desc()).offset(offset).limit(page_size)
     )
     items = list(result.scalars().all())
 

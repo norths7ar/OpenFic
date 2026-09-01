@@ -10,10 +10,11 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col
 
-from app.agent_runtime.persistence import compaction_repo, repo as message_repo
 from app.agent_runtime.attachments import copy_attachments_for_fork
-from app.agent_runtime.persistence.model import AgentRunMessage
 from app.agent_runtime.model_config import without_api_key
+from app.agent_runtime.persistence import compaction_repo
+from app.agent_runtime.persistence import repo as message_repo
+from app.agent_runtime.persistence.model import AgentRunMessage
 from app.core.errors import NotFoundError
 from app.core.ids import generate_id
 from app.storage.models.revision import Revision
@@ -106,7 +107,9 @@ def _clone_message_row(
         content=row.content,
         reasoning=row.reasoning,
         reasoning_duration_ms=row.reasoning_duration_ms,
-        tool_calls=json.dumps(row.tool_calls, ensure_ascii=False) if row.tool_calls is not None else None,
+        tool_calls=json.dumps(row.tool_calls, ensure_ascii=False)
+        if row.tool_calls is not None
+        else None,
         tool_call_id=row.tool_call_id,
         tool_name=row.tool_name,
         status=row.status,
@@ -150,11 +153,7 @@ async def fork_agent_session_at_revision(
         ),
         default=None,
     )
-    rows_to_clone = [
-        row
-        for row in rows
-        if next_user_seq is None or row.seq < next_user_seq
-    ]
+    rows_to_clone = [row for row in rows if next_user_seq is None or row.seq < next_user_seq]
     seq_map = {row.seq: index for index, row in enumerate(rows_to_clone)}
     fork_session_id = new_session_id or _new_session_id()
     fork_task = await task_service.create_task(

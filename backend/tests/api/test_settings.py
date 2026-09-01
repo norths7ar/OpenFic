@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Settings API 测试。
 """
@@ -8,14 +7,13 @@ from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.audit.queue import audit_queue
 from app.core.encryption import EncryptionService
 from app.models.repos import model_provider_repo, model_repo
-from app.audit.queue import audit_queue
 from app.storage.models.llm_audit_log import LLMAuditLog
-from app.storage.models.retrieval_index import RetrievalIndex
 from app.storage.models.retrieval_chapter_index_state import RetrievalChapterIndexState
+from app.storage.models.retrieval_index import RetrievalIndex
 from app.storage.repos import setting_repo
-
 
 EXPECTED_AGENT_TOOL_PERMISSIONS = [
     {"tool_name": "activate_skill", "mode": "allow"},
@@ -363,9 +361,7 @@ async def test_changing_default_embedding_model_marks_retrieval_indexes_for_rebu
     assert retrieval_index.status == "needs_rebuild"
     assert chapter_state.status == "needs_rebuild"
 
-    rows = (
-        await session.execute(select(RetrievalChapterIndexState))
-    ).scalars().all()
+    rows = (await session.execute(select(RetrievalChapterIndexState))).scalars().all()
     assert [row.status for row in rows] == ["needs_rebuild"]
 
 

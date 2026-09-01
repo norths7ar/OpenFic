@@ -27,6 +27,7 @@ def main() -> None:
     port = int(os.environ.get("OPENFIC_PORT", "8000"))
 
     import uvicorn
+
     from app.main import app
 
     uvicorn.run(app, host=host, port=port, log_level="info")

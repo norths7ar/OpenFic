@@ -225,12 +225,8 @@ async def test_export_rejects_category_cycle_and_missing_project(
     await session.flush()
     session.add_all(
         [
-            NoteCategory(
-                id="a", project_id=project.id, parent_id="b", title="A", order=1
-            ),
-            NoteCategory(
-                id="b", project_id=project.id, parent_id="a", title="B", order=1
-            ),
+            NoteCategory(id="a", project_id=project.id, parent_id="b", title="A", order=1),
+            NoteCategory(id="b", project_id=project.id, parent_id="a", title="B", order=1),
         ]
     )
     await session.flush()

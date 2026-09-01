@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """PostHog 错误遥测模块单元测试。"""
 
 import logging

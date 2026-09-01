@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """WorldInfo Service - 世界书业务逻辑层。"""
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -33,9 +32,7 @@ async def get_world_info(session: AsyncSession, world_info_id: str) -> WorldInfo
     return world_info
 
 
-async def get_or_create_world_info_by_project(
-    session: AsyncSession, project_id: str
-) -> WorldInfo:
+async def get_or_create_world_info_by_project(session: AsyncSession, project_id: str) -> WorldInfo:
     """根据项目 ID 获取项目唯一世界书，不存在时自动创建。"""
     project = await project_repo.get_by_id(session, project_id)
     if project is None:

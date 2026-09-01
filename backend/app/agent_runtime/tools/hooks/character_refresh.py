@@ -29,9 +29,7 @@ def _parse_output(output: str | None) -> dict[str, Any] | None:
 
 def _extract_character_id(result: dict[str, Any]) -> str | None:
     metadata = result.get("metadata")
-    character_diff = (
-        metadata.get("character_diff") if isinstance(metadata, dict) else None
-    )
+    character_diff = metadata.get("character_diff") if isinstance(metadata, dict) else None
     if not isinstance(character_diff, dict):
         return None
     character_id = character_diff.get("character_id")
@@ -46,9 +44,7 @@ async def character_refresh_post_hook(context: HookContext) -> HookResult:
     if not result or result.get("success") is not True:
         return HookResult()
 
-    target_session_id = context.state.get("parent_session_id") or context.state.get(
-        "session_id"
-    )
+    target_session_id = context.state.get("parent_session_id") or context.state.get("session_id")
     project_id = context.state.get("project_id")
     if not isinstance(target_session_id, str) or not target_session_id:
         return HookResult()

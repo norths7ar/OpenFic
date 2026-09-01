@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Materialized character snapshots for a revision."""
 
 from datetime import UTC, datetime

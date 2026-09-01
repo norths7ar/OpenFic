@@ -18,8 +18,7 @@ async def create_plan(session: AsyncSession, plan: PlanRecord) -> PlanRecord:
 
 async def get_plan_by_session(session: AsyncSession, session_id: str) -> PlanRecord | None:
     result = await session.execute(
-        select(PlanRecord)
-        .where(col(PlanRecord.session_id) == session_id)
+        select(PlanRecord).where(col(PlanRecord.session_id) == session_id)
     )
     return result.scalar_one_or_none()
 

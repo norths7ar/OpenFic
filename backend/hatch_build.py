@@ -1,14 +1,17 @@
 from __future__ import annotations
 
 import os
-from pathlib import Path
 import shutil
 import subprocess
+from pathlib import Path
 from sys import stderr
 
 try:
     from hatchling.builders.hooks.plugin.interface import BuildHookInterface
-except ModuleNotFoundError:  # pragma: no cover - fallback for test runtime without hatchling installed
+except (
+    ModuleNotFoundError
+):  # pragma: no cover - fallback for test runtime without hatchling installed
+
     class BuildHookInterface:  # type: ignore[no-redef]
         def __init__(self, *args: object, **kwargs: object) -> None:
             self.root = kwargs.get("root", ".")
@@ -28,7 +31,9 @@ def build_frontend_assets(backend_dir: Path, frontend_dir: Path, version: str) -
 
     pnpm = shutil.which("pnpm")
     if pnpm is None:
-        raise RuntimeError("pnpm is required for building the OpenFic frontend but it was not found")
+        raise RuntimeError(
+            "pnpm is required for building the OpenFic frontend but it was not found"
+        )
 
     stderr.write(">>> Building OpenFic frontend\n")
     stderr.write("### pnpm install --frozen-lockfile\n")

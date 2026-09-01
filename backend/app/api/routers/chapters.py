@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Chapters Router - 章节 CRUD API。
 """
@@ -65,9 +64,9 @@ async def create_chapter(
         await background_service.commit_and_notify(session)
         return ChapterResponse.model_validate(chapter)
     except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
 
 
 @router.get(
@@ -96,8 +95,7 @@ async def list_chapters(
                 VolumeTreeItem(
                     **group.volume.model_dump(),
                     chapters=[
-                        ChapterListItem.model_validate(chapter)
-                        for chapter in group.chapters
+                        ChapterListItem.model_validate(chapter) for chapter in group.chapters
                     ],
                 )
                 for group in result.volumes
@@ -105,7 +103,7 @@ async def list_chapters(
             total_chapters=result.total_chapters,
         )
     except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
 
 
 @router.get(
@@ -134,7 +132,7 @@ async def get_chapter(
         chapter = await chapter_service.get_chapter(session, chapter_id)
         return ChapterResponse.model_validate(chapter)
     except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
 
 
 @router.patch(
@@ -173,9 +171,9 @@ async def update_chapter(
         await background_service.commit_and_notify(session)
         return ChapterResponse.model_validate(chapter)
     except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
 
 
 @router.delete(
@@ -202,7 +200,7 @@ async def delete_chapter(
         await chapter_service.delete_chapter(session, chapter_id)
         await background_service.commit_and_notify(session)
     except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
 
 
 @router.post(
@@ -228,16 +226,12 @@ async def reorder_chapters(
         HTTPException: 章节不存在或不属于指定卷时返回 400。
     """
     try:
-        logger.info(
-            f"批量重排章节: volume_id={data.volume_id}, chapter_ids={data.chapter_ids}"
-        )
-        chapters = await chapter_service.reorder_chapters(
-            session, data.volume_id, data.chapter_ids
-        )
+        logger.info(f"批量重排章节: volume_id={data.volume_id}, chapter_ids={data.chapter_ids}")
+        chapters = await chapter_service.reorder_chapters(session, data.volume_id, data.chapter_ids)
         await background_service.commit_and_notify(session)
         return [ChapterListItem.model_validate(chapter) for chapter in chapters]
     except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
 
 
 @router.get(
@@ -260,9 +254,7 @@ async def search_chapters(
                     chapter_title=r.chapter_title,
                     volume_title=r.volume_title,
                     matches=[
-                        ChapterSearchMatch(
-                            line_number=m.line_number, line_text=m.line_text
-                        )
+                        ChapterSearchMatch(line_number=m.line_number, line_text=m.line_text)
                         for m in r.matches
                     ],
                 )
@@ -272,9 +264,9 @@ async def search_chapters(
             total_matches=result.total_matches,
         )
     except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
 
 
 @router.post(
@@ -298,4 +290,4 @@ async def move_chapter_to_volume(
         await background_service.commit_and_notify(session)
         return ChapterResponse.model_validate(chapter)
     except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e

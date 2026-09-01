@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 HTTP Client Factory - HTTP客户端工厂。
 
@@ -32,9 +31,7 @@ class ClientFactory:
         Returns:
             配置好的AsyncClient实例。
         """
-        return httpx.AsyncClient(
-            timeout=timeout, follow_redirects=follow_redirects, **kwargs
-        )
+        return httpx.AsyncClient(timeout=timeout, follow_redirects=follow_redirects, **kwargs)
 
     @classmethod
     def create_retry_client(

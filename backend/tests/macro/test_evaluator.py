@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Macro Evaluator Tests - 宏求值器测试。
 """
@@ -26,9 +25,7 @@ class TestEvaluateGetmem:
         evaluator = MacroEvaluator(context)
 
         result = evaluator.evaluate_text("{{getmem::chapter::far}}")
-        assert json.loads(result) == [
-            {"start_order": 1, "end_order": 10, "summary": "远场内容"}
-        ]
+        assert json.loads(result) == [{"start_order": 1, "end_order": 10, "summary": "远场内容"}]
 
     def test_getmem_middle(self):
         """获取中场记忆。"""
@@ -44,9 +41,7 @@ class TestEvaluateGetmem:
         evaluator = MacroEvaluator(context)
 
         result = evaluator.evaluate_text("{{getmem::chapter::middle}}")
-        assert json.loads(result) == [
-            {"order": 1, "title": "第一章", "summary": "中场内容"}
-        ]
+        assert json.loads(result) == [{"order": 1, "title": "第一章", "summary": "中场内容"}]
 
     def test_getmem_near(self):
         """获取近场记忆。"""
@@ -113,9 +108,7 @@ class TestEvaluateGetmem:
 
     def test_getworld(self):
         """获取世界书内容。"""
-        context = MacroContext(
-            world_context=WorldContext(content="<角色>\n林舟\n</角色>")
-        )
+        context = MacroContext(world_context=WorldContext(content="<角色>\n林舟\n</角色>"))
         evaluator = MacroEvaluator(context)
 
         result = evaluator.evaluate_text("{{getworld}}")

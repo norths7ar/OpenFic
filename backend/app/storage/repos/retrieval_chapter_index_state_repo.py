@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Repository for chapter retrieval index states."""
 
 from datetime import UTC, datetime

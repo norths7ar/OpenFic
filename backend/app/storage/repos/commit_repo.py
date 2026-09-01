@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Commit Repository - 变更数据访问层。
 """
@@ -156,7 +155,5 @@ async def delete_by_revision(session: AsyncSession, revision_id: str) -> None:
     """
     from sqlalchemy import delete as sql_delete
 
-    await session.execute(
-        sql_delete(Commit).where(col(Commit.revision_id) == revision_id)
-    )
+    await session.execute(sql_delete(Commit).where(col(Commit.revision_id) == revision_id))
     await session.flush()

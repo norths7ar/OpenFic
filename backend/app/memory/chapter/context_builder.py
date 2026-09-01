@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Context Builder - 上下文构建核心算法。
 """

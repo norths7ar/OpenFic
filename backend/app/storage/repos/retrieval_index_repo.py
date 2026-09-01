@@ -1,11 +1,11 @@
-# -*- coding: utf-8 -*-
 """
 RetrievalIndex Repository - 检索索引契约数据访问层。
 """
 
 from datetime import UTC, datetime
 
-from sqlalchemy import select, update as sql_update
+from sqlalchemy import select
+from sqlalchemy import update as sql_update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col
 
@@ -54,18 +54,14 @@ async def create(
     return row
 
 
-async def get_by_index_key(
-    session: AsyncSession, index_key: str
-) -> RetrievalIndex | None:
+async def get_by_index_key(session: AsyncSession, index_key: str) -> RetrievalIndex | None:
     result = await session.execute(
         select(RetrievalIndex).where(col(RetrievalIndex.index_key) == index_key)
     )
     return result.scalar_one_or_none()
 
 
-async def get_by_index_keys(
-    session: AsyncSession, index_keys: list[str]
-) -> list[RetrievalIndex]:
+async def get_by_index_keys(session: AsyncSession, index_keys: list[str]) -> list[RetrievalIndex]:
     """按多个 index_key 批量查询索引记录。"""
     if not index_keys:
         return []
@@ -79,16 +75,12 @@ async def get_by_embedding_model_ref_id(
     session: AsyncSession, model_id: str
 ) -> list[RetrievalIndex]:
     result = await session.execute(
-        select(RetrievalIndex).where(
-            col(RetrievalIndex.embedding_model_ref_id) == model_id
-        )
+        select(RetrievalIndex).where(col(RetrievalIndex.embedding_model_ref_id) == model_id)
     )
     return list(result.scalars().all())
 
 
-async def exists_by_embedding_model_ref_id(
-    session: AsyncSession, model_id: str
-) -> bool:
+async def exists_by_embedding_model_ref_id(session: AsyncSession, model_id: str) -> bool:
     rows = await get_by_embedding_model_ref_id(session, model_id)
     return len(rows) > 0
 

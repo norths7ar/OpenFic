@@ -2,7 +2,7 @@
 
 from collections.abc import Sequence
 from dataclasses import replace
-from typing import Any, TypeVar, cast
+from typing import Any, cast
 
 from langchain_core.messages import BaseMessage, SystemMessage
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -14,8 +14,6 @@ from app.storage.repos import setting_repo
 SETTING_KEY_COMPRESS_SYSTEM_PROMPTS = "compress_system_prompts"
 
 _SYSTEM_JOIN_SEPARATOR = "\n\n"
-
-TMessage = TypeVar("TMessage", bound=BaseMessage)
 
 
 async def compress_system_prompts_if_enabled(
@@ -67,11 +65,7 @@ def merge_consecutive_system_dicts(
     """将 role/content 字典列表中连续的 system 消息合并为一条。"""
     out: list[dict[str, Any]] = []
     for message in messages:
-        if (
-            message.get("role") == "system"
-            and out
-            and out[-1].get("role") == "system"
-        ):
+        if message.get("role") == "system" and out and out[-1].get("role") == "system":
             previous = out[-1]
             out[-1] = {
                 **previous,
@@ -85,7 +79,7 @@ def merge_consecutive_system_dicts(
     return out
 
 
-def merge_consecutive_system_messages(
+def merge_consecutive_system_messages[TMessage: BaseMessage](
     messages: Sequence[TMessage],
 ) -> list[TMessage]:
     """将 LangChain 消息列表中连续的 system 消息合并为一条。"""

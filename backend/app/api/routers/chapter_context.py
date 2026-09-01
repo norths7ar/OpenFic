@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Chapter Context Router - 章节上下文 API。"""
 
 from typing import Annotated
@@ -22,16 +21,16 @@ from app.api.schemas.chapter_context import (
     MissingChapterSummaryItem,
     MissingLongTermSummaryItem,
     SkippedChapterSummaryItem,
+    SummaryBackgroundJobItem,
     SummaryBatchProgressItem,
+    SummaryMaintenanceResponse,
+    SummaryPanelResponse,
     SummaryRealtimeSnapshotResponse,
     SummaryRealtimeSnapshotSummaryResponse,
-    SummaryPanelResponse,
-    SummaryMaintenanceResponse,
-    SummaryBackgroundJobItem,
     SummaryStatusResponse,
 )
-from app.background.jobs.states import JOB_STATUS_PENDING, JOB_STATUS_RUNNING
 from app.background.jobs import service as background_job_service
+from app.background.jobs.states import JOB_STATUS_PENDING, JOB_STATUS_RUNNING
 from app.core.errors import NotFoundError, ValidationError
 from app.memory.chapter import build_context
 from app.memory.chapter.sequence import chapter_by_global_order
@@ -39,18 +38,18 @@ from app.memory.chapter.summary_service import (
     AUTO_GENERATION_BLOCK_CHAPTER_THRESHOLD,
     SUMMARY_BATCH_ITEM_TYPE_CHAPTER,
     SUMMARY_BATCH_ITEM_TYPE_LONG_TERM,
+    append_chapter_summary_items,
+    append_long_term_summary_items,
     build_long_term_summary_window,
     enqueue_chapter_summary,
     enqueue_long_term_summary_range,
-    append_chapter_summary_items,
-    append_long_term_summary_items,
     is_chapter_summary_skipped,
     is_chapter_summary_stale,
     is_long_term_summary_stale,
-    list_all_missing_summary_ranges,
-    list_eligible_long_term_ranges,
     list_active_summary_jobs,
+    list_all_missing_summary_ranges,
     list_chapter_summaries,
+    list_eligible_long_term_ranges,
     list_long_term_summaries,
     parse_summary_list,
 )
@@ -58,7 +57,6 @@ from app.storage.database import get_session
 from app.storage.models.chapter import Chapter
 from app.storage.models.volume import Volume
 from app.storage.repos import chapter_repo, chapter_summary_repo, volume_repo
-
 
 SUMMARY_ITEM_STAGE_TOTAL = 3
 
@@ -68,13 +66,19 @@ def _build_batch_progress(active_jobs: list, batch_job) -> SummaryBatchProgressI
         return None
     progress = background_job_service.parse_json_object(batch_job.progress_json)
     completed_item_count_raw = progress.get("completed_item_count")
-    completed_item_count = completed_item_count_raw if isinstance(completed_item_count_raw, int) else 0
+    completed_item_count = (
+        completed_item_count_raw if isinstance(completed_item_count_raw, int) else 0
+    )
     batch_total_raw = progress.get("total_item_count")
     batch_total = batch_total_raw if isinstance(batch_total_raw, int) else 0
     running_item_count_raw = progress.get("running_item_count")
-    persisted_running_item_count = running_item_count_raw if isinstance(running_item_count_raw, int) else None
+    persisted_running_item_count = (
+        running_item_count_raw if isinstance(running_item_count_raw, int) else None
+    )
     queued_item_count_raw = progress.get("queued_item_count")
-    persisted_queued_item_count = queued_item_count_raw if isinstance(queued_item_count_raw, int) else None
+    persisted_queued_item_count = (
+        queued_item_count_raw if isinstance(queued_item_count_raw, int) else None
+    )
     running_item_count = (
         persisted_running_item_count
         if persisted_running_item_count is not None
@@ -85,7 +89,9 @@ def _build_batch_progress(active_jobs: list, batch_job) -> SummaryBatchProgressI
         if persisted_queued_item_count is not None
         else sum(1 for job in active_jobs if job.status == JOB_STATUS_PENDING)
     )
-    total_item_count = max(batch_total, completed_item_count + running_item_count + queued_item_count)
+    total_item_count = max(
+        batch_total, completed_item_count + running_item_count + queued_item_count
+    )
     progress_current_raw = progress.get("current")
     progress_current = progress_current_raw if isinstance(progress_current_raw, int) else 0
     progress_total_raw = progress.get("total")
@@ -111,6 +117,7 @@ def _build_batch_progress(active_jobs: list, batch_job) -> SummaryBatchProgressI
         created_at=batch_job.created_at,
         updated_at=batch_job.updated_at,
     )
+
 
 router = APIRouter(tags=["chapter-context"])
 
@@ -288,7 +295,9 @@ async def _build_maintenance_response(
         and job.end_order is not None
     }
     missing_long_terms: list[MissingLongTermSummaryItem] = []
-    for start_order, end_order in list_eligible_long_term_ranges(chapters, volumes, chapter_summaries):
+    for start_order, end_order in list_eligible_long_term_ranges(
+        chapters, volumes, chapter_summaries
+    ):
         existing = long_term_by_range.get((start_order, end_order))
         status = existing.status if existing else "not_generated"
         is_stale = is_long_term_summary_stale(existing, chapters, chapter_summaries, volumes)
@@ -319,9 +328,7 @@ async def _build_maintenance_response(
             )
         )
 
-    has_ready_chapter_summary = any(
-        summary.status == "ready" for summary in chapter_summaries
-    )
+    has_ready_chapter_summary = any(summary.status == "ready" for summary in chapter_summaries)
     eligible_chapter_count = sum(
         1 for chapter in chapters if not is_chapter_summary_skipped(chapter)
     )
@@ -333,15 +340,16 @@ async def _build_maintenance_response(
         auto_generation_blocked=auto_blocked,
         block_reason_code="too_many_pending_chapters" if auto_blocked else None,
         block_reason_params=(
-            {"chapter_threshold": AUTO_GENERATION_BLOCK_CHAPTER_THRESHOLD}
-            if auto_blocked
-            else None
+            {"chapter_threshold": AUTO_GENERATION_BLOCK_CHAPTER_THRESHOLD} if auto_blocked else None
         ),
         missing_or_failed_chapter_summaries=missing_chapters,
         missing_or_failed_long_term_summaries=missing_long_terms,
         skipped_chapter_summaries=skipped_chapters,
         batch_progress=_build_batch_progress(active_jobs, batch_job),
-        active_jobs=[SummaryBackgroundJobItem.model_validate(job, from_attributes=True) for job in active_jobs],
+        active_jobs=[
+            SummaryBackgroundJobItem.model_validate(job, from_attributes=True)
+            for job in active_jobs
+        ],
     )
 
 
@@ -444,10 +452,10 @@ async def list_chapter_summary_items(
     for summary in summaries:
         chapter_id = summary.chapter_id
         chapter = chapter_by_id.get(chapter_id) if chapter_id is not None else None
-        active_job = (
-            active_chapter_job_by_id.get(chapter_id) if chapter_id is not None else None
+        active_job = active_chapter_job_by_id.get(chapter_id) if chapter_id is not None else None
+        resolved_volume_id = summary.volume_id or (
+            chapter.volume_id if chapter is not None else None
         )
-        resolved_volume_id = summary.volume_id or (chapter.volume_id if chapter is not None else None)
         volume = volumes_by_id.get(resolved_volume_id) if resolved_volume_id else None
         items.append(
             ChapterSummaryListItemResponse(
@@ -688,7 +696,11 @@ async def enqueue_summary(
                 len(long_term_result.item_ids) if long_term_result else 0
             )
             batch_job_id = (
-                chapter_result.batch_job_id if chapter_result is not None else long_term_result.batch_job_id if long_term_result is not None else None
+                chapter_result.batch_job_id
+                if chapter_result is not None
+                else long_term_result.batch_job_id
+                if long_term_result is not None
+                else None
             )
             await background_job_service.commit_and_notify(session)
             return EnqueueSummaryResponse(
@@ -711,10 +723,10 @@ async def enqueue_summary(
         )
     except NotFoundError as exc:
         await session.rollback()
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     except ValidationError as exc:
         await session.rollback()
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
 
 @router.get(
@@ -757,7 +769,7 @@ async def get_context(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"构建失败: {str(e)}",
-        )
+        ) from e
 
 
 @router.get(
@@ -775,7 +787,7 @@ async def get_near_field(
         return ContextFieldResponse(content=context.near_field.content)
     except Exception as e:
         logger.error(f"获取近场上下文失败: {e}")
-        raise HTTPException(status_code=500, detail=f"获取失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"获取失败: {str(e)}") from e
 
 
 @router.get(
@@ -793,7 +805,7 @@ async def get_middle_field(
         return ContextFieldResponse(content=context.mid_field.content)
     except Exception as e:
         logger.error(f"获取中场上下文失败: {e}")
-        raise HTTPException(status_code=500, detail=f"获取失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"获取失败: {str(e)}") from e
 
 
 @router.get(
@@ -811,7 +823,7 @@ async def get_far_field(
         return ContextFieldResponse(content=context.far_field.content)
     except Exception as e:
         logger.error(f"获取远场上下文失败: {e}")
-        raise HTTPException(status_code=500, detail=f"获取失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"获取失败: {str(e)}") from e
 
 
 @router.get(
@@ -836,4 +848,4 @@ async def get_latest_field(
         raise
     except Exception as e:
         logger.error(f"获取最新章节内容失败: {e}")
-        raise HTTPException(status_code=500, detail=f"获取失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"获取失败: {str(e)}") from e

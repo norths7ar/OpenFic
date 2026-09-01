@@ -1,7 +1,8 @@
 """OpenAI Responses API-compatible provider adapter."""
 
-import httpx
 from collections.abc import Mapping
+
+import httpx
 
 from app.models.adapters.openai_compatible import OpenAICompatibleAdapter
 

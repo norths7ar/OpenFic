@@ -1,13 +1,12 @@
-# -*- coding: utf-8 -*-
 """Project chapter retrieval index integration service."""
 
 from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import AsyncIterator, Awaitable, Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from collections.abc import AsyncIterator, Awaitable, Callable
 from typing import Any
 
 from loguru import logger
@@ -15,8 +14,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.entities.model import Model
 from app.models.repos import model_repo
-from app.retrieval.service import OpenFicRetrievalService
 from app.retrieval.internal.indexing.chunking import RecursiveCharacterChunker
+from app.retrieval.service import OpenFicRetrievalService
 from app.retrieval.types import (
     BatchIndexResult,
     DocumentIndexFailure,
@@ -196,9 +195,7 @@ async def get_index_settings(session: AsyncSession) -> IndexSettingsConfig:
     if auto_strategy not in _VALID_INDEX_AUTO_STRATEGIES:
         auto_strategy = DEFAULT_INDEX_AUTO_STRATEGY
 
-    enabled_projects = set(
-        _parse_str_list_setting(raw.get(SETTING_KEY_INDEX_ENABLED_PROJECTS))
-    )
+    enabled_projects = set(_parse_str_list_setting(raw.get(SETTING_KEY_INDEX_ENABLED_PROJECTS)))
     chunk_size = _parse_int_setting(
         raw.get(SETTING_KEY_INDEX_CHUNK_SIZE), default=DEFAULT_INDEX_CHUNK_SIZE
     )
@@ -354,8 +351,7 @@ def _summarize_project_status(
 
     # schema 升级：旧 schema_version 的索引整体需要重建，优先于其它状态判定。
     schema_outdated = (
-        project_index is not None
-        and project_index.schema_version < CURRENT_CHUNK_SCHEMA_VERSION
+        project_index is not None and project_index.schema_version < CURRENT_CHUNK_SCHEMA_VERSION
     )
 
     indexed = 0
@@ -612,10 +608,7 @@ async def enqueue_project_index_update(
         )
     # schema 升级：旧 schema_version 的索引必须重建。在计算 selected 前标记，
     # 使过期章节进入待索引集合。
-    if (
-        project_index is not None
-        and project_index.schema_version < CURRENT_CHUNK_SCHEMA_VERSION
-    ):
+    if project_index is not None and project_index.schema_version < CURRENT_CHUNK_SCHEMA_VERSION:
         project_index.status = "needs_rebuild"
         await retrieval_index_repo.update(session, project_index)
         await retrieval_chapter_index_state_repo.mark_project_needs_rebuild(
@@ -655,7 +648,9 @@ async def enqueue_project_index_update(
         state = states.get(chapter.id)
         if state is None:
             continue
-        if state.status == CHAPTER_INDEX_STATUS_NEEDS_REBUILD and _is_chapter_content_empty(chapter):
+        if state.status == CHAPTER_INDEX_STATUS_NEEDS_REBUILD and _is_chapter_content_empty(
+            chapter
+        ):
             state.status = CHAPTER_INDEX_STATUS_NOT_INDEXED
             state.job_id = None
             state.item_id = None
@@ -750,9 +745,7 @@ async def safe_maybe_enqueue_auto_index(
     try:
         await maybe_enqueue_auto_index(session, project_id=project_id)
     except Exception as exc:
-        logger.bind(project_id=project_id).warning(
-            f"auto index enqueue skipped: {exc}"
-        )
+        logger.bind(project_id=project_id).warning(f"auto index enqueue skipped: {exc}")
 
 
 class ChapterIndexIntegrationService:
@@ -1032,9 +1025,7 @@ class ChapterIndexIntegrationService:
         )
         if result.succeeded_count != 1:
             error = (
-                result.failed[0].error
-                if result.failed
-                else "chapter indexing produced no success"
+                result.failed[0].error if result.failed else "chapter indexing produced no success"
             )
             raise RuntimeError(error)
 
@@ -1051,9 +1042,7 @@ class ChapterIndexIntegrationService:
             state.item_id = None
             state.error_message = None
             await retrieval_chapter_index_state_repo.save(session, state)
-            raise ChapterIndexContentChangedError(
-                "chapter content changed during indexing"
-            )
+            raise ChapterIndexContentChangedError("chapter content changed during indexing")
 
         state.status = CHAPTER_INDEX_STATUS_READY
         state.source_hash = indexed_source_hash
@@ -1087,8 +1076,7 @@ class ChapterIndexIntegrationService:
             chapter_map[cid] = chapter
 
         chapter_map = {
-            cid: ch for cid, ch in chapter_map.items()
-            if not _is_chapter_content_empty(ch)
+            cid: ch for cid, ch in chapter_map.items() if not _is_chapter_content_empty(ch)
         }
         if not chapter_map:
             return BatchIndexResult(
@@ -1111,7 +1099,7 @@ class ChapterIndexIntegrationService:
         index_key = chapter_index_key(project_id)
 
         # Mark all states as INDEXING
-        for cid, chapter in chapter_map.items():
+        for chapter in chapter_map.values():
             state = await self.get_or_create_state(session, chapter)
             self._raise_if_state_not_owned(
                 state,
@@ -1170,9 +1158,7 @@ class ChapterIndexIntegrationService:
             doc_id = chapter_document_id(cid)
 
             if doc_id in failed_doc_ids:
-                s = await self.get_state(
-                    session, project_id=project_id, chapter_id=cid
-                )
+                s = await self.get_state(session, project_id=project_id, chapter_id=cid)
                 if s is not None:
                     s.status = CHAPTER_INDEX_STATUS_FAILED
                     s.error_message = failed_doc_ids[doc_id].error
@@ -1182,9 +1168,7 @@ class ChapterIndexIntegrationService:
             if doc_id not in succeeded_doc_ids:
                 continue
 
-            s = await self.get_state(
-                session, project_id=project_id, chapter_id=cid
-            )
+            s = await self.get_state(session, project_id=project_id, chapter_id=cid)
             if s is None:
                 continue
 
@@ -1311,9 +1295,7 @@ class ChapterIndexIntegrationService:
                     state.item_id = None
                     state.error_message = None
                     await retrieval_chapter_index_state_repo.save(session, state)
-                    raise ChapterIndexContentChangedError(
-                        "chapter content changed during indexing"
-                    )
+                    raise ChapterIndexContentChangedError("chapter content changed during indexing")
                 state.status = CHAPTER_INDEX_STATUS_READY
                 state.source_hash = record["source_hash"]
                 state.embedding_model_ref_id = embedding_model.id

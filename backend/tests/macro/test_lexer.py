@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Macro Lexer Tests - 宏词法分析器测试。
 """

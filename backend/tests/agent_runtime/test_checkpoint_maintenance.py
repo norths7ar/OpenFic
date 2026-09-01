@@ -80,9 +80,7 @@ async def test_incremental_vacuum_reclaims_free_pages(
     checkpointer = await get_checkpointer()
     try:
         await checkpointer.conn.execute("CREATE TABLE test_data (value BLOB)")
-        await checkpointer.conn.execute(
-            "INSERT INTO test_data(value) VALUES (zeroblob(32768))"
-        )
+        await checkpointer.conn.execute("INSERT INTO test_data(value) VALUES (zeroblob(32768))")
         await checkpointer.conn.execute("DELETE FROM test_data")
         await checkpointer.conn.commit()
     finally:

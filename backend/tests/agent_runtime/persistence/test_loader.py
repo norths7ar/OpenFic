@@ -12,15 +12,15 @@ from langchain_core.messages import (
 )
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.agent_runtime.persistence import repo
 from app.agent_runtime.attachments import (
     build_image_content_blocks,
     cleanup_orphaned_agent_attachment_files,
     copy_attachments_for_fork,
     delete_attachments_for_task,
 )
-from app.agent_runtime.persistence.model import AgentAttachment
+from app.agent_runtime.persistence import repo
 from app.agent_runtime.persistence.loader import load_history
+from app.agent_runtime.persistence.model import AgentAttachment
 
 
 @pytest.mark.asyncio
@@ -30,9 +30,7 @@ async def test_load_history_empty_session(db_session: AsyncSession, sample_task)
 
 
 @pytest.mark.asyncio
-async def test_load_history_basic_roles_in_seq_order(
-    db_session: AsyncSession, sample_task
-):
+async def test_load_history_basic_roles_in_seq_order(db_session: AsyncSession, sample_task):
     sid = "session_a"
     await repo.insert_message(
         db_session,
@@ -127,9 +125,7 @@ async def test_build_image_content_blocks_reads_server_attachment_file(
         ]
     )
 
-    assert blocks == [
-        {"type": "image", "base64": "aW1hZ2UtZGF0YQ==", "mime_type": "image/png"}
-    ]
+    assert blocks == [{"type": "image", "base64": "aW1hZ2UtZGF0YQ==", "mime_type": "image/png"}]
 
 
 @pytest.mark.asyncio
@@ -297,9 +293,7 @@ async def test_load_history_skips_pending_user(db_session: AsyncSession, sample_
 
 
 @pytest.mark.asyncio
-async def test_load_history_skips_hidden_node_events(
-    db_session: AsyncSession, sample_task
-):
+async def test_load_history_skips_hidden_node_events(db_session: AsyncSession, sample_task):
     sid = "session_a"
     await repo.insert_message(
         db_session,
@@ -374,9 +368,7 @@ async def test_load_history_skips_display_only_compaction_marker(
 
 
 @pytest.mark.asyncio
-async def test_load_history_pairs_assistant_with_tool(
-    db_session: AsyncSession, sample_task
-):
+async def test_load_history_pairs_assistant_with_tool(db_session: AsyncSession, sample_task):
     sid = "session_a"
     await repo.insert_message(
         db_session,
@@ -462,9 +454,7 @@ async def test_load_history_orders_tool_results_by_assistant_tool_call_order(
 
     assert isinstance(messages[0], AIMessage)
     assert [
-        message.tool_call_id
-        for message in messages[1:]
-        if isinstance(message, ToolMessage)
+        message.tool_call_id for message in messages[1:] if isinstance(message, ToolMessage)
     ] == ["call_1", "call_2"]
 
 

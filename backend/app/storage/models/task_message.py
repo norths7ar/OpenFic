@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """TaskMessage 数据模型。"""
 
 from datetime import UTC, datetime

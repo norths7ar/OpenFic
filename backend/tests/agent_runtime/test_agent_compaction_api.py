@@ -33,9 +33,7 @@ def _runner(
         task_id="task_compaction_api",
         project_id="proj_compaction_api",
         peek_next_pending_user_message=MagicMock(return_value=pending),
-        consume_next_pending_user_message_for_continuation=AsyncMock(
-            return_value=pending
-        ),
+        consume_next_pending_user_message_for_continuation=AsyncMock(return_value=pending),
         run=MagicMock(return_value=object()),
     )
     if compact_error is not None:
@@ -86,22 +84,25 @@ async def test_manual_compaction_returns_structured_metrics(client: AsyncClient)
     runner = _runner()
     registry = _registry()
 
-    with patch(
-        "app.api.routers.agent_runtime._get_runner",
-        AsyncMock(return_value=runner),
-    ), patch(
-        "app.api.routers.agent_runtime.get_agent_run_registry",
-        return_value=registry,
-    ), patch(
-        "app.api.routers.agent_runtime._set_task_running_state",
-        AsyncMock(),
-    ) as set_running, patch(
-        "app.api.routers.agent_runtime._launch_task",
-        AsyncMock(),
-    ) as launch_task:
-        response = await client.post(
-            "/api/v1/agent/sessions/sess_compaction_api/compaction"
-        )
+    with (
+        patch(
+            "app.api.routers.agent_runtime._get_runner",
+            AsyncMock(return_value=runner),
+        ),
+        patch(
+            "app.api.routers.agent_runtime.get_agent_run_registry",
+            return_value=registry,
+        ),
+        patch(
+            "app.api.routers.agent_runtime._set_task_running_state",
+            AsyncMock(),
+        ) as set_running,
+        patch(
+            "app.api.routers.agent_runtime._launch_task",
+            AsyncMock(),
+        ) as launch_task,
+    ):
+        response = await client.post("/api/v1/agent/sessions/sess_compaction_api/compaction")
 
     assert response.status_code == status.HTTP_200_OK
     assert response.json() == {
@@ -139,12 +140,15 @@ async def test_manual_compaction_can_be_cancelled_while_model_call_is_waiting() 
     registry = AgentRunRegistry()
     session = SimpleNamespace(bind=MagicMock())
 
-    with patch(
-        "app.api.routers.agent_runtime._ensure_agent_session_resumable",
-        AsyncMock(),
-    ), patch(
-        "app.api.routers.agent_runtime._set_task_running_state",
-        AsyncMock(),
+    with (
+        patch(
+            "app.api.routers.agent_runtime._ensure_agent_session_resumable",
+            AsyncMock(),
+        ),
+        patch(
+            "app.api.routers.agent_runtime._set_task_running_state",
+            AsyncMock(),
+        ),
     ):
         compaction_task = asyncio.create_task(
             agent_runtime._run_agent_session_compaction(
@@ -179,19 +183,21 @@ async def test_manual_compaction_rejects_while_session_is_running(
     runner = _runner()
     registry = _registry(running=True)
 
-    with patch(
-        "app.api.routers.agent_runtime._get_runner",
-        AsyncMock(return_value=runner),
-    ), patch(
-        "app.api.routers.agent_runtime.get_agent_run_registry",
-        return_value=registry,
-    ), patch(
-        "app.api.routers.agent_runtime._set_task_running_state",
-        AsyncMock(),
-    ) as set_running:
-        response = await client.post(
-            "/api/v1/agent/sessions/sess_compaction_api/compaction"
-        )
+    with (
+        patch(
+            "app.api.routers.agent_runtime._get_runner",
+            AsyncMock(return_value=runner),
+        ),
+        patch(
+            "app.api.routers.agent_runtime.get_agent_run_registry",
+            return_value=registry,
+        ),
+        patch(
+            "app.api.routers.agent_runtime._set_task_running_state",
+            AsyncMock(),
+        ) as set_running,
+    ):
+        response = await client.post("/api/v1/agent/sessions/sess_compaction_api/compaction")
 
     assert response.status_code == status.HTTP_409_CONFLICT
     assert response.json()["detail"] == {
@@ -215,22 +221,25 @@ async def test_manual_compaction_maps_no_window_error_to_conflict(
     )
     registry = _registry()
 
-    with patch(
-        "app.api.routers.agent_runtime._get_runner",
-        AsyncMock(return_value=runner),
-    ), patch(
-        "app.api.routers.agent_runtime.get_agent_run_registry",
-        return_value=registry,
-    ), patch(
-        "app.api.routers.agent_runtime._set_task_running_state",
-        AsyncMock(),
-    ), patch(
-        "app.api.routers.agent_runtime._launch_task",
-        AsyncMock(),
-    ) as launch_task:
-        response = await client.post(
-            "/api/v1/agent/sessions/sess_compaction_api/compaction"
-        )
+    with (
+        patch(
+            "app.api.routers.agent_runtime._get_runner",
+            AsyncMock(return_value=runner),
+        ),
+        patch(
+            "app.api.routers.agent_runtime.get_agent_run_registry",
+            return_value=registry,
+        ),
+        patch(
+            "app.api.routers.agent_runtime._set_task_running_state",
+            AsyncMock(),
+        ),
+        patch(
+            "app.api.routers.agent_runtime._launch_task",
+            AsyncMock(),
+        ) as launch_task,
+    ):
+        response = await client.post("/api/v1/agent/sessions/sess_compaction_api/compaction")
 
     assert response.status_code == status.HTTP_409_CONFLICT
     assert response.json()["detail"] == {
@@ -253,22 +262,25 @@ async def test_manual_compaction_maps_empty_summary_error_to_conflict(
     )
     registry = _registry()
 
-    with patch(
-        "app.api.routers.agent_runtime._get_runner",
-        AsyncMock(return_value=runner),
-    ), patch(
-        "app.api.routers.agent_runtime.get_agent_run_registry",
-        return_value=registry,
-    ), patch(
-        "app.api.routers.agent_runtime._set_task_running_state",
-        AsyncMock(),
-    ), patch(
-        "app.api.routers.agent_runtime._launch_task",
-        AsyncMock(),
-    ) as launch_task:
-        response = await client.post(
-            "/api/v1/agent/sessions/sess_compaction_api/compaction"
-        )
+    with (
+        patch(
+            "app.api.routers.agent_runtime._get_runner",
+            AsyncMock(return_value=runner),
+        ),
+        patch(
+            "app.api.routers.agent_runtime.get_agent_run_registry",
+            return_value=registry,
+        ),
+        patch(
+            "app.api.routers.agent_runtime._set_task_running_state",
+            AsyncMock(),
+        ),
+        patch(
+            "app.api.routers.agent_runtime._launch_task",
+            AsyncMock(),
+        ) as launch_task,
+    ):
+        response = await client.post("/api/v1/agent/sessions/sess_compaction_api/compaction")
 
     assert response.status_code == status.HTTP_409_CONFLICT
     assert response.json()["detail"] == {
@@ -306,23 +318,26 @@ async def test_manual_compaction_success_launches_pending_message_continuation(
 
     registry.unregister = AsyncMock(side_effect=unregister)
 
-    with patch(
-        "app.api.routers.agent_runtime._get_runner",
-        AsyncMock(return_value=runner),
-    ), patch(
-        "app.api.routers.agent_runtime.get_agent_run_registry",
-        return_value=registry,
-    ), patch(
-        "app.api.routers.agent_runtime._set_task_running_state",
-        AsyncMock(side_effect=set_running_state),
-    ), patch(
-        "app.api.routers.agent_runtime._launch_continuation_task_replacing_current",
-        AsyncMock(side_effect=launch_continuation),
-        create=True,
-    ) as launch_continuation_task:
-        response = await client.post(
-            "/api/v1/agent/sessions/sess_compaction_api/compaction"
-        )
+    with (
+        patch(
+            "app.api.routers.agent_runtime._get_runner",
+            AsyncMock(return_value=runner),
+        ),
+        patch(
+            "app.api.routers.agent_runtime.get_agent_run_registry",
+            return_value=registry,
+        ),
+        patch(
+            "app.api.routers.agent_runtime._set_task_running_state",
+            AsyncMock(side_effect=set_running_state),
+        ),
+        patch(
+            "app.api.routers.agent_runtime._launch_continuation_task_replacing_current",
+            AsyncMock(side_effect=launch_continuation),
+            create=True,
+        ) as launch_continuation_task,
+    ):
+        response = await client.post("/api/v1/agent/sessions/sess_compaction_api/compaction")
 
     assert response.status_code == status.HTTP_200_OK
     runner.consume_next_pending_user_message_for_continuation.assert_awaited_once_with()
@@ -361,12 +376,15 @@ async def test_launch_continuation_replaces_current_registry_slot_without_gap() 
         coro.close()
         return continuation_task
 
-    with patch(
-        "app.api.routers.agent_runtime.asyncio.create_task",
-        MagicMock(side_effect=create_task),
-    ), patch(
-        "app.api.routers.agent_runtime._set_task_running_state",
-        AsyncMock(),
+    with (
+        patch(
+            "app.api.routers.agent_runtime.asyncio.create_task",
+            MagicMock(side_effect=create_task),
+        ),
+        patch(
+            "app.api.routers.agent_runtime._set_task_running_state",
+            AsyncMock(),
+        ),
     ):
         await _launch_continuation_task_replacing_current(
             db_session_factory=MagicMock(),
@@ -388,19 +406,24 @@ async def test_send_message_queues_when_manual_compaction_running_even_if_interr
     runner = _message_runner()
     registry = _registry(running=True)
 
-    with patch(
-        "app.api.routers.agent_runtime._get_runner",
-        AsyncMock(return_value=runner),
-    ), patch(
-        "app.api.routers.agent_runtime.get_agent_run_registry",
-        return_value=registry,
-    ), patch(
-        "app.api.routers.agent_runtime.task_service.get_task",
-        AsyncMock(return_value=SimpleNamespace(title="Existing Task")),
-    ), patch(
-        "app.api.routers.agent_runtime._launch_task",
-        AsyncMock(),
-    ) as launch_task:
+    with (
+        patch(
+            "app.api.routers.agent_runtime._get_runner",
+            AsyncMock(return_value=runner),
+        ),
+        patch(
+            "app.api.routers.agent_runtime.get_agent_run_registry",
+            return_value=registry,
+        ),
+        patch(
+            "app.api.routers.agent_runtime.task_service.get_task",
+            AsyncMock(return_value=SimpleNamespace(title="Existing Task")),
+        ),
+        patch(
+            "app.api.routers.agent_runtime._launch_task",
+            AsyncMock(),
+        ) as launch_task,
+    ):
         response = await client.post(
             "/api/v1/agent/sessions/sess_compaction_api/message",
             json={"message": "压缩期间追加需求"},
@@ -427,19 +450,24 @@ async def test_send_message_starts_new_run_when_paused_session_is_not_running(
     runner = _message_runner()
     registry = _registry(running=False)
 
-    with patch(
-        "app.api.routers.agent_runtime._get_runner",
-        AsyncMock(return_value=runner),
-    ), patch(
-        "app.api.routers.agent_runtime.get_agent_run_registry",
-        return_value=registry,
-    ), patch(
-        "app.api.routers.agent_runtime.task_service.get_task",
-        AsyncMock(return_value=SimpleNamespace(title="Existing Task")),
-    ), patch(
-        "app.api.routers.agent_runtime._launch_task",
-        AsyncMock(),
-    ) as launch_task:
+    with (
+        patch(
+            "app.api.routers.agent_runtime._get_runner",
+            AsyncMock(return_value=runner),
+        ),
+        patch(
+            "app.api.routers.agent_runtime.get_agent_run_registry",
+            return_value=registry,
+        ),
+        patch(
+            "app.api.routers.agent_runtime.task_service.get_task",
+            AsyncMock(return_value=SimpleNamespace(title="Existing Task")),
+        ),
+        patch(
+            "app.api.routers.agent_runtime._launch_task",
+            AsyncMock(),
+        ) as launch_task,
+    ):
         response = await client.post(
             "/api/v1/agent/sessions/sess_compaction_api/message",
             json={"message": "继续被中断的会话"},
@@ -461,19 +489,24 @@ async def test_send_message_queues_ordinary_running_session(
     runner = _message_runner()
     registry = _registry(running=True)
 
-    with patch(
-        "app.api.routers.agent_runtime._get_runner",
-        AsyncMock(return_value=runner),
-    ), patch(
-        "app.api.routers.agent_runtime.get_agent_run_registry",
-        return_value=registry,
-    ), patch(
-        "app.api.routers.agent_runtime.task_service.get_task",
-        AsyncMock(return_value=SimpleNamespace(title="Existing Task")),
-    ), patch(
-        "app.api.routers.agent_runtime._launch_task",
-        AsyncMock(),
-    ) as launch_task:
+    with (
+        patch(
+            "app.api.routers.agent_runtime._get_runner",
+            AsyncMock(return_value=runner),
+        ),
+        patch(
+            "app.api.routers.agent_runtime.get_agent_run_registry",
+            return_value=registry,
+        ),
+        patch(
+            "app.api.routers.agent_runtime.task_service.get_task",
+            AsyncMock(return_value=SimpleNamespace(title="Existing Task")),
+        ),
+        patch(
+            "app.api.routers.agent_runtime._launch_task",
+            AsyncMock(),
+        ) as launch_task,
+    ):
         response = await client.post(
             "/api/v1/agent/sessions/sess_compaction_api/message",
             json={"message": "运行中追加需求"},
@@ -540,13 +573,16 @@ async def test_rollback_rejects_running_session_without_cancelling(
         restored_message_content="",
     )
 
-    with patch(
-        "app.api.routers.agent_runtime.get_agent_run_registry",
-        return_value=registry,
-    ), patch(
-        "app.api.routers.agent_runtime.rollback_revision_for_session",
-        AsyncMock(return_value=rollback_result),
-    ) as rollback_revision:
+    with (
+        patch(
+            "app.api.routers.agent_runtime.get_agent_run_registry",
+            return_value=registry,
+        ),
+        patch(
+            "app.api.routers.agent_runtime.rollback_revision_for_session",
+            AsyncMock(return_value=rollback_result),
+        ) as rollback_revision,
+    ):
         response = await client.post(
             "/api/v1/agent/sessions/sess_compaction_api/rollback",
             json={"revision_id": "rev_before_compaction"},

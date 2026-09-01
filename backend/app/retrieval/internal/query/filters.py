@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Filter expression helpers for retrieval queries.
 """

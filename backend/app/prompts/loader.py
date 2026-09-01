@@ -1,6 +1,6 @@
-# -*- coding: utf-8 -*-
 """默认提示词的注册、加载与自定义智能体文件管理。"""
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -65,9 +65,7 @@ _PROMPT_DEFINITIONS = (
         for agent_name in _BUILTIN_AGENT_NAMES
     ),
 )
-_PROMPT_DEFINITION_BY_ID = {
-    definition.prompt_id: definition for definition in _PROMPT_DEFINITIONS
-}
+_PROMPT_DEFINITION_BY_ID = {definition.prompt_id: definition for definition in _PROMPT_DEFINITIONS}
 _CATEGORY_DEFINITIONS = (
     ("session", "session"),
     ("memory", "memory"),
@@ -126,7 +124,7 @@ def load_prompt_chain(prompt_id: str) -> list[PromptEntryData] | None:
 
 
 def get_prompt_chains_metadata(
-    custom_agents: list[tuple[str, str] | tuple[str, str, str]] | None = None,
+    custom_agents: Sequence[tuple[str, str] | tuple[str, str, str]] | None = None,
 ) -> dict[str, list[dict[str, object]]]:
     """返回按业务类别分组的单级提示词元数据。"""
     from app.agent_runtime.agents.definitions import DEFAULT_AGENT_DEFINITIONS
@@ -158,8 +156,11 @@ def get_prompt_chains_metadata(
         for category_id, _ in _CATEGORY_DEFINITIONS
     }
     for item in sorted(custom_agents or [], key=lambda item: item[1].casefold()):
-        key, display_name = item[:2]
-        kind = item[2] if len(item) > 2 else "subagent"
+        if len(item) == 3:
+            key, display_name, kind = item
+        else:
+            key, display_name = item
+            kind = "subagent"
         prompts_by_category["custom-agents"].append(
             {
                 "id": custom_agent_prompt_id(key),
@@ -228,7 +229,8 @@ def create_custom_agent_prompt_yaml(
         raise ValueError(f"无效的自定义智能体标识: {agent_name}")
     yaml_path.parent.mkdir(parents=True, exist_ok=True)
     yaml_path.write_text(
-        content or (_PRIMARY_AGENT_DEFAULT_CONTENT if kind == "primary" else _SUBAGENT_DEFAULT_CONTENT),
+        content
+        or (_PRIMARY_AGENT_DEFAULT_CONTENT if kind == "primary" else _SUBAGENT_DEFAULT_CONTENT),
         encoding="utf-8",
     )
     logger.info(f"已创建自定义智能体提示词 YAML: {yaml_path}")

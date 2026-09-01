@@ -3,8 +3,9 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock
 
-import app.cli as cli
 from uvicorn.config import Config
+
+import app.cli as cli
 
 
 def test_get_uvicorn_loop_factory_uses_selector_on_windows(monkeypatch) -> None:
@@ -73,7 +74,10 @@ def test_handle_serve_passes_loop_factory_to_uvicorn(monkeypatch) -> None:
 
     cli.handle_serve(type("Args", (), {"host": "127.0.0.1", "port": 8000})())
 
-    assert sys.modules["uvicorn"].Config.call_args.kwargs["loop"] == "app.cli:_windows_selector_loop_factory"
+    assert (
+        sys.modules["uvicorn"].Config.call_args.kwargs["loop"]
+        == "app.cli:_windows_selector_loop_factory"
+    )
     assert fastapi_app.state.uvicorn_server is uvicorn_server
     uvicorn_server.run.assert_called_once_with()
 

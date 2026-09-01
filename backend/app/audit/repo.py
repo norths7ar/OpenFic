@@ -60,7 +60,9 @@ class LLMAuditLogRepo:
         return audit_log
 
     async def get_by_id(self, audit_id: str) -> LLMAuditLog | None:
-        result = await self.session.execute(select(LLMAuditLog).where(col(LLMAuditLog.id) == audit_id))
+        result = await self.session.execute(
+            select(LLMAuditLog).where(col(LLMAuditLog.id) == audit_id)
+        )
         return result.scalar_one_or_none()
 
     async def list_by_session(self, session_id: str) -> list[LLMAuditLog]:
@@ -87,7 +89,9 @@ class LLMAuditLogRepo:
         )
         return list(result.scalars().all())
 
-    async def update_revision_id(self, session_id: str, call_sequence: int, revision_id: str) -> None:
+    async def update_revision_id(
+        self, session_id: str, call_sequence: int, revision_id: str
+    ) -> None:
         result = await self.session.execute(
             select(LLMAuditLog)
             .where(col(LLMAuditLog.session_id) == session_id)
@@ -141,7 +145,9 @@ class LLMAuditLogRepo:
                 func.sum(col(LLMAuditLog.tokens_total)).label("tokens_grand_total"),
                 func.sum(col(LLMAuditLog.latency_ms)).label("duration_ms"),
                 func.sum(col(LLMAuditLog.tool_calls_count)).label("tool_calls_grand_total"),
-                func.sum(case((col(LLMAuditLog.status) == "error", 1), else_=0)).label("error_count"),
+                func.sum(case((col(LLMAuditLog.status) == "error", 1), else_=0)).label(
+                    "error_count"
+                ),
             )
             .where(col(LLMAuditLog.task_id) == task_id)
             .group_by(col(LLMAuditLog.task_id))
@@ -162,7 +168,9 @@ class LLMAuditLogRepo:
         )
 
     async def delete_by_session(self, session_id: str) -> int:
-        result = await self.session.execute(select(LLMAuditLog).where(col(LLMAuditLog.session_id) == session_id))
+        result = await self.session.execute(
+            select(LLMAuditLog).where(col(LLMAuditLog.session_id) == session_id)
+        )
         logs = result.scalars().all()
         for log in logs:
             await self.session.delete(log)

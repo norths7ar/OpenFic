@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """runtime-config 端点与错误遥测设置 API 测试。"""
 
 import pytest

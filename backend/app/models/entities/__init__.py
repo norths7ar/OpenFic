@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Entities Module - 数据模型实体。
 """

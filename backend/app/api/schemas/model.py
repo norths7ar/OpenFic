@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Model API Schemas - 模型请求/响应模型。
 """
@@ -69,9 +68,7 @@ class ModelCreateRequest(BaseModel):
     name: str = Field(description="模型名称")
     provider_id: str = Field(description="关联的提供商 ID")
     model_id: str = Field(description="从提供商获取的模型 ID")
-    task_type: TaskType = Field(
-        default="llm", description="任务类型（llm、embedding 或 rerank）"
-    )
+    task_type: TaskType = Field(default="llm", description="任务类型（llm、embedding 或 rerank）")
     remark: str = Field(default="", description="备注")
     temperature: float | None = Field(default=DEFAULT_TEMPERATURE, ge=0.0, le=2.0)
     top_p: float | None = Field(default=DEFAULT_TOP_P, ge=0.0, le=1.0)
@@ -124,7 +121,5 @@ class ModelValidationResponse(BaseModel):
 
     success: bool = Field(description="验证是否成功")
     message: str = Field(description="面向用户的验证结果")
-    error_code: ModelValidationErrorCode | None = Field(
-        default=None, description="失败分类"
-    )
+    error_code: ModelValidationErrorCode | None = Field(default=None, description="失败分类")
     detail: str | None = Field(default=None, description="提供商返回的简短详情")

@@ -38,7 +38,7 @@ def _ai_message(
 
 
 def _table(model: Any) -> Any:
-    return getattr(model, "__table__")
+    return model.__table__
 
 
 _TABLES = [

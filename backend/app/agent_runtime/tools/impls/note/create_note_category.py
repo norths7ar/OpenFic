@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 创建笔记分类。
 """
@@ -8,19 +7,19 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from app.agent_runtime.tools.base import AgentTool
 from app.agent_runtime.revisions import (
     current_revision_id_from_state,
     note_category_images_by_id,
     record_note_category_diffs,
 )
+from app.agent_runtime.tools.base import AgentTool
 from app.agent_runtime.tools.errors import ToolExecutionError
+from app.agent_runtime.tools.impls._locks import keyed_lock
 from app.agent_runtime.tools.impls.note.refs import (
     CategoryRef,
     generate_unique_title,
     resolve_category_from_list,
 )
-from app.agent_runtime.tools.impls._locks import keyed_lock
 from app.agent_runtime.tools.registry import ToolRegistry
 from app.storage.database import create_session
 from app.storage.models.note import NoteCategory
@@ -95,9 +94,7 @@ class CreateNoteCategoryTool(AgentTool):
                     if parent is None:
                         raise ToolExecutionError(f"分类不存在: {ref.id}")
                 else:
-                    cats = await note_category_repo.list_by_project(
-                        session, self.project_id
-                    )
+                    cats = await note_category_repo.list_by_project(session, self.project_id)
                     parent = resolve_category_from_list(cats, ref)
                 if parent.project_id != self.project_id:
                     raise ToolExecutionError("父分类不属于当前项目")
@@ -107,18 +104,19 @@ class CreateNoteCategoryTool(AgentTool):
                 before = note_category_images_by_id(
                     await note_category_repo.list_by_project(session, self.project_id)
                 )
-                sibling_titles = {
-                    c.title for c in before.values() if c.parent_id == parent_id
-                }
+                sibling_titles = {c.title for c in before.values() if c.parent_id == parent_id}
                 unique_title = generate_unique_title(title, sibling_titles)
-                next_order = max(
-                    (
-                        category.order
-                        for category in before.values()
-                        if category.parent_id == parent_id
-                    ),
-                    default=0,
-                ) + 1
+                next_order = (
+                    max(
+                        (
+                            category.order
+                            for category in before.values()
+                            if category.parent_id == parent_id
+                        ),
+                        default=0,
+                    )
+                    + 1
+                )
 
                 category = NoteCategory(
                     project_id=self.project_id,

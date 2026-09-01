@@ -5,8 +5,8 @@ import app.api.routers.auth as auth_router
 from app.api.routers.auth import router
 from app.api.schemas.setting import SettingsResponse
 from app.auth import AuthMiddleware, AuthService
-from app.storage.database import get_session
 from app.settings import Settings
+from app.storage.database import get_session
 
 
 def _create_auth_test_app(password: str | None, api_prefix: str = "/api/v1") -> AuthMiddleware:

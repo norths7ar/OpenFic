@@ -23,7 +23,9 @@ class InterceptHandler(logging.Handler):
 
 
 def _resolve_loguru_level(record: logging.LogRecord) -> str | int:
-    if record.name == "alembic.runtime.migration" and record.getMessage().startswith("Running upgrade"):
+    if record.name == "alembic.runtime.migration" and record.getMessage().startswith(
+        "Running upgrade"
+    ):
         return "DEBUG"
 
     try:

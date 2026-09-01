@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Project Repository - 项目数据访问层。
 """
@@ -106,7 +105,9 @@ async def list_all(
     sortable_expression = (
         func.pinyin_full(col(Project.title)) if sort_by == "title" else col(sort_column)
     )
-    order_expression = sortable_expression.asc() if sort_order == "asc" else sortable_expression.desc()
+    order_expression = (
+        sortable_expression.asc() if sort_order == "asc" else sortable_expression.desc()
+    )
     stmt = (
         _apply_search(select(Project), search)
         .order_by(order_expression, col(Project.id).asc())
@@ -127,9 +128,7 @@ async def count(session: AsyncSession, *, search: str | None = None) -> int:
     Returns:
         项目总数。
     """
-    result = await session.execute(
-        _apply_search(select(func.count(col(Project.id))), search)
-    )
+    result = await session.execute(_apply_search(select(func.count(col(Project.id))), search))
     return result.scalar_one()
 
 

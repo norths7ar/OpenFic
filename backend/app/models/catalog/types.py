@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Typed catalog models."""
 
 from pydantic import BaseModel, Field
@@ -8,9 +7,7 @@ class CatalogProviderModelSummary(BaseModel):
     model_id: str = Field(description="Catalog model id")
     display_name: str = Field(description="Catalog model display name")
     task_type: str = Field(description="llm, embedding, or rerank")
-    metadata: dict | None = Field(
-        default=None, description="Catalog display metadata"
-    )
+    metadata: dict | None = Field(default=None, description="Catalog display metadata")
 
 
 class CatalogProviderSummary(BaseModel):
@@ -19,12 +16,8 @@ class CatalogProviderSummary(BaseModel):
     default_url: str | None = Field(
         default=None, description="Suggested default base URL for this provider"
     )
-    api: str | None = Field(
-        default=None, description="Raw Models.dev api field for exact matching"
-    )
-    icon_path: str | None = Field(
-        default=None, description="Locally served builtin icon path"
-    )
+    api: str | None = Field(default=None, description="Raw Models.dev api field for exact matching")
+    icon_path: str | None = Field(default=None, description="Locally served builtin icon path")
     models_dev_provider_id: str | None = Field(
         default=None, description="Mapped Models.dev provider id"
     )

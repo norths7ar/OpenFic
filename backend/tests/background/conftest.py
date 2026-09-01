@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Background 测试专用 conftest — 覆盖顶层 fixtures 避免模块级事件循环干扰。"""
 
 import pytest

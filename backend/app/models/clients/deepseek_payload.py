@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """DeepSeek payload helpers."""
 
 from typing import Any, cast

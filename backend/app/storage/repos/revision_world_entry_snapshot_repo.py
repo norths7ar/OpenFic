@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Revision world-entry snapshot repositories."""
 
 from sqlalchemy import select

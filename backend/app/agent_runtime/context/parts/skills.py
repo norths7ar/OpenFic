@@ -1,5 +1,5 @@
-from collections.abc import Iterable
 import html
+from collections.abc import Iterable
 from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -40,9 +40,9 @@ async def build_skills(
         if existing_referenced_ids
         else tuple(_user_message_texts(state, node_messages))
     )
-    has_skill_references = any(
-        "<of-skill" in text for text in user_message_texts
-    ) or bool(existing_referenced_ids)
+    has_skill_references = any("<of-skill" in text for text in user_message_texts) or bool(
+        existing_referenced_ids
+    )
 
     try:
         agent_skills = await skill_service.list_enabled_skills_by_ids(

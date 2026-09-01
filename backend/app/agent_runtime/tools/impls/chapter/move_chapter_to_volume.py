@@ -48,9 +48,7 @@ class MoveChapterToVolumeTool(AgentTool):
         session = await create_session()
         try:
             volumes = await volume_repo.list_by_project(session, self.project_id)
-            source_volume = resolve_volume_from_list(
-                volumes, VolumeRef.model_validate(volume_ref)
-            )
+            source_volume = resolve_volume_from_list(volumes, VolumeRef.model_validate(volume_ref))
             target_volume = resolve_volume_from_list(
                 volumes, VolumeRef.model_validate(target_volume_ref)
             )

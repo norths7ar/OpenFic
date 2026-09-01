@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Note Repository - 笔记数据访问层。
 """
@@ -114,9 +113,7 @@ async def search_by_content(
     if document_type is not None:
         statement = statement.where(col(Note.document_type) == document_type)
     result = await session.execute(
-        statement.order_by(
-            col(Note.order).asc(), col(Note.title).asc(), col(Note.id).asc()
-        )
+        statement.order_by(col(Note.order).asc(), col(Note.title).asc(), col(Note.id).asc())
     )
     return list(result.scalars().all())
 

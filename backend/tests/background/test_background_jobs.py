@@ -1,8 +1,8 @@
-from collections import deque
-from datetime import UTC, datetime, timedelta
 import asyncio
 import builtins
 import json
+from collections import deque
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
@@ -16,22 +16,22 @@ from sqlmodel import SQLModel
 
 from app.background.events.publisher import BackgroundEventPublisher
 from app.background.events.types import EVENT_JOB_CANCELLED, EVENT_JOB_PROGRESS
+from app.background.jobs import repos as job_repo
+from app.background.jobs import service as background_service
 from app.background.jobs.base import JobDefinition
-from app.background.jobs.definitions import register_all_background_jobs
-from app.background.jobs.definitions.chapter_summary import handle_chapter_summary
-from app.background.jobs.definitions import summary_batch as summary_batch_definition
 from app.background.jobs.constants import (
     JOB_TYPE_RETRIEVAL_CHAPTER_INDEX_BATCH,
     JOB_TYPE_SUMMARY_BATCH,
 )
+from app.background.jobs.definitions import register_all_background_jobs
+from app.background.jobs.definitions import summary_batch as summary_batch_definition
+from app.background.jobs.definitions.chapter_summary import handle_chapter_summary
 from app.background.jobs.definitions.session_title import handle_session_title
-from app.background.jobs import repos as job_repo
-from app.background.jobs import service as background_service
 from app.background.jobs.models import BackgroundJob, BackgroundJobItem
 from app.background.jobs.states import (
-    JOB_STATUS_FAILED,
-    JOB_STATUS_CANCELLED,
     JOB_STATUS_CANCEL_REQUESTED,
+    JOB_STATUS_CANCELLED,
+    JOB_STATUS_FAILED,
     JOB_STATUS_PENDING,
     JOB_STATUS_RUNNING,
     JOB_STATUS_SKIPPED,
@@ -40,8 +40,8 @@ from app.background.jobs.states import (
 from app.background.runtime.context import JobCancelledError, JobContext
 from app.background.runtime.dispatcher import dispatch_job
 from app.background.runtime.registry import JobRegistry, get_job_registry
-from app.background.runtime.worker import BackgroundWorker
 from app.background.runtime.watchdog import BackgroundWatchdog
+from app.background.runtime.worker import BackgroundWorker
 from app.background.transport.base import BackgroundTransport
 from app.background.transport.messages import BackgroundEventMessage, JobNotification
 from app.background.transport.zmq import ZmqBackgroundTransport
@@ -236,7 +236,14 @@ def reset_background_registry():
 @pytest.mark.asyncio
 async def test_submit_job_persists_background_job(session):
     project = Project(title="项目", description="")
-    chapter = Chapter(project_id=project.id, volume_id=_default_volume_id(project), title="第一章", content="", word_count=0, order=1)
+    chapter = Chapter(
+        project_id=project.id,
+        volume_id=_default_volume_id(project),
+        title="第一章",
+        content="",
+        word_count=0,
+        order=1,
+    )
     task = Task(project_id=project.id, title="临时标题", mode="agent")
     session.add(project)
     session.add(_default_volume(project))
@@ -257,7 +264,10 @@ async def test_submit_job_persists_background_job(session):
     stored = await job_repo.get_job(session, job.id)
     assert stored is not None
     assert stored.type == "session_title"
-    assert background_service.parse_json_object(stored.payload_json)["seed_message"] == "写一场雨夜密谋"
+    assert (
+        background_service.parse_json_object(stored.payload_json)["seed_message"]
+        == "写一场雨夜密谋"
+    )
     assert stored.subject_type == "task"
     assert stored.subject_id == task.id
     assert stored.queue == "llm"
@@ -274,7 +284,14 @@ async def test_submit_job_defers_runtime_notification_until_after_commit(session
     monkeypatch.setattr(background_service, "notify_job_submitted", notify_job_submitted)
 
     project = Project(title="项目", description="")
-    chapter = Chapter(project_id=project.id, volume_id=_default_volume_id(project), title="第一章", content="", word_count=0, order=1)
+    chapter = Chapter(
+        project_id=project.id,
+        volume_id=_default_volume_id(project),
+        title="第一章",
+        content="",
+        word_count=0,
+        order=1,
+    )
     task = Task(project_id=project.id, title="临时标题", mode="agent")
     session.add(project)
     session.add(_default_volume(project))
@@ -370,7 +387,14 @@ async def test_session_title_skips_when_light_model_missing(tmp_path):
     context: JobContext | None = None
     try:
         project = Project(title="项目", description="")
-        chapter = Chapter(project_id=project.id, volume_id=_default_volume_id(project), title="第一章", content="", word_count=0, order=1)
+        chapter = Chapter(
+            project_id=project.id,
+            volume_id=_default_volume_id(project),
+            title="第一章",
+            content="",
+            word_count=0,
+            order=1,
+        )
         task = Task(project_id=project.id, title="临时标题", mode="agent")
         session.add(project)
         session.add(_default_volume(project))
@@ -456,7 +480,7 @@ async def test_session_title_compiles_mentions_before_prompt_build(tmp_path):
             publisher=BackgroundEventPublisher(transport),
         )
 
-        compiled_text = '请基于\n> 引用章节：现章节标题\n和\n> 引用片段：现章节标题 第4-9行；原文快照：保留快照\n命名'
+        compiled_text = "请基于\n> 引用章节：现章节标题\n和\n> 引用片段：现章节标题 第4-9行；原文快照：保留快照\n命名"
 
         async def fake_build_chat_messages(_session, *, runtime, **_kwargs):
             captured["current_message"] = runtime.current_message
@@ -464,23 +488,25 @@ async def test_session_title_compiles_mentions_before_prompt_build(tmp_path):
 
         fake_resolved = SimpleNamespace(
             client=SimpleNamespace(
-                generate=AsyncMock(
-                    return_value=SimpleNamespace(content="标题测试", usage={})
-                ),
+                generate=AsyncMock(return_value=SimpleNamespace(content="标题测试", usage={})),
             ),
             model=SimpleNamespace(model_id="gpt-test", name="GPT Test"),
             provider=SimpleNamespace(provider_type="openai-compatible"),
         )
 
-        with patch(
-            "app.background.jobs.definitions.session_title.resolve_background_llm",
-            AsyncMock(return_value=fake_resolved),
-        ), patch(
-            "app.background.jobs.definitions.session_title.compile_canonical_mentions",
-            AsyncMock(return_value=compiled_text),
-        ), patch(
-            "app.background.jobs.definitions.session_title.build_chat_messages",
-            AsyncMock(side_effect=fake_build_chat_messages),
+        with (
+            patch(
+                "app.background.jobs.definitions.session_title.resolve_background_llm",
+                AsyncMock(return_value=fake_resolved),
+            ),
+            patch(
+                "app.background.jobs.definitions.session_title.compile_canonical_mentions",
+                AsyncMock(return_value=compiled_text),
+            ),
+            patch(
+                "app.background.jobs.definitions.session_title.build_chat_messages",
+                AsyncMock(side_effect=fake_build_chat_messages),
+            ),
         ):
             result = await handle_session_title(context)
 
@@ -540,12 +566,15 @@ async def test_session_title_records_audited_model_call(tmp_path, monkeypatch):
             provider=SimpleNamespace(provider_type="openai-compatible"),
         )
         monkeypatch.setattr("app.audit.context.enqueue_audit_log", fake_enqueue)
-        with patch(
-            "app.background.jobs.definitions.session_title.resolve_background_llm",
-            AsyncMock(return_value=fake_resolved),
-        ), patch(
-            "app.background.jobs.definitions.session_title.build_chat_messages",
-            AsyncMock(return_value=[]),
+        with (
+            patch(
+                "app.background.jobs.definitions.session_title.resolve_background_llm",
+                AsyncMock(return_value=fake_resolved),
+            ),
+            patch(
+                "app.background.jobs.definitions.session_title.build_chat_messages",
+                AsyncMock(return_value=[]),
+            ),
         ):
             result = await handle_session_title(context)
 
@@ -571,7 +600,9 @@ async def test_session_title_records_audited_model_call(tmp_path, monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_session_title_keeps_audit_model_metadata_after_short_session_closes(tmp_path, monkeypatch):
+async def test_session_title_keeps_audit_model_metadata_after_short_session_closes(
+    tmp_path, monkeypatch
+):
     engine, factory = await _configure_file_database(tmp_path)
     session = factory()
     context: JobContext | None = None
@@ -605,9 +636,7 @@ async def test_session_title_keeps_audit_model_metadata_after_short_session_clos
             assert resolved_model is not None
             return SimpleNamespace(
                 client=SimpleNamespace(
-                    generate=AsyncMock(
-                        return_value=SimpleNamespace(content="标题测试", usage={})
-                    )
+                    generate=AsyncMock(return_value=SimpleNamespace(content="标题测试", usage={}))
                 ),
                 model=resolved_model,
                 provider=SimpleNamespace(provider_type="openai-compatible"),
@@ -617,12 +646,15 @@ async def test_session_title_keeps_audit_model_metadata_after_short_session_clos
             return None
 
         monkeypatch.setattr("app.audit.context.enqueue_audit_log", fake_enqueue)
-        with patch(
-            "app.background.jobs.definitions.session_title.resolve_background_llm",
-            AsyncMock(side_effect=fake_resolve_background_llm),
-        ), patch(
-            "app.background.jobs.definitions.session_title.build_chat_messages",
-            AsyncMock(return_value=[]),
+        with (
+            patch(
+                "app.background.jobs.definitions.session_title.resolve_background_llm",
+                AsyncMock(side_effect=fake_resolve_background_llm),
+            ),
+            patch(
+                "app.background.jobs.definitions.session_title.build_chat_messages",
+                AsyncMock(return_value=[]),
+            ),
         ):
             result = await handle_session_title(context)
 
@@ -835,7 +867,14 @@ async def test_chapter_summary_skips_when_light_model_missing(tmp_path):
     context: JobContext | None = None
     try:
         project = Project(title="项目", description="")
-        chapter = Chapter(project_id=project.id, volume_id=_default_volume_id(project), title="第一章", content="正文", word_count=2, order=1)
+        chapter = Chapter(
+            project_id=project.id,
+            volume_id=_default_volume_id(project),
+            title="第一章",
+            content="正文",
+            word_count=2,
+            order=1,
+        )
         session.add(project)
         session.add(_default_volume(project))
         session.add(chapter)
@@ -893,7 +932,9 @@ async def test_worker_runs_failure_hook_after_rollback(tmp_path):
         await background_service.commit_and_notify(session)
 
         transport = RecordingTransport()
-        worker = BackgroundWorker(worker_id="worker-1", transport=transport, scan_interval_seconds=1)
+        worker = BackgroundWorker(
+            worker_id="worker-1", transport=transport, scan_interval_seconds=1
+        )
         with patch.object(JobContext, "check_cancelled", new_callable=AsyncMock):
             await worker._run_job(job.id)
 
@@ -1026,7 +1067,9 @@ async def test_worker_interrupts_running_summary_batch_on_cancel_request(tmp_pat
         await background_service.commit_and_notify(session)
 
         transport = RecordingTransport()
-        worker = BackgroundWorker(worker_id="worker-1", transport=transport, scan_interval_seconds=1)
+        worker = BackgroundWorker(
+            worker_id="worker-1", transport=transport, scan_interval_seconds=1
+        )
         run_task = asyncio.create_task(worker._run_job(job.id))
         await asyncio.wait_for(generation_started.wait(), timeout=1)
 
@@ -1089,12 +1132,16 @@ async def test_worker_interrupts_running_index_batch_on_cancel_request(tmp_path)
         )
         job = await job_repo.create_job(
             session,
-            BackgroundJob(type=JOB_TYPE_RETRIEVAL_CHAPTER_INDEX_BATCH, payload_json='{"value":"x"}'),
+            BackgroundJob(
+                type=JOB_TYPE_RETRIEVAL_CHAPTER_INDEX_BATCH, payload_json='{"value":"x"}'
+            ),
         )
         await background_service.commit_and_notify(session)
 
         transport = RecordingTransport()
-        worker = BackgroundWorker(worker_id="worker-1", transport=transport, scan_interval_seconds=1)
+        worker = BackgroundWorker(
+            worker_id="worker-1", transport=transport, scan_interval_seconds=1
+        )
         run_task = asyncio.create_task(worker._run_job(job.id))
         await asyncio.wait_for(indexing_started.wait(), timeout=1)
 
@@ -1136,7 +1183,14 @@ async def test_summary_batch_failure_hook_marks_incomplete_items_failed(tmp_path
     session = factory()
     try:
         project = Project(title="项目", description="")
-        chapter = Chapter(project_id=project.id, volume_id=_default_volume_id(project), title="第一章", content="正文" * 400, word_count=800, order=1)
+        chapter = Chapter(
+            project_id=project.id,
+            volume_id=_default_volume_id(project),
+            title="第一章",
+            content="正文" * 400,
+            word_count=800,
+            order=1,
+        )
         session.add(project)
         session.add(_default_volume(project))
         session.add(chapter)
@@ -1182,7 +1236,9 @@ async def test_summary_batch_failure_hook_marks_incomplete_items_failed(tmp_path
         monkeypatch.setattr(summary_batch_definition, "_mark_item_running", fail_mark_item_running)
 
         transport = RecordingTransport()
-        worker = BackgroundWorker(worker_id="worker-1", transport=transport, scan_interval_seconds=1)
+        worker = BackgroundWorker(
+            worker_id="worker-1", transport=transport, scan_interval_seconds=1
+        )
         await worker._run_job(job_id)
 
         verification_session = factory()
@@ -1210,7 +1266,14 @@ async def test_summary_batch_publishes_chapter_update_without_loading_job_id(tmp
     session = factory()
     try:
         project = Project(title="项目", description="")
-        chapter = Chapter(project_id=project.id, volume_id=_default_volume_id(project), title="第一章", content="正文" * 400, word_count=800, order=1)
+        chapter = Chapter(
+            project_id=project.id,
+            volume_id=_default_volume_id(project),
+            title="第一章",
+            content="正文" * 400,
+            word_count=800,
+            order=1,
+        )
         session.add(project)
         session.add(_default_volume(project))
         session.add(chapter)
@@ -1280,7 +1343,14 @@ async def test_summary_batch_publishes_chapter_update_with_item_type(tmp_path):
     session = factory()
     try:
         project = Project(title="项目", description="")
-        chapter = Chapter(project_id=project.id, volume_id=_default_volume_id(project), title="第一章", content="正文", word_count=2, order=1)
+        chapter = Chapter(
+            project_id=project.id,
+            volume_id=_default_volume_id(project),
+            title="第一章",
+            content="正文",
+            word_count=2,
+            order=1,
+        )
         session.add(project)
         session.add(_default_volume(project))
         session.add(chapter)
@@ -1359,7 +1429,9 @@ async def test_append_summary_batch_items_publish_queued_item_events(tmp_path, m
                     start_order=chapter.order,
                     end_order=chapter.order,
                     summary=f"第{chapter.order}章摘要",
-                    source_content_normalized=summary_service.normalize_summary_source_content(chapter.content),
+                    source_content_normalized=summary_service.normalize_summary_source_content(
+                        chapter.content
+                    ),
                 )
             )
         await session.commit()
@@ -1384,10 +1456,16 @@ async def test_append_summary_batch_items_publish_queued_item_events(tmp_path, m
         )
         await background_service.commit_and_notify(session)
 
-        queued_events = [event for event in transport.events if event.type == "background_item_queued"]
+        queued_events = [
+            event for event in transport.events if event.type == "background_item_queued"
+        ]
         assert len(queued_events) == 2
-        chapter_event = next(event for event in queued_events if event.item_type == "chapter_summary")
-        long_term_event = next(event for event in queued_events if event.item_type == "long_term_summary")
+        chapter_event = next(
+            event for event in queued_events if event.item_type == "chapter_summary"
+        )
+        long_term_event = next(
+            event for event in queued_events if event.item_type == "long_term_summary"
+        )
 
         assert chapter_event.job_type == JOB_TYPE_SUMMARY_BATCH
         assert chapter_event.item_id == chapter_result.item_ids[0]
@@ -1468,8 +1546,22 @@ async def test_summary_batch_commits_after_each_item(tmp_path, monkeypatch):
     session = factory()
     try:
         project = Project(title="项目", description="")
-        chapter_one = Chapter(project_id=project.id, volume_id=_default_volume_id(project), title="第一章", content="正文" * 400, word_count=800, order=1)
-        chapter_two = Chapter(project_id=project.id, volume_id=_default_volume_id(project), title="第二章", content="正文" * 400, word_count=800, order=2)
+        chapter_one = Chapter(
+            project_id=project.id,
+            volume_id=_default_volume_id(project),
+            title="第一章",
+            content="正文" * 400,
+            word_count=800,
+            order=1,
+        )
+        chapter_two = Chapter(
+            project_id=project.id,
+            volume_id=_default_volume_id(project),
+            title="第二章",
+            content="正文" * 400,
+            word_count=800,
+            order=2,
+        )
         session.add(project)
         session.add(_default_volume(project, chapter_count=2))
         session.add(chapter_one)
@@ -1523,7 +1615,9 @@ async def test_summary_batch_commits_after_each_item(tmp_path, monkeypatch):
         monkeypatch.setattr(background_service, "commit_and_notify", counting_commit_and_notify)
 
         transport = RecordingTransport()
-        worker = BackgroundWorker(worker_id="worker-1", transport=transport, scan_interval_seconds=1)
+        worker = BackgroundWorker(
+            worker_id="worker-1", transport=transport, scan_interval_seconds=1
+        )
         await worker._run_job(job_id)
 
         assert len(processed) == 2
@@ -1601,7 +1695,9 @@ async def test_summary_batch_aggregates_window_with_skipped_first_chapter(tmp_pa
         async def fake_generate(_client, _prompt, **_audit_kwargs):
             return FakeLongTermSummaryResult()
 
-        monkeypatch.setattr(summary_batch_definition, "resolve_background_llm", fake_resolve_background_llm)
+        monkeypatch.setattr(
+            summary_batch_definition, "resolve_background_llm", fake_resolve_background_llm
+        )
         monkeypatch.setattr(
             summary_batch_definition.summary_generator,
             "build_long_term_summary_prompt",
@@ -1634,7 +1730,14 @@ async def test_summary_batch_persists_running_status_before_generation(tmp_path,
     session = factory()
     try:
         project = Project(title="项目", description="")
-        chapter = Chapter(project_id=project.id, volume_id=_default_volume_id(project), title="第一章", content="正文" * 400, word_count=800, order=1)
+        chapter = Chapter(
+            project_id=project.id,
+            volume_id=_default_volume_id(project),
+            title="第一章",
+            content="正文" * 400,
+            word_count=800,
+            order=1,
+        )
         session.add(project)
         session.add(_default_volume(project))
         session.add(chapter)
@@ -1681,12 +1784,24 @@ async def test_summary_batch_persists_running_status_before_generation(tmp_path,
             _ = (model_policy, model_id)
             return FakeResolved()
 
-        monkeypatch.setattr(summary_batch_definition, "resolve_background_llm", fake_resolve_background_llm)
-        monkeypatch.setattr(summary_batch_definition.summary_generator, "build_chapter_summary_prompt", fake_build_prompt)
-        monkeypatch.setattr(summary_batch_definition.summary_generator, "generate_chapter_summary_from_prompt", fake_generate)
+        monkeypatch.setattr(
+            summary_batch_definition, "resolve_background_llm", fake_resolve_background_llm
+        )
+        monkeypatch.setattr(
+            summary_batch_definition.summary_generator,
+            "build_chapter_summary_prompt",
+            fake_build_prompt,
+        )
+        monkeypatch.setattr(
+            summary_batch_definition.summary_generator,
+            "generate_chapter_summary_from_prompt",
+            fake_generate,
+        )
 
         transport = RecordingTransport()
-        worker = BackgroundWorker(worker_id="worker-1", transport=transport, scan_interval_seconds=1)
+        worker = BackgroundWorker(
+            worker_id="worker-1", transport=transport, scan_interval_seconds=1
+        )
         await worker._run_job(result.batch_job_id)
 
         assert observed_statuses == [SUMMARY_STATUS_RUNNING]
@@ -1700,18 +1815,29 @@ def test_summary_batch_has_no_fixed_outer_timeout():
 
 
 @pytest.mark.asyncio
-async def test_summary_batch_progress_event_contains_aggregated_batch_progress(tmp_path, monkeypatch):
+async def test_summary_batch_progress_event_contains_aggregated_batch_progress(
+    tmp_path, monkeypatch
+):
     engine, factory = await _configure_file_database(tmp_path)
     session = factory()
     try:
         project = Project(title="项目", description="")
-        chapter = Chapter(project_id=project.id, volume_id=_default_volume_id(project), title="第一章", content="正文" * 400, word_count=800, order=1)
+        chapter = Chapter(
+            project_id=project.id,
+            volume_id=_default_volume_id(project),
+            title="第一章",
+            content="正文" * 400,
+            word_count=800,
+            order=1,
+        )
         session.add(project)
         session.add(_default_volume(project))
         session.add(chapter)
         await session.commit()
 
-        result = await summary_service.append_chapter_summary_items(session, project.id, [chapter.id])
+        result = await summary_service.append_chapter_summary_items(
+            session, project.id, [chapter.id]
+        )
         await session.commit()
 
         class FakeChapterSummaryResult:
@@ -1739,18 +1865,32 @@ async def test_summary_batch_progress_event_contains_aggregated_batch_progress(t
         async def fake_generate(_client, _prompt, **_audit_kwargs):
             return FakeChapterSummaryResult()
 
-        monkeypatch.setattr(summary_batch_definition, "resolve_background_llm", fake_resolve_background_llm)
-        monkeypatch.setattr(summary_batch_definition.summary_generator, "build_chapter_summary_prompt", fake_build_prompt)
-        monkeypatch.setattr(summary_batch_definition.summary_generator, "generate_chapter_summary_from_prompt", fake_generate)
+        monkeypatch.setattr(
+            summary_batch_definition, "resolve_background_llm", fake_resolve_background_llm
+        )
+        monkeypatch.setattr(
+            summary_batch_definition.summary_generator,
+            "build_chapter_summary_prompt",
+            fake_build_prompt,
+        )
+        monkeypatch.setattr(
+            summary_batch_definition.summary_generator,
+            "generate_chapter_summary_from_prompt",
+            fake_generate,
+        )
 
         transport = RecordingTransport()
-        worker = BackgroundWorker(worker_id="worker-1", transport=transport, scan_interval_seconds=1)
+        worker = BackgroundWorker(
+            worker_id="worker-1", transport=transport, scan_interval_seconds=1
+        )
         await worker._run_job(result.batch_job_id)
 
         progress_events = [event for event in transport.events if event.type == EVENT_JOB_PROGRESS]
         assert progress_events
         generating_event = next(
-            event for event in progress_events if event.payload.get("message") == "chapter_generating"
+            event
+            for event in progress_events
+            if event.payload.get("message") == "chapter_generating"
         )
         assert generating_event.payload["current"] == 1
         assert generating_event.payload["total"] == 3
@@ -1770,13 +1910,22 @@ async def test_summary_batch_emits_item_progress_and_terminal_events(tmp_path, m
     session = factory()
     try:
         project = Project(title="项目", description="")
-        chapter = Chapter(project_id=project.id, volume_id=_default_volume_id(project), title="第一章", content="正文" * 400, word_count=800, order=1)
+        chapter = Chapter(
+            project_id=project.id,
+            volume_id=_default_volume_id(project),
+            title="第一章",
+            content="正文" * 400,
+            word_count=800,
+            order=1,
+        )
         session.add(project)
         session.add(_default_volume(project))
         session.add(chapter)
         await session.commit()
 
-        result = await summary_service.append_chapter_summary_items(session, project.id, [chapter.id])
+        result = await summary_service.append_chapter_summary_items(
+            session, project.id, [chapter.id]
+        )
         await session.commit()
 
         class FakeChapterSummaryResult:
@@ -1804,12 +1953,24 @@ async def test_summary_batch_emits_item_progress_and_terminal_events(tmp_path, m
         async def fake_generate(_client, _prompt, **_audit_kwargs):
             return FakeChapterSummaryResult()
 
-        monkeypatch.setattr(summary_batch_definition, "resolve_background_llm", fake_resolve_background_llm)
-        monkeypatch.setattr(summary_batch_definition.summary_generator, "build_chapter_summary_prompt", fake_build_prompt)
-        monkeypatch.setattr(summary_batch_definition.summary_generator, "generate_chapter_summary_from_prompt", fake_generate)
+        monkeypatch.setattr(
+            summary_batch_definition, "resolve_background_llm", fake_resolve_background_llm
+        )
+        monkeypatch.setattr(
+            summary_batch_definition.summary_generator,
+            "build_chapter_summary_prompt",
+            fake_build_prompt,
+        )
+        monkeypatch.setattr(
+            summary_batch_definition.summary_generator,
+            "generate_chapter_summary_from_prompt",
+            fake_generate,
+        )
 
         transport = RecordingTransport()
-        worker = BackgroundWorker(worker_id="worker-1", transport=transport, scan_interval_seconds=1)
+        worker = BackgroundWorker(
+            worker_id="worker-1", transport=transport, scan_interval_seconds=1
+        )
         await worker._run_job(result.batch_job_id)
 
         item_progress_events = [
@@ -1817,7 +1978,9 @@ async def test_summary_batch_emits_item_progress_and_terminal_events(tmp_path, m
         ]
         assert item_progress_events
         generating_event = next(
-            event for event in item_progress_events if event.payload["progress_message"] == "chapter_generating"
+            event
+            for event in item_progress_events
+            if event.payload["progress_message"] == "chapter_generating"
         )
         assert generating_event.item_type == "chapter_summary"
         assert generating_event.payload["project_id"] == project.id
@@ -1900,7 +2063,14 @@ async def test_append_chapter_summary_items_keeps_ready_summary_ready(tmp_path):
     session = factory()
     try:
         project = Project(title="项目", description="")
-        chapter = Chapter(project_id=project.id, volume_id=_default_volume_id(project), title="第一章", content="正文" * 400, word_count=800, order=1)
+        chapter = Chapter(
+            project_id=project.id,
+            volume_id=_default_volume_id(project),
+            title="第一章",
+            content="正文" * 400,
+            word_count=800,
+            order=1,
+        )
         session.add(project)
         session.add(_default_volume(project))
         session.add(chapter)
@@ -1915,7 +2085,9 @@ async def test_append_chapter_summary_items_keeps_ready_summary_ready(tmp_path):
             start_order=chapter.order,
             end_order=chapter.order,
             summary="已完成摘要",
-            source_content_normalized=summary_service.normalize_summary_source_content(chapter.content),
+            source_content_normalized=summary_service.normalize_summary_source_content(
+                chapter.content
+            ),
         )
         session.add(summary)
         await session.commit()
@@ -1939,12 +2111,21 @@ async def test_append_chapter_summary_items_keeps_ready_summary_ready(tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_append_chapter_summary_items_creates_item_for_stale_ready_without_downgrading(tmp_path):
+async def test_append_chapter_summary_items_creates_item_for_stale_ready_without_downgrading(
+    tmp_path,
+):
     engine, factory = await _configure_file_database(tmp_path)
     session = factory()
     try:
         project = Project(title="项目", description="")
-        chapter = Chapter(project_id=project.id, volume_id=_default_volume_id(project), title="第一章", content="新正文" * 400, word_count=800, order=1)
+        chapter = Chapter(
+            project_id=project.id,
+            volume_id=_default_volume_id(project),
+            title="第一章",
+            content="新正文" * 400,
+            word_count=800,
+            order=1,
+        )
         session.add(project)
         session.add(_default_volume(project))
         session.add(chapter)
@@ -2010,7 +2191,9 @@ async def test_worker_heartbeats_running_job_while_handler_is_active(tmp_path):
         await background_service.commit_and_notify(session)
 
         transport = RecordingTransport()
-        worker = BackgroundWorker(worker_id="worker-1", transport=transport, scan_interval_seconds=1)
+        worker = BackgroundWorker(
+            worker_id="worker-1", transport=transport, scan_interval_seconds=1
+        )
         run_task = asyncio.create_task(worker._run_job(job_id))
         try:
             await asyncio.sleep(1.4)
@@ -2250,7 +2433,9 @@ async def test_watchdog_times_out_expired_summary_batch_and_finalizes_running_it
         assert stored_item.status == JOB_STATUS_FAILED
         assert stored_summary.status == SUMMARY_STATUS_FAILED
         assert stored_summary.error_message == "后台任务 worker lease 已过期"
-        item_events = [event for event in transport.events if event.type == "background_item_failed"]
+        item_events = [
+            event for event in transport.events if event.type == "background_item_failed"
+        ]
         assert len(item_events) == 1
         assert item_events[0].item_id == item.id
     finally:
@@ -2354,8 +2539,12 @@ async def test_startup_finalizes_orphan_items_of_terminal_summary_batch(tmp_path
         try:
             stored_pending_item = await verification_session.get(BackgroundJobItem, pending_item.id)
             stored_running_item = await verification_session.get(BackgroundJobItem, running_item.id)
-            stored_pending_summary = await verification_session.get(ChapterSummary, pending_summary.id)
-            stored_running_summary = await verification_session.get(ChapterSummary, running_summary.id)
+            stored_pending_summary = await verification_session.get(
+                ChapterSummary, pending_summary.id
+            )
+            stored_running_summary = await verification_session.get(
+                ChapterSummary, running_summary.id
+            )
         finally:
             await verification_session.close()
         assert stored_pending_item is not None
@@ -2366,7 +2555,9 @@ async def test_startup_finalizes_orphan_items_of_terminal_summary_batch(tmp_path
         assert stored_running_summary is not None
         assert stored_pending_summary.status == SUMMARY_STATUS_FAILED
         assert stored_running_summary.status == SUMMARY_STATUS_FAILED
-        item_events = [event for event in transport.events if event.type == "background_item_failed"]
+        item_events = [
+            event for event in transport.events if event.type == "background_item_failed"
+        ]
         assert len(item_events) == 2
     finally:
         await session.close()

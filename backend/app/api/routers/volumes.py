@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Volumes Router - 卷 CRUD API。
 """
@@ -44,7 +43,7 @@ async def create_volume(
         )
         return VolumeResponse.model_validate(volume)
     except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
 
 
 @router.get(
@@ -61,7 +60,7 @@ async def list_volumes(
         volumes = await volume_service.list_volumes(session, project_id)
         return [VolumeResponse.model_validate(volume) for volume in volumes]
     except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
 
 
 @router.get(
@@ -78,7 +77,7 @@ async def get_volume(
         volume = await volume_service.get_volume(session, volume_id)
         return VolumeResponse.model_validate(volume)
     except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
 
 
 @router.patch(
@@ -94,9 +93,7 @@ async def update_volume(
     """更新卷名或说明。"""
     try:
         description = (
-            data.description
-            if "description" in data.model_fields_set
-            else volume_service.UNSET
+            data.description if "description" in data.model_fields_set else volume_service.UNSET
         )
         volume = await volume_service.update_volume(
             session,
@@ -106,7 +103,7 @@ async def update_volume(
         )
         return VolumeResponse.model_validate(volume)
     except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
 
 
 @router.delete(
@@ -124,9 +121,9 @@ async def delete_volume(
         await volume_service.delete_volume(session, volume_id, cascade=cascade)
         return Response(status_code=status.HTTP_204_NO_CONTENT)
     except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
     except ValidationError as e:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e)) from e
 
 
 @router.post(
@@ -144,6 +141,6 @@ async def move_volume(
         volume = await volume_service.move_volume(session, volume_id, data.new_order)
         return VolumeResponse.model_validate(volume)
     except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e

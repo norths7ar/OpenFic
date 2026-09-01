@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Agent Definition API Schemas。"""
 
 from pydantic import BaseModel, Field

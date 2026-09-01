@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """SkillReferenceDoc 数据模型 - 技能的参考文档。"""
 
 from datetime import UTC, datetime

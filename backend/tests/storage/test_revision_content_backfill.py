@@ -6,8 +6,6 @@ from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlmodel import SQLModel
 
-from tests.model_registry import register_sqlmodel_models
-
 from app.core.ids import generate_id
 from app.storage.models.commit import Commit
 from app.storage.models.revision_chapter_snapshot import RevisionChapterSnapshot
@@ -19,6 +17,7 @@ from app.storage.repos import (
     revision_content_blob_repo,
 )
 from app.storage.services.revision_content_backfill import backfill_revision_content_blobs
+from tests.model_registry import register_sqlmodel_models
 
 
 @pytest_asyncio.fixture
@@ -118,9 +117,7 @@ async def test_backfill_rewrites_long_text_and_dedupes(
     ).fetchone()
     assert raw_short[0] == short and raw_short[1] is None
 
-    chapter_snapshots = await revision_chapter_snapshot_repo.list_by_revision(
-        session, "rev-1"
-    )
+    chapter_snapshots = await revision_chapter_snapshot_repo.list_by_revision(session, "rev-1")
     assert len(chapter_snapshots) == 1
     assert chapter_snapshots[0].content == long_shared
 

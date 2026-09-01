@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """全局异常处理器测试。"""
 
 import pytest

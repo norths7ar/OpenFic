@@ -69,7 +69,9 @@ def test_replay_buffer_can_clear_active_retry_event_without_touching_stream_even
     ]
 
 
-def test_replay_buffer_uses_parent_session_id_for_subagent_status_and_deduplicates_child_run() -> None:
+def test_replay_buffer_uses_parent_session_id_for_subagent_status_and_deduplicates_child_run() -> (
+    None
+):
     buffer = AgentEventReplayBuffer()
 
     buffer.record_unlocked(

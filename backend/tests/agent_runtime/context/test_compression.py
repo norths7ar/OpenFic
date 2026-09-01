@@ -1,7 +1,7 @@
-import pytest
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
+import pytest
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from app.agent_runtime.context.errors import ContextBuildError

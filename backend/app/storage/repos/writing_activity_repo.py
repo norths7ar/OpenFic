@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Writing Activity Repository - 写作活动事件只读/写入查询。
 """

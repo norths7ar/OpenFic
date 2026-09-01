@@ -37,14 +37,8 @@ def to_langchain_messages(parts: list[ContextMessage]) -> list[BaseMessage]:
             )
         elif p.role == "tool":
             if not p.tool_call_id:
-                raise ContextBuildError(
-                    "to_langchain", "tool message missing tool_call_id"
-                )
-            out.append(
-                ToolMessage(content=p.content, tool_call_id=p.tool_call_id)
-            )
+                raise ContextBuildError("to_langchain", "tool message missing tool_call_id")
+            out.append(ToolMessage(content=p.content, tool_call_id=p.tool_call_id))
         else:
-            raise ContextBuildError(
-                "to_langchain", f"unknown role: {p.role}"
-            )
+            raise ContextBuildError("to_langchain", f"unknown role: {p.role}")
     return out

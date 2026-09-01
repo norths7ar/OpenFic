@@ -3,8 +3,8 @@
 from collections.abc import Callable
 
 from app.background.jobs.constants import (
-    JOB_TYPE_CHAPTER_SUMMARY,
     JOB_TYPE_CHAPTER_EXPORT,
+    JOB_TYPE_CHAPTER_SUMMARY,
     JOB_TYPE_LONG_TERM_SUMMARY,
     JOB_TYPE_RETRIEVAL_CHAPTER_INDEX_BATCH,
     JOB_TYPE_SESSION_TITLE,

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Model API Tests - 模型 API 测试。
 """
@@ -61,9 +60,7 @@ async def test_create_model(client: AsyncClient, session: AsyncSession):
 
 
 @pytest.mark.asyncio
-async def test_create_model_rejects_duplicate_name(
-    client: AsyncClient, session: AsyncSession
-):
+async def test_create_model_rejects_duplicate_name(client: AsyncClient, session: AsyncSession):
     """创建模型时拒绝与已有模型同名的名称。"""
     from app.core.encryption import EncryptionService
     from app.settings import settings
@@ -198,9 +195,7 @@ async def test_get_all_models(client: AsyncClient, session: AsyncSession):
 
 
 @pytest.mark.asyncio
-async def test_disabled_models_are_hidden_by_default(
-    client: AsyncClient, session: AsyncSession
-):
+async def test_disabled_models_are_hidden_by_default(client: AsyncClient, session: AsyncSession):
     from app.core.encryption import EncryptionService
     from app.settings import settings
 
@@ -219,9 +214,7 @@ async def test_disabled_models_are_hidden_by_default(
     )
     await session.commit()
 
-    response = await client.put(
-        f"/api/v1/models/{model.id}", json={"is_enabled": False}
-    )
+    response = await client.put(f"/api/v1/models/{model.id}", json={"is_enabled": False})
     assert response.status_code == 200
     assert response.json()["is_enabled"] is False
 
@@ -257,9 +250,7 @@ async def test_disable_model_rejects_default_model_reference(
     await setting_repo.upsert(session, "default_model", model.id)
     await session.commit()
 
-    response = await client.put(
-        f"/api/v1/models/{model.id}", json={"is_enabled": False}
-    )
+    response = await client.put(f"/api/v1/models/{model.id}", json={"is_enabled": False})
 
     assert response.status_code == 400
     assert response.json()["detail"] == "模型正在被以下配置使用，不能停用：默认模型"
@@ -435,9 +426,7 @@ async def test_update_model(client: AsyncClient, session: AsyncSession):
 
 
 @pytest.mark.asyncio
-async def test_update_model_rejects_duplicate_name(
-    client: AsyncClient, session: AsyncSession
-):
+async def test_update_model_rejects_duplicate_name(client: AsyncClient, session: AsyncSession):
     """编辑模型时拒绝与其他模型同名的名称。"""
     from app.core.encryption import EncryptionService
     from app.settings import settings
@@ -473,9 +462,7 @@ async def test_update_model_rejects_duplicate_name(
 
 
 @pytest.mark.asyncio
-async def test_update_model_allows_its_existing_name(
-    client: AsyncClient, session: AsyncSession
-):
+async def test_update_model_allows_its_existing_name(client: AsyncClient, session: AsyncSession):
     """编辑模型时允许保留自身原有名称。"""
     from app.core.encryption import EncryptionService
     from app.settings import settings
@@ -535,5 +522,3 @@ async def test_delete_model(client: AsyncClient, session: AsyncSession):
     # 验证已删除
     deleted_model = await model_repo.get_by_id(session, model.id)
     assert deleted_model is None
-
-

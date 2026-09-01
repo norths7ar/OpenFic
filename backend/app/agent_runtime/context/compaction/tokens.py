@@ -1,5 +1,5 @@
-from collections.abc import Iterable
 import json
+from collections.abc import Iterable
 
 from app.agent_runtime.context.types import ContextMessage
 from app.core.utils.tiktoken import get_encoding

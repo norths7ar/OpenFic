@@ -66,8 +66,7 @@ def _sanitize_message_field(value: Any, active_ids: set[int]) -> Any:
     try:
         if isinstance(value, Mapping):
             return {
-                str(key): _sanitize_message_field(item, active_ids)
-                for key, item in value.items()
+                str(key): _sanitize_message_field(item, active_ids) for key, item in value.items()
             }
         if isinstance(value, (list, tuple, set, frozenset)):
             return [_sanitize_message_field(item, active_ids) for item in value]
@@ -93,6 +92,7 @@ def _sanitize_checkpoint_value(value: Any, active_ids: set[int] | None = None) -
             return "<recursive>"
         active_ids.add(value_id)
         try:
+
             def field(item: Any) -> Any:
                 return _sanitize_message_field(item, active_ids)
 
@@ -132,9 +132,9 @@ def _sanitize_checkpoint_value(value: Any, active_ids: set[int] | None = None) -
         active_ids.add(value_id)
         try:
             return {
-                _checkpoint_integer(key) if isinstance(key, int) else key: _sanitize_checkpoint_value(
-                    item, active_ids
-                )
+                _checkpoint_integer(key)
+                if isinstance(key, int)
+                else key: _sanitize_checkpoint_value(item, active_ids)
                 for key, item in value.items()
             }
         finally:
@@ -197,8 +197,7 @@ def _plain_checkpoint_value(value: Any, active_ids: set[int] | None = None) -> A
     try:
         if isinstance(value, Mapping):
             return {
-                str(key): _plain_checkpoint_value(item, active_ids)
-                for key, item in value.items()
+                str(key): _plain_checkpoint_value(item, active_ids) for key, item in value.items()
             }
         if isinstance(value, (list, tuple, set, frozenset, deque)):
             return [_plain_checkpoint_value(item, active_ids) for item in value]
@@ -302,7 +301,7 @@ class _CheckpointSerializer(JsonPlusSerializer):
                     ).opt(exception=fallback_error).error(
                         "checkpoint msgpack serialization fallback failed"
                     )
-                    raise original_error
+                    raise original_error from None
 
 
 def _default_db_path() -> Path:
@@ -528,9 +527,7 @@ async def delete_checkpoints_for_thread(thread_id: str) -> int:
         await conn.close()
 
 
-async def delete_checkpoints_after_for_thread(
-    thread_id: str, after_checkpoint_id: str
-) -> int:
+async def delete_checkpoints_after_for_thread(thread_id: str, after_checkpoint_id: str) -> int:
     # LangGraph checkpoint_id is UUID v6 (time-ordered), so lexicographic
     # comparison is equivalent to chronological order across all namespaces
     # (root + subgraphs).
@@ -822,7 +819,7 @@ async def _run_full_vacuum(
         folder = Path(db_path).parent
         folder.mkdir(parents=True, exist_ok=True)
         await conn.execute(
-            f"PRAGMA temp_store_directory = '{str(folder).replace(chr(39), chr(39)*2)}'"
+            f"PRAGMA temp_store_directory = '{str(folder).replace(chr(39), chr(39) * 2)}'"
         )
     # step 必须足够小：SQLite 的 progress handler 按 VM 指令数触发，
     # VACUUM 期间总指令数有限，step 过大（如 10000）会导致完全不回调。
@@ -846,9 +843,9 @@ async def _run_vacuum_into(
         folder = Path(db_path).parent
         folder.mkdir(parents=True, exist_ok=True)
         await conn.execute(
-            f"PRAGMA temp_store_directory = '{str(folder).replace(chr(39), chr(39)*2)}'"
+            f"PRAGMA temp_store_directory = '{str(folder).replace(chr(39), chr(39) * 2)}'"
         )
-    await conn.execute(f"VACUUM INTO '{target.replace(chr(39), chr(39)*2)}'")
+    await conn.execute(f"VACUUM INTO '{target.replace(chr(39), chr(39) * 2)}'")
 
 
 async def needs_incremental_auto_vacuum_migration() -> bool:
@@ -859,9 +856,7 @@ async def needs_incremental_auto_vacuum_migration() -> bool:
     conn = await aiosqlite.connect(db_path)
     try:
         await _ensure_migrations_table(conn)
-        return not await _has_migration_completed(
-            conn, _INCREMENTAL_AUTO_VACUUM_MIGRATION
-        )
+        return not await _has_migration_completed(conn, _INCREMENTAL_AUTO_VACUUM_MIGRATION)
     finally:
         await conn.close()
 
@@ -927,9 +922,8 @@ async def full_vacuum_checkpoint_database(
     try:
         await _truncate_checkpoint_wal(conn)
         page_size = await _get_pragma_int(conn, "page_size")
-        live_pages = (
-            await _get_pragma_int(conn, "page_count")
-            - await _get_pragma_int(conn, "freelist_count")
+        live_pages = await _get_pragma_int(conn, "page_count") - await _get_pragma_int(
+            conn, "freelist_count"
         )
     finally:
         await conn.close()

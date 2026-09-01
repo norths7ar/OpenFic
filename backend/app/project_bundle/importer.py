@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, replace
 from datetime import datetime
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 import yaml
 from sqlalchemy import select
@@ -121,9 +121,7 @@ def _hash(value: Any, field: str) -> str:
     return result
 
 
-def _document_fields(
-    frontmatter: dict[str, Any], kind: str, project_id: str
-) -> dict[str, Any]:
+def _document_fields(frontmatter: dict[str, Any], kind: str, project_id: str) -> dict[str, Any]:
     fields: dict[str, Any] = {
         "kind": kind,
         "id": _text(frontmatter.get("id"), "id"),
@@ -135,16 +133,12 @@ def _document_fields(
             uid=_int(frontmatter.get("uid"), "uid"),
             section=_string(frontmatter.get("section"), "section"),
             order=_nonnegative_int(frontmatter.get("order"), "order"),
-            writing_visible=_bool(
-                frontmatter.get("writing_visible"), "writing_visible"
-            ),
+            writing_visible=_bool(frontmatter.get("writing_visible"), "writing_visible"),
         )
     elif kind == "character":
         fields.update(
             order=_nonnegative_int(frontmatter.get("order"), "order"),
-            writing_visible=_bool(
-                frontmatter.get("writing_visible"), "writing_visible"
-            ),
+            writing_visible=_bool(frontmatter.get("writing_visible"), "writing_visible"),
             is_favorited=_bool(frontmatter.get("is_favorited"), "is_favorited"),
         )
     elif kind == "note":
@@ -154,9 +148,7 @@ def _document_fields(
         fields.update(
             category_id=_nullable_text(frontmatter.get("category_id"), "category_id"),
             order=_nonnegative_int(frontmatter.get("order"), "order"),
-            writing_visible=_bool(
-                frontmatter.get("writing_visible"), "writing_visible"
-            ),
+            writing_visible=_bool(frontmatter.get("writing_visible"), "writing_visible"),
             is_locked=_bool(frontmatter.get("is_locked"), "is_locked"),
             is_hidden=_bool(frontmatter.get("is_hidden"), "is_hidden"),
             document_type=document_type,
@@ -264,9 +256,7 @@ def parse_project_bundle(data: bytes, target_project_id: str) -> ParsedProjectBu
             if len(fields["status"]) > 20:
                 raise BundleFormatError("discussion message status is too long")
             if fields["status"] == "pending":
-                raise BundleFormatError(
-                    "pending discussion messages cannot be imported"
-                )
+                raise BundleFormatError("pending discussion messages cannot be imported")
             label = "用户" if fields["role"] == "user" else "助手"
             if parsed_doc.title != f"{label} {fields['seq']:06d}":
                 raise BundleFormatError("discussion message H1 is not canonical")
@@ -302,19 +292,14 @@ def parse_project_bundle(data: bytes, target_project_id: str) -> ParsedProjectBu
         if fields["document_type"] not in {"note", "outline"}:
             raise BundleFormatError("note category document_type is invalid")
         category_ids.add(category_id)
-        parsed_categories.append(
-            ParsedBundleCategory(category_id, title, base_hash, fields)
-        )
+        parsed_categories.append(ParsedBundleCategory(category_id, title, base_hash, fields))
     for category in parsed_categories:
         parent_id = category.semantic_fields["parent_id"]
         if parent_id is not None and parent_id not in category_ids:
             raise BundleFormatError("category parent is missing")
         if parent_id is not None:
             parent = next(c for c in parsed_categories if c.id == parent_id)
-            if (
-                parent.semantic_fields["document_type"]
-                != category.semantic_fields["document_type"]
-            ):
+            if parent.semantic_fields["document_type"] != category.semantic_fields["document_type"]:
                 raise BundleFormatError("category document types do not match")
     for category in parsed_categories:
         seen: set[str] = set()
@@ -328,18 +313,14 @@ def parse_project_bundle(data: bytes, target_project_id: str) -> ParsedProjectBu
             if depth > 2:
                 raise BundleFormatError("category hierarchy exceeds two levels")
             current = next(
-                (
-                    c.semantic_fields["parent_id"]
-                    for c in parsed_categories
-                    if c.id == current
-                ),
+                (c.semantic_fields["parent_id"] for c in parsed_categories if c.id == current),
                 None,
             )
-    category_names: set[tuple[str | None, str]] = set()
+    category_names: set[tuple[str, str | None, str]] = set()
     for category in parsed_categories:
         name_key = (
-            category.semantic_fields["document_type"],
-            category.semantic_fields["parent_id"],
+            cast(str, category.semantic_fields["document_type"]),
+            cast(str | None, category.semantic_fields["parent_id"]),
             category.title,
         )
         if name_key in category_names:
@@ -361,14 +342,9 @@ def parse_project_bundle(data: bytes, target_project_id: str) -> ParsedProjectBu
             raise BundleFormatError("note category is missing")
         if doc.kind == "note" and doc.semantic_fields["category_id"] is not None:
             category = next(
-                c
-                for c in parsed_categories
-                if c.id == doc.semantic_fields["category_id"]
+                c for c in parsed_categories if c.id == doc.semantic_fields["category_id"]
             )
-            if (
-                category.semantic_fields["document_type"]
-                != doc.semantic_fields["document_type"]
-            ):
+            if category.semantic_fields["document_type"] != doc.semantic_fields["document_type"]:
                 raise BundleFormatError("note and category document types do not match")
         if (
             doc.kind == "discussion_message"
@@ -401,9 +377,7 @@ def parse_project_bundle(data: bytes, target_project_id: str) -> ParsedProjectBu
             note_names.add(note_key)
 
     world_info_ids = {
-        doc.semantic_fields["world_info_id"]
-        for doc in parsed
-        if doc.kind == "world_entry"
+        doc.semantic_fields["world_info_id"] for doc in parsed if doc.kind == "world_entry"
     }
     if len(world_info_ids) > 1:
         raise BundleFormatError("bundle contains multiple world books")
@@ -464,9 +438,7 @@ async def preview_project_bundle(
             item = replace(item, action="conflict", reason="same_name_different_id")
         items.append(item)
     for doc in bundle.documents:
-        current_hash, current_project_ok = await _current_hash(
-            session, doc, target_project_id
-        )
+        current_hash, current_project_ok = await _current_hash(session, doc, target_project_id)
         if not current_project_ok:
             current_hash = "cross-project"
         incoming_fields = doc.semantic_fields
@@ -489,11 +461,7 @@ async def preview_project_bundle(
         )
         if doc.kind == "note":
             current_note = await session.get(Note, doc.id)
-            if (
-                current_note is not None
-                and current_note.is_locked
-                and item.action != "unchanged"
-            ):
+            if current_note is not None and current_note.is_locked and item.action != "unchanged":
                 item = replace(item, action="conflict", reason="locked_note")
         if await _has_name_conflict(
             session,
@@ -505,19 +473,11 @@ async def preview_project_bundle(
         ):
             item = replace(item, action="conflict", reason="same_name_different_id")
         if doc.kind == "world_entry":
-            incoming_world = await session.get(
-                WorldInfo, doc.semantic_fields["world_info_id"]
-            )
-            if (
-                incoming_world is not None
-                and incoming_world.project_id != target_project_id
-            ):
-                item = replace(
-                    item, action="conflict", reason="cross_project_world_book_id"
-                )
+            incoming_world = await session.get(WorldInfo, doc.semantic_fields["world_info_id"])
+            if incoming_world is not None and incoming_world.project_id != target_project_id:
+                item = replace(item, action="conflict", reason="cross_project_world_book_id")
             elif (
-                target_world is not None
-                and doc.semantic_fields["world_info_id"] != target_world.id
+                target_world is not None and doc.semantic_fields["world_info_id"] != target_world.id
             ):
                 item = replace(item, action="conflict", reason="world_book_id_mismatch")
             elif await _has_world_uid_conflict(
@@ -530,9 +490,7 @@ async def preview_project_bundle(
         if item.action in {"create", "update"} and await _targets_live_discussion(
             session, doc, target_project_id
         ):
-            item = replace(
-                item, action="conflict", reason="live_discussion_is_read_only"
-            )
+            item = replace(item, action="conflict", reason="live_discussion_is_read_only")
         items.append(item)
     summary = {
         key: sum(item.action == key for item in items)
@@ -568,11 +526,7 @@ async def _targets_live_discussion(
     else:
         return False
     task = await session.get(Task, task_id)
-    return bool(
-        task is not None
-        and task.project_id == project_id
-        and not task.is_imported_archive
-    )
+    return bool(task is not None and task.project_id == project_id and not task.is_imported_archive)
 
 
 async def _has_name_conflict(
@@ -586,9 +540,7 @@ async def _has_name_conflict(
 ) -> bool:
     if kind == "world_entry":
         world = (
-            await session.execute(
-                select(WorldInfo).where(col(WorldInfo.project_id) == project_id)
-            )
+            await session.execute(select(WorldInfo).where(col(WorldInfo.project_id) == project_id))
         ).scalar_one_or_none()
         if world is None:
             return False
@@ -748,11 +700,7 @@ async def _current_hash(
     if current is None:
         return None, True
     task = await session.get(Task, current.task_id)
-    if (
-        task is None
-        or task.project_id != project_id
-        or current.project_id != project_id
-    ):
+    if task is None or task.project_id != project_id or current.project_id != project_id:
         return None, False
     if not task.is_imported_archive and current.session_id != task.agent_session_id:
         return None, False
@@ -768,9 +716,7 @@ async def _current_hash(
         "updated_at": current.updated_at.isoformat(),
     }
     fields_for_hash = {
-        key: value
-        for key, value in fields.items()
-        if key not in {"created_at", "updated_at"}
+        key: value for key, value in fields.items() if key not in {"created_at", "updated_at"}
     }
     label = "用户" if current.role == "user" else "助手"
     return document_semantic_hash(

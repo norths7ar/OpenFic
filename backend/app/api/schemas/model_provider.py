@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 ModelProvider API Schemas - 模型服务提供商请求/响应模型。
 """
@@ -16,9 +15,7 @@ class CatalogMatchResponse(BaseModel):
     default_url: str | None = Field(default=None, description="Catalog 默认 URL")
     api: str | None = Field(default=None, description="Models.dev api 字段")
     icon_path: str | None = Field(default=None, description="内置图标路径")
-    models_dev_provider_id: str | None = Field(
-        default=None, description="Models.dev provider id"
-    )
+    models_dev_provider_id: str | None = Field(default=None, description="Models.dev provider id")
     matched_via: str = Field(description="provider_type 或 api")
 
 
@@ -70,15 +67,9 @@ class AvailableModelMetadata(BaseModel):
     release_date: str | None = Field(default=None, description="模型发布日期")
     reasoning: bool | None = Field(default=None, description="是否支持 reasoning")
     tool_call: bool | None = Field(default=None, description="是否支持 tool call")
-    modalities: dict[str, list[str]] | None = Field(
-        default=None, description="输入输出模态"
-    )
-    limit: dict[str, Any] | str | int | None = Field(
-        default=None, description="上下文与输出限制"
-    )
-    cost: dict[str, Any] | str | int | None = Field(
-        default=None, description="价格元数据"
-    )
+    modalities: dict[str, list[str]] | None = Field(default=None, description="输入输出模态")
+    limit: dict[str, Any] | str | int | None = Field(default=None, description="上下文与输出限制")
+    cost: dict[str, Any] | str | int | None = Field(default=None, description="价格元数据")
 
 
 class AvailableModel(BaseModel):

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """AgentMemory Router - 记忆 CRUD API。"""
 
 from typing import Annotated
@@ -31,7 +30,9 @@ def _to_response(memory) -> AgentMemoryResponse:
     )
 
 
-@router.post("/agent-memories", response_model=AgentMemoryResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/agent-memories", response_model=AgentMemoryResponse, status_code=status.HTTP_201_CREATED
+)
 async def create_memory(
     data: AgentMemoryCreate,
     session: Annotated[AsyncSession, Depends(get_session)],
@@ -65,7 +66,7 @@ async def get_memory(
         memory = await agent_memory_service.get_memory(session, memory_id)
         return _to_response(memory)
     except NotFoundError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
 
 
 @router.patch("/agent-memories/{memory_id}", response_model=AgentMemoryResponse)
@@ -78,7 +79,7 @@ async def update_memory(
         memory = await agent_memory_service.update_memory(session, memory_id, content=data.content)
         return _to_response(memory)
     except NotFoundError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
 
 
 @router.post("/agent-memories/reorder", response_model=list[AgentMemoryResponse])
@@ -98,4 +99,4 @@ async def delete_memory(
     try:
         await agent_memory_service.delete_memory(session, memory_id)
     except NotFoundError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc

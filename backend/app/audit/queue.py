@@ -13,7 +13,6 @@ from app.storage.database import create_session
 from app.storage.models.llm_audit_log import LLMAuditLog
 from app.storage.repos import setting_repo
 
-
 AUDIT_DETAILS_PERSISTENCE_SETTING_KEY = "audit_persist_details"
 
 
@@ -87,7 +86,9 @@ class AuditQueue:
                 )
                 return int(result.scalar_one_or_none() or 0)
         except Exception as exc:
-            logger.error(f"failed to load audit call sequence: session_id={session_id}, error={exc}")
+            logger.error(
+                f"failed to load audit call sequence: session_id={session_id}, error={exc}"
+            )
             return 0
 
     async def _run(self) -> None:
@@ -98,7 +99,9 @@ class AuditQueue:
                     return
                 await self._write(audit_log)
             except Exception as exc:
-                logger.error(f"failed to write audit log: id={getattr(audit_log, 'id', None)}, error={exc}")
+                logger.error(
+                    f"failed to write audit log: id={getattr(audit_log, 'id', None)}, error={exc}"
+                )
             finally:
                 self._queue.task_done()
 

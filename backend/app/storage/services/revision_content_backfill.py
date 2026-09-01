@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """One-time backfill that rewrites inline revision/commit text into the
 deduplicated, compressed content-blob table.
 
@@ -16,8 +15,8 @@ from sqlalchemy import func, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.storage.models.commit import Commit
-from app.storage.models.revision_character_snapshot import RevisionCharacterSnapshot
 from app.storage.models.revision_chapter_snapshot import RevisionChapterSnapshot
+from app.storage.models.revision_character_snapshot import RevisionCharacterSnapshot
 from app.storage.models.revision_note_snapshot import RevisionNoteSnapshot
 from app.storage.models.revision_world_entry_snapshot import RevisionWorldEntrySnapshot
 from app.storage.repos import revision_content_blob_repo
@@ -62,11 +61,7 @@ BackfillProgress = Callable[[str, float | None, int, int], None]
 
 async def _ensure_marker_table(session: AsyncSession) -> None:
     await session.execute(
-        text(
-            f"CREATE TABLE IF NOT EXISTS {_MARKER_TABLE} ("
-            "name TEXT PRIMARY KEY"
-            ")"
-        )
+        text(f"CREATE TABLE IF NOT EXISTS {_MARKER_TABLE} (name TEXT PRIMARY KEY)")
     )
     await session.commit()
 

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Core LanceDB retrieval engine.
 """
@@ -107,9 +106,7 @@ class LanceDBRetrievalEngine:
         embedding_failed = False
 
         if doc_chunks:
-            all_chunks = [
-                piece.indexed_text for _, chunks in doc_chunks for piece in chunks
-            ]
+            all_chunks = [piece.indexed_text for _, chunks in doc_chunks for piece in chunks]
             try:
                 response = await embedding_client.embed(all_chunks)
                 if len(response.embeddings) != len(all_chunks):
@@ -131,9 +128,7 @@ class LanceDBRetrievalEngine:
             vector_idx = 0
 
             for document, chunks in doc_chunks:
-                doc_vectors = response.embeddings[
-                    vector_idx : vector_idx + len(chunks)
-                ]
+                doc_vectors = response.embeddings[vector_idx : vector_idx + len(chunks)]
                 vector_idx += len(chunks)
 
                 try:
@@ -149,9 +144,7 @@ class LanceDBRetrievalEngine:
 
                 async with write_lock:
                     try:
-                        await table.delete(
-                            f"document_id = '{quote_sql(document.document_id)}'"
-                        )
+                        await table.delete(f"document_id = '{quote_sql(document.document_id)}'")
                         if rows:
                             await table.add(rows)
                             did_add_rows = True
@@ -367,9 +360,7 @@ class LanceDBRetrievalEngine:
                     name=scalar_name,
                 )
 
-    def _chunk_document(
-        self, document: IndexDocument, *, skip_chunking: bool
-    ) -> list[ChunkPiece]:
+    def _chunk_document(self, document: IndexDocument, *, skip_chunking: bool) -> list[ChunkPiece]:
         metadata = document.metadata or {}
         prefix = ""
         prefix_value = metadata.get("prefix")
@@ -409,9 +400,7 @@ class LanceDBRetrievalEngine:
 
         attributes = document.attributes or {}
         rows: list[dict[str, Any]] = []
-        for index, (piece, vector) in enumerate(
-            zip(chunks, vectors, strict=True)
-        ):
+        for index, (piece, vector) in enumerate(zip(chunks, vectors, strict=True)):
             if len(vector) != self.contract.embedding_dimensions_snapshot:
                 raise ValidationError("Embedding dimensions mismatch")
             row: dict[str, Any] = {

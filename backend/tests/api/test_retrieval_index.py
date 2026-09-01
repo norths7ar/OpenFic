@@ -1,14 +1,13 @@
-# -*- coding: utf-8 -*-
 """Project chapter retrieval index API tests."""
 
 import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.encryption import EncryptionService
 from app.background.jobs.models import BackgroundJob, BackgroundJobItem
 from app.background.jobs.states import JOB_STATUS_CANCELLED
 from app.background.runtime.supervisor import get_background_supervisor
+from app.core.encryption import EncryptionService
 from app.models.repos import model_provider_repo, model_repo
 from app.storage.models.retrieval_chapter_index_state import RetrievalChapterIndexState
 from app.storage.repos import retrieval_chapter_index_state_repo, setting_repo
@@ -204,18 +203,24 @@ async def test_index_start_enqueues_outdated_chapters(
     assert data["enqueued_count"] == 2
     assert "job_id" not in data
     jobs = (
-        await session.execute(
-            select(BackgroundJob).where(col(BackgroundJob.subject_id) == project_id)
-        )
-    ).scalars().all()
-    assert len(jobs) == 1
-    items = (
-        await session.execute(
-            select(BackgroundJobItem).where(
-                col(BackgroundJobItem.job_id) == jobs[0].id
+        (
+            await session.execute(
+                select(BackgroundJob).where(col(BackgroundJob.subject_id) == project_id)
             )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
+    assert len(jobs) == 1
+    items = (
+        (
+            await session.execute(
+                select(BackgroundJobItem).where(col(BackgroundJobItem.job_id) == jobs[0].id)
+            )
+        )
+        .scalars()
+        .all()
+    )
     assert len(items) == 2
 
 
@@ -274,16 +279,12 @@ async def test_index_stop_cancels_pending_job_and_resets_incomplete_chapters(
     assert response.json() == {"project_id": project_id, "stopped_count": 1}
     job = (
         await session.execute(
-            select(BackgroundJob).where(
-                col(BackgroundJob.subject_id) == project_id
-            )
+            select(BackgroundJob).where(col(BackgroundJob.subject_id) == project_id)
         )
     ).scalar_one()
     item = (
         await session.execute(
-            select(BackgroundJobItem).where(
-                col(BackgroundJobItem.job_id) == job.id
-            )
+            select(BackgroundJobItem).where(col(BackgroundJobItem.job_id) == job.id)
         )
     ).scalar_one()
     chapter_state = await retrieval_chapter_index_state_repo.get_by_project_and_chapter(
@@ -560,16 +561,24 @@ async def test_empty_content_chapter_not_enqueued_for_indexing(
     assert data["enqueued_count"] == 1
     assert data["skipped_count"] == 1
     jobs = (
-        await session.execute(
-            select(BackgroundJob).where(col(BackgroundJob.subject_id) == project_id)
+        (
+            await session.execute(
+                select(BackgroundJob).where(col(BackgroundJob.subject_id) == project_id)
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     assert len(jobs) == 1
     items = (
-        await session.execute(
-            select(BackgroundJobItem).where(col(BackgroundJobItem.job_id) == jobs[0].id)
+        (
+            await session.execute(
+                select(BackgroundJobItem).where(col(BackgroundJobItem.job_id) == jobs[0].id)
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     assert len(items) == 1
 
 

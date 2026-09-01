@@ -3,7 +3,7 @@
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import CheckConstraint, Column, Index, JSON, Text, UniqueConstraint
+from sqlalchemy import JSON, CheckConstraint, Column, Index, Text, UniqueConstraint
 from sqlmodel import Field, SQLModel
 
 from app.core.ids import generate_id

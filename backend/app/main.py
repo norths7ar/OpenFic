@@ -3,14 +3,14 @@ OpenFic Backend - FastAPI Application Entry Point.
 """
 
 import asyncio
-from contextlib import asynccontextmanager, suppress
 import ipaddress
-from os import getenv
-from pathlib import Path
 import socket
 import sys
 import time
-from typing import AsyncIterator
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager, suppress
+from os import getenv
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -20,20 +20,37 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.responses import Response
 from starlette.types import Scope
 
+from app.agent_runtime.attachments import (
+    cleanup_orphaned_agent_attachment_files,
+    ensure_agent_attachments_dir,
+)
+from app.agent_runtime.persistence.child_runs import cancel_interrupted_child_runs
+from app.agent_runtime.runner.checkpointer import (
+    checkpoint_free_page_bytes,
+    cleanup_unreachable_checkpoints,
+    close_checkpointer,
+    full_vacuum_checkpoint_database,
+    get_checkpointer,
+    init_checkpointer,
+    migrate_checkpoint_database_to_incremental,
+    needs_incremental_auto_vacuum_migration,
+    prune_reachable_checkpoints,
+)
+from app.agent_runtime.runner.run_registry import get_agent_run_registry
 from app.api.exceptions import register_exception_handlers
 from app.api.middleware import AccessLogMiddleware
 from app.api.routers import (
-    auth,
     agent_definitions,
     agent_memories,
     agent_rules,
     agent_runtime,
     audit,
+    auth,
     background,
-    characters,
     chapter_context,
     chapter_exports,
     chapters,
+    characters,
     commands,
     dashboard,
     health,
@@ -57,42 +74,18 @@ from app.api.routers import (
     world_info,
     world_info_entries,
 )
-from app.auth import AuthMiddleware, AuthService
 from app.audit import start_audit_queue, stop_audit_queue
-from app.agent_runtime.persistence.child_runs import cancel_interrupted_child_runs
 from app.audit.queue import load_audit_details_persistence
-from app.telemetry import (
-    SETTING_KEY_TELEMETRY_ENABLED,
-    install_telemetry_sink,
-    parse_telemetry_enabled,
-    set_telemetry_enabled,
-    shutdown as shutdown_telemetry,
-)
-from app.agent_runtime.runner.checkpointer import (
-    checkpoint_free_page_bytes,
-    cleanup_unreachable_checkpoints,
-    close_checkpointer,
-    full_vacuum_checkpoint_database,
-    get_checkpointer,
-    init_checkpointer,
-    migrate_checkpoint_database_to_incremental,
-    needs_incremental_auto_vacuum_migration,
-    prune_reachable_checkpoints,
-)
-from app.agent_runtime.runner.run_registry import get_agent_run_registry
+from app.auth import AuthMiddleware, AuthService
 from app.background.runtime.supervisor import (
     start_background_runtime,
     stop_background_runtime,
 )
-from app.agent_runtime.attachments import (
-    cleanup_orphaned_agent_attachment_files,
-    ensure_agent_attachments_dir,
-)
-from app.core.storage import ensure_character_images_dir, ensure_covers_dir
 from app.chapter_export.service import cleanup_chapter_export_files
+from app.core.storage import ensure_character_images_dir, ensure_covers_dir
+from app.maintenance import maintenance_state
 from app.models.builtin import seed_builtin_models
 from app.models.catalog import ModelProviderCatalogService
-from app.maintenance import maintenance_state
 from app.settings import settings as app_settings
 from app.socket import init_socketio
 from app.storage.database import close_db, create_session, init_db, vacuum_database_if_needed
@@ -100,7 +93,15 @@ from app.storage.repos import revision_repo, setting_repo
 from app.storage.services import task_service
 from app.storage.services.revision_content_backfill import backfill_revision_content_blobs
 from app.storage.services.revision_service import cleanup_orphaned_revision_data
-
+from app.telemetry import (
+    SETTING_KEY_TELEMETRY_ENABLED,
+    install_telemetry_sink,
+    parse_telemetry_enabled,
+    set_telemetry_enabled,
+)
+from app.telemetry import (
+    shutdown as shutdown_telemetry,
+)
 
 ANSI_BOLD = "\033[1m"
 ANSI_GREEN = "\033[32m"
@@ -173,9 +174,7 @@ async def _load_telemetry_enabled() -> None:
     session = await create_session()
     try:
         setting = await setting_repo.get_by_key(session, SETTING_KEY_TELEMETRY_ENABLED)
-        set_telemetry_enabled(
-            parse_telemetry_enabled(setting.value if setting else None)
-        )
+        set_telemetry_enabled(parse_telemetry_enabled(setting.value if setting else None))
     finally:
         await session.close()
 
@@ -305,7 +304,9 @@ async def _run_startup_maintenance() -> None:
             )
             _migrate_started_at = None
         else:
-            logger.info("Checkpoint database already uses incremental auto-vacuum, skipping migration")
+            logger.info(
+                "Checkpoint database already uses incremental auto-vacuum, skipping migration"
+            )
 
         # 阶段 2：空页达到阈值才执行 VACUUM INTO 回收
         free_bytes, live_bytes = await checkpoint_free_page_bytes()
@@ -365,10 +366,7 @@ def _friendly_maintenance_error(exc: Exception) -> str:
     """将底层异常转换为对用户友好的维护失败说明。"""
     text = str(exc).lower()
     if "disk" in text or "space" in text or "full" in text:
-        return (
-            "磁盘空间不足，无法重整本地数据库。"
-            "请释放磁盘空间后重新启动应用重试。"
-        )
+        return "磁盘空间不足，无法重整本地数据库。请释放磁盘空间后重新启动应用重试。"
     return f"本地数据库维护失败：{exc}"
 
 
@@ -430,9 +428,7 @@ def _update_backfill_progress(
     )
     if progress is None:
         _backfill_started_at = time.monotonic()
-        _emit_single_line_progress(
-            f"[maintenance] Backfilling revision content: {total:,} rows"
-        )
+        _emit_single_line_progress(f"[maintenance] Backfilling revision content: {total:,} rows")
         return
     if progress >= 1.0:
         if _backfill_started_at is None:
@@ -440,13 +436,10 @@ def _update_backfill_progress(
         elapsed = time.monotonic() - _backfill_started_at
         _backfill_started_at = None
         if processed == 0 and total == 0:
-            _emit_single_line_progress(
-                "[maintenance] Backfill already completed, skipping."
-            )
+            _emit_single_line_progress("[maintenance] Backfill already completed, skipping.")
         else:
             _emit_single_line_progress(
-                f"[maintenance] Backfill completed: {processed:,} rows rewritten "
-                f"in {elapsed:.1f}s"
+                f"[maintenance] Backfill completed: {processed:,} rows rewritten in {elapsed:.1f}s"
             )
         return
     if _backfill_started_at is None:
@@ -733,9 +726,7 @@ def create_app() -> FastAPI:
     app.include_router(chapter_context.router, prefix=app_settings.api_v1_prefix)
     app.include_router(chapter_exports.router, prefix=app_settings.api_v1_prefix)
     app.include_router(tasks.router, prefix=app_settings.api_v1_prefix)
-    app.include_router(
-        agent_runtime.router, prefix=f"{app_settings.api_v1_prefix}/agent"
-    )
+    app.include_router(agent_runtime.router, prefix=f"{app_settings.api_v1_prefix}/agent")
     app.include_router(audit.router, prefix=app_settings.api_v1_prefix)
     app.include_router(background.router, prefix=app_settings.api_v1_prefix)
     app.include_router(dashboard.router, prefix=app_settings.api_v1_prefix)

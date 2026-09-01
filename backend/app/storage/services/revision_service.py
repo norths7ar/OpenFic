@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Revision/commit/snapshot deletion helpers and orphan cleanup.
 
 These functions centralize the cascade rules for revision history:
@@ -89,9 +88,7 @@ async def _delete_children_and_collect_blobs(
         for ref_model, blob_col in _BLOB_REFERENCE_COLUMNS:
             if ref_model is not model:
                 continue
-            result = await session.execute(
-                select(blob_col).where(condition, blob_col.is_not(None))
-            )
+            result = await session.execute(select(blob_col).where(condition, blob_col.is_not(None)))
             blob_ids.update(blob_id for blob_id in result.scalars().all() if blob_id is not None)
 
         result = await session.execute(delete(model).where(condition))

@@ -17,10 +17,7 @@ def validate_editor_content(content: str) -> None:
     """Raise when content exceeds the supported line or character limit."""
     line_count = count_editor_content_lines(content)
     character_count = len(content)
-    if (
-        line_count <= MAX_EDITOR_CONTENT_LINES
-        and character_count <= MAX_EDITOR_CONTENT_CHARACTERS
-    ):
+    if line_count <= MAX_EDITOR_CONTENT_LINES and character_count <= MAX_EDITOR_CONTENT_CHARACTERS:
         return
 
     raise EditorContentLimitError(

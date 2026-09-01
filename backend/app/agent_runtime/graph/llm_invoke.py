@@ -12,7 +12,7 @@ from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
-from enum import Enum
+from enum import Enum, StrEnum
 from typing import Any
 
 from langchain_core.messages import AIMessage, BaseMessage
@@ -28,7 +28,7 @@ class RetryDecision(Enum):
     NO_RETRY = "no_retry"
 
 
-class RetryCategory(str, Enum):
+class RetryCategory(StrEnum):
     HTTP = "http"
     RATE_LIMIT = "rate_limit"
     TIMEOUT = "timeout"
@@ -244,9 +244,7 @@ class _TimedStream:
         try:
             return await asyncio.wait_for(self._iterator.__anext__(), timeout=timeout)
         except TimeoutError as exc:
-            raise LLMStreamTimeoutError(
-                f"LLM stream chunk idle timeout after {timeout}s"
-            ) from exc
+            raise LLMStreamTimeoutError(f"LLM stream chunk idle timeout after {timeout}s") from exc
 
 
 async def _emit_retry_event(
@@ -314,10 +312,7 @@ async def invoke_model_with_retry(
             category = RetryCategory.EMPTY_RESPONSE
         except Exception as caught:
             outcome = classify_error(caught)
-            if (
-                outcome.decision is RetryDecision.NO_RETRY
-                or attempt >= settings.max_attempts
-            ):
+            if outcome.decision is RetryDecision.NO_RETRY or attempt >= settings.max_attempts:
                 raise
             exc = caught
             category = outcome.category

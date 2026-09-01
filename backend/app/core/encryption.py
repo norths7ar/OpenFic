@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Encryption utilities for sensitive data.
 

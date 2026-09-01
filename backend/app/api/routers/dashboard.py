@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Dashboard Router - LLM API 统计仪表盘 API。
 """
@@ -12,14 +11,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.schemas.dashboard import (
     DashboardAuditRecord,
     DashboardBreakdownItem,
-    DashboardFilterOptions,
     DashboardFilterOptionItem,
+    DashboardFilterOptions,
     DashboardModelTimeSeriesPoint,
     DashboardRecordList,
     DashboardRecordPrompt,
     DashboardRecordsResponse,
-    DashboardSummary,
     DashboardStatsResponse,
+    DashboardSummary,
     WritingActivitySummary,
     WritingActivityTimeSeriesPoint,
     WritingDashboardResponse,
@@ -27,13 +26,12 @@ from app.api.schemas.dashboard import (
 from app.storage.database import get_session
 from app.storage.repos.dashboard_repo import (
     BreakdownRow,
-    FilterOptionRow,
     DashboardRecordRow,
+    FilterOptionRow,
     ModelTimeSeriesRow,
 )
 from app.storage.repos.writing_activity_repo import WritingActivityTimeSeriesRow
-from app.storage.services import dashboard_service
-from app.storage.services import writing_activity_service
+from app.storage.services import dashboard_service, writing_activity_service
 
 router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
 
@@ -92,7 +90,9 @@ def _serialize_filter_options(items: list[FilterOptionRow]) -> list[DashboardFil
     return [DashboardFilterOptionItem(value=item.value, label=item.label) for item in items]
 
 
-def _serialize_options(options: dashboard_service.DashboardFilterOptionsResult) -> DashboardFilterOptions:
+def _serialize_options(
+    options: dashboard_service.DashboardFilterOptionsResult,
+) -> DashboardFilterOptions:
     return DashboardFilterOptions(
         project_ids=options.project_ids,
         model_providers=options.model_providers,

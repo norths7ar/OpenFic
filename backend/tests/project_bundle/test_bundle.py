@@ -26,9 +26,7 @@ def test_markdown_round_trip_and_normalizes_newlines() -> None:
 
 
 def test_markdown_ignores_fenced_h1_but_rejects_second_real_h1() -> None:
-    parsed = parse_markdown_document(
-        "---\na: 1\n---\n# 标题\n```md\n# 代码\n```\n## 小节"
-    )
+    parsed = parse_markdown_document("---\na: 1\n---\n# 标题\n```md\n# 代码\n```\n## 小节")
     assert parsed.title == "标题"
     with pytest.raises(BundleFormatError):
         parse_markdown_document("---\na: 1\n---\n# 一\n# 二")

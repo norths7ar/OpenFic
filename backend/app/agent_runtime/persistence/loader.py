@@ -14,10 +14,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col
 
-from app.agent_runtime.persistence.errors import PersistenceLoadError
-from app.agent_runtime.persistence.model import AgentRunMessage
 from app.agent_runtime.context.processors.filter import filter_invalid
 from app.agent_runtime.context.types import ContextMessage
+from app.agent_runtime.persistence.errors import PersistenceLoadError
+from app.agent_runtime.persistence.model import AgentRunMessage
 
 
 def _is_llm_history_message(row: AgentRunMessage) -> bool:
@@ -67,9 +67,7 @@ def _order_tool_results_by_call_order(
             next_index += 1
 
         tool_rows_by_id = {
-            tool_row.tool_call_id: tool_row
-            for tool_row in tool_rows
-            if tool_row.tool_call_id
+            tool_row.tool_call_id: tool_row for tool_row in tool_rows if tool_row.tool_call_id
         }
         ordered.extend(
             tool_rows_by_id[tool_call["id"]]
@@ -79,8 +77,7 @@ def _order_tool_results_by_call_order(
         ordered.extend(
             tool_row
             for tool_row in tool_rows
-            if tool_row.tool_call_id
-            not in {tool_call.get("id") for tool_call in tool_calls}
+            if tool_row.tool_call_id not in {tool_call.get("id") for tool_call in tool_calls}
         )
         index = next_index
     return ordered
@@ -103,15 +100,12 @@ async def load_history(db_session: AsyncSession, session_id: str) -> list[BaseMe
         )
         raw_rows = list(result.scalars().all())
     except Exception as e:
-        raise PersistenceLoadError(
-            f"load_history failed for session {session_id}"
-        ) from e
+        raise PersistenceLoadError(f"load_history failed for session {session_id}") from e
     rows = raw_rows
     rows = [
         r
         for r in rows
-        if _is_llm_history_message(r)
-        and not (r.role == "user" and r.status == "pending")
+        if _is_llm_history_message(r) and not (r.role == "user" and r.status == "pending")
     ]
 
     tool_call_id_set: set[str] = set()
@@ -125,11 +119,7 @@ async def load_history(db_session: AsyncSession, session_id: str) -> list[BaseMe
 
     selected_tool_rows: dict[str, AgentRunMessage] = {}
     for r in rows:
-        if (
-            r.role != "tool"
-            or not r.tool_call_id
-            or r.tool_call_id not in tool_call_id_set
-        ):
+        if r.role != "tool" or not r.tool_call_id or r.tool_call_id not in tool_call_id_set:
             continue
         existing = selected_tool_rows.get(r.tool_call_id)
         if existing is None:

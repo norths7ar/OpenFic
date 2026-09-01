@@ -7,8 +7,11 @@ from typing import Any
 from loguru import logger
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.background.events.publisher import BackgroundEventPublisher
-from app.background.events.publisher import discard_queued_events, publish_committed_events
+from app.background.events.publisher import (
+    BackgroundEventPublisher,
+    discard_queued_events,
+    publish_committed_events,
+)
 from app.background.events.types import (
     EVENT_JOB_CANCEL_REQUESTED,
     EVENT_JOB_CANCELLED,
@@ -34,7 +37,6 @@ from app.background.jobs.states import (
 )
 from app.background.runtime.registry import get_job_registry
 from app.background.transport.messages import JobNotification
-
 
 _PENDING_NOTIFICATION_KEY = "background_job_notifications"
 
@@ -316,7 +318,9 @@ async def mark_succeeded(
     job.finished_at = now
     _clear_lock(job)
     await job_repo.save_job(session, job)
-    await append_event(session, publisher, job, event_type=EVENT_JOB_SUCCEEDED, payload=result or {})
+    await append_event(
+        session, publisher, job, event_type=EVENT_JOB_SUCCEEDED, payload=result or {}
+    )
     return job
 
 

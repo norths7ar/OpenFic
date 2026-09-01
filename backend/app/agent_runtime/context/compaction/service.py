@@ -22,7 +22,6 @@ from app.agent_runtime.persistence.errors import PersistenceWriteError
 from app.models.clients.model_factory import ModelConfig, create_chat_model
 from app.storage.services import prompt_chain_service
 
-
 EventSink = Callable[[str, dict[str, Any]], Awaitable[None] | None]
 UsageSink = Callable[[dict[str, Any]], Awaitable[None] | None]
 PromptRole = Literal["system", "user", "assistant"]
@@ -315,9 +314,7 @@ def _extract_usage(message: Any) -> dict[str, Any] | None:
 
     response_metadata = getattr(message, "response_metadata", None)
     if isinstance(response_metadata, dict):
-        metadata_usage = response_metadata.get("usage") or response_metadata.get(
-            "token_usage"
-        )
+        metadata_usage = response_metadata.get("usage") or response_metadata.get("token_usage")
         if isinstance(metadata_usage, dict) and metadata_usage:
             return dict(metadata_usage)
         if metadata_usage is not None and hasattr(metadata_usage, "items"):

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 OpenAI Adapter - OpenAI API适配器。
 """

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Prompt chain runner history compaction tests."""
 
 import json
@@ -8,7 +7,12 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from app.memory import prompt_chain_runner
-from app.memory.prompt_chain_runner import ChatRuntime, _compact_task_history, _compact_task_history_message, build_chat_messages
+from app.memory.prompt_chain_runner import (
+    ChatRuntime,
+    _compact_task_history,
+    _compact_task_history_message,
+    build_chat_messages,
+)
 from app.storage.models.task_message import TaskMessage
 
 
@@ -251,7 +255,13 @@ def test_compact_task_history_keeps_answered_assistant_tool_call_pair() -> None:
             agent_id="writer",
             content="准备读取章节",
             tool_calls=json.dumps(
-                [{"id": "call-read", "name": "read_chapter", "args": {"chapter_ref": {"type": "order", "value": 1}}}],
+                [
+                    {
+                        "id": "call-read",
+                        "name": "read_chapter",
+                        "args": {"chapter_ref": {"type": "order", "value": 1}},
+                    }
+                ],
                 ensure_ascii=False,
             ),
         ),
@@ -260,7 +270,11 @@ def test_compact_task_history_keeps_answered_assistant_tool_call_pair() -> None:
             role="tool",
             agent_id="writer",
             content=json.dumps(
-                {"success": True, "message": "章节内容获取成功", "metadata": {"tool_name": "read_chapter"}},
+                {
+                    "success": True,
+                    "message": "章节内容获取成功",
+                    "metadata": {"tool_name": "read_chapter"},
+                },
                 ensure_ascii=False,
             ),
             tool_call_id="call-read",
@@ -411,7 +425,9 @@ async def test_build_chat_messages_injects_handoff_without_task_history(monkeypa
             current_message="写作请求",
             anchor_chapter_id="chapter-7",
             skill_messages=[{"role": "system", "content": "<skill>技能上下文</skill>"}],
-            handoff_messages=[{"role": "user", "content": "<workflow_handoff>只交接产物</workflow_handoff>"}],
+            handoff_messages=[
+                {"role": "user", "content": "<workflow_handoff>只交接产物</workflow_handoff>"}
+            ],
         ),
     )
 
@@ -434,12 +450,22 @@ async def test_build_chat_messages_merges_consecutive_system_messages_when_enabl
                 type(
                     "Entry",
                     (),
-                    {"role": "system", "content": "系统提示一", "order_index": 0, "is_enabled": True},
+                    {
+                        "role": "system",
+                        "content": "系统提示一",
+                        "order_index": 0,
+                        "is_enabled": True,
+                    },
                 )(),
                 type(
                     "Entry",
                     (),
-                    {"role": "system", "content": "系统提示二", "order_index": 1, "is_enabled": True},
+                    {
+                        "role": "system",
+                        "content": "系统提示二",
+                        "order_index": 1,
+                        "is_enabled": True,
+                    },
                 )(),
             ]
         },
@@ -458,9 +484,7 @@ async def test_build_chat_messages_merges_consecutive_system_messages_when_enabl
 
     with patch(
         "app.agent_runtime.context.processors.compress.setting_repo.get_by_key",
-        new=AsyncMock(
-            return_value=SimpleNamespace(key="compress_system_prompts", value="true")
-        ),
+        new=AsyncMock(return_value=SimpleNamespace(key="compress_system_prompts", value="true")),
     ):
         messages = await build_chat_messages(
             AsyncMock(),
@@ -505,7 +529,9 @@ async def test_build_chat_messages_does_not_append_empty_current_message(monkeyp
         prompt_id="builtin-agent--writer",
         runtime=ChatRuntime(
             current_message="",
-            handoff_messages=[{"role": "user", "content": "<workflow_handoff>包含初始请求</workflow_handoff>"}],
+            handoff_messages=[
+                {"role": "user", "content": "<workflow_handoff>包含初始请求</workflow_handoff>"}
+            ],
         ),
     )
 
@@ -546,10 +572,18 @@ async def test_build_chat_messages_appends_current_agent_local_react_history(mon
             agent_id="writer",
             content="准备读取章节",
             tool_calls=json.dumps(
-                [{"id": "call-1", "name": "read_chapter", "args": {"chapter_ref": {"type": "order", "value": 1}}}],
+                [
+                    {
+                        "id": "call-1",
+                        "name": "read_chapter",
+                        "args": {"chapter_ref": {"type": "order", "value": 1}},
+                    }
+                ],
                 ensure_ascii=False,
             ),
-            message_metadata=json.dumps({"event_type": "assistant_message", "revision_id": "revision-1"}),
+            message_metadata=json.dumps(
+                {"event_type": "assistant_message", "revision_id": "revision-1"}
+            ),
         ),
         TaskMessage(
             task_id="task-1",
@@ -567,14 +601,18 @@ async def test_build_chat_messages_appends_current_agent_local_react_history(mon
             role="assistant",
             agent_id="designer",
             content="其它 Agent 历史不应进入",
-            message_metadata=json.dumps({"event_type": "assistant_message", "revision_id": "revision-1"}),
+            message_metadata=json.dumps(
+                {"event_type": "assistant_message", "revision_id": "revision-1"}
+            ),
         ),
         TaskMessage(
             task_id="task-1",
             role="assistant",
             agent_id="writer",
             content="旧 revision 不应进入",
-            message_metadata=json.dumps({"event_type": "assistant_message", "revision_id": "revision-0"}),
+            message_metadata=json.dumps(
+                {"event_type": "assistant_message", "revision_id": "revision-0"}
+            ),
         ),
     ]
     monkeypatch.setattr(prompt_chain_runner, "PromptChainCompiler", FakeCompiler)
@@ -592,7 +630,9 @@ async def test_build_chat_messages_appends_current_agent_local_react_history(mon
             task_id="task-1",
             history_agent_name="writer",
             history_revision_id="revision-1",
-            handoff_messages=[{"role": "user", "content": "<workflow_handoff>大纲</workflow_handoff>"}],
+            handoff_messages=[
+                {"role": "user", "content": "<workflow_handoff>大纲</workflow_handoff>"}
+            ],
         ),
     )
 
@@ -604,12 +644,17 @@ async def test_build_chat_messages_appends_current_agent_local_react_history(mon
     assert messages[3]["tool_call_id"] == "call-1"
     assert messages[3]["message"] == "已读取"
     assert contents[-1] == "继续写作"
-    assert any(message.get("role") == "tool" and message.get("tool_call_id") == "call-1" for message in messages)
+    assert any(
+        message.get("role") == "tool" and message.get("tool_call_id") == "call-1"
+        for message in messages
+    )
     assert "其它 Agent 历史不应进入" not in contents
     assert "旧 revision 不应进入" not in contents
 
 
-async def test_build_chat_messages_places_writer_history_before_new_user_message(monkeypatch) -> None:
+async def test_build_chat_messages_places_writer_history_before_new_user_message(
+    monkeypatch,
+) -> None:
     version = type(
         "Version",
         (),
@@ -649,7 +694,9 @@ async def test_build_chat_messages_places_writer_history_before_new_user_message
                 ],
                 ensure_ascii=False,
             ),
-            message_metadata=json.dumps({"event_type": "assistant_message", "revision_id": "revision-1"}),
+            message_metadata=json.dumps(
+                {"event_type": "assistant_message", "revision_id": "revision-1"}
+            ),
         ),
         TaskMessage(
             task_id="task-1",
@@ -678,7 +725,9 @@ async def test_build_chat_messages_places_writer_history_before_new_user_message
             task_id="task-1",
             history_agent_name="writer",
             history_revision_id="revision-1",
-            handoff_messages=[{"role": "user", "content": "<workflow_handoff>审查未通过</workflow_handoff>"}],
+            handoff_messages=[
+                {"role": "user", "content": "<workflow_handoff>审查未通过</workflow_handoff>"}
+            ],
         ),
     )
 

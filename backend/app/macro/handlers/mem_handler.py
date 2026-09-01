@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Mem Handler - 记忆获取宏处理器。
 
@@ -9,9 +8,8 @@ Mem Handler - 记忆获取宏处理器。
 - {{getmem::chapter::near}} - 获取近场章节记忆
 """
 
-from app.macro.handlers.base import MacroHandler, MacroEvaluateError, MacroValidateError
+from app.macro.handlers.base import MacroEvaluateError, MacroHandler, MacroValidateError
 from app.macro.types import MacroContext, MacroNode, TokenType
-
 
 VALID_LEVEL1 = {"chapter"}
 VALID_CHAPTER_FIELDS = {"far", "middle", "near", "latest"}

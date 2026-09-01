@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Base Strategy - 策略基类。
 

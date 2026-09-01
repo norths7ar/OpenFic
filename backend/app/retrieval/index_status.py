@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """索引状态 socket 推送协调器。
 
 负责在索引状态或全局索引配置变更后，通过 Socket.IO 向前端推送
@@ -22,7 +21,6 @@ from app.retrieval.chapter_index import (
 )
 from app.socket import emit
 from app.socket.handlers import background_project_room
-
 
 INDEX_STATUS_EVENT = "index:status"
 INDEX_CONFIG_EVENT = "index:config"
@@ -54,9 +52,7 @@ async def _emit_status_for_project(
             room=background_project_room(project_id),
         )
     except Exception as exc:
-        logger.bind(project_id=project_id).warning(
-            f"emit index:status failed: {exc}"
-        )
+        logger.bind(project_id=project_id).warning(f"emit index:status failed: {exc}")
     finally:
         if session is not None:
             await session.close()
@@ -83,6 +79,7 @@ def _schedule_after_commit(session: AsyncSession, coro_factory) -> None:
         return
 
     try:
+
         @sa_event.listens_for(sync_session, "after_commit", once=True)
         def _listener(_sync_session) -> None:  # noqa: ANN001
             if not is_connected():

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Repos Module - 数据仓库模块。
 """

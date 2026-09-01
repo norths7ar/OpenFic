@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 WorldInfoEntry Repository - 世界书条目数据访问层。
 """
@@ -6,8 +5,9 @@ WorldInfoEntry Repository - 世界书条目数据访问层。
 from typing import Any, cast
 
 from sqlalchemy import delete as sql_delete
+from sqlalchemy import func, or_, select
+from sqlalchemy import update as sql_update
 from sqlalchemy.engine import CursorResult
-from sqlalchemy import func, or_, select, update as sql_update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col
 
@@ -42,9 +42,7 @@ async def get_by_id(session: AsyncSession, entry_id: str) -> WorldInfoEntry | No
     Returns:
         条目实例，如果不存在则返回 None。
     """
-    result = await session.execute(
-        select(WorldInfoEntry).where(col(WorldInfoEntry.id) == entry_id)
-    )
+    result = await session.execute(select(WorldInfoEntry).where(col(WorldInfoEntry.id) == entry_id))
     return result.scalar_one_or_none()
 
 
@@ -228,9 +226,7 @@ async def delete_by_world_info(session: AsyncSession, world_info_id: str) -> Non
         world_info_id: 世界书 ID。
     """
     await session.execute(
-        sql_delete(WorldInfoEntry).where(
-            col(WorldInfoEntry.world_info_id) == world_info_id
-        )
+        sql_delete(WorldInfoEntry).where(col(WorldInfoEntry.world_info_id) == world_info_id)
     )
     await session.flush()
 

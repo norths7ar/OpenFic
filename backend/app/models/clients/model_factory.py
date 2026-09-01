@@ -52,15 +52,9 @@ class ModelConfig:
         self.top_k = with_default(self.top_k, DEFAULT_TOP_K)
         self.min_p = with_default(self.min_p, DEFAULT_MIN_P)
         self.top_a = with_default(self.top_a, DEFAULT_TOP_A)
-        self.frequency_penalty = with_default(
-            self.frequency_penalty, DEFAULT_FREQUENCY_PENALTY
-        )
-        self.presence_penalty = with_default(
-            self.presence_penalty, DEFAULT_PRESENCE_PENALTY
-        )
-        self.repetition_penalty = with_default(
-            self.repetition_penalty, DEFAULT_REPETITION_PENALTY
-        )
+        self.frequency_penalty = with_default(self.frequency_penalty, DEFAULT_FREQUENCY_PENALTY)
+        self.presence_penalty = with_default(self.presence_penalty, DEFAULT_PRESENCE_PENALTY)
+        self.repetition_penalty = with_default(self.repetition_penalty, DEFAULT_REPETITION_PENALTY)
 
 
 def _compact_kwargs(**kwargs: Any) -> dict[str, Any]:
@@ -104,9 +98,7 @@ def _openai_compatible_kwargs(config: ModelConfig) -> dict[str, Any]:
         temperature=_non_default(config.temperature, DEFAULT_TEMPERATURE),
         top_p=_non_default(config.top_p, DEFAULT_TOP_P),
         max_tokens=config.max_tokens,
-        frequency_penalty=_non_default(
-            config.frequency_penalty, DEFAULT_FREQUENCY_PENALTY
-        ),
+        frequency_penalty=_non_default(config.frequency_penalty, DEFAULT_FREQUENCY_PENALTY),
         presence_penalty=_non_default(config.presence_penalty, DEFAULT_PRESENCE_PENALTY),
         reasoning_effort=_enabled_reasoning_effort(config),
         max_retries=0,
@@ -137,19 +129,21 @@ def create_chat_model(config: ModelConfig) -> Runnable[LanguageModelInput, BaseM
     if provider in {"anthropic", "anthropic-compatible"}:
         from langchain_anthropic import ChatAnthropic
 
-        return ChatAnthropic(**_compact_kwargs(
-            model=config.model_id,
-            api_key=config.api_key,
-            base_url=config.base_url or None,
-            default_headers=config.custom_headers or None,
-            temperature=_non_default(config.temperature, DEFAULT_TEMPERATURE),
-            top_p=_non_default(config.top_p, DEFAULT_TOP_P),
-            top_k=_non_default(config.top_k, DEFAULT_TOP_K),
-            max_tokens=config.max_tokens or 4096,
-            effort=reasoning_effort,
-            max_retries=0,
-            timeout=_request_timeout()[1],
-        ))
+        return ChatAnthropic(
+            **_compact_kwargs(
+                model=config.model_id,
+                api_key=config.api_key,
+                base_url=config.base_url or None,
+                default_headers=config.custom_headers or None,
+                temperature=_non_default(config.temperature, DEFAULT_TEMPERATURE),
+                top_p=_non_default(config.top_p, DEFAULT_TOP_P),
+                top_k=_non_default(config.top_k, DEFAULT_TOP_K),
+                max_tokens=config.max_tokens or 4096,
+                effort=reasoning_effort,
+                max_retries=0,
+                timeout=_request_timeout()[1],
+            )
+        )
 
     if provider == "google-genai":
         from langchain_google_genai import ChatGoogleGenerativeAI
@@ -183,18 +177,20 @@ def create_chat_model(config: ModelConfig) -> Runnable[LanguageModelInput, BaseM
                 patch_deepseek_reasoning_payload(input_, payload)
                 return payload
 
-        return ChatDeepSeekWithReasoningPayload(**_compact_kwargs(
-            model=config.model_id,
-            api_key=config.api_key,
-            base_url=config.base_url or None,
-            temperature=_non_default(config.temperature, DEFAULT_TEMPERATURE),
-            max_tokens=config.max_tokens,
-            reasoning_effort=reasoning_effort,
-            max_retries=0,
-            stream_usage=True,
-            stream_chunk_timeout=_stream_chunk_timeout(),
-            timeout=_request_timeout(),
-        ))
+        return ChatDeepSeekWithReasoningPayload(
+            **_compact_kwargs(
+                model=config.model_id,
+                api_key=config.api_key,
+                base_url=config.base_url or None,
+                temperature=_non_default(config.temperature, DEFAULT_TEMPERATURE),
+                max_tokens=config.max_tokens,
+                reasoning_effort=reasoning_effort,
+                max_retries=0,
+                stream_usage=True,
+                stream_chunk_timeout=_stream_chunk_timeout(),
+                timeout=_request_timeout(),
+            )
+        )
 
     if provider == "mistral":
         from langchain_mistralai import ChatMistralAI
@@ -216,26 +212,24 @@ def create_chat_model(config: ModelConfig) -> Runnable[LanguageModelInput, BaseM
     if provider == "openrouter":
         from langchain_openrouter import ChatOpenRouter
 
-        return ChatOpenRouter(**_compact_kwargs(
-            model=config.model_id,
-            api_key=config.api_key,
-            base_url=config.base_url or None,
-            app_url=OPENROUTER_APP_URL,
-            app_title=OPENROUTER_APP_TITLE,
-            app_categories=list(OPENROUTER_APP_CATEGORIES),
-            temperature=_non_default(config.temperature, DEFAULT_TEMPERATURE),
-            top_p=_non_default(config.top_p, DEFAULT_TOP_P),
-            max_tokens=config.max_tokens,
-            frequency_penalty=_non_default(
-                config.frequency_penalty, DEFAULT_FREQUENCY_PENALTY
-            ),
-            presence_penalty=_non_default(
-                config.presence_penalty, DEFAULT_PRESENCE_PENALTY
-            ),
-            reasoning={"effort": reasoning_effort} if reasoning_effort else None,
-            max_retries=0,
-            timeout=int(_request_timeout()[1] * 1000),
-        ))
+        return ChatOpenRouter(
+            **_compact_kwargs(
+                model=config.model_id,
+                api_key=config.api_key,
+                base_url=config.base_url or None,
+                app_url=OPENROUTER_APP_URL,
+                app_title=OPENROUTER_APP_TITLE,
+                app_categories=list(OPENROUTER_APP_CATEGORIES),
+                temperature=_non_default(config.temperature, DEFAULT_TEMPERATURE),
+                top_p=_non_default(config.top_p, DEFAULT_TOP_P),
+                max_tokens=config.max_tokens,
+                frequency_penalty=_non_default(config.frequency_penalty, DEFAULT_FREQUENCY_PENALTY),
+                presence_penalty=_non_default(config.presence_penalty, DEFAULT_PRESENCE_PENALTY),
+                reasoning={"effort": reasoning_effort} if reasoning_effort else None,
+                max_retries=0,
+                timeout=int(_request_timeout()[1] * 1000),
+            )
+        )
 
     if provider == "groq":
         from langchain_groq import ChatGroq
@@ -287,16 +281,18 @@ def create_chat_model(config: ModelConfig) -> Runnable[LanguageModelInput, BaseM
     if provider == "amazon-nova":
         from langchain_amazon_nova import ChatAmazonNova
 
-        return ChatAmazonNova(**_compact_kwargs(
-            model=config.model_id,
-            api_key=config.api_key,
-            base_url=config.base_url or None,
-            temperature=_non_default(config.temperature, DEFAULT_TEMPERATURE),
-            top_p=_non_default(config.top_p, DEFAULT_TOP_P),
-            max_tokens=config.max_tokens,
-            reasoning_effort=_three_level_reasoning_effort(reasoning_effort),
-            max_retries=0,
-        ))
+        return ChatAmazonNova(
+            **_compact_kwargs(
+                model=config.model_id,
+                api_key=config.api_key,
+                base_url=config.base_url or None,
+                temperature=_non_default(config.temperature, DEFAULT_TEMPERATURE),
+                top_p=_non_default(config.top_p, DEFAULT_TOP_P),
+                max_tokens=config.max_tokens,
+                reasoning_effort=_three_level_reasoning_effort(reasoning_effort),
+                max_retries=0,
+            )
+        )
 
     if provider == "openai-compatible-responses":
         from langchain_openai import ChatOpenAI

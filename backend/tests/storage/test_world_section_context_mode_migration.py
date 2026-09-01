@@ -14,9 +14,7 @@ migration = importlib.import_module(
 
 def _create_previous_schema(connection) -> None:
     connection.execute(text("CREATE TABLE world_info_entries (id TEXT PRIMARY KEY)"))
-    connection.execute(
-        text("CREATE TABLE revision_world_entry_snapshots (id TEXT PRIMARY KEY)")
-    )
+    connection.execute(text("CREATE TABLE revision_world_entry_snapshots (id TEXT PRIMARY KEY)"))
     connection.execute(text("CREATE TABLE tasks (id TEXT PRIMARY KEY)"))
     connection.execute(text("INSERT INTO world_info_entries (id) VALUES ('entry-1')"))
     connection.execute(text("INSERT INTO tasks (id) VALUES ('task-1')"))
@@ -41,25 +39,19 @@ def test_upgrade_backfills_section_and_context_mode_and_downgrades() -> None:
         assert task == "local"
         assert "section" in {
             column["name"]
-            for column in inspect(connection).get_columns(
-                "revision_world_entry_snapshots"
-            )
+            for column in inspect(connection).get_columns("revision_world_entry_snapshots")
         }
 
         with pytest.raises(IntegrityError):
             connection.execute(
-                text(
-                    "INSERT INTO tasks (id, context_mode) "
-                    "VALUES ('task-invalid', 'surprise')"
-                )
+                text("INSERT INTO tasks (id, context_mode) VALUES ('task-invalid', 'surprise')")
             )
 
         with patch.object(migration, "op", operations):
             migration.downgrade()
 
         assert "section" not in {
-            column["name"]
-            for column in inspect(connection).get_columns("world_info_entries")
+            column["name"] for column in inspect(connection).get_columns("world_info_entries")
         }
         assert "context_mode" not in {
             column["name"] for column in inspect(connection).get_columns("tasks")

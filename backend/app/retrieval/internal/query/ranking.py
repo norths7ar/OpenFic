@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Ranking and result conversion helpers for retrieval queries.
 """

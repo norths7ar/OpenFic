@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """chapter_repo 仓储层测试。"""
 
 import pytest
@@ -109,9 +108,7 @@ async def test_list_metadata_by_volume_does_not_load_content(session):
     await session.commit()
     session.sync_session.expunge_all()
 
-    chapters = await chapter_repo.list_metadata_by_volume(
-        session, volume.id, offset=0, limit=1
-    )
+    chapters = await chapter_repo.list_metadata_by_volume(session, volume.id, offset=0, limit=1)
 
     assert len(chapters) == 1
     assert chapters[0].title == "C1"

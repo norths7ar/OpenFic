@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Agent API 测试。"""
 
 import asyncio
@@ -138,7 +137,9 @@ class TestAgentAPI:
             json={"project_id": target["project_id"], "model_id": target["model_id"]},
         )
         session_id = session_response.json()["session_id"]
-        monkeypatch.setattr(settings, "agent_attachments_dir", tmp_path / "agent-attachments", raising=False)
+        monkeypatch.setattr(
+            settings, "agent_attachments_dir", tmp_path / "agent-attachments", raising=False
+        )
 
         response = await client.post(
             f"/api/v1/agent/sessions/{session_id}/attachments",
@@ -434,7 +435,6 @@ class TestAgentAPI:
             "/api/v1/agent/sessions",
             json={
                 "project_id": target["project_id"],
-
                 "model_id": target["model_id"],
                 "max_iterations": 5,
                 "agent_key": "discuss",
@@ -508,12 +508,15 @@ class TestAgentAPI:
         _SESSION_RUNNERS["session-model-switch"] = runner
 
         next_model_config = {"max_context_tokens": 32000, "model_id": "next-model"}
-        with patch(
-            "app.api.routers.agent_runtime._resolve_model_config",
-            AsyncMock(return_value=next_model_config),
-        ) as resolve_model_config, patch(
-            "app.api.routers.agent_runtime._launch_task",
-            AsyncMock(),
+        with (
+            patch(
+                "app.api.routers.agent_runtime._resolve_model_config",
+                AsyncMock(return_value=next_model_config),
+            ) as resolve_model_config,
+            patch(
+                "app.api.routers.agent_runtime._launch_task",
+                AsyncMock(),
+            ),
         ):
             response = await client.post(
                 "/api/v1/agent/sessions/session-model-switch/message",
@@ -739,12 +742,15 @@ class TestAgentAPI:
             "model_id": "reasoning-model",
             "reasoning_effort": "high",
         }
-        with patch(
-            "app.api.routers.agent_runtime._resolve_model_config",
-            AsyncMock(return_value=resolved_config),
-        ) as resolve_model_config, patch(
-            "app.api.routers.agent_runtime._launch_task",
-            AsyncMock(),
+        with (
+            patch(
+                "app.api.routers.agent_runtime._resolve_model_config",
+                AsyncMock(return_value=resolved_config),
+            ) as resolve_model_config,
+            patch(
+                "app.api.routers.agent_runtime._launch_task",
+                AsyncMock(),
+            ),
         ):
             response = await client.post(
                 "/api/v1/agent/sessions/session-reasoning-effort/message",
@@ -790,12 +796,15 @@ class TestAgentAPI:
             "model_id": "uncataloged-model",
             "reasoning_effort": "high",
         }
-        with patch(
-            "app.api.routers.agent_runtime._resolve_model_config",
-            AsyncMock(return_value=resolved_config),
-        ) as resolve_model_config, patch(
-            "app.api.routers.agent_runtime._launch_task",
-            AsyncMock(),
+        with (
+            patch(
+                "app.api.routers.agent_runtime._resolve_model_config",
+                AsyncMock(return_value=resolved_config),
+            ) as resolve_model_config,
+            patch(
+                "app.api.routers.agent_runtime._launch_task",
+                AsyncMock(),
+            ),
         ):
             response = await client.post(
                 "/api/v1/agent/sessions/session-uncataloged-reasoning-effort/message",
@@ -834,12 +843,15 @@ class TestAgentAPI:
         _SESSION_RUNNERS["session-model-resume"] = runner
 
         next_model_config = {"max_context_tokens": 32000, "model_id": "new-model"}
-        with patch(
-            "app.api.routers.agent_runtime._resolve_model_config",
-            AsyncMock(return_value=next_model_config),
-        ) as resolve_model_config, patch(
-            "app.api.routers.agent_runtime._launch_task",
-            AsyncMock(),
+        with (
+            patch(
+                "app.api.routers.agent_runtime._resolve_model_config",
+                AsyncMock(return_value=next_model_config),
+            ) as resolve_model_config,
+            patch(
+                "app.api.routers.agent_runtime._launch_task",
+                AsyncMock(),
+            ),
         ):
             response = await client.post(
                 "/api/v1/agent/sessions/session-model-resume/message",
@@ -881,12 +893,13 @@ class TestAgentAPI:
         )
         _SESSION_RUNNERS["session-model-pending"] = runner
 
-        with patch(
-            "app.api.routers.agent_runtime._resolve_model_config",
-            AsyncMock(),
-        ) as resolve_model_config, patch(
-            "app.api.routers.agent_runtime.get_agent_run_registry"
-        ) as get_registry:
+        with (
+            patch(
+                "app.api.routers.agent_runtime._resolve_model_config",
+                AsyncMock(),
+            ) as resolve_model_config,
+            patch("app.api.routers.agent_runtime.get_agent_run_registry") as get_registry,
+        ):
             get_registry.return_value.is_running = AsyncMock(return_value=True)
             get_registry.return_value.is_cancelled = AsyncMock(return_value=False)
             response = await client.post(
@@ -942,7 +955,6 @@ class TestAgentAPI:
             "/api/v1/agent/sessions",
             json={
                 "project_id": target["project_id"],
-
                 "model_id": target["model_id"],
                 "mode": "yolo",
                 "max_iterations": 5,
@@ -951,14 +963,15 @@ class TestAgentAPI:
 
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
-    async def test_create_agent_session_accepts_max_iterations_1000(self, client: AsyncClient) -> None:
+    async def test_create_agent_session_accepts_max_iterations_1000(
+        self, client: AsyncClient
+    ) -> None:
         target = await _seed_agent_target(client)
 
         response = await client.post(
             "/api/v1/agent/sessions",
             json={
                 "project_id": target["project_id"],
-
                 "model_id": target["model_id"],
                 "max_iterations": 1000,
             },
@@ -976,7 +989,6 @@ class TestAgentAPI:
             "/api/v1/agent/sessions",
             json={
                 "project_id": target["project_id"],
-
                 "model_id": target["model_id"],
                 "max_iterations": 1001,
             },
@@ -984,7 +996,9 @@ class TestAgentAPI:
 
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
-    async def test_create_agent_session_succeeds_without_chapter_id(self, client: AsyncClient) -> None:
+    async def test_create_agent_session_succeeds_without_chapter_id(
+        self, client: AsyncClient
+    ) -> None:
         provider_response = await client.post(
             "/api/v1/model-providers",
             data={
@@ -1088,7 +1102,9 @@ class TestAgentAPI:
         data = response.json()
         assert data["agent_key"] == "build"
 
-    async def test_create_agent_session_rejects_non_primary_agent_key(self, client: AsyncClient) -> None:
+    async def test_create_agent_session_rejects_non_primary_agent_key(
+        self, client: AsyncClient
+    ) -> None:
         target = await _seed_agent_target(client)
 
         response = await client.post(
@@ -1178,14 +1194,15 @@ class TestAgentAPI:
             "/api/v1/agent/sessions",
             json={
                 "project_id": target["project_id"],
-
                 "model_id": target["model_id"],
                 "max_iterations": 5,
             },
         )
         session_id = session_response.json()["session_id"]
 
-        with patch("app.api.routers.agent_runtime.SessionRunner.run", new=AsyncMock(return_value=None)) as mock_run:
+        with patch(
+            "app.api.routers.agent_runtime.SessionRunner.run", new=AsyncMock(return_value=None)
+        ) as mock_run:
             response = await client.post(
                 f"/api/v1/agent/sessions/{session_id}/message",
                 json={"message": "帮我写一个场景"},
@@ -1211,15 +1228,19 @@ class TestAgentAPI:
         )
         session_id = session_response.json()["session_id"]
 
-        with patch(
-            "app.api.routers.agent_runtime.enqueue_session_title_job",
-            new=AsyncMock(),
-        ) as enqueue_mock, patch(
-            "app.api.routers.agent_runtime.background_service.commit_and_notify",
-            new=AsyncMock(),
-        ) as commit_and_notify_mock, patch(
-            "app.api.routers.agent_runtime.SessionRunner.run",
-            new=AsyncMock(return_value=None),
+        with (
+            patch(
+                "app.api.routers.agent_runtime.enqueue_session_title_job",
+                new=AsyncMock(),
+            ) as enqueue_mock,
+            patch(
+                "app.api.routers.agent_runtime.background_service.commit_and_notify",
+                new=AsyncMock(),
+            ) as commit_and_notify_mock,
+            patch(
+                "app.api.routers.agent_runtime.SessionRunner.run",
+                new=AsyncMock(return_value=None),
+            ),
         ):
             response = await client.post(
                 f"/api/v1/agent/sessions/{session_id}/message",
@@ -1241,7 +1262,6 @@ class TestAgentAPI:
             "/api/v1/agent/sessions",
             json={
                 "project_id": target["project_id"],
-
                 "model_id": target["model_id"],
                 "max_iterations": 5,
             },
@@ -1258,13 +1278,16 @@ class TestAgentAPI:
             finally:
                 run_finished.set()
 
-        with patch(
-            "app.api.routers.agent_runtime.SessionRunner.run",
-            new=AsyncMock(side_effect=fake_run),
-        ), patch(
-            "app.api.routers.agent_runtime.emit",
-            new=AsyncMock(),
-        ) as emit_mock:
+        with (
+            patch(
+                "app.api.routers.agent_runtime.SessionRunner.run",
+                new=AsyncMock(side_effect=fake_run),
+            ),
+            patch(
+                "app.api.routers.agent_runtime.emit",
+                new=AsyncMock(),
+            ) as emit_mock,
+        ):
             response = await client.post(
                 f"/api/v1/agent/sessions/{session_id}/message",
                 json={"message": "帮我写一个场景"},
@@ -1325,7 +1348,6 @@ class TestAgentAPI:
             "/api/v1/agent/sessions",
             json={
                 "project_id": target["project_id"],
-
                 "model_id": target["model_id"],
                 "max_iterations": 5,
             },
@@ -1372,12 +1394,15 @@ class TestAgentAPI:
         )
         fake_registry = SimpleNamespace(is_running=AsyncMock(return_value=False))
 
-        with patch(
-            "app.api.routers.agent_runtime.get_checkpointer",
-            new=AsyncMock(return_value=fake_checkpointer),
-        ), patch(
-            "app.api.routers.agent_runtime.get_agent_run_registry",
-            return_value=fake_registry,
+        with (
+            patch(
+                "app.api.routers.agent_runtime.get_checkpointer",
+                new=AsyncMock(return_value=fake_checkpointer),
+            ),
+            patch(
+                "app.api.routers.agent_runtime.get_agent_run_registry",
+                return_value=fake_registry,
+            ),
         ):
             response = await client.get("/api/v1/agent/sessions/session-interrupt")
 
@@ -1438,12 +1463,15 @@ class TestAgentAPI:
         )
         fake_registry = SimpleNamespace(is_running=AsyncMock(return_value=False))
 
-        with patch(
-            "app.api.routers.agent_runtime.get_checkpointer",
-            new=AsyncMock(return_value=fake_checkpointer),
-        ), patch(
-            "app.api.routers.agent_runtime.get_agent_run_registry",
-            return_value=fake_registry,
+        with (
+            patch(
+                "app.api.routers.agent_runtime.get_checkpointer",
+                new=AsyncMock(return_value=fake_checkpointer),
+            ),
+            patch(
+                "app.api.routers.agent_runtime.get_agent_run_registry",
+                return_value=fake_registry,
+            ),
         ):
             response = await client.get(f"/api/v1/agent/sessions/{session_id}")
 
@@ -1625,14 +1653,14 @@ class TestAgentAPI:
 
         checkpoint = SimpleNamespace(
             checkpoint={"channel_values": {"current_revision_id": revision.id}},
-            pending_writes=[(None, "__interrupt__", [object()])]
+            pending_writes=[(None, "__interrupt__", [object()])],
         )
         with (
             patch(
                 "app.api.routers.agent_runtime.get_checkpointer",
-                new=AsyncMock(return_value=SimpleNamespace(
-                    aget_tuple=AsyncMock(return_value=checkpoint)
-                )),
+                new=AsyncMock(
+                    return_value=SimpleNamespace(aget_tuple=AsyncMock(return_value=checkpoint))
+                ),
             ),
             patch("app.api.routers.agent_runtime._launch_task", new=AsyncMock()) as launch_task,
         ):
@@ -1701,18 +1729,23 @@ class TestAgentAPI:
             await release_claim.wait()
             return revision.id, True
 
-        with patch(
-            "app.api.routers.agent_runtime._claim_agent_session_resume",
-            new=blocked_claim,
-        ), patch(
-            "app.api.routers.agent_runtime.SessionRunner.resume",
-            new=AsyncMock(return_value=None),
-        ), patch(
-            "app.api.routers.agent_runtime.SessionRunner.run",
-            new=AsyncMock(return_value=None),
-        ), patch(
-            "app.api.routers.agent_runtime.emit",
-            new=AsyncMock(),
+        with (
+            patch(
+                "app.api.routers.agent_runtime._claim_agent_session_resume",
+                new=blocked_claim,
+            ),
+            patch(
+                "app.api.routers.agent_runtime.SessionRunner.resume",
+                new=AsyncMock(return_value=None),
+            ),
+            patch(
+                "app.api.routers.agent_runtime.SessionRunner.run",
+                new=AsyncMock(return_value=None),
+            ),
+            patch(
+                "app.api.routers.agent_runtime.emit",
+                new=AsyncMock(),
+            ),
         ):
             resume_task = asyncio.create_task(
                 client.post(
@@ -1848,9 +1881,7 @@ class TestAgentAPI:
         session.add(revision)
         await session.flush()
 
-        cancelled = await revision_repo.cancel_active_or_interrupted_revision(
-            session, revision.id
-        )
+        cancelled = await revision_repo.cancel_active_or_interrupted_revision(session, revision.id)
 
         await session.commit()
         await session.refresh(revision)
@@ -1903,7 +1934,6 @@ class TestAgentAPI:
             "/api/v1/agent/sessions",
             json={
                 "project_id": target["project_id"],
-
                 "model_id": target["model_id"],
                 "max_iterations": 5,
             },
@@ -1928,12 +1958,15 @@ class TestAgentAPI:
             finally:
                 child_finished.set()
 
-        with patch(
-            "app.api.routers.agent_runtime.SessionRunner.run",
-            new=AsyncMock(side_effect=fake_run),
-        ), patch(
-            "app.api.routers.agent_runtime.emit",
-            new=AsyncMock(),
+        with (
+            patch(
+                "app.api.routers.agent_runtime.SessionRunner.run",
+                new=AsyncMock(side_effect=fake_run),
+            ),
+            patch(
+                "app.api.routers.agent_runtime.emit",
+                new=AsyncMock(),
+            ),
         ):
             response = await client.post(
                 f"/api/v1/agent/sessions/{session_id}/message",
@@ -1979,7 +2012,6 @@ class TestAgentAPI:
             "/api/v1/agent/sessions",
             json={
                 "project_id": target["project_id"],
-
                 "model_id": target["model_id"],
                 "max_iterations": 5,
             },
@@ -2015,8 +2047,8 @@ class TestAgentAPI:
 
         fake_registry = SimpleNamespace(
             cancel=AsyncMock(return_value=True),
-        mark_cancelled=AsyncMock(return_value=None),
-        cancel_task=AsyncMock(return_value=False),
+            mark_cancelled=AsyncMock(return_value=None),
+            cancel_task=AsyncMock(return_value=False),
             clear_cancelled=AsyncMock(),
             register=AsyncMock(),
             unregister=AsyncMock(return_value=True),
@@ -2024,13 +2056,14 @@ class TestAgentAPI:
             is_parent_running=AsyncMock(return_value=False),
         )
 
-        with patch.object(_SESSION_RUNNERS[parent_session_id], "cancel") as runner_cancel, patch(
-            "app.api.routers.agent_runtime.get_agent_run_registry",
-            return_value=fake_registry,
+        with (
+            patch.object(_SESSION_RUNNERS[parent_session_id], "cancel") as runner_cancel,
+            patch(
+                "app.api.routers.agent_runtime.get_agent_run_registry",
+                return_value=fake_registry,
+            ),
         ):
-            response = await client.post(
-                f"/api/v1/agent/sessions/{parent_session_id}/cancel"
-            )
+            response = await client.post(f"/api/v1/agent/sessions/{parent_session_id}/cancel")
 
         assert response.status_code == status.HTTP_200_OK
         runner_cancel.assert_called_once_with()
@@ -2040,9 +2073,7 @@ class TestAgentAPI:
             child.child_thread_id,
         }.issubset(set(cancelled_session_ids))
 
-        parent_children = await client.get(
-            f"/api/v1/agent/sessions/{parent_session_id}/subagents"
-        )
+        parent_children = await client.get(f"/api/v1/agent/sessions/{parent_session_id}/subagents")
         nested_children = await client.get(
             f"/api/v1/agent/sessions/{child.child_thread_id}/subagents"
         )
@@ -2083,7 +2114,6 @@ class TestAgentAPI:
             "/api/v1/agent/sessions",
             json={
                 "project_id": target["project_id"],
-
                 "model_id": target["model_id"],
                 "max_iterations": 5,
             },
@@ -2119,8 +2149,8 @@ class TestAgentAPI:
 
         fake_registry = SimpleNamespace(
             cancel=AsyncMock(return_value=True),
-        mark_cancelled=AsyncMock(return_value=None),
-        cancel_task=AsyncMock(return_value=False),
+            mark_cancelled=AsyncMock(return_value=None),
+            cancel_task=AsyncMock(return_value=False),
             clear_cancelled=AsyncMock(),
             register=AsyncMock(),
             unregister=AsyncMock(return_value=True),
@@ -2128,13 +2158,14 @@ class TestAgentAPI:
             is_parent_running=AsyncMock(return_value=False),
         )
 
-        with patch.object(_SESSION_RUNNERS[parent_session_id], "cancel") as runner_cancel, patch(
-            "app.api.routers.agent_runtime.get_agent_run_registry",
-            return_value=fake_registry,
+        with (
+            patch.object(_SESSION_RUNNERS[parent_session_id], "cancel") as runner_cancel,
+            patch(
+                "app.api.routers.agent_runtime.get_agent_run_registry",
+                return_value=fake_registry,
+            ),
         ):
-            response = await client.post(
-                f"/api/v1/agent/sessions/{parent_session_id}/cancel"
-            )
+            response = await client.post(f"/api/v1/agent/sessions/{parent_session_id}/cancel")
 
         assert response.status_code == status.HTTP_200_OK
         runner_cancel.assert_called_once_with()
@@ -2184,7 +2215,6 @@ class TestAgentAPI:
                 "/api/v1/agent/sessions",
                 json={
                     "project_id": target["project_id"],
-    
                     "model_id": target["model_id"],
                     "max_iterations": 5,
                 },
@@ -2208,8 +2238,8 @@ class TestAgentAPI:
 
             fake_registry = SimpleNamespace(
                 cancel=AsyncMock(return_value=True),
-        mark_cancelled=AsyncMock(return_value=None),
-        cancel_task=AsyncMock(return_value=False),
+                mark_cancelled=AsyncMock(return_value=None),
+                cancel_task=AsyncMock(return_value=False),
                 clear_cancelled=AsyncMock(),
                 register=AsyncMock(),
                 unregister=AsyncMock(return_value=True),
@@ -2218,22 +2248,25 @@ class TestAgentAPI:
             )
             emit_mock = AsyncMock()
 
-            with patch.object(
-                _SESSION_RUNNERS[parent_session_id],
-                "cancel",
-            ) as runner_cancel, patch(
-                "app.api.routers.agent_runtime.get_agent_run_registry",
-                return_value=fake_registry,
-            ), patch(
-                "app.api.routers.agent_runtime.emit",
-                new=emit_mock,
-            ), patch(
-                "app.agent_runtime.runner.subagent_runner.emit",
-                new=emit_mock,
+            with (
+                patch.object(
+                    _SESSION_RUNNERS[parent_session_id],
+                    "cancel",
+                ) as runner_cancel,
+                patch(
+                    "app.api.routers.agent_runtime.get_agent_run_registry",
+                    return_value=fake_registry,
+                ),
+                patch(
+                    "app.api.routers.agent_runtime.emit",
+                    new=emit_mock,
+                ),
+                patch(
+                    "app.agent_runtime.runner.subagent_runner.emit",
+                    new=emit_mock,
+                ),
             ):
-                response = await client.post(
-                    f"/api/v1/agent/sessions/{parent_session_id}/cancel"
-                )
+                response = await client.post(f"/api/v1/agent/sessions/{parent_session_id}/cancel")
 
             assert response.status_code == status.HTTP_200_OK
             runner_cancel.assert_called_once_with()
@@ -2276,7 +2309,6 @@ class TestAgentAPI:
             "/api/v1/agent/sessions",
             json={
                 "project_id": target["project_id"],
-
                 "model_id": target["model_id"],
                 "max_iterations": 5,
             },
@@ -2309,19 +2341,20 @@ class TestAgentAPI:
                 task_finished.set()
 
         child_task = asyncio.create_task(fake_child())
-        await get_agent_run_registry().register_child(
-            parent_session_id, child.id, child_task
-        )
+        await get_agent_run_registry().register_child(parent_session_id, child.id, child_task)
         try:
             await task_started.wait()
 
             emit_mock = AsyncMock()
-            with patch(
-                "app.api.routers.agent_runtime.emit",
-                new=emit_mock,
-            ), patch(
-                "app.agent_runtime.runner.subagent_runner.emit",
-                new=emit_mock,
+            with (
+                patch(
+                    "app.api.routers.agent_runtime.emit",
+                    new=emit_mock,
+                ),
+                patch(
+                    "app.agent_runtime.runner.subagent_runner.emit",
+                    new=emit_mock,
+                ),
             ):
                 response = await client.post(
                     f"/api/v1/agent/sessions/{parent_session_id}/subagents/{child.id}/cancel"
@@ -2370,7 +2403,6 @@ class TestAgentAPI:
             "/api/v1/agent/sessions",
             json={
                 "project_id": target["project_id"],
-
                 "model_id": target["model_id"],
                 "max_iterations": 5,
             },
@@ -2412,7 +2444,6 @@ class TestAgentAPI:
             "/api/v1/agent/sessions",
             json={
                 "project_id": target["project_id"],
-
                 "model_id": target["model_id"],
                 "max_iterations": 5,
             },
@@ -2447,24 +2478,25 @@ class TestAgentAPI:
 
         fake_registry = SimpleNamespace(
             cancel=AsyncMock(return_value=True),
-        mark_cancelled=AsyncMock(return_value=None),
-        cancel_task=AsyncMock(return_value=False),
+            mark_cancelled=AsyncMock(return_value=None),
+            cancel_task=AsyncMock(return_value=False),
             clear_cancelled=AsyncMock(),
             register=AsyncMock(),
             unregister=AsyncMock(return_value=True),
             is_running=AsyncMock(return_value=False),
             is_parent_running=AsyncMock(return_value=False),
         )
-        with patch(
-            "app.api.routers.agent_runtime.get_agent_run_registry",
-            return_value=fake_registry,
-        ), patch(
-            "app.api.routers.agent_runtime.SessionRunner.run",
-            new=AsyncMock(return_value=None),
-        ) as mock_run:
-            cancel_response = await client.post(
-                f"/api/v1/agent/sessions/{session_id}/cancel"
-            )
+        with (
+            patch(
+                "app.api.routers.agent_runtime.get_agent_run_registry",
+                return_value=fake_registry,
+            ),
+            patch(
+                "app.api.routers.agent_runtime.SessionRunner.run",
+                new=AsyncMock(return_value=None),
+            ) as mock_run,
+        ):
+            cancel_response = await client.post(f"/api/v1/agent/sessions/{session_id}/cancel")
             assert cancel_response.status_code == status.HTTP_200_OK
 
             response = await client.post(
@@ -2539,15 +2571,19 @@ class TestAgentAPI:
                 emit_entered.set()
                 await release_emit.wait()
 
-        with patch(
-            "app.api.routers.agent_runtime.finalize_revision_status",
-            new=block_finalize,
-        ), patch(
-            "app.api.routers.agent_runtime.SessionRunner.run",
-            new=fake_run,
-        ), patch(
-            "app.api.routers.agent_runtime.emit",
-            new=block_cancel_notification,
+        with (
+            patch(
+                "app.api.routers.agent_runtime.finalize_revision_status",
+                new=block_finalize,
+            ),
+            patch(
+                "app.api.routers.agent_runtime.SessionRunner.run",
+                new=fake_run,
+            ),
+            patch(
+                "app.api.routers.agent_runtime.emit",
+                new=block_cancel_notification,
+            ),
         ):
             cancel_task = asyncio.create_task(
                 client.post(f"/api/v1/agent/sessions/{session_id}/cancel")
@@ -2657,12 +2693,15 @@ class TestAgentAPI:
         parent_task = asyncio.create_task(asyncio.Event().wait())
         await registry.register(session_id, parent_task)
 
-        with patch(
-            "app.api.routers.agent_runtime._cancel_subagent_session_tree",
-            new=AsyncMock(side_effect=RuntimeError("cleanup failed")),
-        ), patch(
-            "app.api.routers.agent_runtime.emit",
-            new=AsyncMock(side_effect=RuntimeError("notification failed")),
+        with (
+            patch(
+                "app.api.routers.agent_runtime._cancel_subagent_session_tree",
+                new=AsyncMock(side_effect=RuntimeError("cleanup failed")),
+            ),
+            patch(
+                "app.api.routers.agent_runtime.emit",
+                new=AsyncMock(side_effect=RuntimeError("notification failed")),
+            ),
         ):
             response = await client.post(f"/api/v1/agent/sessions/{session_id}/cancel")
 
@@ -2885,9 +2924,7 @@ class TestAgentAPI:
         session_id = session_response.json()["session_id"]
 
         checkpointer = await get_checkpointer()
-        checkpoint = await checkpointer.aget_tuple(
-            {"configurable": {"thread_id": session_id}}
-        )
+        checkpoint = await checkpointer.aget_tuple({"configurable": {"thread_id": session_id}})
 
         assert checkpoint is not None
         persisted_model_config = checkpoint.checkpoint["channel_values"]["model_config"]
@@ -2909,7 +2946,6 @@ class TestAgentAPI:
             "/api/v1/agent/sessions",
             json={
                 "project_id": target["project_id"],
-
                 "model_id": target["model_id"],
                 "max_iterations": 5,
             },
@@ -2972,9 +3008,7 @@ class TestAgentAPI:
         await session.commit()
         await session.refresh(inactive_child)
 
-        response = await client.get(
-            f"/api/v1/agent/sessions/{parent_session_id}/subagents"
-        )
+        response = await client.get(f"/api/v1/agent/sessions/{parent_session_id}/subagents")
 
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
@@ -2985,9 +3019,7 @@ class TestAgentAPI:
                 "agent_key": "writer",
                 "agent_number": queued_child.metadata_json["agent_number"],
                 "status": "queued",
-                "queued_messages": await count_pending_child_run_requests(
-                    session, queued_child.id
-                ),
+                "queued_messages": await count_pending_child_run_requests(session, queued_child.id),
                 "is_active": True,
                 "pending_approval": None,
             },
@@ -3037,7 +3069,6 @@ class TestAgentAPI:
             "/api/v1/agent/sessions",
             json={
                 "project_id": target["project_id"],
-
                 "model_id": target["model_id"],
                 "max_iterations": 5,
             },
@@ -3181,7 +3212,6 @@ class TestAgentAPI:
             "/api/v1/agent/sessions",
             json={
                 "project_id": target["project_id"],
-
                 "model_id": target["model_id"],
                 "max_iterations": 5,
             },
@@ -3189,7 +3219,9 @@ class TestAgentAPI:
         session_id = session_response.json()["session_id"]
         _SESSION_RUNNERS.clear()
 
-        with patch("app.api.routers.agent_runtime.SessionRunner.run", new=AsyncMock(return_value=None)) as mock_run:
+        with patch(
+            "app.api.routers.agent_runtime.SessionRunner.run", new=AsyncMock(return_value=None)
+        ) as mock_run:
             response = await client.post(
                 f"/api/v1/agent/sessions/{session_id}/message",
                 json={"message": "帮我继续这一轮"},
@@ -3210,7 +3242,6 @@ class TestAgentAPI:
             "/api/v1/agent/sessions",
             json={
                 "project_id": target["project_id"],
-
                 "model_id": target["model_id"],
                 "max_iterations": 5,
             },
@@ -3240,7 +3271,6 @@ class TestAgentAPI:
             "/api/v1/agent/sessions",
             json={
                 "project_id": target["project_id"],
-
                 "model_id": target["model_id"],
                 "max_iterations": 5,
             },
@@ -3252,22 +3282,28 @@ class TestAgentAPI:
             is_cancelled=AsyncMock(return_value=False),
         )
 
-        with patch.object(
-            runner,
-            "queue_pending_user_message",
-            new=AsyncMock(return_value={
-                "message_id": "msg_pending_1",
-                "content": "补充要求：保留上一段语气",
-                "created_at": "2026-06-12T00:00:00+00:00",
-            }),
-            create=True,
-        ) as mock_queue, patch(
-            "app.api.routers.agent_runtime.get_agent_run_registry",
-            return_value=fake_registry,
-        ), patch(
-            "app.api.routers.agent_runtime.SessionRunner.run",
-            new=AsyncMock(return_value=None),
-        ) as mock_run:
+        with (
+            patch.object(
+                runner,
+                "queue_pending_user_message",
+                new=AsyncMock(
+                    return_value={
+                        "message_id": "msg_pending_1",
+                        "content": "补充要求：保留上一段语气",
+                        "created_at": "2026-06-12T00:00:00+00:00",
+                    }
+                ),
+                create=True,
+            ) as mock_queue,
+            patch(
+                "app.api.routers.agent_runtime.get_agent_run_registry",
+                return_value=fake_registry,
+            ),
+            patch(
+                "app.api.routers.agent_runtime.SessionRunner.run",
+                new=AsyncMock(return_value=None),
+            ) as mock_run,
+        ):
             response = await client.post(
                 f"/api/v1/agent/sessions/{session_id}/message",
                 json={"message": "补充要求：保留上一段语气"},
@@ -3294,7 +3330,6 @@ class TestAgentAPI:
             "/api/v1/agent/sessions",
             json={
                 "project_id": target["project_id"],
-
                 "model_id": target["model_id"],
                 "max_iterations": 5,
             },
@@ -3305,11 +3340,13 @@ class TestAgentAPI:
         with patch.object(
             runner,
             "cancel_pending_user_message",
-            AsyncMock(return_value={
-                "message_id": "msg_pending_1",
-                "content": "补充要求：保留上一段语气",
-                "created_at": "2026-06-12T00:00:00+00:00",
-            }),
+            AsyncMock(
+                return_value={
+                    "message_id": "msg_pending_1",
+                    "content": "补充要求：保留上一段语气",
+                    "created_at": "2026-06-12T00:00:00+00:00",
+                }
+            ),
             create=True,
         ) as mock_cancel:
             response = await client.post(
@@ -3332,14 +3369,15 @@ class TestAgentAPI:
             "/api/v1/agent/sessions",
             json={
                 "project_id": target["project_id"],
-
                 "model_id": target["model_id"],
                 "max_iterations": 5,
             },
         )
         session_id = session_response.json()["session_id"]
 
-        with patch("app.api.routers.agent_runtime.SessionRunner.resume", new=AsyncMock(return_value=None)) as mock_resume:
+        with patch(
+            "app.api.routers.agent_runtime.SessionRunner.resume", new=AsyncMock(return_value=None)
+        ) as mock_resume:
             response = await client.post(
                 f"/api/v1/agent/sessions/{session_id}/tool-approval",
                 json={"approval_id": "approval-1", "approved": True},
@@ -3348,11 +3386,13 @@ class TestAgentAPI:
             assert response.status_code == status.HTTP_200_OK
             assert response.json()["success"] is True
             await asyncio.sleep(0.05)
-            mock_resume.assert_awaited_once_with({
-                "action_type": "tool_approval",
-                "approval_id": "approval-1",
-                "approved": True,
-            })
+            mock_resume.assert_awaited_once_with(
+                {
+                    "action_type": "tool_approval",
+                    "approval_id": "approval-1",
+                    "approved": True,
+                }
+            )
 
     async def test_submit_tool_approval_routes_idle_child_approval_to_subagent_resume(
         self,
@@ -3364,7 +3404,6 @@ class TestAgentAPI:
             "/api/v1/agent/sessions",
             json={
                 "project_id": target["project_id"],
-
                 "model_id": target["model_id"],
                 "max_iterations": 5,
             },
@@ -3413,16 +3452,22 @@ class TestAgentAPI:
         session.add(task)
         await session.commit()
 
-        with patch(
-            "app.api.routers.agent_runtime.SessionRunner.resume",
-            new=AsyncMock(return_value=None),
-        ) as mock_parent_resume, patch(
-            "app.api.routers.agent_runtime._launch_task",
-            new=AsyncMock(side_effect=AssertionError("child approvals must not launch a parent task")),
-        ) as mock_launch_task, patch(
-            "app.api.routers.agent_runtime.ensure_child_processing",
-            new=AsyncMock(return_value=True),
-        ) as mock_ensure_child_processing:
+        with (
+            patch(
+                "app.api.routers.agent_runtime.SessionRunner.resume",
+                new=AsyncMock(return_value=None),
+            ) as mock_parent_resume,
+            patch(
+                "app.api.routers.agent_runtime._launch_task",
+                new=AsyncMock(
+                    side_effect=AssertionError("child approvals must not launch a parent task")
+                ),
+            ) as mock_launch_task,
+            patch(
+                "app.api.routers.agent_runtime.ensure_child_processing",
+                new=AsyncMock(return_value=True),
+            ) as mock_ensure_child_processing,
+        ):
             response = await client.post(
                 f"/api/v1/agent/sessions/{session_id}/tool-approval",
                 json={"approval_id": "approval-child-api", "approved": True},
@@ -3454,7 +3499,6 @@ class TestAgentAPI:
             "/api/v1/agent/sessions",
             json={
                 "project_id": target["project_id"],
-
                 "model_id": target["model_id"],
                 "max_iterations": 5,
             },
@@ -3485,16 +3529,22 @@ class TestAgentAPI:
             },
         )
 
-        with patch(
-            "app.api.routers.agent_runtime._launch_task",
-            new=AsyncMock(side_effect=AssertionError("sync child approvals must not launch a parent task")),
-        ) as mock_launch_task, patch(
-            "app.api.routers.agent_runtime.SessionRunner.resume",
-            new=AsyncMock(return_value=None),
-        ) as mock_parent_resume, patch(
-            "app.api.routers.agent_runtime.ensure_child_processing",
-            new=AsyncMock(return_value=True),
-        ) as mock_ensure_child_processing:
+        with (
+            patch(
+                "app.api.routers.agent_runtime._launch_task",
+                new=AsyncMock(
+                    side_effect=AssertionError("sync child approvals must not launch a parent task")
+                ),
+            ) as mock_launch_task,
+            patch(
+                "app.api.routers.agent_runtime.SessionRunner.resume",
+                new=AsyncMock(return_value=None),
+            ) as mock_parent_resume,
+            patch(
+                "app.api.routers.agent_runtime.ensure_child_processing",
+                new=AsyncMock(return_value=True),
+            ) as mock_ensure_child_processing,
+        ):
             response = await client.post(
                 f"/api/v1/agent/sessions/{session_id}/tool-approval",
                 json={"approval_id": "approval-child-sync-api", "approved": True},
@@ -3657,15 +3707,19 @@ class TestAgentAPI:
             revision.status = revision_status
             finalize_session.add(revision)
 
-        with patch(
-            "app.api.routers.agent_runtime.finalize_revision_status",
-            new=block_finalize,
-        ), patch(
-            "app.api.routers.agent_runtime.ensure_child_processing",
-            new=AsyncMock(return_value=True),
-        ) as mock_ensure_child_processing, patch(
-            "app.api.routers.agent_runtime.emit",
-            new=AsyncMock(),
+        with (
+            patch(
+                "app.api.routers.agent_runtime.finalize_revision_status",
+                new=block_finalize,
+            ),
+            patch(
+                "app.api.routers.agent_runtime.ensure_child_processing",
+                new=AsyncMock(return_value=True),
+            ) as mock_ensure_child_processing,
+            patch(
+                "app.api.routers.agent_runtime.emit",
+                new=AsyncMock(),
+            ),
         ):
             cancel_task = asyncio.create_task(
                 client.post(f"/api/v1/agent/sessions/{session_id}/cancel")
@@ -3706,7 +3760,6 @@ class TestAgentAPI:
             "/api/v1/agent/sessions",
             json={
                 "project_id": target["project_id"],
-
                 "model_id": target["model_id"],
                 "max_iterations": 5,
             },
@@ -3774,14 +3827,15 @@ class TestAgentAPI:
             "/api/v1/agent/sessions",
             json={
                 "project_id": target["project_id"],
-
                 "model_id": target["model_id"],
                 "max_iterations": 5,
             },
         )
         session_id = session_response.json()["session_id"]
 
-        with patch("app.api.routers.agent_runtime.SessionRunner.resume", new=AsyncMock(return_value=None)) as mock_resume:
+        with patch(
+            "app.api.routers.agent_runtime.SessionRunner.resume", new=AsyncMock(return_value=None)
+        ) as mock_resume:
             response = await client.post(
                 f"/api/v1/agent/sessions/{session_id}/question-answer",
                 json={
@@ -3793,11 +3847,13 @@ class TestAgentAPI:
             assert response.status_code == status.HTTP_200_OK
             assert response.json()["success"] is True
             await asyncio.sleep(0.05)
-            mock_resume.assert_awaited_once_with({
-                "action_type": "clarification",
-                "action_id": "question-1",
-                "answer": [{"question": "风格选择", "answer": "正式"}],
-            })
+            mock_resume.assert_awaited_once_with(
+                {
+                    "action_type": "clarification",
+                    "action_id": "question-1",
+                    "answer": [{"question": "风格选择", "answer": "正式"}],
+                }
+            )
 
     async def test_submit_interrupt_batch_launches_single_resume(self, client: AsyncClient) -> None:
         target = await _seed_agent_target(client)
@@ -4060,17 +4116,14 @@ class TestAgentAPI:
         )
         fake_runner.cancel.assert_called_once()
         fake_registry.cancel.assert_awaited_once_with("sess-rollback")
-        delete_checkpoints_after_mock.assert_awaited_once_with(
-            "sess-rollback", "cp-before"
-        )
+        delete_checkpoints_after_mock.assert_awaited_once_with("sess-rollback", "cp-before")
         delete_checkpoints_for_thread_mock.assert_awaited_once_with(child.child_thread_id)
         replayed = buffer.replay_events_unlocked("sess-rollback")
         assert all(event.name != "agent:tool_call" for event in replayed)
         rollback_statuses = [
             event.data
             for event in replayed
-            if event.name == "agent:subagent_status"
-            and event.data.get("child_run_id") == child.id
+            if event.name == "agent:subagent_status" and event.data.get("child_run_id") == child.id
         ]
         assert rollback_statuses == [
             {
@@ -4300,18 +4353,21 @@ class TestAgentAPI:
         )
         await session.commit()
 
-        with patch(
-            "app.api.routers.agent_runtime._resolve_model_config",
-            AsyncMock(
-                return_value={
-                    "max_context_tokens": 128000,
-                    "reasoning_effort": "high",
-                }
-            ),
-        ) as resolve_model_config, patch(
-            "app.agent_runtime.runner.session_runner.SessionRunner.materialize_state",
-            AsyncMock(return_value="fork-cp"),
-        ) as materialize_state:
+        with (
+            patch(
+                "app.api.routers.agent_runtime._resolve_model_config",
+                AsyncMock(
+                    return_value={
+                        "max_context_tokens": 128000,
+                        "reasoning_effort": "high",
+                    }
+                ),
+            ) as resolve_model_config,
+            patch(
+                "app.agent_runtime.runner.session_runner.SessionRunner.materialize_state",
+                AsyncMock(return_value="fork-cp"),
+            ) as materialize_state,
+        ):
             response = await client.post(
                 "/api/v1/agent/sessions/sess-fork-source/fork",
                 json={

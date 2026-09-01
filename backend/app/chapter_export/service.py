@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 import asyncio
+import os
+import re
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-import os
 from pathlib import Path
-import re
-from typing import Iterable
 
 import aiofiles
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -23,7 +23,6 @@ from app.background.jobs.states import (
 )
 from app.settings import settings
 from app.storage.repos import chapter_repo, project_repo, volume_repo
-
 
 EXPORT_JOB_TYPE = "chapter_export"
 EXPORT_FILE_PREFIX = "chapter-export-"
@@ -95,7 +94,11 @@ class ChapterExportPlan:
 
     @property
     def volume_count(self) -> int:
-        return len(self.volumes) if self.mode == "volumes" else len({chapter.volume_id for chapter in self.chapters})
+        return (
+            len(self.volumes)
+            if self.mode == "volumes"
+            else len({chapter.volume_id for chapter in self.chapters})
+        )
 
     def to_payload(self) -> dict[str, object]:
         return {
@@ -230,7 +233,10 @@ async def create_export_plan(
         volume
         for volume in volumes
         if chapters_by_volume[volume.id]
-        and all(chapter_id in selected_ids for chapter_id, _title, _word_count in chapters_by_volume[volume.id])
+        and all(
+            chapter_id in selected_ids
+            for chapter_id, _title, _word_count in chapters_by_volume[volume.id]
+        )
     ]
     # 任何显式章节补集或排除集都代表零碎章节选择。即使结果恰好覆盖某卷，
     # 仍必须按章节格式导出，不能将用户的章节选择隐式提升为整卷。
@@ -267,7 +273,9 @@ async def create_export_plan(
                 id=volume.id,
                 title=volume.title or "未命名卷",
                 order=volume.order,
-                chapter_ids=[chapter_id for chapter_id, _title, _word_count in chapters_by_volume[volume.id]],
+                chapter_ids=[
+                    chapter_id for chapter_id, _title, _word_count in chapters_by_volume[volume.id]
+                ],
             )
             for volume in complete_volumes
         ]
@@ -343,7 +351,9 @@ async def write_chapter_export(context) -> dict[str, object]:
                     if not isinstance(chapter_id, str):
                         raise RuntimeError("导出任务章节数据无效")
                     chapter = loaded_by_id[chapter_id]
-                    title = item.get("title") if isinstance(item.get("title"), str) else chapter.title
+                    title = (
+                        item.get("title") if isinstance(item.get("title"), str) else chapter.title
+                    )
                     if mode == "volumes":
                         group = groups.get(chapter_id)
                         if not isinstance(group, dict):
@@ -434,7 +444,9 @@ def is_export_download_available(job: BackgroundJob) -> bool:
     """检查任务成品是否在下载有效期内。"""
     if job.type != EXPORT_JOB_TYPE or job.status != JOB_STATUS_SUCCEEDED:
         return False
-    expires_at = _parse_datetime(background_service.parse_json_object(job.result_json).get("expires_at"))
+    expires_at = _parse_datetime(
+        background_service.parse_json_object(job.result_json).get("expires_at")
+    )
     if expires_at is None or expires_at <= datetime.now(UTC):
         return False
     _part_path, output_path = export_file_paths(job.id)

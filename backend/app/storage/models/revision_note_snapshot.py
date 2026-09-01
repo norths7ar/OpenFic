@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Materialized note and note-category snapshots for a revision."""
 
 from datetime import UTC, datetime
@@ -13,9 +12,7 @@ class RevisionNoteSnapshot(SQLModel, table=True):
     """Note state before a revision's change, used for rollback."""
 
     __tablename__ = "revision_note_snapshots"
-    __table_args__ = (
-        UniqueConstraint("revision_id", "note_id", name="uq_revision_note_snapshot"),
-    )
+    __table_args__ = (UniqueConstraint("revision_id", "note_id", name="uq_revision_note_snapshot"),)
 
     id: str = Field(default_factory=generate_id, primary_key=True)
     revision_id: str = Field(index=True, foreign_key="revisions.id")
@@ -42,9 +39,7 @@ class RevisionNoteCategorySnapshot(SQLModel, table=True):
 
     __tablename__ = "revision_note_category_snapshots"
     __table_args__ = (
-        UniqueConstraint(
-            "revision_id", "category_id", name="uq_revision_note_category_snapshot"
-        ),
+        UniqueConstraint("revision_id", "category_id", name="uq_revision_note_category_snapshot"),
     )
 
     id: str = Field(default_factory=generate_id, primary_key=True)

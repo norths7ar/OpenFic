@@ -52,10 +52,12 @@ async def test_persister_write_failure_raises_write_error(sample_task):
         db_session_factory=make_session,
     )
     await p.handle({"event": "on_chat_model_start", "data": {}})
-    await p.handle({
-        "event": "on_chat_model_stream",
-        "data": {"chunk": AIMessageChunk(content="hi")},
-    })
+    await p.handle(
+        {
+            "event": "on_chat_model_stream",
+            "data": {"chunk": AIMessageChunk(content="hi")},
+        }
+    )
 
     with pytest.raises(PersistenceWriteError):
         await p.handle({"event": "on_chat_model_end", "data": {}})
@@ -73,9 +75,11 @@ async def test_persister_finalize_failure_raises_write_error(sample_task):
         db_session_factory=make_session,
     )
     await p.handle({"event": "on_chat_model_start", "data": {}})
-    await p.handle({
-        "event": "on_chat_model_stream",
-        "data": {"chunk": AIMessageChunk(content="half")},
-    })
+    await p.handle(
+        {
+            "event": "on_chat_model_stream",
+            "data": {"chunk": AIMessageChunk(content="half")},
+        }
+    )
     with pytest.raises(PersistenceWriteError):
         await p.finalize(reason="cancelled")

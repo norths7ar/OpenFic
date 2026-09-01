@@ -72,22 +72,26 @@ def build_chapter_diff_preview(
     sections: list[dict[str, Any]] = []
 
     if before is None or after is None or before.title != after.title:
-        sections.append({
-            "type": "title",
-            "lines": _build_diff_lines(
-                before.title if before else "",
-                after.title if after else "",
-            ),
-        })
+        sections.append(
+            {
+                "type": "title",
+                "lines": _build_diff_lines(
+                    before.title if before else "",
+                    after.title if after else "",
+                ),
+            }
+        )
 
     if before is None or after is None or before.content != after.content:
-        sections.append({
-            "type": "content",
-            "lines": _build_diff_lines(
-                before.content if before else "",
-                after.content if after else "",
-            ),
-        })
+        sections.append(
+            {
+                "type": "content",
+                "lines": _build_diff_lines(
+                    before.content if before else "",
+                    after.content if after else "",
+                ),
+            }
+        )
 
     payload: dict[str, Any] = {
         "operation": operation,
@@ -201,22 +205,26 @@ def _build_diff_lines(before: str, after: str) -> list[dict[str, Any]]:
 
         if tag in {"delete", "replace"}:
             for line in before_lines[before_start:before_end]:
-                lines.append({
-                    "type": "removed",
-                    "before_line_number": before_line_number,
-                    "after_line_number": None,
-                    "text": line,
-                })
+                lines.append(
+                    {
+                        "type": "removed",
+                        "before_line_number": before_line_number,
+                        "after_line_number": None,
+                        "text": line,
+                    }
+                )
                 before_line_number += 1
 
         if tag in {"insert", "replace"}:
             for line in after_lines[after_start:after_end]:
-                lines.append({
-                    "type": "added",
-                    "before_line_number": None,
-                    "after_line_number": after_line_number,
-                    "text": line,
-                })
+                lines.append(
+                    {
+                        "type": "added",
+                        "before_line_number": None,
+                        "after_line_number": after_line_number,
+                        "text": line,
+                    }
+                )
                 after_line_number += 1
 
     return lines

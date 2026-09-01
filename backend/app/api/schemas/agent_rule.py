@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """AgentRule API Schemas。"""
 
 from datetime import datetime

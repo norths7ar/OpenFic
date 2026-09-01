@@ -1,5 +1,6 @@
 import pytest
 import yaml
+
 from app.project_bundle.archive import BundleFormatError, build_zip
 from app.project_bundle.source_mapping import parse_source_mapping
 
@@ -56,8 +57,7 @@ def test_heading_boundaries_ancestors_and_global_order() -> None:
         rules,
         **{
             "b.md": (
-                "# B\n## Cat B\n### Item B\nB body\n#### detail\nD\n"
-                "## Other\n### Item C\nC body"
+                "# B\n## Cat B\n### Item B\nB body\n#### detail\nD\n## Other\n### Item C\nC body"
             ),
             "a.md": "# A\n## Cat A\n### Item A\nA body",
         },
@@ -149,8 +149,7 @@ def test_mixed_outline_levels_use_only_current_ancestor_category() -> None:
         rules,
         **{
             "outline.md": (
-                "# 总纲\n## 第一阶段\n阶段序言\n### 第一卷\n卷内容\n"
-                "## 第二阶段\n第二阶段内容"
+                "# 总纲\n## 第一阶段\n阶段序言\n### 第一卷\n卷内容\n## 第二阶段\n第二阶段内容"
             )
         },
     )
@@ -296,6 +295,4 @@ def test_categories_max_two_and_duplicate_logic() -> None:
         "category_path": ["static"],
     }
     with pytest.raises(BundleFormatError):
-        parse_source_mapping(
-            bundle("p", [rule], **{"a.md": "# A\n## B\n### C\n#### D"}), "p"
-        )
+        parse_source_mapping(bundle("p", [rule], **{"a.md": "# A\n## B\n### C\n#### D"}), "p")

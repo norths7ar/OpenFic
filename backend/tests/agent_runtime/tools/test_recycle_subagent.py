@@ -55,9 +55,7 @@ async def test_recycle_subagent_returns_subagent_identity(
     delete_checkpoints = AsyncMock(return_value=2)
     monkeypatch.setattr(recycle_module, "delete_checkpoints_for_thread", delete_checkpoints)
     monkeypatch.setattr(recycle_module, "get_agent_run_registry", lambda: Registry())
-    monkeypatch.setattr(
-        recycle_module, "make_subagent_runner", lambda **_kwargs: Runner()
-    )
+    monkeypatch.setattr(recycle_module, "make_subagent_runner", lambda **_kwargs: Runner())
     tool = cast(
         Any,
         RecycleSubagentTool(
@@ -69,9 +67,7 @@ async def test_recycle_subagent_returns_subagent_identity(
         ),
     )
 
-    result = json.loads(
-        await tool._execute(dispatch_id="dispatch-writer", reason="任务完成")
-    )
+    result = json.loads(await tool._execute(dispatch_id="dispatch-writer", reason="任务完成"))
 
     assert result == {
         "dispatch_id": "dispatch-writer",

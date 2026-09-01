@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Setting Repository - 设置数据访问层。
 """

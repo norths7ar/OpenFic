@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from html import escape
 import json
+from html import escape
 from typing import Any
 
 from app.agent_runtime.context.types import ContextMessage

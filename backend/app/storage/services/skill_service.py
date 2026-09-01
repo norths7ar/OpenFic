@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Skill Service - Skill 业务逻辑层。"""
 
 from collections.abc import Sequence

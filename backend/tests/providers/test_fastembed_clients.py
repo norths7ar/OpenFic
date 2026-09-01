@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 FastEmbed client tests - 内置 fastembed 客户端的 provider 路由逻辑。
 

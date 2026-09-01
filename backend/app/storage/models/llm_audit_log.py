@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Persistent audit records for every LLM invocation."""
 
 from datetime import UTC, datetime

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Catalog model icon API tests.
 """
@@ -101,21 +100,17 @@ async def test_catalog_icon_route_falls_back_per_icon_without_changing_jsdelivr_
             request=request,
         )
 
-    respx.get(
-        "https://cdn.jsdelivr.net/gh/sst/models.dev@dev/providers/openai/logo.svg"
-    ).mock(side_effect=jsdelivr_openai)
-    respx.get(
-        "https://cdn.jsdelivr.net/gh/sst/models.dev@dev/providers/anthropic/logo.svg"
-    ).mock(side_effect=jsdelivr_anthropic)
-    respx.get("https://models.dev/logos/anthropic.svg").mock(
-        side_effect=modelsdev_anthropic
+    respx.get("https://cdn.jsdelivr.net/gh/sst/models.dev@dev/providers/openai/logo.svg").mock(
+        side_effect=jsdelivr_openai
     )
-    respx.get(
-        "https://cdn.jsdelivr.net/gh/sst/models.dev@dev/providers/deepseek/logo.svg"
-    ).mock(side_effect=jsdelivr_deepseek)
-    respx.get("https://models.dev/logos/deepseek.svg").mock(
-        side_effect=modelsdev_deepseek
+    respx.get("https://cdn.jsdelivr.net/gh/sst/models.dev@dev/providers/anthropic/logo.svg").mock(
+        side_effect=jsdelivr_anthropic
     )
+    respx.get("https://models.dev/logos/anthropic.svg").mock(side_effect=modelsdev_anthropic)
+    respx.get("https://cdn.jsdelivr.net/gh/sst/models.dev@dev/providers/deepseek/logo.svg").mock(
+        side_effect=jsdelivr_deepseek
+    )
+    respx.get("https://models.dev/logos/deepseek.svg").mock(side_effect=modelsdev_deepseek)
 
     first = await client.get("/icons/model/catalog/openai.svg")
     second = await client.get("/icons/model/catalog/anthropic.svg")

@@ -5,8 +5,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 import pytest_asyncio
-from langchain_core.messages import AIMessage
-from langchain_core.messages import AIMessageChunk
+from langchain_core.messages import AIMessage, AIMessageChunk
 from langgraph.errors import GraphInterrupt
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
@@ -333,12 +332,14 @@ async def test_subagent_runner_uses_child_thread_history_and_parent_task(
             yield {
                 "event": "on_chain_end",
                 "tags": ["subagent_child"],
-                "data": {"output": {
-                    "messages": [AIMessage(content="Writer draft ready.")],
-                    "iteration_count": 1,
-                    "is_done": True,
-                    "final_output": None,
-                }},
+                "data": {
+                    "output": {
+                        "messages": [AIMessage(content="Writer draft ready.")],
+                        "iteration_count": 1,
+                        "is_done": True,
+                        "final_output": None,
+                    }
+                },
             }
 
         async def ainvoke(self, initial_state, config=None):
@@ -452,12 +453,14 @@ async def test_subagent_runner_uses_request_parent_revision_for_notify_turn(
             yield {
                 "event": "on_chain_end",
                 "tags": ["subagent_child"],
-                "data": {"output": {
-                    "messages": [AIMessage(content="second done")],
-                    "iteration_count": 1,
-                    "is_done": True,
-                    "final_output": None,
-                }},
+                "data": {
+                    "output": {
+                        "messages": [AIMessage(content="second done")],
+                        "iteration_count": 1,
+                        "is_done": True,
+                        "final_output": None,
+                    }
+                },
             }
 
         async def ainvoke(self, initial_state, config=None):
@@ -554,12 +557,14 @@ async def test_subagent_runner_passes_compaction_sinks_to_child_graph(
             yield {
                 "event": "on_chain_end",
                 "tags": ["subagent_child"],
-                "data": {"output": {
-                    "messages": [AIMessage(content="compacted child output")],
-                    "iteration_count": 1,
-                    "is_done": True,
-                    "final_output": None,
-                }},
+                "data": {
+                    "output": {
+                        "messages": [AIMessage(content="compacted child output")],
+                        "iteration_count": 1,
+                        "is_done": True,
+                        "final_output": None,
+                    }
+                },
             }
 
         async def ainvoke(self, initial_state, config=None):
@@ -679,12 +684,14 @@ async def test_subagent_runner_keeps_parent_revision_available_for_writer_tools(
             yield {
                 "event": "on_chain_end",
                 "tags": ["subagent_child"],
-                "data": {"output": {
-                    "messages": [AIMessage(content="Writer draft ready.")],
-                    "iteration_count": 1,
-                    "is_done": True,
-                    "final_output": None,
-                }},
+                "data": {
+                    "output": {
+                        "messages": [AIMessage(content="Writer draft ready.")],
+                        "iteration_count": 1,
+                        "is_done": True,
+                        "final_output": None,
+                    }
+                },
             }
 
         async def ainvoke(self, initial_state, config=None):
@@ -794,12 +801,14 @@ async def test_subagent_runner_collects_subagent_audit_logs_with_parent_metadata
             yield {
                 "event": "on_chain_end",
                 "tags": ["subagent_child"],
-                "data": {"output": {
-                    "messages": [AIMessage(content="Writer draft ready.")],
-                    "iteration_count": 1,
-                    "is_done": True,
-                    "final_output": None,
-                }},
+                "data": {
+                    "output": {
+                        "messages": [AIMessage(content="Writer draft ready.")],
+                        "iteration_count": 1,
+                        "is_done": True,
+                        "final_output": None,
+                    }
+                },
             }
 
         async def ainvoke(self, initial_state, config=None):
@@ -895,12 +904,14 @@ async def test_subagent_runner_drains_queued_notify_requests_on_same_child_threa
             last_message = initial_state["messages"][-1]
             yield {
                 "event": "on_chain_end",
-                "data": {"output": {
-                    "messages": [AIMessage(content=f"reply:{last_message.content}")],
-                    "iteration_count": 1,
-                    "is_done": True,
-                    "final_output": None,
-                }},
+                "data": {
+                    "output": {
+                        "messages": [AIMessage(content=f"reply:{last_message.content}")],
+                        "iteration_count": 1,
+                        "is_done": True,
+                        "final_output": None,
+                    }
+                },
             }
 
         async def ainvoke(self, initial_state, config=None):
@@ -939,12 +950,16 @@ async def test_subagent_runner_drains_queued_notify_requests_on_same_child_threa
 
     async with db_session_factory() as session:
         requests = (
-            await session.execute(
-                select(AgentChildRunRequest)
-                .where(AgentChildRunRequest.child_run_id == row.id)
-                .order_by(AgentChildRunRequest.seq.asc())
+            (
+                await session.execute(
+                    select(AgentChildRunRequest)
+                    .where(AgentChildRunRequest.child_run_id == row.id)
+                    .order_by(AgentChildRunRequest.seq.asc())
+                )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
         updated = await session.get(AgentChildRun, row.id)
 
     assert [(request.seq, request.status) for request in requests] == [
@@ -1000,36 +1015,40 @@ async def test_subagent_runner_records_pending_approval_and_resume_completes_sam
             if call_count["count"] == 1:
                 yield {
                     "event": "on_chain_end",
-                    "data": {"output": {
-                        "messages": [],
-                        "iteration_count": 1,
-                        "is_done": False,
-                        "final_output": None,
-                        "__interrupt__": [
-                            type(
-                                "Interrupt",
-                                (),
-                                {
-                                    "id": "approval-1",
-                                    "value": {
-                                        "type": "tool_approval",
-                                        "approval_id": "approval-1",
-                                        "tool_name": "write_chapter",
+                    "data": {
+                        "output": {
+                            "messages": [],
+                            "iteration_count": 1,
+                            "is_done": False,
+                            "final_output": None,
+                            "__interrupt__": [
+                                type(
+                                    "Interrupt",
+                                    (),
+                                    {
+                                        "id": "approval-1",
+                                        "value": {
+                                            "type": "tool_approval",
+                                            "approval_id": "approval-1",
+                                            "tool_name": "write_chapter",
+                                        },
                                     },
-                                },
-                            )()
-                        ],
-                    }},
+                                )()
+                            ],
+                        }
+                    },
                 }
                 return
             yield {
                 "event": "on_chain_end",
-                "data": {"output": {
-                    "messages": [AIMessage(content="Approved draft complete.")],
-                    "iteration_count": 1,
-                    "is_done": True,
-                    "final_output": None,
-                }},
+                "data": {
+                    "output": {
+                        "messages": [AIMessage(content="Approved draft complete.")],
+                        "iteration_count": 1,
+                        "is_done": True,
+                        "final_output": None,
+                    }
+                },
             }
 
         async def ainvoke(self, initial_state, config=None):
@@ -1103,8 +1122,7 @@ async def test_subagent_runner_records_pending_approval_and_resume_completes_sam
     parent_status_payloads = [
         payload
         for name, payload, room in emitted
-        if name == "agent:subagent_status"
-        and room == "agent_subagents:parent-session"
+        if name == "agent:subagent_status" and room == "agent_subagents:parent-session"
     ]
     assert any(
         payload.get("status") == "waiting_user"
@@ -1112,20 +1130,23 @@ async def test_subagent_runner_records_pending_approval_and_resume_completes_sam
         for payload in parent_status_payloads
     )
     assert any(
-        payload.get("status") == "running"
-        and payload.get("pending_approval") is None
+        payload.get("status") == "running" and payload.get("pending_approval") is None
         for payload in parent_status_payloads
     )
 
     async with db_session_factory() as session:
         updated = await session.get(AgentChildRun, row.id)
         requests = (
-            await session.execute(
-                select(AgentChildRunRequest)
-                .where(AgentChildRunRequest.child_run_id == row.id)
-                .order_by(AgentChildRunRequest.seq.asc())
+            (
+                await session.execute(
+                    select(AgentChildRunRequest)
+                    .where(AgentChildRunRequest.child_run_id == row.id)
+                    .order_by(AgentChildRunRequest.seq.asc())
+                )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
 
     assert updated is not None
     assert updated.pending_approval_id is None
@@ -1174,28 +1195,30 @@ async def test_subagent_runner_emits_child_interrupt_when_pending_tool_approval(
         async def astream_events(self, initial_state, config=None, version=None):
             yield {
                 "event": "on_chain_end",
-                "data": {"output": {
-                    "messages": [],
-                    "iteration_count": 1,
-                    "is_done": False,
-                    "final_output": None,
-                    "__interrupt__": [
-                        type(
-                            "Interrupt",
-                            (),
-                            {
-                                "id": "approval-child-visible",
-                                "value": {
-                                    "type": "tool_approval",
-                                    "approval_id": "approval-child-visible",
-                                    "tool_name": "write_chapter",
-                                    "tool_call_id": "tool-call-write",
-                                    "message": "需要审批",
+                "data": {
+                    "output": {
+                        "messages": [],
+                        "iteration_count": 1,
+                        "is_done": False,
+                        "final_output": None,
+                        "__interrupt__": [
+                            type(
+                                "Interrupt",
+                                (),
+                                {
+                                    "id": "approval-child-visible",
+                                    "value": {
+                                        "type": "tool_approval",
+                                        "approval_id": "approval-child-visible",
+                                        "tool_name": "write_chapter",
+                                        "tool_call_id": "tool-call-write",
+                                        "message": "需要审批",
+                                    },
                                 },
-                            },
-                        )()
-                    ],
-                }},
+                            )()
+                        ],
+                    }
+                },
             }
 
         async def ainvoke(self, initial_state, config=None):
@@ -1253,8 +1276,7 @@ async def test_subagent_runner_emits_child_interrupt_when_pending_tool_approval(
     child_interrupts = [
         payload
         for name, payload, room in emitted
-        if name == "agent:interrupt"
-        and room == "agent_subagent_session:child-thread-interrupt"
+        if name == "agent:interrupt" and room == "agent_subagent_session:child-thread-interrupt"
     ]
     assert len(child_interrupts) == 1
     assert child_interrupts[0]["session_id"] == "child-thread-interrupt"
@@ -1419,8 +1441,7 @@ async def test_subagent_runner_emits_child_tool_result_for_tool_error_before_int
     child_tool_results = [
         payload
         for name, payload, room in emitted
-        if name == "agent:tool_result"
-        and room == "agent_subagent_session:child-thread-tool-error"
+        if name == "agent:tool_result" and room == "agent_subagent_session:child-thread-tool-error"
     ]
     assert len(child_tool_results) == 1
     assert child_tool_results[0]["session_id"] == "child-thread-tool-error"
@@ -1477,12 +1498,14 @@ async def test_subagent_runner_emits_parent_subagent_status_without_mutating_dis
         async def astream_events(self, initial_state, config=None, version=None):
             yield {
                 "event": "on_chain_end",
-                "data": {"output": {
-                    "messages": [AIMessage(content="writer finished")],
-                    "iteration_count": 1,
-                    "is_done": True,
-                    "final_output": None,
-                }},
+                "data": {
+                    "output": {
+                        "messages": [AIMessage(content="writer finished")],
+                        "iteration_count": 1,
+                        "is_done": True,
+                        "final_output": None,
+                    }
+                },
             }
 
         async def ainvoke(self, initial_state, config=None):
@@ -1517,7 +1540,8 @@ async def test_subagent_runner_emits_parent_subagent_status_without_mutating_dis
     await runner.run(row.id)
 
     assert any(
-        item == (
+        item
+        == (
             "agent:subagent_status",
             {
                 "parent_session_id": "parent-session",
@@ -1632,12 +1656,14 @@ async def test_subagent_runner_streams_and_persists_child_transcript_on_child_th
             yield {
                 "event": "on_chain_end",
                 "tags": ["subagent_child"],
-                "data": {"output": {
-                    "messages": [AIMessage(content="child stream output")],
-                    "iteration_count": 1,
-                    "is_done": True,
-                    "final_output": None,
-                }},
+                "data": {
+                    "output": {
+                        "messages": [AIMessage(content="child stream output")],
+                        "iteration_count": 1,
+                        "is_done": True,
+                        "final_output": None,
+                    }
+                },
             }
 
         async def ainvoke(self, initial_state, config=None):
@@ -1737,9 +1763,7 @@ async def test_subagent_runner_streams_and_persists_child_transcript_on_child_th
     assert child_messages[0].agent_id == "writer"
     assert child_messages[1].content == "child tool output"
     assert child_messages[1].tool_call_id == "call-child-tool"
-    assert all(
-        message.session_id != "child-thread-transcript" for message in parent_messages
-    )
+    assert all(message.session_id != "child-thread-transcript" for message in parent_messages)
 
 
 @pytest.mark.asyncio
@@ -1774,26 +1798,28 @@ async def test_subagent_runner_accumulates_parent_task_usage_and_persists_child_
                 "run_id": "child-run-usage",
                 "tags": ["subagent_child"],
                 "data": {
-                        "output": AIMessage(
-                            content="usage child output",
-                            usage_metadata={
-                                "input_tokens": 18,
-                                "output_tokens": 7,
-                                "total_tokens": 25,
-                                "input_token_details": {"cache_read": 3},
-                            },
-                        )
-                    },
-                }
+                    "output": AIMessage(
+                        content="usage child output",
+                        usage_metadata={
+                            "input_tokens": 18,
+                            "output_tokens": 7,
+                            "total_tokens": 25,
+                            "input_token_details": {"cache_read": 3},
+                        },
+                    )
+                },
+            }
             yield {
                 "event": "on_chain_end",
                 "tags": ["subagent_child"],
-                "data": {"output": {
-                    "messages": [AIMessage(content="usage child output")],
-                    "iteration_count": 1,
-                    "is_done": True,
-                    "final_output": None,
-                }},
+                "data": {
+                    "output": {
+                        "messages": [AIMessage(content="usage child output")],
+                        "iteration_count": 1,
+                        "is_done": True,
+                        "final_output": None,
+                    }
+                },
             }
 
         async def ainvoke(self, initial_state, config=None):
@@ -1903,12 +1929,14 @@ async def test_subagent_runner_does_not_emit_parent_dispatch_result_for_sync_com
         async def astream_events(self, initial_state, config=None, version=None):
             yield {
                 "event": "on_chain_end",
-                "data": {"output": {
-                    "messages": [AIMessage(content="writer finished")],
-                    "iteration_count": 1,
-                    "is_done": True,
-                    "final_output": None,
-                }},
+                "data": {
+                    "output": {
+                        "messages": [AIMessage(content="writer finished")],
+                        "iteration_count": 1,
+                        "is_done": True,
+                        "final_output": None,
+                    }
+                },
             }
 
         async def ainvoke(self, initial_state, config=None):
@@ -1961,8 +1989,7 @@ async def test_subagent_runner_does_not_emit_parent_dispatch_result_for_sync_com
     assert not [
         payload
         for name, payload, _room in emitted
-        if name == "agent:tool_result"
-        and payload.get("tool_call_id") == "tool-call-sync-status"
+        if name == "agent:tool_result" and payload.get("tool_call_id") == "tool-call-sync-status"
     ]
     assert [
         payload

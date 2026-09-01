@@ -6,7 +6,6 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Literal
 
-
 CompactionTrigger = Literal["auto", "manual"]
 
 

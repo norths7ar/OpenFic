@@ -25,9 +25,7 @@ def _rewrite_kind(bundle: bytes, kind: str, *, body: str) -> bytes:
     manifest = yaml.safe_load(files["openfic.yaml"])
     item = next(item for item in manifest["documents"] if item["kind"] == kind)
     document = parse_markdown_document(files[item["path"]].decode())
-    files[item["path"]] = render_markdown_document(
-        document.frontmatter, document.title, body
-    )
+    files[item["path"]] = render_markdown_document(document.frontmatter, document.title, body)
     return build_zip(files)
 
 
@@ -45,9 +43,7 @@ async def test_apply_restores_all_supported_entities_as_safe_archives(session) -
         content="世界内容",
         is_enabled=False,
     )
-    category = NoteCategory(
-        id="apply-category", project_id=project.id, title="提纲", order=1
-    )
+    category = NoteCategory(id="apply-category", project_id=project.id, title="提纲", order=1)
     note = Note(
         id="apply-note",
         project_id=project.id,
@@ -105,10 +101,7 @@ async def test_apply_restores_all_supported_entities_as_safe_archives(session) -
     restored_task = await session.get(Task, task.id)
     restored_message = await session.get(AgentRunMessage, message.id)
     assert restored_entry is not None and restored_entry.is_enabled is False
-    assert (
-        restored_character is not None
-        and restored_character.is_writing_visible is False
-    )
+    assert restored_character is not None and restored_character.is_writing_visible is False
     assert restored_note is not None and restored_note.is_locked is True
     assert restored_note.is_writing_visible is False
     assert restored_task is not None and restored_task.is_imported_archive is True
@@ -124,9 +117,7 @@ async def test_apply_restores_all_supported_entities_as_safe_archives(session) -
         "unchanged": 6,
         "conflict": 0,
     }
-    assert read_zip(await export_project_bundle(session, project.id)) == read_zip(
-        bundle
-    )
+    assert read_zip(await export_project_bundle(session, project.id)) == read_zip(bundle)
 
 
 @pytest.mark.asyncio
@@ -234,8 +225,7 @@ async def test_apply_rejects_concurrent_changes_and_live_discussion_edits(
     with pytest.raises(BundleApplyConflictError) as discussion_conflict:
         await apply_project_bundle(session, project.id, edited_message, "merge")
     assert any(
-        item.reason == "live_discussion_is_read_only"
-        for item in discussion_conflict.value.items
+        item.reason == "live_discussion_is_read_only" for item in discussion_conflict.value.items
     )
     assert message.content == "原讨论"
 

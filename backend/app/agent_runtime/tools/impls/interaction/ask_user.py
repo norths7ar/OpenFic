@@ -1,7 +1,7 @@
 import json
 
-from pydantic import BaseModel, Field
 from langgraph.types import interrupt
+from pydantic import BaseModel, Field
 
 from app.agent_runtime.tools.base import AgentTool
 from app.agent_runtime.tools.registry import ToolRegistry
@@ -19,11 +19,13 @@ class Question(BaseModel):
         description="可选项，如有建议选项，将其放在首位",
     )
 
+
 class AskUserInput(BaseModel):
     questions: list[Question] = Field(
         min_length=1,
         description="问题列表，同一批问题之间不得存在答案依赖关系",
     )
+
 
 @ToolRegistry.register
 class AskUserTool(AgentTool):

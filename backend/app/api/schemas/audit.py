@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Audit API Schemas - 审计日志请求/响应模型。
 """
@@ -46,16 +45,10 @@ class LLMAuditLogResponse(BaseModel):
     model_provider: str | None = Field(default=None, description="模型提供商")
     model_name: str | None = Field(default=None, description="模型名称")
 
-    request_messages: list[dict] | None = Field(
-        default=None, description="请求消息列表"
-    )
-    tool_references: list[dict] | None = Field(
-        default=None, description="请求携带的工具定义列表"
-    )
+    request_messages: list[dict] | None = Field(default=None, description="请求消息列表")
+    tool_references: list[dict] | None = Field(default=None, description="请求携带的工具定义列表")
     response_content: str | None = Field(default=None, description="响应内容")
-    response_tool_calls: list[dict] | None = Field(
-        default=None, description="响应工具调用列表"
-    )
+    response_tool_calls: list[dict] | None = Field(default=None, description="响应工具调用列表")
     tool_call_results: list[ToolCallResult] | None = Field(
         default=None, description="工具调用结果列表"
     )

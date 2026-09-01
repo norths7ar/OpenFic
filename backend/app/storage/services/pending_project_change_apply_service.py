@@ -254,9 +254,10 @@ def _prepare_after(
     base = _editable_payload(target_type, current) if current is not None else {}
     if not isinstance(patch, dict):
         raise ValidationError("after 必须是对象")
-    if "kind" in patch and patch["kind"] != target_type:
+    patch_data = cast(dict[str, Any], patch)
+    if "kind" in patch_data and patch_data["kind"] != target_type:
         raise ValidationError("after.kind 必须与 target_type 一致")
-    editable_patch = {key: value for key, value in patch.items() if key != "kind"}
+    editable_patch = {key: value for key, value in patch_data.items() if key != "kind"}
     payload = _validate_payload(target_type, {**base, **editable_patch})
     if current is None:
         return {"kind": target_type, **payload}
@@ -359,13 +360,8 @@ async def _assert_create_name_available(
 ) -> None:
     title = str(after["title"])
     if target_type == "note":
-        notes = await note_repo.list_by_project(
-            session, project_id, include_hidden=True
-        )
-        if any(
-            note.category_id == after["category_id"] and note.title == title
-            for note in notes
-        ):
+        notes = await note_repo.list_by_project(session, project_id, include_hidden=True)
+        if any(note.category_id == after["category_id"] and note.title == title for note in notes):
             raise PendingChangeConflictError("同级笔记标题已存在")
         category_id = after["category_id"]
         if category_id is not None:
@@ -375,19 +371,14 @@ async def _assert_create_name_available(
         return
     if target_type == "note_category":
         categories = await note_category_repo.list_by_project(session, project_id)
-        if any(
-            category.parent_id is None and category.title == title
-            for category in categories
-        ):
+        if any(category.parent_id is None and category.title == title for category in categories):
             raise PendingChangeConflictError("顶层笔记分类标题已存在")
         return
     if target_type == "character":
         if await character_repo.name_exists(session, project_id, title):
             raise PendingChangeConflictError("角色名称已存在")
         return
-    world_info = await world_info_service.get_or_create_world_info_by_project(
-        session, project_id
-    )
+    world_info = await world_info_service.get_or_create_world_info_by_project(session, project_id)
     try:
         await world_info_entry_service.ensure_entry_name_available(
             session,
@@ -415,9 +406,7 @@ async def _apply_create(
             after["document_type"],
         )
         if not after["writing_visible"]:
-            note = await note_service.update_note(
-                session, note.id, is_writing_visible=False
-            )
+            note = await note_service.update_note(session, note.id, is_writing_visible=False)
         return note.id, _note_snapshot(note)
     if target_type == "note_category":
         category = await note_service.create_category(
@@ -442,9 +431,7 @@ async def _apply_create(
                 is_writing_visible=False,
             )
         return character.id, _character_snapshot(character)
-    world_info = await world_info_service.get_or_create_world_info_by_project(
-        session, project_id
-    )
+    world_info = await world_info_service.get_or_create_world_info_by_project(session, project_id)
     entry = await world_info_entry_service.create_entry(
         session,
         world_info.id,

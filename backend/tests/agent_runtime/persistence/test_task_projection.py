@@ -409,16 +409,12 @@ async def test_projects_subagent_identity_for_orchestration_tool_results(
         {"dispatch_id": dispatch_id, "prompt": "继续完善冲突。"},
         {"dispatch_id": dispatch_id, "reason": "任务完成"},
     ]
-    assert [
-        message.payload["tool_result"]["agent_key"] for message in tool_messages
-    ] == [
+    assert [message.payload["tool_result"]["agent_key"] for message in tool_messages] == [
         "writer",
         "writer",
         "writer",
     ]
-    assert [
-        message.payload["tool_result"]["agent_number"] for message in tool_messages
-    ] == [
+    assert [message.payload["tool_result"]["agent_number"] for message in tool_messages] == [
         "#1001",
         "#1001",
         "#1001",
@@ -708,9 +704,7 @@ async def test_projects_resumed_tool_call_as_single_tool_message(
     assert tool_messages[0].payload["tool_name"] == "write_chapter"
     assert tool_messages[0].payload["tool_args"] == {"title": "第一章"}
     assert tool_messages[0].payload["tool_result"]["success"] is True
-    assert tool_messages[0].payload["tool_result"]["data"] == {
-        "chapter_id": "chapter_1"
-    }
+    assert tool_messages[0].payload["tool_result"]["data"] == {"chapter_id": "chapter_1"}
 
 
 @pytest.mark.asyncio
@@ -756,9 +750,7 @@ async def test_projects_interrupted_tool_preview_as_completed_tool_message(
     assert tool_messages[0].message_status == "completed"
     assert tool_messages[0].payload["tool_result"]["reason"] == "approval_preview"
     assert (
-        tool_messages[0].payload["tool_result"]["data"]["metadata"]["chapter_diff"][
-            "operation"
-        ]
+        tool_messages[0].payload["tool_result"]["data"]["metadata"]["chapter_diff"]["operation"]
         == "create"
     )
 
@@ -804,24 +796,18 @@ async def test_projects_completed_write_tool_result_keeps_chapter_diff_for_reloa
     tool_messages = [message for message in messages if message.message_type == "tool"]
     assert len(tool_messages) == 1
     assert tool_messages[0].payload["tool_result"]["data"]["word_count"] == 2
+    assert tool_messages[0].payload["tool_result"]["data"]["chapter"]["id"] == "chapter_1"
     assert (
-        tool_messages[0].payload["tool_result"]["data"]["chapter"]["id"] == "chapter_1"
-    )
-    assert (
-        tool_messages[0].payload["tool_result"]["data"]["metadata"]["chapter_diff"][
-            "operation"
-        ]
+        tool_messages[0].payload["tool_result"]["data"]["metadata"]["chapter_diff"]["operation"]
         == "create"
     )
     assert (
-        tool_messages[0].payload["tool_result"]["data"]["metadata"]["chapter_diff"][
-            "chapter_id"
-        ]
+        tool_messages[0].payload["tool_result"]["data"]["metadata"]["chapter_diff"]["chapter_id"]
         == "chapter_1"
     )
     assert (
-        tool_messages[0].payload["tool_result"]["data"]["metadata"]["chapter_diff"][
-            "sections"
-        ][0]["type"]
+        tool_messages[0].payload["tool_result"]["data"]["metadata"]["chapter_diff"]["sections"][0][
+            "type"
+        ]
         == "content"
     )

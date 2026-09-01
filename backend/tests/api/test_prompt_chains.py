@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Prompt chain API tests for agent-only defaults."""
 
 from pathlib import Path
@@ -27,16 +26,15 @@ class TestPromptChainAPI:
             "builtin-agents",
             "custom-agents",
         }
-        assert {
-            prompt["id"] for prompt in categories["session"]["prompts"]
-        } == {
+        assert {prompt["id"] for prompt in categories["session"]["prompts"]} == {
             "session-title",
             "session-compaction",
             "session-discussion-compaction",
         }
-        assert {
-            prompt["id"] for prompt in categories["memory"]["prompts"]
-        } == {"memory-chapter-summary", "memory-range-summary"}
+        assert {prompt["id"] for prompt in categories["memory"]["prompts"]} == {
+            "memory-chapter-summary",
+            "memory-range-summary",
+        }
         assert "builtin-agent--explore" in {
             prompt["id"] for prompt in categories["builtin-agents"]["prompts"]
         }
@@ -98,9 +96,7 @@ class TestPromptChainAPI:
         assert "不是项目 canon" in content
         assert "仅限本线程有效" in content
 
-    async def test_get_discuss_agent_version_uses_default_yaml(
-        self, client: AsyncClient
-    ) -> None:
+    async def test_get_discuss_agent_version_uses_default_yaml(self, client: AsyncClient) -> None:
         response = await client.get(
             "/api/v1/prompt-chains/builtin-agent--discuss/versions/latest",
         )

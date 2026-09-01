@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Chapter retrieval integration service tests."""
 
 from unittest.mock import AsyncMock
@@ -10,13 +9,13 @@ from sqlmodel import col
 
 from app.retrieval import chapter_index
 from app.retrieval.chapter_index import (
-    ChapterIndexIntegrationService,
     INDEX_MODE_OFF,
+    ChapterIndexIntegrationService,
     IndexSettingsConfig,
     chapter_document_id,
     chapter_index_key,
-    compute_project_index_status,
     compute_chapter_source_hash,
+    compute_project_index_status,
 )
 from app.storage.models.chapter import Chapter
 from app.storage.models.project import Project
@@ -120,9 +119,7 @@ async def test_disabled_project_index_status_does_not_load_chapter_content(
     list_sources = AsyncMock(side_effect=AssertionError("正文查询不应被调用"))
     count_chapters = AsyncMock(return_value=3)
     resolve_model = AsyncMock(side_effect=AssertionError("关闭时不应解析模型"))
-    monkeypatch.setattr(
-        chapter_index.chapter_repo, "list_index_source_by_project", list_sources
-    )
+    monkeypatch.setattr(chapter_index.chapter_repo, "list_index_source_by_project", list_sources)
     monkeypatch.setattr(chapter_index.chapter_repo, "count_by_project", count_chapters)
     monkeypatch.setattr(chapter_index, "resolve_index_embedding_model", resolve_model)
 
@@ -170,9 +167,9 @@ async def test_delete_chapter_index_removes_state_and_best_effort_deletes_docume
     )
     await session.commit()
 
-    await ChapterIndexIntegrationService(
-        retrieval_service=retrieval_service
-    ).delete_chapter_index(session, chapter)
+    await ChapterIndexIntegrationService(retrieval_service=retrieval_service).delete_chapter_index(
+        session, chapter
+    )
 
     state = (
         await session.execute(

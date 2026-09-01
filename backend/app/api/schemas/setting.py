@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Setting API Schemas - 设置请求/响应模型。
 """
@@ -130,9 +129,7 @@ class SettingsUpdateRequest(BaseModel):
     agent_tool_permissions: list[AgentToolPermissionItem] | None = Field(
         default=None, description="Agent 工具权限设置"
     )
-    audit_persist_details: bool | None = Field(
-        default=None, description="是否持久化 LLM 调用详情"
-    )
+    audit_persist_details: bool | None = Field(default=None, description="是否持久化 LLM 调用详情")
     compress_system_prompts: bool | None = Field(
         default=None,
         description="是否将连续的 system 消息合并为一条",

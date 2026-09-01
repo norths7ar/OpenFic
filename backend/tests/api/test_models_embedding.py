@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Tests for Model API endpoints - Embedding支持测试。
 """
@@ -48,9 +47,7 @@ async def test_create_embedding_model(client: AsyncClient, session: AsyncSession
 
 
 @pytest.mark.asyncio
-async def test_create_llm_model_with_task_type(
-    client: AsyncClient, session: AsyncSession
-):
+async def test_create_llm_model_with_task_type(client: AsyncClient, session: AsyncSession):
     """测试创建LLM模型（显式指定task_type）。"""
     from app.core.encryption import EncryptionService
     from app.settings import settings

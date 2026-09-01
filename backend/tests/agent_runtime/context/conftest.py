@@ -2,6 +2,7 @@ from typing import Any, cast
 from unittest.mock import AsyncMock
 
 import pytest
+
 from app.agent_runtime.graph.state import AgentRuntimeState
 
 
@@ -38,4 +39,5 @@ def make_state(base_state):
     def _factory(**overrides: Any) -> AgentRuntimeState:
         merged: dict[str, Any] = {**base_state, **overrides}
         return cast(AgentRuntimeState, merged)
+
     return _factory

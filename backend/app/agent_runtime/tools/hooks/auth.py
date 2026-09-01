@@ -1,9 +1,9 @@
 import json
 from typing import cast
 
+from langchain_core.runnables import RunnableConfig
 from loguru import logger
 from sqlalchemy.ext.asyncio import AsyncSession
-from langchain_core.runnables import RunnableConfig
 
 from app.agent_runtime.tools.base import HookContext, HookResult
 from app.agent_runtime.tools.permission_metadata import (

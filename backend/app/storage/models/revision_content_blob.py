@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Content-addressed blob storage for revision/commit large text payloads."""
 
 from datetime import UTC, datetime
@@ -18,9 +17,7 @@ class RevisionContentBlob(SQLModel, table=True):
     __tablename__ = "revision_content_blobs"
 
     id: str = Field(primary_key=True, description="sha256 hex of raw UTF-8 text")
-    data: bytes = Field(
-        sa_column=Column(LargeBinary), description="zlib-compressed raw text"
-    )
+    data: bytes = Field(sa_column=Column(LargeBinary), description="zlib-compressed raw text")
     raw_size: int = Field(description="size in bytes of the uncompressed text")
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(UTC),

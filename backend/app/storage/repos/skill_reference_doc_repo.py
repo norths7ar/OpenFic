@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """SkillReferenceDoc Repository - 参考文档数据访问层。"""
 
 from sqlalchemy import select

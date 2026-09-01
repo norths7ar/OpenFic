@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """AgentMemory API Schemas。"""
 
 from datetime import datetime

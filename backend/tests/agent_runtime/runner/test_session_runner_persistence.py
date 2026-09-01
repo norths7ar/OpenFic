@@ -13,13 +13,13 @@ from sqlalchemy.pool import StaticPool
 from sqlmodel import SQLModel
 
 from app.agent_runtime.context.types import ContextMessage
+from app.agent_runtime.graph.orchestrator.graph import build_orchestrator_graph
 from app.agent_runtime.persistence import repo
 from app.agent_runtime.persistence.child_runs import (
     claim_next_child_run_request,
     complete_child_run_request,
 )
 from app.agent_runtime.persistence.model import AgentChildRun
-from app.agent_runtime.graph.orchestrator.graph import build_orchestrator_graph
 from app.agent_runtime.runner.run_registry import get_agent_run_registry
 from app.agent_runtime.runner.session_runner import SessionRunner
 from app.storage.database import _set_sqlite_pragma  # noqa: F401  ensure module ready
@@ -88,10 +88,7 @@ def test_build_runtime_config_passes_compaction_sinks_to_graph():
     assert agent_event_sink.__self__ is runner
     assert agent_event_sink.__func__ is SessionRunner._emit_agent_event
     assert compaction_usage_sink.__self__ is runner
-    assert (
-        compaction_usage_sink.__func__
-        is SessionRunner._emit_persisted_task_usage_events
-    )
+    assert compaction_usage_sink.__func__ is SessionRunner._emit_persisted_task_usage_events
 
 
 @pytest_asyncio.fixture
@@ -408,9 +405,7 @@ async def test_run_consumes_queued_follow_up_before_turn_finishes(
             return AIMessage(content="reply1")
         if model_call_count["value"] == 2:
             return AIMessage(content="reply2")
-        raise AssertionError(
-            f"unexpected extra model call: {model_call_count['value']}"
-        )
+        raise AssertionError(f"unexpected extra model call: {model_call_count['value']}")
 
     class _GraphWrapper:
         def __init__(self) -> None:
@@ -468,9 +463,7 @@ async def test_run_consumes_queued_follow_up_before_turn_finishes(
         ("user", "help", "sent"),
         ("user", persisted_follow_up, "sent"),
     ]
-    assert not [
-        item for item in items if item.role == "user" and item.status == "pending"
-    ]
+    assert not [item for item in items if item.role == "user" and item.status == "pending"]
     assert runner._queued_user_messages == {}
 
 
@@ -528,9 +521,7 @@ async def test_injected_follow_up_persists_after_assistant_reply(
         items = await repo.list_by_session(session, "session_x")
 
     conversation = [
-        (item.role, item.content)
-        for item in items
-        if item.role in {"user", "assistant"}
+        (item.role, item.content) for item in items if item.role in {"user", "assistant"}
     ]
     assert conversation == [
         ("user", "help"),
@@ -588,15 +579,12 @@ async def test_run_persists_messages_end_to_end(isolated_db, monkeypatch):
     async with factory() as s:
         items = await repo.list_by_session(s, "s_x")
     assert any(
-        m.role == "assistant" and m.status == "complete" and m.content == "hello"
-        for m in items
+        m.role == "assistant" and m.status == "complete" and m.content == "hello" for m in items
     )
 
 
 @pytest.mark.asyncio
-async def test_run_emits_and_persists_cumulative_task_token_usage(
-    isolated_db, monkeypatch
-):
+async def test_run_emits_and_persists_cumulative_task_token_usage(isolated_db, monkeypatch):
     from langchain_core.messages import AIMessage
 
     from app.storage.models.task import Task
@@ -713,9 +701,7 @@ async def test_run_emits_and_persists_cumulative_task_token_usage(
             "context_length": 8000,
         },
     ]
-    assert [
-        payload for name, payload in captured_events if name == "agent:task_usage_delta"
-    ] == [
+    assert [payload for name, payload in captured_events if name == "agent:task_usage_delta"] == [
         {
             "session_id": "s_usage",
             "task_id": "task_x",
@@ -787,9 +773,7 @@ async def test_emit_persisted_task_usage_events_preserves_compaction_usage_kind(
             "usage_kind": "compaction",
         }
     ]
-    assert [
-        payload for name, payload in captured_events if name == "agent:task_usage_delta"
-    ] == [
+    assert [payload for name, payload in captured_events if name == "agent:task_usage_delta"] == [
         {
             "session_id": "s_compaction_usage",
             "task_id": "task_x",
@@ -852,9 +836,7 @@ async def test_sync_dispatch_subagent_continues_primary_run_until_done(
             )
         if model_call_count["value"] == 2:
             return AIMessage(content="primary completed")
-        raise AssertionError(
-            f"unexpected extra model call: {model_call_count['value']}"
-        )
+        raise AssertionError(f"unexpected extra model call: {model_call_count['value']}")
 
     class _FakeSubagentRunner:
         async def run(self, child_run_id: str) -> dict:
@@ -946,9 +928,7 @@ async def test_sync_dispatch_subagent_continues_primary_run_until_done(
         await get_agent_run_registry().cancel_all()
 
     assert model_call_count["value"] == 2
-    done_payloads = [
-        payload for name, payload in captured_emits if name == "agent:done"
-    ]
+    done_payloads = [payload for name, payload in captured_emits if name == "agent:done"]
     assert done_payloads
     assert all(
         isinstance(payload.get("created_at"), str) and payload["created_at"]
@@ -956,8 +936,7 @@ async def test_sync_dispatch_subagent_continues_primary_run_until_done(
     )
     assert any(
         any(
-            message.get("role") == "tool"
-            and message.get("tool_call_id") == "dispatch-1"
+            message.get("role") == "tool" and message.get("tool_call_id") == "dispatch-1"
             for message in batch
         )
         for batch in captured_node_messages[1:]
@@ -975,11 +954,7 @@ async def test_sync_dispatch_subagent_continues_primary_run_until_done(
     async with factory() as session:
         items = await repo.list_by_session(session, "session_x")
         child_runs = (
-            (
-                await session.execute(
-                    select(AgentChildRun).order_by(AgentChildRun.created_at.asc())
-                )
-            )
+            (await session.execute(select(AgentChildRun).order_by(AgentChildRun.created_at.asc())))
             .scalars()
             .all()
         )
@@ -1003,13 +978,9 @@ async def test_sync_dispatch_subagent_continues_primary_run_until_done(
     }
     assert json.loads(final_result["output"])["result"] == "writer completed"
     dispatch_item = next(
-        item
-        for item in items
-        if item.role == "tool" and item.tool_name == "dispatch_subagent"
+        item for item in items if item.role == "tool" and item.tool_name == "dispatch_subagent"
     )
     dispatch_result = json.loads(dispatch_item.content)
     assert dispatch_result["dispatch_id"] == child_runs[0].dispatch_id
-    assert (
-        dispatch_result["agent_number"] == child_runs[0].metadata_json["agent_number"]
-    )
+    assert dispatch_result["agent_number"] == child_runs[0].metadata_json["agent_number"]
     assert dispatch_result["result"] == "writer completed"

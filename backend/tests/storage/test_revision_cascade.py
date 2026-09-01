@@ -4,8 +4,6 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 from sqlmodel import SQLModel
 
-from tests.model_registry import register_sqlmodel_models
-
 from app.core.ids import generate_id
 from app.storage.models.commit import Commit
 from app.storage.models.project import Project
@@ -18,6 +16,7 @@ from app.storage.services.revision_service import (
     delete_revision_data_by_project,
     delete_revision_data_by_tasks,
 )
+from tests.model_registry import register_sqlmodel_models
 
 
 def _revision(revision_id: str, project_id: str, task_id: str | None = None) -> Revision:
@@ -46,9 +45,7 @@ async def cascade_session():
 
 
 async def _blob_count(session: AsyncSession) -> int:
-    return int(
-        (await session.execute(select(RevisionContentBlob))).scalars().all().__len__()
-    )
+    return int((await session.execute(select(RevisionContentBlob))).scalars().all().__len__())
 
 
 async def _seed_two_revisions(session: AsyncSession):
@@ -62,10 +59,22 @@ async def _seed_two_revisions(session: AsyncSession):
     session.add(Project(id="proj-1", title="项目一"))
     session.add(Project(id="proj-2", title="项目二"))
     session.add(
-        Task(id="task-1", project_id="proj-1", title="任务一", mode="agent", agent_session_id="sess-1")
+        Task(
+            id="task-1",
+            project_id="proj-1",
+            title="任务一",
+            mode="agent",
+            agent_session_id="sess-1",
+        )
     )
     session.add(
-        Task(id="task-2", project_id="proj-2", title="任务二", mode="agent", agent_session_id="sess-2")
+        Task(
+            id="task-2",
+            project_id="proj-2",
+            title="任务二",
+            mode="agent",
+            agent_session_id="sess-2",
+        )
     )
     session.add(_revision("rev-1", "proj-1", task_id="task-1"))
     session.add(_revision("rev-2", "proj-2", task_id="task-2"))
@@ -114,8 +123,14 @@ async def test_delete_revision_data_by_project_cascades_and_gc_blobs(
 
     # rev-1 + its commit + chapter snapshot removed; exclusive blob removed.
     assert await session.get(Revision, "rev-1") is None
-    assert (await session.execute(select(Commit).where(Commit.revision_id == "rev-1"))).first() is None
-    assert (await session.execute(select(RevisionChapterSnapshot).where(RevisionChapterSnapshot.revision_id == "rev-1"))).first() is None
+    assert (
+        await session.execute(select(Commit).where(Commit.revision_id == "rev-1"))
+    ).first() is None
+    assert (
+        await session.execute(
+            select(RevisionChapterSnapshot).where(RevisionChapterSnapshot.revision_id == "rev-1")
+        )
+    ).first() is None
     assert await _blob_count(session) == 1
 
     # rev-2 survives, and shared blob is still referenced by its commit.

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 测试配置。
 
@@ -6,10 +5,10 @@
 通过每测试连接级事务回滚实现隔离。
 """
 
+import shutil
+import sqlite3
 from collections.abc import AsyncGenerator
 from pathlib import Path
-import sqlite3
-import shutil
 
 import httpx
 import pytest
@@ -22,14 +21,14 @@ from sqlmodel import SQLModel
 
 from app.api.exceptions import register_exception_handlers
 from app.api.routers import (
-    agent_rules,
     agent_definitions,
+    agent_rules,
     agent_runtime,
     background,
-    characters,
     chapter_context,
     chapter_exports,
     chapters,
+    characters,
     commands,
     dashboard,
     health,
@@ -45,9 +44,9 @@ from app.api.routers import (
     prompt_chains,
     retrieval_index,
     runtime_config,
-    skills,
-    skill_reference_docs,
     settings,
+    skill_reference_docs,
+    skills,
     tasks,
     volumes,
     world_info,
@@ -56,7 +55,6 @@ from app.api.routers import (
 from app.models.catalog import CatalogIconProxyService
 from app.storage.database import get_session
 from tests.model_registry import register_sqlmodel_models
-
 
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
 
@@ -194,9 +192,7 @@ async def client(_test_app: FastAPI, db_engine) -> AsyncGenerator[AsyncClient, N
 
 
 @pytest_asyncio.fixture
-async def isolated_prompts_dir(
-    monkeypatch, tmp_path: Path
-) -> AsyncGenerator[Path, None]:
+async def isolated_prompts_dir(monkeypatch, tmp_path: Path) -> AsyncGenerator[Path, None]:
     """每个测试使用隔离的 prompts 目录，避免污染仓库内 YAML。"""
     import app.prompts.loader as prompt_loader
 

@@ -4,7 +4,7 @@ Note Service - 笔记业务逻辑层。
 
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from typing import Literal
+from typing import Literal, cast
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -41,20 +41,14 @@ async def _get_max_mixed_order(
     parent_id: str | None,
     document_type: DocumentType,
 ) -> int:
-    categories = await note_category_repo.list_by_project(
-        session, project_id, document_type
-    )
+    categories = await note_category_repo.list_by_project(session, project_id, document_type)
     notes = await note_repo.list_by_project(
         session,
         project_id,
         include_hidden=True,
         document_type=document_type,
     )
-    orders = [
-        category.order
-        for category in categories
-        if category.parent_id == parent_id
-    ]
+    orders = [category.order for category in categories if category.parent_id == parent_id]
     orders.extend(note.order for note in notes if note.category_id == parent_id)
     return max(orders, default=0)
 
@@ -73,9 +67,7 @@ async def _assert_parent_belongs_to_project(
         raise ValueError("父分类不存在或不属于当前项目")
 
 
-async def _assert_not_descendant(
-    session: AsyncSession, item_id: str, target_id: str
-) -> None:
+async def _assert_not_descendant(session: AsyncSession, item_id: str, target_id: str) -> None:
     if target_id is None:
         return
     current: str | None = target_id
@@ -127,10 +119,7 @@ async def create_note(
         title=unique_title,
         content=content,
         document_type=document_type,
-        order=await _get_max_mixed_order(
-            session, project_id, category_id, document_type
-        )
-        + 1,
+        order=await _get_max_mixed_order(session, project_id, category_id, document_type) + 1,
         is_writing_visible=True,
     )
     note = await note_repo.create(session, note)
@@ -164,9 +153,7 @@ async def list_notes(
     if project is None:
         raise NotFoundError(f"项目不存在: {project_id}")
 
-    categories = await note_category_repo.list_by_project(
-        session, project_id, document_type
-    )
+    categories = await note_category_repo.list_by_project(session, project_id, document_type)
     notes = await note_repo.list_by_project(
         session,
         project_id,
@@ -272,9 +259,7 @@ async def reorder_mixed_items(
 
     categories = [
         category
-        for category in await note_category_repo.list_by_project(
-            session, project_id, document_type
-        )
+        for category in await note_category_repo.list_by_project(session, project_id, document_type)
         if category.parent_id == parent_id
     ]
     notes = [
@@ -315,9 +300,7 @@ async def update_note(
     changed = False
     records_writing_activity = False
 
-    changes_locked_content = (
-        title is not None and title != note.title
-    ) or (
+    changes_locked_content = (title is not None and title != note.title) or (
         content is not None and content != note.content
     )
     if note.is_locked and changes_locked_content:
@@ -334,10 +317,7 @@ async def update_note(
         changed = True
         records_writing_activity = True
 
-    if (
-        is_writing_visible is not None
-        and is_writing_visible != note.is_writing_visible
-    ):
+    if is_writing_visible is not None and is_writing_visible != note.is_writing_visible:
         note.is_writing_visible = is_writing_visible
         changed = True
 
@@ -444,9 +424,7 @@ async def create_category(
         if parent is None or parent.document_type != document_type:
             raise ValueError("父分类与当前文档类型不一致")
 
-    cats = await note_category_repo.list_by_project(
-        session, project_id, document_type
-    )
+    cats = await note_category_repo.list_by_project(session, project_id, document_type)
     siblings = {c.title for c in cats if c.parent_id == parent_id}
     unique_title = title
     counter = 1
@@ -459,10 +437,7 @@ async def create_category(
         parent_id=parent_id,
         title=unique_title,
         document_type=document_type,
-        order=await _get_max_mixed_order(
-            session, project_id, parent_id, document_type
-        )
-        + 1,
+        order=await _get_max_mixed_order(session, project_id, parent_id, document_type) + 1,
     )
     return await note_category_repo.create(session, category)
 
@@ -533,7 +508,7 @@ async def move_item(
                     session,
                     category.project_id,
                     target_category_id,
-                    category.document_type,
+                    cast(DocumentType, category.document_type),
                 )
                 + 1
             )
@@ -573,7 +548,7 @@ async def move_item(
                     session,
                     note.project_id,
                     target_category_id,
-                    note.document_type,
+                    cast(DocumentType, note.document_type),
                 )
                 + 1
             )
@@ -604,9 +579,7 @@ async def search_mention_candidates(
         search_all_mention_candidates,
     )
 
-    return await search_all_mention_candidates(
-        session, project_id, query, limit=limit, kind="note"
-    )
+    return await search_all_mention_candidates(session, project_id, query, limit=limit, kind="note")
 
 
 @dataclass
@@ -669,9 +642,7 @@ async def search_notes(
     if not query.strip():
         return NoteSearchResponse(results=[], total_notes=0, total_matches=0)
 
-    notes = await note_repo.search_by_content(
-        session, project_id, query, document_type
-    )
+    notes = await note_repo.search_by_content(session, project_id, query, document_type)
 
     results: list[NoteSearchResult] = []
     total_matches = 0

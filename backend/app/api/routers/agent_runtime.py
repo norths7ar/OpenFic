@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Agent API Router - new agent_runtime-backed workflow."""
 
 from __future__ import annotations
@@ -150,6 +149,7 @@ TOOL_DISPLAY_ORDER = {
     "propose_project_delete": 42,
 }
 
+
 def _build_default_agent_session_title(created_at: datetime) -> str:
     timestamp = created_at.astimezone(UTC).isoformat(timespec="milliseconds")
     return f"{DEFAULT_AGENT_SESSION_TITLE_PREFIX}{timestamp.replace('+00:00', 'Z')}"
@@ -172,6 +172,7 @@ def _build_fallback_agent_session_title(seed_message: str) -> str:
         return plain_text[:40].rstrip() + "…"
     return plain_text
 
+
 _SESSION_RUNNERS: dict[str, SessionRunner] = {}
 
 
@@ -181,7 +182,7 @@ def _build_seed_state(
     task_id: str,
     project_id: str,
     model_config: dict,
-    context_mode: str = "local",
+    context_mode: Literal["global", "local"] = "local",
     agent_key: str = "build",
     current_revision_id: str | None = None,
 ) -> dict:
@@ -303,7 +304,7 @@ async def _get_runner(
         task_id=task.id,
         model_config={"max_context_tokens": 1},
         project_id=task.project_id,
-        context_mode=task.context_mode,
+        context_mode=cast(Literal["global", "local"], task.context_mode),
     )
     graph = await runner._get_graph()
     state = await graph.aget_state({"configurable": {"thread_id": session_id}})
@@ -319,9 +320,7 @@ async def _get_runner(
         runner.model_config = await _resolve_model_config(
             session,
             model_record_id,
-            restored_reasoning_effort
-            if isinstance(restored_reasoning_effort, str)
-            else None,
+            restored_reasoning_effort if isinstance(restored_reasoning_effort, str) else None,
         )
     else:
         runner.model_config = await _resolve_legacy_model_config(
@@ -386,16 +385,15 @@ async def _ensure_agent_session_resumable(
 
 async def _checkpoint_has_pending_interrupt(session_id: str, revision_id: str) -> bool:
     checkpointer = await get_checkpointer()
-    checkpoint = await checkpointer.aget_tuple(
-        {"configurable": {"thread_id": session_id}}
-    )
+    checkpoint = await checkpointer.aget_tuple({"configurable": {"thread_id": session_id}})
     checkpoint_data = getattr(checkpoint, "checkpoint", None) if checkpoint is not None else None
     channel_values = (
-        checkpoint_data.get("channel_values")
-        if isinstance(checkpoint_data, dict)
-        else None
+        checkpoint_data.get("channel_values") if isinstance(checkpoint_data, dict) else None
     )
-    if not isinstance(channel_values, dict) or channel_values.get("current_revision_id") != revision_id:
+    if (
+        not isinstance(channel_values, dict)
+        or channel_values.get("current_revision_id") != revision_id
+    ):
         return False
     return (
         any(
@@ -512,9 +510,7 @@ async def _build_model_config(
     return model_config
 
 
-async def _validate_primary_agent(
-    session: AsyncSession, agent_key: str
-) -> AgentDefinition:
+async def _validate_primary_agent(session: AsyncSession, agent_key: str) -> AgentDefinition:
     try:
         definition = await load_agent_definition(session, agent_key)
     except KeyError as exc:
@@ -552,9 +548,7 @@ async def _resolve_model_config(
     except Exception as exc:
         raise ValueError("API密钥解密失败") from exc
 
-    custom_headers = ModelProviderService(
-        encryption_service
-    ).get_decrypted_custom_headers(provider)
+    custom_headers = ModelProviderService(encryption_service).get_decrypted_custom_headers(provider)
     return await _build_model_config(
         model,
         provider,
@@ -874,14 +868,14 @@ async def create_agent_session(
             model_config=model_config,
             project_id=request.project_id,
             agent_key=request.agent_key,
-            context_mode=task.context_mode,
+            context_mode=cast(Literal["global", "local"], task.context_mode),
         )
         await runner.materialize_state(
             _build_seed_state(
                 session_id=session_id,
                 task_id=task.id,
                 project_id=request.project_id,
-                context_mode=task.context_mode,
+                context_mode=cast(Literal["global", "local"], task.context_mode),
                 model_config=model_config,
                 agent_key=request.agent_key,
             )
@@ -902,15 +896,17 @@ async def create_agent_session(
     except HTTPException:
         raise
     except NotFoundError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
+        ) from exc
     except Exception as exc:
         logger.opt(exception=True).error("创建 Agent 会话失败")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"创建会话失败: {exc}",
-        )
+        ) from exc
 
 
 @router.post(
@@ -1019,9 +1015,7 @@ async def send_agent_message(
                 requested_model_config = await _resolve_model_config(
                     session, body.model_id, body.reasoning_effort
                 )
-            runner.update_model_config(
-                requested_model_config
-            )
+            runner.update_model_config(requested_model_config)
             model_updated = True
         except NotFoundError as exc:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
@@ -1034,9 +1028,7 @@ async def send_agent_message(
         model_record_id = runner.model_config.get("model_record_id")
         if isinstance(model_record_id, str) and model_record_id:
             runner.update_model_config(
-                await _resolve_model_config(
-                    session, model_record_id, body.reasoning_effort
-                )
+                await _resolve_model_config(session, model_record_id, body.reasoning_effort)
             )
     if body.agent_key:
         definition = await _validate_primary_agent(session, body.agent_key)
@@ -1167,9 +1159,7 @@ async def _run_agent_session_compaction(
         try:
             result = await runner.compact()
             async with _agent_session_lifecycle_lock(registry, session_id):
-                pending_message = (
-                    await runner.consume_next_pending_user_message_for_continuation()
-                )
+                pending_message = await runner.consume_next_pending_user_message_for_continuation()
                 if pending_message is not None:
                     message_id, content = pending_message
                     await _launch_continuation_task_replacing_current(
@@ -1409,9 +1399,7 @@ async def get_agent_session_state(
     session: AsyncSession = Depends(get_session),
 ) -> AgentSessionStateResponse:
     checkpointer = await get_checkpointer()
-    checkpoint = await checkpointer.aget_tuple(
-        {"configurable": {"thread_id": session_id}}
-    )
+    checkpoint = await checkpointer.aget_tuple({"configurable": {"thread_id": session_id}})
     checkpoint_values = checkpoint.checkpoint.get("channel_values") if checkpoint else None
     state_values = dict(checkpoint_values) if isinstance(checkpoint_values, dict) else {}
     is_cancelled = await _is_agent_session_cancelled(session, session_id)
@@ -1518,9 +1506,7 @@ async def get_subagent_session(
         request=dict(row.request_json or {}),
         result=dict(row.result_json) if row.result_json is not None else None,
         pending_approval=(
-            dict(row.pending_approval_json)
-            if row.pending_approval_json is not None
-            else None
+            dict(row.pending_approval_json) if row.pending_approval_json is not None else None
         ),
         error=row.error,
         metadata=metadata,
@@ -1624,9 +1610,7 @@ async def rollback_agent_session(
 
     if result.restored_checkpoint_id:
         try:
-            await delete_checkpoints_after_for_thread(
-                session_id, result.restored_checkpoint_id
-            )
+            await delete_checkpoints_after_for_thread(session_id, result.restored_checkpoint_id)
         except Exception:
             logger.bind(session_id=session_id).opt(exception=True).error(
                 "Agent graph checkpoint rollback failed after revision rollback"
@@ -1742,7 +1726,7 @@ async def fork_agent_session(
             task_id=result.task.id,
             model_config=model_config,
             project_id=result.task.project_id,
-            context_mode=result.task.context_mode,
+            context_mode=cast(Literal["global", "local"], result.task.context_mode),
         )
         fork_session_id = result.session_id
         _SESSION_RUNNERS[result.session_id] = runner
@@ -1756,9 +1740,9 @@ async def fork_agent_session(
             task_updated_at=result.task.updated_at.isoformat(),
         )
     except NotFoundError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     except Exception as exc:
         if fork_session_id:
             _SESSION_RUNNERS.pop(fork_session_id, None)
@@ -1766,7 +1750,7 @@ async def fork_agent_session(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"分叉失败: {exc}",
-        )
+        ) from exc
 
 
 @router.post("/sessions/{session_id}/cancel", response_model=AgentCancelResponse)
@@ -1783,11 +1767,7 @@ async def cancel_agent_session(
         project_id=runner.project_id,
     )
     session_lock_factory = getattr(registry, "session_lock", None)
-    session_lock = (
-        session_lock_factory(session_id)
-        if callable(session_lock_factory)
-        else None
-    )
+    session_lock = session_lock_factory(session_id) if callable(session_lock_factory) else None
     if session_lock is not None:
         await session_lock.acquire()
     parent_task: asyncio.Task[None] | None = None

@@ -151,9 +151,7 @@ async def test_pending_change_status_filter_and_count(client: AsyncClient) -> No
     first = await _post_change(client, project_a, _create_payload("note"))
     second = await _post_change(client, project_a, _create_payload("character"))
     await _post_change(client, project_b, _create_payload("world_entry"))
-    await client.post(
-        f"/api/v1/projects/{project_a}/pending-changes/{second['id']}/reject"
-    )
+    await client.post(f"/api/v1/projects/{project_a}/pending-changes/{second['id']}/reject")
 
     pending_response = await client.get(
         f"/api/v1/projects/{project_a}/pending-changes",
@@ -163,9 +161,7 @@ async def test_pending_change_status_filter_and_count(client: AsyncClient) -> No
         f"/api/v1/projects/{project_a}/pending-changes",
         params={"status": "rejected"},
     )
-    default_count_response = await client.get(
-        f"/api/v1/projects/{project_a}/pending-changes/count"
-    )
+    default_count_response = await client.get(f"/api/v1/projects/{project_a}/pending-changes/count")
     rejected_count_response = await client.get(
         f"/api/v1/projects/{project_a}/pending-changes/count",
         params={"status": "rejected"},
@@ -343,9 +339,7 @@ async def test_apply_update_captures_base_and_rejects_stale_target(
     assert apply_response.status_code == 409
     assert apply_response.json()["detail"]["code"] == "pending_change_conflict"
 
-    detail = await client.get(
-        f"/api/v1/projects/{project_id}/pending-changes/{change['id']}"
-    )
+    detail = await client.get(f"/api/v1/projects/{project_id}/pending-changes/{change['id']}")
     note = await client.get(f"/api/v1/notes/{note_id}")
     assert detail.json()["status"] == "pending"
     assert detail.json()["is_applicable"] is False
@@ -465,9 +459,7 @@ async def test_legacy_pending_change_remains_reviewable_but_cannot_apply(
     apply_response = await client.post(
         f"/api/v1/projects/{project_id}/pending-changes/{legacy.id}/apply"
     )
-    detail_response = await client.get(
-        f"/api/v1/projects/{project_id}/pending-changes/{legacy.id}"
-    )
+    detail_response = await client.get(f"/api/v1/projects/{project_id}/pending-changes/{legacy.id}")
     assert apply_response.status_code == 422
     assert detail_response.status_code == 200
     assert detail_response.json()["status"] == "pending"
@@ -482,13 +474,9 @@ async def test_apply_delete_supported_targets(
 ) -> None:
     project_id = await _create_project(client, f"删除 {target_type}")
     if target_type == "note":
-        target = await note_service.create_note(
-            session, project_id, None, "待删笔记", "正文"
-        )
+        target = await note_service.create_note(session, project_id, None, "待删笔记", "正文")
     elif target_type == "character":
-        target = await character_service.create_character(
-            session, project_id, "待删角色"
-        )
+        target = await character_service.create_character(session, project_id, "待删角色")
     else:
         world_info = await world_info_service.get_or_create_world_info_by_project(
             session, project_id
@@ -518,13 +506,9 @@ async def test_apply_delete_supported_targets(
 
 
 @pytest.mark.asyncio
-async def test_note_category_delete_is_not_supported(
-    client: AsyncClient, session
-) -> None:
+async def test_note_category_delete_is_not_supported(client: AsyncClient, session) -> None:
     project_id = await _create_project(client, "分类删除")
-    category = await note_service.create_category(
-        session, project_id, None, "不可级联删除"
-    )
+    category = await note_service.create_category(session, project_id, None, "不可级联删除")
     await session.commit()
     response = await client.post(
         f"/api/v1/projects/{project_id}/pending-changes",
@@ -573,9 +557,7 @@ async def test_apply_create_rejects_silent_name_rewrite(
         f"/api/v1/projects/{project_id}/pending-changes/{change['id']}/apply"
     )
     assert response.status_code == 409
-    detail = await client.get(
-        f"/api/v1/projects/{project_id}/pending-changes/{change['id']}"
-    )
+    detail = await client.get(f"/api/v1/projects/{project_id}/pending-changes/{change['id']}")
     assert detail.json()["status"] == "pending"
 
 

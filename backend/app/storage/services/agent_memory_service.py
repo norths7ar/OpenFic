@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """AgentMemory Service - 记忆业务逻辑层。"""
 
 from dataclasses import dataclass

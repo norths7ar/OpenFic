@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Runtime Config Router - 供前端与桌面主进程读取的运行时配置。
 

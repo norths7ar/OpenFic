@@ -8,7 +8,6 @@ from app.agent_runtime.streaming.replay_buffer import get_agent_event_replay_buf
 from app.socket import emit
 from app.socket.handlers import agent_session_room, agent_subagent_session_room
 
-
 NodePhase = Literal["start", "end"]
 NodeStatus = Literal["running", "completed", "error"]
 NodeFunc = Callable[[dict[str, Any], RunnableConfig | None], Awaitable[dict]]

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 测试 summary_service 窗口/区间逻辑基于全局阅读序位的行为。
 """
@@ -92,8 +91,16 @@ class TestFixedSummaryWindows:
         window = windows[0]
         assert len(window) == 10
         assert [c.id for c in window] == [
-            "c1_1", "c1_2", "c1_3", "c1_4", "c1_5",
-            "c2_1", "c2_2", "c2_3", "c2_4", "c2_5",
+            "c1_1",
+            "c1_2",
+            "c1_3",
+            "c1_4",
+            "c1_5",
+            "c2_1",
+            "c2_2",
+            "c2_3",
+            "c2_4",
+            "c2_5",
         ]
 
     def test_multiple_windows_across_volumes(self) -> None:
@@ -128,8 +135,16 @@ class TestFixedSummaryWindows:
         assert len(windows) == 1
         window_ids = [c.id for c in windows[0]]
         assert window_ids == [
-            "c1_1", "c1_2", "c1_3",
-            "c2_1", "c2_2", "c2_3", "c2_4", "c2_5", "c2_6", "c2_7",
+            "c1_1",
+            "c1_2",
+            "c1_3",
+            "c2_1",
+            "c2_2",
+            "c2_3",
+            "c2_4",
+            "c2_5",
+            "c2_6",
+            "c2_7",
         ]
 
 
@@ -171,7 +186,9 @@ class TestBuildLongTermSummaryWindow:
 
     def test_window_excludes_skipped_chapter_from_sources(self) -> None:
         volumes = [_make_volume("v1", 1), _make_volume("v2", 2)]
-        chapters = [_make_chapter(f"c{i}", f"v{(i - 1) // 5 + 1}", (i - 1) % 5 + 1) for i in range(1, 11)]
+        chapters = [
+            _make_chapter(f"c{i}", f"v{(i - 1) // 5 + 1}", (i - 1) % 5 + 1) for i in range(1, 11)
+        ]
         chapters[0] = _make_chapter("c1", "v1", 1, word_count=100)
         global_order = {ch.id: i for i, ch in enumerate(chapters, 1)}
         summaries = [_make_chapter_summary(ch, global_order[ch.id]) for ch in chapters[1:]]
@@ -198,7 +215,9 @@ class TestListEligibleLongTermRanges:
     def test_returns_empty_when_summaries_not_ready(self) -> None:
         volumes, chapters = _build_two_volume_setup(5)
         global_order = {ch.id: i for i, ch in enumerate(chapters, 1)}
-        summaries = [_make_chapter_summary(ch, global_order[ch.id], status="queued") for ch in chapters]
+        summaries = [
+            _make_chapter_summary(ch, global_order[ch.id], status="queued") for ch in chapters
+        ]
 
         ranges = list_eligible_long_term_ranges(chapters, volumes, summaries)
 
@@ -241,9 +260,7 @@ class TestIsLongTermSummaryStale:
             start_order=1,
             end_order=10,
             source_chapter_ids_json=encode_summary_list(["wrong_id"]),
-            source_chapter_summary_signatures_json=encode_summary_list(
-                [s.id for s in summaries]
-            ),
+            source_chapter_summary_signatures_json=encode_summary_list([s.id for s in summaries]),
         )
 
         assert is_long_term_summary_stale(long_term, chapters, summaries, volumes) is True

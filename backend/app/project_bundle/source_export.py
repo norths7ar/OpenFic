@@ -140,9 +140,7 @@ async def _load_documents(
         raise BundleFormatError(f"project not found: {project_id}")
 
     world = (
-        await session.execute(
-            select(WorldInfo).where(col(WorldInfo.project_id) == project_id)
-        )
+        await session.execute(select(WorldInfo).where(col(WorldInfo.project_id) == project_id))
     ).scalar_one_or_none()
     entries = (
         []
@@ -173,9 +171,7 @@ async def _load_documents(
             )
         ).scalars()
     )
-    category_paths, category_id_paths, category_order_paths = _category_paths(
-        categories
-    )
+    category_paths, category_id_paths, category_order_paths = _category_paths(categories)
     notes = list(
         (
             await session.execute(
@@ -293,9 +289,7 @@ def _render_heading_source(
         lines.append(f"{'#' * node.level} {node.title}")
         if node.body:
             lines.extend(("", node.body))
-        children = sorted(
-            node.children.values(), key=lambda value: (value.order, value.key)
-        )
+        children = sorted(node.children.values(), key=lambda value: (value.order, value.key))
         for child in children:
             emit(child)
 
@@ -347,9 +341,7 @@ def _fallback_rule(
     return rule
 
 
-async def export_markdown_source_bundle(
-    session: AsyncSession, project_id: str
-) -> bytes:
+async def export_markdown_source_bundle(session: AsyncSession, project_id: str) -> bytes:
     """Export mapped documents to their source locations and others by type."""
 
     _, documents = await _load_documents(session, project_id)
@@ -376,25 +368,19 @@ async def export_markdown_source_bundle(
             await session.execute(
                 select(ProjectImportBinding).where(
                     col(ProjectImportBinding.project_id) == project_id,
-                    col(ProjectImportBinding.target_kind).in_(
-                        ["world_entry", "character", "note"]
-                    ),
+                    col(ProjectImportBinding.target_kind).in_(["world_entry", "character", "note"]),
                 )
             )
         ).scalars()
     )
-    by_source: dict[
-        tuple[str, str], list[tuple[ProjectImportBinding, _SourceDocument]]
-    ] = {}
+    by_source: dict[tuple[str, str], list[tuple[ProjectImportBinding, _SourceDocument]]] = {}
     mapped_targets: set[tuple[str, str]] = set()
     for binding in bindings:
         rule = rules_by_id.get(binding.rule_id)
         document = documents.get((binding.target_kind, binding.target_id))
         if rule is None or document is None:
             continue
-        by_source.setdefault((binding.rule_id, binding.source_path), []).append(
-            (binding, document)
-        )
+        by_source.setdefault((binding.rule_id, binding.source_path), []).append((binding, document))
         mapped_targets.add((binding.target_kind, binding.target_id))
 
     files: dict[str, str | bytes] = {}
@@ -404,9 +390,7 @@ async def export_markdown_source_bundle(
         split = rule.get("split", {})
         if split.get("type") == "file":
             if len(records) != 1:
-                raise BundleFormatError(
-                    "file source maps to multiple project documents"
-                )
+                raise BundleFormatError("file source maps to multiple project documents")
             files[source_path] = _render_file_source(records[0][1], rule)
         elif split.get("type") == "headings":
             files[source_path] = _render_heading_source(records, rule)

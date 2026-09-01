@@ -10,19 +10,19 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 from sqlmodel import SQLModel
 
+from app.agent_runtime.streaming.replay_buffer import get_agent_event_replay_buffer
+from app.socket import background_project_room, emit, init_socketio, is_connected
+from app.socket.handlers import (
+    agent_subagent_session_room,
+    agent_subagents_room,
+    get_connection_state,
+)
 from app.storage import database
 from app.storage.models.chapter import Chapter
 from app.storage.models.chapter_summary import ChapterSummary
 from app.storage.models.project import Project
 from app.storage.models.task import Task
 from app.storage.models.volume import Volume
-from app.agent_runtime.streaming.replay_buffer import get_agent_event_replay_buffer
-from app.socket import background_project_room, emit, is_connected, init_socketio
-from app.socket.handlers import (
-    agent_subagent_session_room,
-    agent_subagents_room,
-    get_connection_state,
-)
 from tests.model_registry import register_sqlmodel_models
 
 
@@ -330,17 +330,19 @@ class TestSocketIntegration:
             chapter_id="chapter-usage",
         )
         async with socket_db_factory() as session:
-            session.add(Task(
-                id="task-usage",
-                project_id="project-usage",
-                title="Task",
-                mode="agent",
-                agent_session_id="parent-session-usage",
-                token_input=100,
-                token_output=40,
-                token_cache=8,
-                context_input_tokens=12,
-            ))
+            session.add(
+                Task(
+                    id="task-usage",
+                    project_id="project-usage",
+                    title="Task",
+                    mode="agent",
+                    agent_session_id="parent-session-usage",
+                    token_input=100,
+                    token_output=40,
+                    token_cache=8,
+                    context_input_tokens=12,
+                )
+            )
             await session.commit()
 
         client = socketio_lib.AsyncSimpleClient()
@@ -527,7 +529,9 @@ class TestSocketIntegration:
 
         await client.disconnect()
 
-    async def test_background_project_rooms_and_snapshots_are_isolated(self, server, socket_db_factory):
+    async def test_background_project_rooms_and_snapshots_are_isolated(
+        self, server, socket_db_factory
+    ):
         await _seed_project(socket_db_factory, project_id="p1", chapter_id="c1")
         await _seed_project(socket_db_factory, project_id="p2", chapter_id="c2", status="ready")
 

@@ -102,9 +102,7 @@ async def test_dispatch_subagent_emits_preview_after_child_run_is_created(
     monkeypatch.setattr(DispatchSubagentTool, "_validate_dispatch", noop)
     monkeypatch.setattr(DispatchSubagentTool, "_load_waiting_child_run", noop)
     monkeypatch.setattr(DispatchSubagentTool, "_create_child_run", create_child_run)
-    monkeypatch.setattr(
-        DispatchSubagentTool, "_load_initial_request_id", load_initial_request_id
-    )
+    monkeypatch.setattr(DispatchSubagentTool, "_load_initial_request_id", load_initial_request_id)
     monkeypatch.setattr(
         DispatchSubagentTool,
         "_wait_for_assistant_content",
@@ -119,9 +117,7 @@ async def test_dispatch_subagent_emits_preview_after_child_run_is_created(
     monkeypatch.setattr(dispatch_module, "open_session", open_session)
     monkeypatch.setattr(dispatch_module, "close_session", noop)
     monkeypatch.setattr(dispatch_module, "update_child_run_request_boundaries", noop)
-    monkeypatch.setattr(
-        dispatch_module, "make_subagent_runner", lambda **_kwargs: Runner()
-    )
+    monkeypatch.setattr(dispatch_module, "make_subagent_runner", lambda **_kwargs: Runner())
     monkeypatch.setattr(
         dispatch_module,
         "emit_subagent_tool_preview",
@@ -204,9 +200,7 @@ async def test_notify_subagent_emits_preview_after_request_is_queued(
     monkeypatch.setattr(notify_module, "ensure_primary", noop)
     monkeypatch.setattr(notify_module, "resolve_child_run", resolve_child_run)
     monkeypatch.setattr(notify_module, "latest_checkpoint_id_for_thread", noop)
-    monkeypatch.setattr(
-        notify_module, "enqueue_child_run_request", enqueue_child_run_request
-    )
+    monkeypatch.setattr(notify_module, "enqueue_child_run_request", enqueue_child_run_request)
     monkeypatch.setattr(
         notify_module,
         "persist_child_user_message",
@@ -215,9 +209,7 @@ async def test_notify_subagent_emits_preview_after_request_is_queued(
     monkeypatch.setattr(notify_module, "open_session", open_session)
     monkeypatch.setattr(notify_module, "close_session", noop)
     monkeypatch.setattr(notify_module, "update_child_run_request_boundaries", noop)
-    monkeypatch.setattr(
-        notify_module, "make_subagent_runner", lambda **_kwargs: Runner()
-    )
+    monkeypatch.setattr(notify_module, "make_subagent_runner", lambda **_kwargs: Runner())
     monkeypatch.setattr(
         notify_module,
         "emit_subagent_tool_preview",

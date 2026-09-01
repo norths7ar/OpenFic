@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Note 工具引用解析。
 """
@@ -8,8 +7,7 @@ from collections.abc import Sequence
 from pydantic import BaseModel, Field
 
 from app.agent_runtime.tools.errors import ToolExecutionError
-from app.storage.models.note import Note
-from app.storage.models.note import NoteCategory
+from app.storage.models.note import Note, NoteCategory
 
 
 class NoteRef(BaseModel):
@@ -34,11 +32,7 @@ def _resolve_category_by_path(
     current_parent_id: str | None = None
     for segment in segments:
         match = next(
-            (
-                c
-                for c in categories
-                if c.parent_id == current_parent_id and c.title == segment
-            ),
+            (c for c in categories if c.parent_id == current_parent_id and c.title == segment),
             None,
         )
         if match is None:
@@ -70,11 +64,7 @@ def resolve_note_from_list(
                     raise ToolExecutionError(f"路径中分类不存在: {cat_path}")
                 category_id = cat.id
             match = next(
-                (
-                    n
-                    for n in notes
-                    if n.category_id == category_id and n.title == note_title
-                ),
+                (n for n in notes if n.category_id == category_id and n.title == note_title),
                 None,
             )
             if match is not None:

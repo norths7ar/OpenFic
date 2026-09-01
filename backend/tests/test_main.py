@@ -5,7 +5,9 @@ import pytest
 import app.main as main
 
 
-def test_get_server_bind_reads_uvicorn_command_line_options(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_get_server_bind_reads_uvicorn_command_line_options(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.delenv("OPENFIC_SERVER_HOST", raising=False)
     monkeypatch.delenv("OPENFIC_SERVER_PORT", raising=False)
     monkeypatch.setattr(

@@ -51,9 +51,7 @@ def _source_bundle(
     }
     return build_zip(
         {
-            "openfic-import.yaml": yaml.safe_dump(
-                config, allow_unicode=True, sort_keys=True
-            ),
+            "openfic-import.yaml": yaml.safe_dump(config, allow_unicode=True, sort_keys=True),
             "world.md": "# 世界\n## 体系\n### 灵气\n灵气内容",
             "character.md": f"# 主角\n\n{character_body}",
             "outline.md": (
@@ -98,18 +96,14 @@ def _visibility_bundle(project_id: str, *, disabled: bool) -> bytes:
     marker = " [已停用]" if disabled else ""
     return build_zip(
         {
-            "openfic-import.yaml": yaml.safe_dump(
-                config, allow_unicode=True, sort_keys=True
-            ),
+            "openfic-import.yaml": yaml.safe_dump(config, allow_unicode=True, sort_keys=True),
             "world.md": f"# 世界\n## 体系\n### 灵气{marker}\n灵气内容",
         }
     )
 
 
 @pytest.mark.asyncio
-async def test_source_preview_reports_create_actions(
-    client: AsyncClient, session
-) -> None:
+async def test_source_preview_reports_create_actions(client: AsyncClient, session) -> None:
     project = await _create_project(session)
 
     response = await client.post(
@@ -172,9 +166,7 @@ async def test_source_apply_succeeds_and_repeated_source_is_unchanged(
 
 
 @pytest.mark.asyncio
-async def test_source_apply_updates_changed_source(
-    client: AsyncClient, session
-) -> None:
+async def test_source_apply_updates_changed_source(client: AsyncClient, session) -> None:
     project = await _create_project(session)
     first = _source_bundle(project.id)
     assert (
@@ -187,9 +179,7 @@ async def test_source_apply_updates_changed_source(
     changed = await client.post(
         f"/api/v1/projects/{project.id}/bundle/source/apply",
         files=_upload(
-            _source_bundle(
-                project.id, volume_body="卷内容 v2", character_body="角色内容 v2"
-            )
+            _source_bundle(project.id, volume_body="卷内容 v2", character_body="角色内容 v2")
         ),
     )
     assert changed.status_code == 200
@@ -222,9 +212,7 @@ async def test_source_apply_updates_visibility_without_recreating_target(
     assert first.json()["summary"]["create"] == 1
 
     before = (
-        await session.execute(
-            select(WorldInfoEntry).where(WorldInfoEntry.name == "灵气")
-        )
+        await session.execute(select(WorldInfoEntry).where(WorldInfoEntry.name == "灵气"))
     ).scalar_one()
     target_id = before.id
     assert before.is_enabled is True
@@ -243,11 +231,7 @@ async def test_source_apply_updates_visibility_without_recreating_target(
 
     await session.refresh(before)
     entries = (
-        (
-            await session.execute(
-                select(WorldInfoEntry).where(WorldInfoEntry.name == "灵气")
-            )
-        )
+        (await session.execute(select(WorldInfoEntry).where(WorldInfoEntry.name == "灵气")))
         .scalars()
         .all()
     )
@@ -291,9 +275,7 @@ async def test_source_apply_conflict_does_not_partially_write(
     conflict = await client.post(
         f"/api/v1/projects/{project_id}/bundle/source/apply",
         files=_upload(
-            _source_bundle(
-                project_id, volume_body="卷内容 v2", character_body="角色内容 v2"
-            )
+            _source_bundle(project_id, volume_body="卷内容 v2", character_body="角色内容 v2")
         ),
     )
     assert conflict.status_code == 409
@@ -310,8 +292,7 @@ async def test_source_apply_conflict_does_not_partially_write(
     characters = (
         await session.execute(
             Character.__table__.select().where(
-                (Character.project_id == project_id)
-                & (Character.description == "角色内容")
+                (Character.project_id == project_id) & (Character.description == "角色内容")
             )
         )
     ).all()

@@ -135,9 +135,7 @@ async def test_child_run_pending_approval_maps_to_child_thread_and_clears_on_ter
 
 
 @pytest.mark.asyncio
-async def test_list_child_runs_for_parent_orders_by_creation(
-    db_session: AsyncSession, sample_task
-):
+async def test_list_child_runs_for_parent_orders_by_creation(db_session: AsyncSession, sample_task):
     await create_child_run(
         db_session,
         parent_session_id="parent-session",
@@ -229,7 +227,6 @@ async def test_cancel_interrupted_child_runs_finalizes_all_active_runs(
         assert all(request.status == "cancelled" for request in requests)
         assert all(request.error == "server restarted" for request in requests)
         assert all(request.completed_at is not None for request in requests)
-
 
 
 @pytest.mark.asyncio
@@ -351,6 +348,7 @@ async def test_rollback_child_runs_restores_notify_request_to_previous_completed
     assert rolled_back_request is not None
     assert rolled_back_request.status == "cancelled"
     assert [message.content for message in messages] == ["第一轮任务", "第一轮结果"]
+
 
 @pytest.mark.asyncio
 async def test_hidden_system_reminder_remains_visible_to_llm_history(

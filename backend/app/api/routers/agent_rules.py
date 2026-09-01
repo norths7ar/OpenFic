@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """AgentRule Router - 规则 CRUD API。"""
 
 from typing import Annotated
@@ -7,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from loguru import logger
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.agent_settings_lock import require_agent_settings_unlocked
 from app.api.schemas.agent_rule import (
     AgentRuleCreate,
     AgentRuleListResponse,
@@ -16,7 +16,6 @@ from app.api.schemas.agent_rule import (
     AgentRuleScopeResponse,
     AgentRuleUpdate,
 )
-from app.api.agent_settings_lock import require_agent_settings_unlocked
 from app.core.errors import NotFoundError
 from app.storage.database import get_session
 from app.storage.services import agent_rule_service
@@ -54,7 +53,7 @@ async def create_rule(
             project_id=data.project_id,
         )
     except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     return _to_response(rule)
 
 
@@ -108,7 +107,7 @@ async def get_rule(
         rule = await agent_rule_service.get_rule(session, rule_id)
         return _to_response(rule)
     except NotFoundError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
 
 
 @router.patch("/agent-rules/{rule_id}", response_model=AgentRuleResponse)
@@ -127,7 +126,7 @@ async def update_rule(
         )
         return _to_response(rule)
     except NotFoundError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
 
 
 @router.post("/agent-rules/reorder", response_model=list[AgentRuleResponse])
@@ -149,4 +148,4 @@ async def delete_rule(
     try:
         await agent_rule_service.delete_rule(session, rule_id)
     except NotFoundError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc

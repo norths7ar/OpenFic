@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 WorldInfoEntry 数据模型。
 """
@@ -40,5 +39,3 @@ class WorldInfoEntry(SQLModel, table=True):
     is_enabled: bool = Field(default=True)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-
-

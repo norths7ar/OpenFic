@@ -1,20 +1,20 @@
 """Runtime context passed to background job handlers."""
 
 import json
-from dataclasses import dataclass
+from collections.abc import Awaitable, Callable
 from contextlib import suppress
-from typing import Any, Awaitable, Callable, TypeVar
+from dataclasses import dataclass
+from typing import Any, TypeVar
 
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.background.events.publisher import BackgroundEventPublisher
+from app.background.jobs import service as job_service
 from app.background.jobs.base import JobDefinition
 from app.background.jobs.models import BackgroundJob
-from app.background.jobs import service as job_service
 from app.background.jobs.states import JOB_STATUS_CANCEL_REQUESTED
 from app.storage.database import create_session
-
 
 T = TypeVar("T")
 

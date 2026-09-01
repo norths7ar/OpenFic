@@ -28,8 +28,7 @@ def format_chapter_content_with_line_numbers(content: str) -> str:
     if not content:
         return ""
     return "\n".join(
-        f"{line_number}|{line}"
-        for line_number, line in enumerate(content.splitlines(), start=1)
+        f"{line_number}|{line}" for line_number, line in enumerate(content.splitlines(), start=1)
     )
 
 
@@ -57,9 +56,7 @@ class ReadChapterTool(AgentTool):
                 ref_type=ref.type,
                 ref_value=ref.value,
             )
-            match = resolve_chapter_from_list(
-                [matched] if matched is not None else [], ref
-            )
+            match = resolve_chapter_from_list([matched] if matched is not None else [], ref)
             return ReadChapterOutput(
                 order=match.order,
                 title=match.title,

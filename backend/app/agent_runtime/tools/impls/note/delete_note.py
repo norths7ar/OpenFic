@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 删除笔记。
 """
@@ -54,14 +53,8 @@ class DeleteNoteTool(AgentTool):
                 notes = await note_repo.list_by_project(
                     session, self.project_id, include_hidden=False
                 )
-                notes = [
-                    note
-                    for note in notes
-                    if note_is_visible(note, include_all=include_all)
-                ]
-                cats = await note_category_repo.list_by_project(
-                    session, self.project_id
-                )
+                notes = [note for note in notes if note_is_visible(note, include_all=include_all)]
+                cats = await note_category_repo.list_by_project(session, self.project_id)
                 note = resolve_note_from_list(notes, ref, categories=cats)
 
             if note.project_id != self.project_id:
@@ -74,16 +67,12 @@ class DeleteNoteTool(AgentTool):
                 raise ToolExecutionError("笔记不在当前上下文范围内")
 
             before = note_images_by_id(
-                await note_repo.list_by_project(
-                    session, self.project_id, include_hidden=True
-                )
+                await note_repo.list_by_project(session, self.project_id, include_hidden=True)
             )
             old_title = note.title
             await note_repo.delete(session, note)
             after = note_images_by_id(
-                await note_repo.list_by_project(
-                    session, self.project_id, include_hidden=True
-                )
+                await note_repo.list_by_project(session, self.project_id, include_hidden=True)
             )
             await record_note_diffs(
                 session,

@@ -1,7 +1,7 @@
-# -*- coding: utf-8 -*-
 """Revision chapter snapshot repository."""
 
-from sqlalchemy import delete as sql_delete, select
+from sqlalchemy import delete as sql_delete
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col
 

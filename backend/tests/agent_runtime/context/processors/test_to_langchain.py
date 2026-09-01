@@ -64,17 +64,13 @@ def test_user_message_with_only_image_attachments_has_no_empty_text_block() -> N
             ContextMessage(
                 role="user",
                 content="",
-                attachments=[
-                    {"type": "image", "base64": "aW1hZ2U=", "mime_type": "image/png"}
-                ],
+                attachments=[{"type": "image", "base64": "aW1hZ2U=", "mime_type": "image/png"}],
             )
         ]
     )
 
     assert isinstance(out[0], HumanMessage)
-    assert out[0].content == [
-        {"type": "image", "base64": "aW1hZ2U=", "mime_type": "image/png"}
-    ]
+    assert out[0].content == [{"type": "image", "base64": "aW1hZ2U=", "mime_type": "image/png"}]
 
 
 def test_assistant_message_mapped_to_ai_with_tool_calls() -> None:
@@ -116,11 +112,7 @@ def test_assistant_message_preserves_reasoning_content() -> None:
 
 
 def test_tool_message_mapped_with_tool_call_id() -> None:
-    parts = [
-        ContextMessage(
-            role="tool", content="ok", tool_call_id="call_1"
-        )
-    ]
+    parts = [ContextMessage(role="tool", content="ok", tool_call_id="call_1")]
     out = to_langchain_messages(parts)
     assert isinstance(out[0], ToolMessage)
     assert out[0].tool_call_id == "call_1"

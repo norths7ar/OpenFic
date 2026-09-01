@@ -96,9 +96,7 @@ def select_compaction_window(
     if not window_turns:
         _raise_no_window()
 
-    window_messages = [
-        message for turn in window_turns for message in turn.messages
-    ]
+    window_messages = [message for turn in window_turns for message in turn.messages]
     source_input_tokens = count_context_tokens(window_messages)
     if source_input_tokens < MIN_COMPACTABLE_TOKENS:
         _raise_no_window()

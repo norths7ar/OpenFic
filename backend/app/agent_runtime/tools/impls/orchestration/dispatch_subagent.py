@@ -21,8 +21,8 @@ from app.agent_runtime.tools.base import AgentTool
 from app.agent_runtime.tools.errors import ToolExecutionError
 from app.agent_runtime.tools.impls.orchestration.common import (
     close_session,
-    ensure_child_processing,
     emit_subagent_tool_preview,
+    ensure_child_processing,
     get_configurable,
     make_subagent_runner,
     open_session,
@@ -31,7 +31,6 @@ from app.agent_runtime.tools.impls.orchestration.common import (
 )
 from app.agent_runtime.tools.registry import ToolRegistry
 from app.core.ids import generate_id
-
 
 MAX_DISPATCHES_PER_TURN = 10
 
@@ -239,13 +238,10 @@ class DispatchSubagentTool(AgentTool):
                 request_id=request_id,
             )
             assistant_content = (
-                resolution.request.assistant_content
-                or resolution.child_run.last_assistant_content
+                resolution.request.assistant_content or resolution.child_run.last_assistant_content
             )
             if not assistant_content:
-                raise ToolExecutionError(
-                    "subagent turn completed without assistant content"
-                )
+                raise ToolExecutionError("subagent turn completed without assistant content")
             return assistant_content
 
     async def _execute(
@@ -275,9 +271,7 @@ class DispatchSubagentTool(AgentTool):
                 configurable=configurable,
                 tool_call_id=tool_call_id,
             )
-            pre_request_checkpoint_id = await latest_checkpoint_id_for_thread(
-                row.child_thread_id
-            )
+            pre_request_checkpoint_id = await latest_checkpoint_id_for_thread(row.child_thread_id)
             child_user_message = await persist_child_user_message(
                 session_factory=configurable.get("session_factory"),
                 child_thread_id=row.child_thread_id,
@@ -327,9 +321,7 @@ class DispatchSubagentTool(AgentTool):
                 child_run_id=row.id,
                 request_id=request_id or "",
                 runner=runner,
-                start_processing=not (
-                    isinstance(pending_approval, dict) and pending_approval
-                ),
+                start_processing=not (isinstance(pending_approval, dict) and pending_approval),
             )
         except ToolExecutionError as exc:
             return json.dumps(

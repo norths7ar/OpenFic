@@ -4,15 +4,15 @@ from __future__ import annotations
 
 import base64
 import io
-from pathlib import Path
 import shutil
+from pathlib import Path
 from typing import Any
 
 import aiofiles
 from fastapi import UploadFile
 from PIL import Image, UnidentifiedImageError
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import delete, select
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col
 
 from app.core.ids import generate_id
@@ -78,7 +78,9 @@ async def load_session_attachments(
         )
     )
     attachments_by_id = {attachment.id: attachment for attachment in result.scalars()}
-    missing_ids = [attachment_id for attachment_id in unique_ids if attachment_id not in attachments_by_id]
+    missing_ids = [
+        attachment_id for attachment_id in unique_ids if attachment_id not in attachments_by_id
+    ]
     if missing_ids:
         raise ValueError("图片附件不存在或不属于当前会话")
     return [attachments_by_id[attachment_id] for attachment_id in unique_ids]
@@ -177,7 +179,9 @@ async def delete_attachments_for_message_ids(
     root = ensure_agent_attachments_dir()
     for attachment in attachments:
         (root / attachment.storage_name).unlink(missing_ok=True)
-    await session.execute(delete(AgentAttachment).where(col(AgentAttachment.id).in_(attachment_ids)))
+    await session.execute(
+        delete(AgentAttachment).where(col(AgentAttachment.id).in_(attachment_ids))
+    )
 
 
 async def delete_attachments_for_task(
@@ -218,19 +222,13 @@ async def cleanup_orphaned_agent_attachment_files(session: AsyncSession) -> int:
     attachments = list(result.scalars())
     storage_names = {attachment.storage_name for attachment in attachments}
     message_result = await session.execute(select(AgentRunMessage))
-    active_session_ids = {
-        message.session_id for message in message_result.scalars()
-    }
+    active_session_ids = {message.session_id for message in message_result.scalars()}
     task_result = await session.execute(select(Task))
     active_session_ids.update(
-        task.agent_session_id
-        for task in task_result.scalars()
-        if task.agent_session_id is not None
+        task.agent_session_id for task in task_result.scalars() if task.agent_session_id is not None
     )
     child_run_result = await session.execute(select(AgentChildRun))
-    active_session_ids.update(
-        child_run.child_thread_id for child_run in child_run_result.scalars()
-    )
+    active_session_ids.update(child_run.child_thread_id for child_run in child_run_result.scalars())
     deleted_files = 0
     directories: set[Path] = set()
 

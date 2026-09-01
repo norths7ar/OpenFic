@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Chapter 数据模型。
 """
@@ -27,9 +26,7 @@ class Chapter(SQLModel, table=True):
     """
 
     __tablename__ = "chapters"
-    __table_args__ = (
-        UniqueConstraint("volume_id", "order", name="uq_chapters_volume_order"),
-    )
+    __table_args__ = (UniqueConstraint("volume_id", "order", name="uq_chapters_volume_order"),)
 
     id: str = Field(default_factory=generate_id, primary_key=True)
     project_id: str = Field(index=True, foreign_key="projects.id")

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Tests for retrieval service.
 """
@@ -6,13 +5,14 @@ Tests for retrieval service.
 from dataclasses import dataclass
 from pathlib import Path
 
-import pytest
 import lancedb  # type: ignore[import-untyped]
+import pytest
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.encryption import EncryptionService
 from app.models.clients.embedding_client import EmbeddingClientConfigLike
+from app.models.clients.rerank_client import RerankItem, RerankResponse
 from app.models.repos import model_provider_repo, model_repo
 from app.retrieval.service import OpenFicRetrievalService
 from app.retrieval.types import (
@@ -22,7 +22,6 @@ from app.retrieval.types import (
     IndexDocument,
     RetrievalIndexContract,
 )
-from app.models.clients.rerank_client import RerankItem, RerankResponse
 from app.settings import settings
 from app.storage.models.retrieval_index import RetrievalIndex
 
@@ -211,9 +210,7 @@ async def test_register_index_rejects_contract_mismatch(
     contract = _make_contract(model.id)
     await service.register_index(session, "chapters", contract)
 
-    different = RetrievalIndexContract(
-        **{**contract.model_dump(), "chunk_size": 128}
-    )
+    different = RetrievalIndexContract(**{**contract.model_dump(), "chunk_size": 128})
 
     with pytest.raises(ValueError):
         await service.register_index(session, "chapters", different)
@@ -311,13 +308,7 @@ async def test_index_and_query_happy_path(session: AsyncSession, tmp_path: Path)
     )
 
     query = await service.query(session, "chapters", "hero dragon", embedding_client)
-    results = await (
-        query
-        .hybrid()
-        .filter_eq("project_id", "p1")
-        .limit(1)
-        .run()
-    )
+    results = await query.hybrid().filter_eq("project_id", "p1").limit(1).run()
 
     assert index_result.succeeded_count == 2
     assert index_result.failed_count == 0
@@ -538,8 +529,7 @@ async def test_query_supports_vector_bm25_hybrid_and_rerank(
     bm25_results = await query.bm25().limit(2).run()
     baseline_hybrid_results = await query.hybrid().vector_top_k(2).bm25_top_k(2).limit(2).run()
     hybrid_results = await (
-        query
-        .hybrid()
+        query.hybrid()
         .vector_top_k(2)
         .bm25_top_k(2)
         .rrf(k=10)
@@ -661,8 +651,7 @@ async def test_query_supports_filter_in_and_filter_range(
 
     query = await service.query(session, "chapters", "hero dragon guild", embedding_client)
     results = await (
-        query
-        .hybrid()
+        query.hybrid()
         .filter_in("project_id", ["p1"])
         .filter_range("chapter_order", gte=2)
         .limit(5)
@@ -673,9 +662,7 @@ async def test_query_supports_filter_in_and_filter_range(
 
 
 @pytest.mark.asyncio
-async def test_delete_document_removes_rows(
-    session: AsyncSession, tmp_path: Path
-) -> None:
+async def test_delete_document_removes_rows(session: AsyncSession, tmp_path: Path) -> None:
     model = await _create_embedding_model(session)
     service = OpenFicRetrievalService(base_dir=tmp_path / "lancedb")
     contract = _make_contract(model.id)
@@ -704,9 +691,7 @@ async def test_delete_document_removes_rows(
 
 
 @pytest.mark.asyncio
-async def test_delete_document_ignores_missing_table(
-    session: AsyncSession, tmp_path: Path
-) -> None:
+async def test_delete_document_ignores_missing_table(session: AsyncSession, tmp_path: Path) -> None:
     model = await _create_embedding_model(session)
     service = OpenFicRetrievalService(base_dir=tmp_path / "lancedb")
 
@@ -716,9 +701,7 @@ async def test_delete_document_ignores_missing_table(
 
 
 @pytest.mark.asyncio
-async def test_rebuild_replaces_table_contents(
-    session: AsyncSession, tmp_path: Path
-) -> None:
+async def test_rebuild_replaces_table_contents(session: AsyncSession, tmp_path: Path) -> None:
     model = await _create_embedding_model(session)
     service = OpenFicRetrievalService(base_dir=tmp_path / "lancedb")
     contract = _make_contract(model.id)
@@ -758,9 +741,7 @@ async def test_rebuild_replaces_table_contents(
 
 
 @pytest.mark.asyncio
-async def test_rebuild_indexes_keeps_queryable_state(
-    session: AsyncSession, tmp_path: Path
-) -> None:
+async def test_rebuild_indexes_keeps_queryable_state(session: AsyncSession, tmp_path: Path) -> None:
     model = await _create_embedding_model(session)
     service = OpenFicRetrievalService(base_dir=tmp_path / "lancedb")
     contract = _make_contract(model.id)
@@ -801,10 +782,7 @@ async def test_index_documents_stop_after_consecutive_failures(
     result = await service.index_documents(
         session,
         "chapters",
-        [
-            IndexDocument(document_id=f"chapter-{index}", text=f"doc {index}")
-            for index in range(6)
-        ],
+        [IndexDocument(document_id=f"chapter-{index}", text=f"doc {index}") for index in range(6)],
         embedding_client,
     )
 

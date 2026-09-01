@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Revision Repository - 版本数据访问层。
 """
@@ -42,9 +41,7 @@ async def get_by_id(session: AsyncSession, revision_id: str) -> Revision | None:
     Returns:
         版本实例，如果不存在则返回 None。
     """
-    result = await session.execute(
-        select(Revision).where(col(Revision.id) == revision_id)
-    )
+    result = await session.execute(select(Revision).where(col(Revision.id) == revision_id))
     return result.scalar_one_or_none()
 
 
@@ -130,9 +127,7 @@ async def count_by_project(
     Returns:
         版本总数。
     """
-    query = select(func.count(col(Revision.id))).where(
-        col(Revision.project_id) == project_id
-    )
+    query = select(func.count(col(Revision.id))).where(col(Revision.project_id) == project_id)
 
     if only_checkpoints:
         query = query.where(col(Revision.is_checkpoint))
@@ -180,9 +175,7 @@ async def delete_by_project(session: AsyncSession, project_id: str) -> None:
     """
     from sqlalchemy import delete as sql_delete
 
-    await session.execute(
-        sql_delete(Revision).where(col(Revision.project_id) == project_id)
-    )
+    await session.execute(sql_delete(Revision).where(col(Revision.project_id) == project_id))
     await session.flush()
 
 
@@ -313,9 +306,7 @@ async def recover_active_revisions_for_stopped_tasks(session: AsyncSession) -> i
         sql_update(Revision)
         .where(col(Revision.status) == "active")
         .where(
-            col(Revision.task_id).in_(
-                select(col(Task.id)).where(col(Task.is_running).is_(False))
-            )
+            col(Revision.task_id).in_(select(col(Task.id)).where(col(Task.is_running).is_(False)))
         )
         .values(status="interrupted", finished_at=now, updated_at=now)
     )

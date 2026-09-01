@@ -27,9 +27,9 @@ from app.storage.models.world_info_entry import WorldInfoEntry
 
 
 def semantic_hash(value: dict[str, Any]) -> str:
-    payload = json.dumps(
-        value, ensure_ascii=False, sort_keys=True, separators=(",", ":")
-    ).encode("utf-8")
+    payload = json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode(
+        "utf-8"
+    )
     return f"sha256:{hashlib.sha256(payload).hexdigest()}"
 
 
@@ -62,9 +62,7 @@ def _category_paths(categories: Iterable[NoteCategory]) -> dict[str, str]:
             raise BundleFormatError("note category hierarchy contains a cycle")
         category = by_id[category_id]
         if category.parent_id is None:
-            parent = PurePosixPath(
-                "outlines" if category.document_type == "outline" else "notes"
-            )
+            parent = PurePosixPath("outlines" if category.document_type == "outline" else "notes")
         else:
             parent_category = by_id.get(category.parent_id)
             if (
@@ -72,13 +70,10 @@ def _category_paths(categories: Iterable[NoteCategory]) -> dict[str, str]:
                 or parent_category.project_id != category.project_id
                 or parent_category.document_type != category.document_type
             ):
-                raise BundleFormatError(
-                    "note category parent is missing or cross-project"
-                )
+                raise BundleFormatError("note category parent is missing or cross-project")
             parent = PurePosixPath(build(category.parent_id, (*stack, category_id)))
         segment = (
-            f"{category.order:06d}-{slugify_filename(category.title, category.id)}"
-            f"--{category.id}"
+            f"{category.order:06d}-{slugify_filename(category.title, category.id)}--{category.id}"
         )
         paths[category_id] = str(parent / segment)
         return paths[category_id]
@@ -94,9 +89,7 @@ async def export_project_bundle(session: AsyncSession, project_id: str) -> bytes
         raise BundleFormatError(f"project not found: {project_id}")
 
     world_info = (
-        await session.execute(
-            select(WorldInfo).where(col(WorldInfo.project_id) == project_id)
-        )
+        await session.execute(select(WorldInfo).where(col(WorldInfo.project_id) == project_id))
     ).scalar_one_or_none()
     entries: list[WorldInfoEntry] = []
     if world_info is not None:
@@ -152,8 +145,7 @@ async def export_project_bundle(session: AsyncSession, project_id: str) -> bytes
             "writing_visible": entry.is_enabled,
         }
         path = (
-            f"worldbook/{entry.order:06d}-{slugify_filename(entry.name, entry.id)}"
-            f"--{entry.id}.md"
+            f"worldbook/{entry.order:06d}-{slugify_filename(entry.name, entry.id)}--{entry.id}.md"
         )
         base_hash = document_semantic_hash(fields, entry.name, entry.content)
         files[path] = _doc(
@@ -188,9 +180,7 @@ async def export_project_bundle(session: AsyncSession, project_id: str) -> bytes
             f"{slugify_filename(character.name, character.id)}"
             f"--{character.id}.md"
         )
-        base_hash = document_semantic_hash(
-            fields, character.name, character.description
-        )
+        base_hash = document_semantic_hash(fields, character.name, character.description)
         files[path] = _doc(
             {
                 "schema": "openfic.document",
@@ -224,13 +214,8 @@ async def export_project_bundle(session: AsyncSession, project_id: str) -> bytes
         if note.category_id is not None and note.category_id not in category_paths:
             raise BundleFormatError("note category is missing or cross-project")
         root_directory = "outlines" if note.document_type == "outline" else "notes"
-        directory = category_paths.get(
-            note.category_id, f"{root_directory}/_uncategorized"
-        )
-        path = (
-            f"{directory}/{note.order:06d}-{slugify_filename(note.title, note.id)}"
-            f"--{note.id}.md"
-        )
+        directory = category_paths.get(note.category_id, f"{root_directory}/_uncategorized")
+        path = f"{directory}/{note.order:06d}-{slugify_filename(note.title, note.id)}--{note.id}.md"
         base_hash = document_semantic_hash(fields, note.title, note.content)
         files[path] = _doc(
             {
@@ -242,9 +227,7 @@ async def export_project_bundle(session: AsyncSession, project_id: str) -> bytes
             note.title,
             note.content,
         )
-        documents.append(
-            {"kind": "note", "id": note.id, "path": path, "base_hash": base_hash}
-        )
+        documents.append({"kind": "note", "id": note.id, "path": path, "base_hash": base_hash})
 
     tasks = list(
         (
@@ -263,10 +246,7 @@ async def export_project_bundle(session: AsyncSession, project_id: str) -> bytes
     )
     for index, task in enumerate(tasks, start=1):
         session_id = task.agent_session_id
-        directory = (
-            f"discussions/{index:06d}-{slugify_filename(task.title, task.id)}"
-            f"--{task.id}"
-        )
+        directory = f"discussions/{index:06d}-{slugify_filename(task.title, task.id)}--{task.id}"
         discussion_fields = {
             "kind": "discussion",
             "id": task.id,
@@ -336,10 +316,7 @@ async def export_project_bundle(session: AsyncSession, project_id: str) -> bytes
                 f"{label} {message.seq:06d}",
                 message.content,
             )
-            path = (
-                f"{directory}/messages/{message.seq:06d}-{message.role}"
-                f"--{message.id}.md"
-            )
+            path = f"{directory}/messages/{message.seq:06d}-{message.role}--{message.id}.md"
             files[path] = _doc(
                 {
                     "schema": "openfic.document",

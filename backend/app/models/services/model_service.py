@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Model Service - 模型业务逻辑层。
 """
@@ -151,13 +150,9 @@ class ModelService:
             top_k = with_default(top_k, DEFAULT_TOP_K)
             min_p = with_default(min_p, DEFAULT_MIN_P)
             top_a = with_default(top_a, DEFAULT_TOP_A)
-            frequency_penalty = with_default(
-                frequency_penalty, DEFAULT_FREQUENCY_PENALTY
-            )
+            frequency_penalty = with_default(frequency_penalty, DEFAULT_FREQUENCY_PENALTY)
             presence_penalty = with_default(presence_penalty, DEFAULT_PRESENCE_PENALTY)
-            repetition_penalty = with_default(
-                repetition_penalty, DEFAULT_REPETITION_PENALTY
-            )
+            repetition_penalty = with_default(repetition_penalty, DEFAULT_REPETITION_PENALTY)
 
         model = await model_repo.create(
             session=session,
@@ -245,9 +240,7 @@ class ModelService:
         if is_enabled is False and existing.is_enabled:
             usage_labels = await self._get_model_usage_labels(session, model_id)
             if usage_labels:
-                raise ValueError(
-                    "模型正在被以下配置使用，不能停用：" + "、".join(usage_labels)
-                )
+                raise ValueError("模型正在被以下配置使用，不能停用：" + "、".join(usage_labels))
         if name is not None and await model_repo.exists_by_name(
             session, name, exclude_model_id=model_id
         ):
@@ -298,9 +291,7 @@ class ModelService:
         await session.commit()
         return model
 
-    async def _get_model_usage_labels(
-        self, session: AsyncSession, model_id: str
-    ) -> list[str]:
+    async def _get_model_usage_labels(self, session: AsyncSession, model_id: str) -> list[str]:
         setting_labels = {
             "default_model": "默认模型",
             "light_model": "轻量模型",
@@ -345,4 +336,3 @@ class ModelService:
         if not success:
             raise NotFoundError(f"Model with id {model_id} not found")
         await session.commit()
-

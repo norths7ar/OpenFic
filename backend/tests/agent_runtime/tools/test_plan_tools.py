@@ -51,13 +51,16 @@ async def test_write_plan_tool_returns_current_plan_after_replacing_session_todo
         ]
     }
 
-    with patch(
-        "app.agent_runtime.tools.impls.plan.write_plan.create_session",
-        new=AsyncMock(return_value=session),
-    ), patch(
-        "app.agent_runtime.tools.impls.plan.write_plan.plan_service.write_plan",
-        new=AsyncMock(return_value=snapshot),
-    ) as write_plan_service:
+    with (
+        patch(
+            "app.agent_runtime.tools.impls.plan.write_plan.create_session",
+            new=AsyncMock(return_value=session),
+        ),
+        patch(
+            "app.agent_runtime.tools.impls.plan.write_plan.plan_service.write_plan",
+            new=AsyncMock(return_value=snapshot),
+        ) as write_plan_service,
+    ):
         tool = ToolRegistry.get_tools(
             names=["write_plan"],
             state={

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Macro Parser Tests - 宏语法解析器测试。
 """
@@ -6,7 +5,7 @@ Macro Parser Tests - 宏语法解析器测试。
 import pytest
 
 from app.macro.lexer import MacroMatch
-from app.macro.parser import MacroParser, MacroParseError
+from app.macro.parser import MacroParseError, MacroParser
 
 
 class TestParseMacro:

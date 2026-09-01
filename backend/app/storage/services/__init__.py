@@ -1,46 +1,5 @@
-# -*- coding: utf-8 -*-
-"""
-Service 模块 - 业务逻辑层。
-"""
+"""Storage service package.
 
-from app.storage.services import (
-    agent_definition_service,
-    agent_memory_service,
-    agent_rule_service,
-    character_service,
-    chapter_service,
-    import_service,
-    mention_service,
-    note_service,
-    pending_project_change_service,
-    project_service,
-    prompt_chain_service,
-    revision_content_backfill,
-    revision_service,
-    skill_service,
-    task_service,
-    writing_activity_service,
-    world_info_entry_service,
-    world_info_service,
-)
-
-__all__ = [
-    "agent_definition_service",
-    "agent_memory_service",
-    "agent_rule_service",
-    "character_service",
-    "chapter_service",
-    "import_service",
-    "mention_service",
-    "note_service",
-    "pending_project_change_service",
-    "project_service",
-    "prompt_chain_service",
-    "revision_content_backfill",
-    "revision_service",
-    "skill_service",
-    "task_service",
-    "writing_activity_service",
-    "world_info_entry_service",
-    "world_info_service",
-]
+Import service modules explicitly at their call sites so loading one service does
+not initialize every business workflow.
+"""

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 WorldInfo Entry Service - 世界书条目业务逻辑层。
 """
@@ -123,9 +122,7 @@ async def ensure_entry_name_available(
         session, world_info_id, exclude_entry_id=exclude_entry_id
     )
     if normalized_name in existing_names:
-        raise WorldInfoEntryNameConflictError(
-            f"世界书条目名称已存在: {normalized_name}"
-        )
+        raise WorldInfoEntryNameConflictError(f"世界书条目名称已存在: {normalized_name}")
     return normalized_name
 
 
@@ -532,9 +529,7 @@ async def batch_delete_entries(
 ) -> int:
     """批量删除条目。"""
     await get_world_info(session, world_info_id)
-    deleted = await world_info_entry_repo.batch_delete(
-        session, world_info_id, entry_ids
-    )
+    deleted = await world_info_entry_repo.batch_delete(session, world_info_id, entry_ids)
     return deleted
 
 
@@ -546,13 +541,9 @@ async def search_entries(
     await get_world_info(session, world_info_id)
 
     if not query.strip():
-        return WorldInfoEntrySearchResponse(
-            results=[], total_entries=0, total_matches=0
-        )
+        return WorldInfoEntrySearchResponse(results=[], total_entries=0, total_matches=0)
 
-    entries = await world_info_entry_repo.search_by_content(
-        session, world_info_id, query
-    )
+    entries = await world_info_entry_repo.search_by_content(session, world_info_id, query)
 
     results: list[WorldInfoEntrySearchResult] = []
     total_matches = 0

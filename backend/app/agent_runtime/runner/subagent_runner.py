@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import inspect
 import asyncio
+import inspect
 import time
 from datetime import UTC, datetime
 from typing import Any
@@ -14,12 +14,10 @@ from app.agent_runtime.agents.definitions import (
     AgentDefinition,
     load_agent_definition,
 )
-from app.audit import AuditContext
 from app.agent_runtime.agents.tool_categories import get_tool_names_for_categories
 from app.agent_runtime.context.helpers import extract_referenced_skill_ids
 from app.agent_runtime.graph.react_agent import create_react_agent
 from app.agent_runtime.model_config import to_client_model_config
-from app.agent_runtime.persistence import MessagePersister
 from app.agent_runtime.persistence.child_runs import (
     claim_next_child_run_request,
     complete_child_run_request,
@@ -31,16 +29,17 @@ from app.agent_runtime.persistence.child_runs import (
 )
 from app.agent_runtime.persistence.loader import load_history
 from app.agent_runtime.persistence.model import AgentChildRun, AgentChildRunRequest
+from app.agent_runtime.persistence.persister import MessagePersister
 from app.agent_runtime.runner.checkpointer import get_checkpointer, prune_thread_checkpoints
-from app.agent_runtime.runner.event_translator import EventTranslator
 from app.agent_runtime.runner.event_scope import SUBAGENT_CHILD_EVENT_TAG
+from app.agent_runtime.runner.event_translator import EventTranslator
 from app.agent_runtime.runner.run_registry import get_agent_run_registry
 from app.agent_runtime.streaming.replay_buffer import get_agent_event_replay_buffer
 from app.agent_runtime.tools import ToolRegistry
 from app.agent_runtime.tools.hooks import (
     auth_hook,
-    character_refresh_post_hook,
     chapter_refresh_post_hook,
+    character_refresh_post_hook,
     note_refresh_post_hook,
     world_entry_refresh_post_hook,
 )
@@ -55,10 +54,12 @@ from app.agent_runtime.usage_cost import (
     extract_cache_read_tokens,
     extract_cache_write_tokens,
 )
+from app.audit import AuditContext
 from app.core.encryption import EncryptionService
 from app.models.clients.model_factory import ModelConfig, create_chat_model
 from app.models.repos import model_provider_repo, model_repo
 from app.models.services.model_provider_service import ModelProviderService
+from app.settings import settings
 from app.socket import emit
 from app.socket.handlers import (
     agent_session_room,
@@ -66,11 +67,9 @@ from app.socket.handlers import (
     agent_subagents_room,
     background_project_room,
 )
-from app.settings import settings
 from app.storage.database import _get_session_factory, create_session
 from app.storage.repos import setting_repo
 from app.storage.services import task_service
-
 
 SYSTEM_DEFAULT_MODEL_REFERENCE = "__system_default_model__"
 SYSTEM_LIGHT_MODEL_REFERENCE = "__system_light_model__"
@@ -146,9 +145,8 @@ async def _resolve_model_record_id(
     parent model config).
     """
     if configured_model_id == SYSTEM_LIGHT_MODEL_REFERENCE:
-        return (
-            await _read_setting_model_id(session, "light_model")
-            or await _read_setting_model_id(session, "default_model")
+        return await _read_setting_model_id(session, "light_model") or await _read_setting_model_id(
+            session, "default_model"
         )
 
     if configured_model_id in (None, "", SYSTEM_DEFAULT_MODEL_REFERENCE):
@@ -175,9 +173,7 @@ async def _build_model_config_from_record(session: Any, record_id: str) -> dict[
 
     encryption_service = EncryptionService(settings.encryption_key)
     api_key = encryption_service.decrypt(provider.api_key_encrypted)
-    custom_headers = ModelProviderService(
-        encryption_service
-    ).get_decrypted_custom_headers(provider)
+    custom_headers = ModelProviderService(encryption_service).get_decrypted_custom_headers(provider)
     return {
         "provider_type": provider.provider_type,
         "base_url": provider.url,
@@ -243,11 +239,7 @@ def _interrupt_value(interrupt_obj: Any) -> dict[str, Any]:
 
 
 def _interrupt_id(interrupt_obj: Any, value: dict[str, Any]) -> str:
-    raw_id = (
-        value.get("approval_id")
-        or value.get("id")
-        or getattr(interrupt_obj, "id", None)
-    )
+    raw_id = value.get("approval_id") or value.get("id") or getattr(interrupt_obj, "id", None)
     if isinstance(raw_id, str) and raw_id:
         return raw_id
     return "child-approval"
@@ -479,9 +471,7 @@ class SubagentRunner:
             ):
                 ws_events = translator.translate(event)
                 if ws_events:
-                    for ws_event in (
-                        ws_events if isinstance(ws_events, list) else [ws_events]
-                    ):
+                    for ws_event in ws_events if isinstance(ws_events, list) else [ws_events]:
                         payload = ws_event["data"]
                         if ws_event["name"] == "agent:usage":
                             payload = self._normalize_usage_event(
@@ -548,9 +538,7 @@ class SubagentRunner:
             finally:
                 await _close_session(session)
         except Exception:
-            logger.exception(
-                f"Failed to prune checkpoints for child thread {child_thread_id}"
-            )
+            logger.exception(f"Failed to prune checkpoints for child thread {child_thread_id}")
 
     def _make_child_persister(self, row: AgentChildRun) -> MessagePersister:
         factory = self.session_factory or _get_session_factory()
@@ -710,8 +698,7 @@ class SubagentRunner:
             "context_length": int(active_model_config.get("max_context_tokens", 0)),
             **(
                 {"usage_kind": event_data["usage_kind"]}
-                if isinstance(event_data.get("usage_kind"), str)
-                and event_data.get("usage_kind")
+                if isinstance(event_data.get("usage_kind"), str) and event_data.get("usage_kind")
                 else {}
             ),
         }
@@ -785,9 +772,7 @@ class SubagentRunner:
             "queued_messages": pending_count,
             "is_active": row.is_active,
             "pending_approval": (
-                dict(row.pending_approval_json)
-                if row.pending_approval_json is not None
-                else None
+                dict(row.pending_approval_json) if row.pending_approval_json is not None else None
             ),
         }
         agent_number = get_child_run_agent_number(row.metadata_json)

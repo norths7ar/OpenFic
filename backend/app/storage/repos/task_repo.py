@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Task Repository - 任务数据访问层。
 """
@@ -6,7 +5,8 @@ Task Repository - 任务数据访问层。
 from datetime import UTC, datetime
 
 from sqlalchemy import delete as sql_delete
-from sqlalchemy import func, select, update as sql_update
+from sqlalchemy import func, select
+from sqlalchemy import update as sql_update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col
 
@@ -70,9 +70,7 @@ async def get_by_id(session: AsyncSession, task_id: str) -> Task | None:
     return result.scalar_one_or_none()
 
 
-async def get_by_agent_session_id(
-    session: AsyncSession, agent_session_id: str
-) -> Task | None:
+async def get_by_agent_session_id(session: AsyncSession, agent_session_id: str) -> Task | None:
     """根据 Agent session ID 获取任务。"""
     result = await session.execute(
         select(Task).where(col(Task.agent_session_id) == agent_session_id)

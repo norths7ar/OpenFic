@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Embedding Client - Embedding模型调用客户端。
 
@@ -157,9 +156,7 @@ class EmbeddingClient:
             embeddings_model = self._get_embeddings()
             for i in range(0, len(texts), self.config.batch_size):
                 batch = texts[i : i + self.config.batch_size]
-                all_embeddings.extend(
-                    await embeddings_model.aembed_documents(batch)
-                )
+                all_embeddings.extend(await embeddings_model.aembed_documents(batch))
             return EmbeddingResponse(
                 embeddings=all_embeddings,
                 model=self.config.model_id,

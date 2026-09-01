@@ -57,7 +57,9 @@ class EditWorldEntryInput(BaseModel):
     new_title: str | None = Field(default=None, description="新条目标题，可选")
     old_content: str | None = Field(default=None, description="要查找并替换的原始文本")
     new_content: str | None = Field(default=None, description="用于替换 old_content 的新文本")
-    replace_all: bool = Field(default=False, description="是否替换命中的全部 old_content，false 时只替换首个匹配项")
+    replace_all: bool = Field(
+        default=False, description="是否替换命中的全部 old_content，false 时只替换首个匹配项"
+    )
 
     @field_validator("old_content", mode="after")
     @classmethod
@@ -108,8 +110,7 @@ def _format_content_with_line_numbers(content: str) -> str:
     if not content:
         return ""
     return "\n".join(
-        f"{line_number}|{line}"
-        for line_number, line in enumerate(content.splitlines(), start=1)
+        f"{line_number}|{line}" for line_number, line in enumerate(content.splitlines(), start=1)
     )
 
 
@@ -153,7 +154,9 @@ def _build_world_entry_diff(
         lines = _diff_lines(before.content, None)
     else:
         operation = "edit"
-        lines = _diff_lines(before.content, after.content) if before.content != after.content else []
+        lines = (
+            _diff_lines(before.content, after.content) if before.content != after.content else []
+        )
     return {
         "operation": operation,
         "entry_title": target.title,
@@ -213,9 +216,7 @@ async def _resolve_visible_entry(
     if not normalized_title:
         raise ToolExecutionError("世界书条目标题不能为空")
     matches = [
-        entry
-        for entry in entries
-        if _normalize_lookup_title(entry.name) == normalized_title
+        entry for entry in entries if _normalize_lookup_title(entry.name) == normalized_title
     ]
     if not matches:
         raise ToolExecutionError(f"世界书条目不存在: {normalized_title}")
@@ -254,8 +255,7 @@ async def _resolve_writable_entry_by_title(
     matches = [
         entry
         for entry in entries
-        if entry.name == normalized_title
-        and world_entry_is_visible(entry, include_all=include_all)
+        if entry.name == normalized_title and world_entry_is_visible(entry, include_all=include_all)
     ]
     if not matches:
         raise ToolExecutionError(f"世界书条目不存在: {normalized_title}")
@@ -274,9 +274,7 @@ async def _ensure_title_available(
     if not normalized_title:
         raise ToolExecutionError("世界书条目标题不能为空")
     entries = await world_info_entry_repo.list_all_by_world_info(session, world_info_id)
-    if any(
-        entry.name == normalized_title and entry.id != exclude_entry_id for entry in entries
-    ):
+    if any(entry.name == normalized_title and entry.id != exclude_entry_id for entry in entries):
         raise ToolExecutionError(f"世界书条目标题已存在: {normalized_title}")
     return normalized_title
 
@@ -483,7 +481,9 @@ class EditWorldEntryTool(AgentTool):
             content = before.content
             if old_content is not None and new_content is not None:
                 replace_result = fuzzy_replace(
-                    content, old_content, new_content,
+                    content,
+                    old_content,
+                    new_content,
                     replace_all=bool(args.get("replace_all")),
                 )
                 if replace_result is None:

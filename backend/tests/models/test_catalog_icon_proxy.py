@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Catalog icon proxy service tests.
 """
@@ -79,7 +78,7 @@ async def test_unavailable_icon_sources_return_local_default_icon() -> None:
 
     assert result.source == "default"
     assert b'viewBox="0 0 24 24"' in result.content
-    assert b'M9.8132 15.9038L9 18.75L8.1868 15.9038' in result.content
+    assert b"M9.8132 15.9038L9 18.75L8.1868 15.9038" in result.content
     assert calls == ["jsdelivr", "models_dev"]
 
 

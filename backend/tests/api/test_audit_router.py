@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Audit Router 序列化测试。
 """

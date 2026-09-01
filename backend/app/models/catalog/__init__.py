@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Model provider catalog utilities."""
 
 from app.models.catalog.icon_proxy import CatalogIconProxyService

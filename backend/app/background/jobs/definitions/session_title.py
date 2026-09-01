@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 from loguru import logger
 from pydantic import BaseModel, Field
 
+from app.agent_runtime.context.helpers.canonical_mentions import compile_canonical_mentions
 from app.audit import AuditContext
 from app.background.events.types import EVENT_TASK_TITLE_UPDATED
 from app.background.jobs import service as job_service
@@ -13,7 +14,6 @@ from app.background.jobs.base import JobDefinition
 from app.background.jobs.constants import JOB_QUEUE_LLM, JOB_TYPE_SESSION_TITLE
 from app.background.llm.resolver import BackgroundModelUnavailableError, resolve_background_llm
 from app.background.runtime.context import JobContext
-from app.agent_runtime.context.helpers.canonical_mentions import compile_canonical_mentions
 from app.memory.prompt_chain_runner import ChatRuntime, build_chat_messages
 from app.storage.repos import task_repo
 
@@ -109,7 +109,9 @@ async def handle_session_title(context: JobContext) -> dict[str, str] | None:
     await context.check_cancelled()
     title = _clean_title(response.content)
     if not title:
-        logger.bind(job_id=context.job.id, task_id=payload.task_id).warning("生成标题为空，跳过更新")
+        logger.bind(job_id=context.job.id, task_id=payload.task_id).warning(
+            "生成标题为空，跳过更新"
+        )
 
         async def mark_empty_title_skipped(session, job):
             await job_service.mark_skipped(session, context.publisher, job, reason="生成标题为空")

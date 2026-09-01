@@ -51,10 +51,7 @@ async def test_audit_request_messages_are_pretty_json(
     assert request_messages.startswith("[\n")
     assert '\n    "content": "提示词：\\n"' in request_messages
     assert '\n        "name": "edit_chapter"' in request_messages
-    assert (
-        json.loads(request_messages)[1]["tool_calls"][0]["args"]["content"]
-        == "第一段\n第二段"
-    )
+    assert json.loads(request_messages)[1]["tool_calls"][0]["args"]["content"] == "第一段\n第二段"
 
 
 @pytest.mark.asyncio

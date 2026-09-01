@@ -1,16 +1,16 @@
 import logging
 import time
+from collections.abc import MutableMapping
 from dataclasses import dataclass
 from http import HTTPStatus
 from inspect import getsourcelines
 from types import CodeType
-from typing import MutableMapping, Protocol, TypeGuard, cast
+from typing import Protocol, TypeGuard, cast
 
 from loguru import logger
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
-
 
 logging.getLogger("uvicorn.access").disabled = True
 
@@ -33,9 +33,7 @@ class AccessLogMiddleware(BaseHTTPMiddleware):
         self._log_request(request, response.status_code, duration_ms)
         return response
 
-    def _log_request(
-        self, request: Request, status_code: int, duration_ms: float
-    ) -> None:
+    def _log_request(self, request: Request, status_code: int, duration_ms: float) -> None:
         path = request.url.path
         access_logger = logger.bind(
             method=request.method,
@@ -51,7 +49,8 @@ class AccessLogMiddleware(BaseHTTPMiddleware):
                 )
             )
         _log_at_level(
-            access_logger, status_code,
+            access_logger,
+            status_code,
             format_access_log(request.method, path, status_code, duration_ms),
         )
 
@@ -71,9 +70,7 @@ class LocatedCallable(Protocol):
     def __call__(self, *args: object, **kwargs: object) -> object: ...
 
 
-def format_access_log(
-    method: str, path: str, status_code: int, duration_ms: float
-) -> str:
+def format_access_log(method: str, path: str, status_code: int, duration_ms: float) -> str:
     return f"{method} {path} {status_code} {_get_status_phrase(status_code)} {duration_ms:.2f}ms"
 
 

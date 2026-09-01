@@ -1,5 +1,4 @@
-from typing import Final, Literal, TypeVar
-
+from typing import Final, Literal
 
 ReasoningEffort = Literal["off", "low", "medium", "high", "xhigh", "max"]
 
@@ -19,12 +18,10 @@ REASONING_EFFORT_VALUES: Final[frozenset[str]] = frozenset(
     {"off", "low", "medium", "high", "xhigh", "max"}
 )
 
-T = TypeVar("T")
-
 
 def is_non_default(value: object, default: object) -> bool:
     return value != default
 
 
-def with_default(value: T | None, default: T) -> T:
+def with_default[T](value: T | None, default: T) -> T:
     return default if value is None else value

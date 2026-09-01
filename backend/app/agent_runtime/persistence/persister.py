@@ -19,17 +19,17 @@ from app.agent_runtime.persistence.child_runs import (
 )
 from app.agent_runtime.persistence.errors import PersistenceWriteError
 from app.agent_runtime.runner.event_scope import is_subagent_child_event
+from app.agent_runtime.tool_call_recovery import (
+    is_malformed_tool_call,
+    reconcile_tool_call_chunks,
+    recover_message_tool_calls,
+)
 from app.agent_runtime.tools.errors import (
     ToolErrorCode,
     ToolFailure,
     log_tool_failure,
     serialize_tool_failure,
     tool_failure_from_error,
-)
-from app.agent_runtime.tool_call_recovery import (
-    is_malformed_tool_call,
-    reconcile_tool_call_chunks,
-    recover_message_tool_calls,
 )
 
 logger = logging.getLogger(__name__)
@@ -121,9 +121,7 @@ class MessagePersister:
             raise
         except Exception as e:
             logger.exception("MessagePersister.handle failed for event %s", kind)
-            raise PersistenceWriteError(
-                f"persister handle failed for event={kind}"
-            ) from e
+            raise PersistenceWriteError(f"persister handle failed for event={kind}") from e
 
     def _on_chain_start(self, event: dict) -> None:
         if self.AGENT_NODE_TAG in event.get("tags", []):
@@ -165,9 +163,7 @@ class MessagePersister:
             idx = tcc.get("index")
             if idx is None:
                 continue
-            slot = buf.tool_call_chunks.setdefault(
-                idx, {"id": None, "name": None, "args_text": ""}
-            )
+            slot = buf.tool_call_chunks.setdefault(idx, {"id": None, "name": None, "args_text": ""})
             if tcc.get("id"):
                 slot["id"] = tcc["id"]
             if tcc.get("name"):
@@ -184,9 +180,7 @@ class MessagePersister:
 
         output = event.get("data", {}).get("output")
         content = "".join(buf.content_parts) or self._extract_output_content(output)
-        reasoning = "".join(buf.reasoning_parts) or self._extract_output_reasoning(
-            output
-        )
+        reasoning = "".join(buf.reasoning_parts) or self._extract_output_reasoning(output)
         reasoning_duration_ms = self._get_reasoning_duration_ms(buf)
         tool_calls = self._reconcile_tool_calls(buf.tool_call_chunks, run_id=run_id)
         if not tool_calls:
@@ -227,9 +221,7 @@ class MessagePersister:
         run_id = event.get("run_id") or "default"
         tool_name = event.get("name") or ""
         meta = event.get("metadata") or {}
-        tool_call_id = (
-            meta.get("tool_call_id") or meta.get("tool_call", {}).get("id") or run_id
-        )
+        tool_call_id = meta.get("tool_call_id") or meta.get("tool_call", {}).get("id") or run_id
         input_data = event.get("data", {}).get("input")
         self._pending_tools[run_id] = _PendingTool(
             run_id=run_id,
@@ -564,9 +556,7 @@ class MessagePersister:
             raise
         except Exception as e:
             logger.exception("MessagePersister.finalize failed reason=%s", reason)
-            raise PersistenceWriteError(
-                f"persister finalize failed reason={reason}"
-            ) from e
+            raise PersistenceWriteError(f"persister finalize failed reason={reason}") from e
 
     async def _cancelled_subagent_tool_result(
         self,

@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import io
 import zipfile
 
@@ -38,9 +36,7 @@ async def test_builtin_skill_is_listed_first_and_toggle_persists(client: AsyncCl
     builtin_items = [item for item in items if item["source"] == "builtin"]
     assert builtin_items
     builtin = builtin_items[0]
-    assert all(
-        item["source"] == "builtin" for item in items[: len(builtin_items)]
-    )
+    assert all(item["source"] == "builtin" for item in items[: len(builtin_items)])
     assert all(item["source"] != "builtin" for item in items[len(builtin_items) :])
     assert builtin["source"] == "builtin"
     assert builtin["is_enabled"] is True
@@ -51,9 +47,7 @@ async def test_builtin_skill_is_listed_first_and_toggle_persists(client: AsyncCl
 
     refreshed = await client.get("/api/v1/skills")
     refreshed_builtin = next(
-        item
-        for item in refreshed.json()["items"]
-        if item["id"] == builtin["id"]
+        item for item in refreshed.json()["items"] if item["id"] == builtin["id"]
     )
     assert refreshed_builtin["is_enabled"] is False
     assert refreshed.json()["total"] == len(builtin_items)
@@ -65,9 +59,7 @@ async def test_builtin_skill_cannot_be_updated_or_deleted(client: AsyncClient) -
     list_response = await client.get("/api/v1/skills")
     assert list_response.status_code == 200
     skill_id = next(
-        item["id"]
-        for item in list_response.json()["items"]
-        if item["source"] == "builtin"
+        item["id"] for item in list_response.json()["items"] if item["source"] == "builtin"
     )
 
     update_response = await client.patch(f"/api/v1/skills/{skill_id}", json={"name": "已修改"})
@@ -198,9 +190,7 @@ async def test_fork_skill_copies_custom_skill_and_reference_docs(client: AsyncCl
 
     fork_docs_response = await client.get(f"/api/v1/skills/{fork['id']}/reference-docs")
     assert fork_docs_response.status_code == 200
-    assert [
-        (doc["title"], doc["content"]) for doc in fork_docs_response.json()
-    ] == [
+    assert [(doc["title"], doc["content"]) for doc in fork_docs_response.json()] == [
         ("参考文档一", "参考内容一"),
         ("参考文档二", "参考内容二"),
     ]
@@ -209,9 +199,7 @@ async def test_fork_skill_copies_custom_skill_and_reference_docs(client: AsyncCl
 @pytest.mark.asyncio
 async def test_fork_skill_copies_builtin_skill_and_reference_docs(client: AsyncClient) -> None:
     list_response = await client.get("/api/v1/skills")
-    builtin_skills = [
-        item for item in list_response.json()["items"] if item["source"] == "builtin"
-    ]
+    builtin_skills = [item for item in list_response.json()["items"] if item["source"] == "builtin"]
     source = None
     source_docs = []
     for skill in builtin_skills:
@@ -235,9 +223,9 @@ async def test_fork_skill_copies_builtin_skill_and_reference_docs(client: AsyncC
 
     fork_docs_response = await client.get(f"/api/v1/skills/{fork['id']}/reference-docs")
     assert fork_docs_response.status_code == 200
-    assert [
-        (doc["title"], doc["content"]) for doc in fork_docs_response.json()
-    ] == [(doc["title"], doc["content"]) for doc in source_docs]
+    assert [(doc["title"], doc["content"]) for doc in fork_docs_response.json()] == [
+        (doc["title"], doc["content"]) for doc in source_docs
+    ]
 
 
 @pytest.mark.asyncio

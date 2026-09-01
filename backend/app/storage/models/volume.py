@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Volume 数据模型。
 """
@@ -15,9 +14,7 @@ class Volume(SQLModel, table=True):
     """小说卷模型。"""
 
     __tablename__ = "volumes"
-    __table_args__ = (
-        UniqueConstraint("project_id", "order", name="uq_volumes_project_order"),
-    )
+    __table_args__ = (UniqueConstraint("project_id", "order", name="uq_volumes_project_order"),)
 
     id: str = Field(default_factory=generate_id, primary_key=True)
     project_id: str = Field(index=True, foreign_key="projects.id")

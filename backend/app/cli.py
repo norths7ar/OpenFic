@@ -9,8 +9,8 @@ from __future__ import annotations
 import argparse
 import asyncio
 import os
-from pathlib import Path
 import sys
+from pathlib import Path
 
 from app.logging import configure_standard_logging
 
@@ -61,7 +61,9 @@ def handle_serve(args: argparse.Namespace) -> None:
         os.environ["OPENFIC_AUTH_PASSWORD"] = auth_password
 
     import uvicorn
-    from app.main import app as asgi_app, fastapi_app
+
+    from app.main import app as asgi_app
+    from app.main import fastapi_app
 
     config = uvicorn.Config(
         asgi_app,
@@ -86,8 +88,12 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="command")
 
     serve_parser = subparsers.add_parser("serve", help="启动本地服务")
-    serve_parser.add_argument("--host", default=_DEFAULT_HOST, help=f"绑定地址（默认 {_DEFAULT_HOST}）")
-    serve_parser.add_argument("--port", type=int, default=_DEFAULT_PORT, help=f"绑定端口（默认 {_DEFAULT_PORT}）")
+    serve_parser.add_argument(
+        "--host", default=_DEFAULT_HOST, help=f"绑定地址（默认 {_DEFAULT_HOST}）"
+    )
+    serve_parser.add_argument(
+        "--port", type=int, default=_DEFAULT_PORT, help=f"绑定端口（默认 {_DEFAULT_PORT}）"
+    )
     serve_parser.add_argument("--auth-password", default=None, help="启用应用密码保护")
     serve_parser.set_defaults(handler=handle_serve)
 

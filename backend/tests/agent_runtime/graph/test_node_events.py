@@ -119,9 +119,7 @@ async def test_wrap_node_reports_previous_node_on_next_start(monkeypatch):
     composer_start = next(
         payload
         for name, payload, _room in emitted
-        if name == "agent:node"
-        and payload["node"] == "composer"
-        and payload["phase"] == "start"
+        if name == "agent:node" and payload["node"] == "composer" and payload["phase"] == "start"
     )
     assert composer_start["current_node"] == "composer"
     assert composer_start["previous_node"] == "clarifier"

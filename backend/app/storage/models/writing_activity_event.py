@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Writing Activity Event 数据模型 - 写作活动事件。
 """

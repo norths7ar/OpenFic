@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Model provider catalog API tests.
 """
@@ -78,9 +77,7 @@ async def test_catalog_provider_models_endpoint_returns_release_date_desc_order(
 
     payload = response.json()
     models: list[dict[str, Any]] = payload["models"]
-    release_dates = [
-        (model.get("metadata") or {}).get("release_date") for model in models
-    ]
+    release_dates = [(model.get("metadata") or {}).get("release_date") for model in models]
 
     assert sum(value is not None for value in release_dates) >= 2
     assert release_dates == sorted(release_dates, key=_release_sort_tuple)

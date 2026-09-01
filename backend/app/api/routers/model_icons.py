@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Model icon routes."""
 
 from typing import Annotated
@@ -18,9 +17,7 @@ def get_catalog_icon_proxy_service(request: Request) -> CatalogIconProxyService:
 @router.get("/catalog/{provider_file}", summary="Get a catalog provider icon")
 async def get_catalog_provider_icon(
     provider_file: str,
-    service: Annotated[
-        CatalogIconProxyService, Depends(get_catalog_icon_proxy_service)
-    ],
+    service: Annotated[CatalogIconProxyService, Depends(get_catalog_icon_proxy_service)],
 ) -> Response:
     if not provider_file.endswith(".svg"):
         raise HTTPException(status_code=404, detail="Catalog provider icon not found")

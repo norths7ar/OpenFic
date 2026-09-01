@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Projects Router - 项目 CRUD API。
 """
@@ -42,16 +41,8 @@ async def _list_project_checkpoint_thread_ids(
         )
     )
     return [
-        *(
-            session_id
-            for session_id in task_result.scalars().all()
-            if session_id
-        ),
-        *(
-            thread_id
-            for thread_id in child_result.scalars().all()
-            if thread_id
-        ),
+        *(session_id for session_id in task_result.scalars().all() if session_id),
+        *(thread_id for thread_id in child_result.scalars().all() if thread_id),
     ]
 
 
@@ -103,9 +94,7 @@ async def list_projects(
         Literal["updated_at", "created_at", "title"],
         Query(description="排序字段"),
     ] = "updated_at",
-    sort_order: Annotated[
-        Literal["asc", "desc"], Query(description="排序方向")
-    ] = "desc",
+    sort_order: Annotated[Literal["asc", "desc"], Query(description="排序方向")] = "desc",
 ) -> ProjectListResponse:
     """
     获取项目列表，支持分页。
@@ -163,7 +152,7 @@ async def get_project(
         project = await project_service.get_project(session, project_id)
         return _project_to_response(project)
     except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
 
 
 @router.patch(
@@ -205,7 +194,7 @@ async def update_project(
         )
         return _project_to_response(project)
     except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
 
 
 @router.delete(
@@ -247,7 +236,7 @@ async def delete_project(
                 deleted_rows,
             )
     except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
 
 
 def _project_to_response(project) -> ProjectResponse:

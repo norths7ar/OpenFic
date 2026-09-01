@@ -8,8 +8,7 @@ from langchain_core.messages import HumanMessage
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.errors import GraphRecursionError
 from langgraph.graph import START, StateGraph
-from langgraph.types import interrupt
-from langgraph.types import Command
+from langgraph.types import Command, interrupt
 
 from app.agent_runtime.context.types import ContextMessage
 from app.agent_runtime.runner.session_runner import SessionRunner, _interrupt_payloads
@@ -44,19 +43,33 @@ def test_interrupt_payloads_preserve_pending_resume_data() -> None:
 
 
 def test_session_runner_init():
-    runner = SessionRunner(session_id="sess_001", task_id="task_001", model_config={
-        "provider_type": "openai", "model_id": "gpt-4o", "api_key": "sk-test", "base_url": "",
-        "max_context_tokens": 8000,
-    })
+    runner = SessionRunner(
+        session_id="sess_001",
+        task_id="task_001",
+        model_config={
+            "provider_type": "openai",
+            "model_id": "gpt-4o",
+            "api_key": "sk-test",
+            "base_url": "",
+            "max_context_tokens": 8000,
+        },
+    )
     assert runner.session_id == "sess_001"
     assert not hasattr(runner, "mode")
 
 
 def test_session_runner_inject_queue():
-    runner = SessionRunner(session_id="sess_001", task_id="task_001", model_config={
-        "provider_type": "openai", "model_id": "gpt-4o", "api_key": "sk-test", "base_url": "",
-        "max_context_tokens": 8000,
-    })
+    runner = SessionRunner(
+        session_id="sess_001",
+        task_id="task_001",
+        model_config={
+            "provider_type": "openai",
+            "model_id": "gpt-4o",
+            "api_key": "sk-test",
+            "base_url": "",
+            "max_context_tokens": 8000,
+        },
+    )
     assert runner._inject_queue is not None
     assert runner._inject_queue.empty()
 
@@ -86,10 +99,17 @@ def test_runtime_config_keeps_api_key_outside_persisted_state():
 
 @pytest.mark.asyncio
 async def test_session_runner_inject_message():
-    runner = SessionRunner(session_id="sess_001", task_id="task_001", model_config={
-        "provider_type": "openai", "model_id": "gpt-4o", "api_key": "sk-test", "base_url": "",
-        "max_context_tokens": 8000,
-    })
+    runner = SessionRunner(
+        session_id="sess_001",
+        task_id="task_001",
+        model_config={
+            "provider_type": "openai",
+            "model_id": "gpt-4o",
+            "api_key": "sk-test",
+            "base_url": "",
+            "max_context_tokens": 8000,
+        },
+    )
     await runner.inject_message("user feedback", "msg_001")
     assert not runner._inject_queue.empty()
     msg = runner._inject_queue.get_nowait()
@@ -98,10 +118,17 @@ async def test_session_runner_inject_message():
 
 @pytest.mark.asyncio
 async def test_emit_user_message_includes_created_at():
-    runner = SessionRunner(session_id="sess_001", task_id="task_001", model_config={
-        "provider_type": "openai", "model_id": "gpt-4o", "api_key": "sk-test", "base_url": "",
-        "max_context_tokens": 8000,
-    })
+    runner = SessionRunner(
+        session_id="sess_001",
+        task_id="task_001",
+        model_config={
+            "provider_type": "openai",
+            "model_id": "gpt-4o",
+            "api_key": "sk-test",
+            "base_url": "",
+            "max_context_tokens": 8000,
+        },
+    )
 
     with patch("app.agent_runtime.runner.session_runner.emit", new=AsyncMock()) as emit_mock:
         await runner._emit_user_message("hello", "rev_001")
@@ -146,21 +173,23 @@ async def test_run_emits_done_with_created_at():
         created_at=datetime.now(UTC),
     )
 
-    with patch.object(runner, "_get_graph", AsyncMock(return_value=_Graph())), \
-         patch.object(runner, "_prepare_run_persistence", AsyncMock(return_value=[])), \
-         patch.object(runner, "_persist_user_message", AsyncMock(return_value=persisted_message)), \
-         patch(
-             "app.agent_runtime.runner.session_runner.begin_user_revision",
-             AsyncMock(return_value=SimpleNamespace(id="rev_done_001")),
-         ), \
-         patch("app.agent_runtime.runner.session_runner.finalize_revision_status", AsyncMock()), \
-         patch("app.agent_runtime.runner.session_runner.emit", new=AsyncMock()) as emit_mock, \
-         patch(
-             "app.agent_runtime.runner.session_runner.create_session",
-             AsyncMock(return_value=fake_session),
-         ), \
-         patch.object(runner, "_make_persister", MagicMock(return_value=fake_persister)), \
-         patch.object(runner, "_prune_thread_checkpoints", AsyncMock()) as prune_mock:
+    with (
+        patch.object(runner, "_get_graph", AsyncMock(return_value=_Graph())),
+        patch.object(runner, "_prepare_run_persistence", AsyncMock(return_value=[])),
+        patch.object(runner, "_persist_user_message", AsyncMock(return_value=persisted_message)),
+        patch(
+            "app.agent_runtime.runner.session_runner.begin_user_revision",
+            AsyncMock(return_value=SimpleNamespace(id="rev_done_001")),
+        ),
+        patch("app.agent_runtime.runner.session_runner.finalize_revision_status", AsyncMock()),
+        patch("app.agent_runtime.runner.session_runner.emit", new=AsyncMock()) as emit_mock,
+        patch(
+            "app.agent_runtime.runner.session_runner.create_session",
+            AsyncMock(return_value=fake_session),
+        ),
+        patch.object(runner, "_make_persister", MagicMock(return_value=fake_persister)),
+        patch.object(runner, "_prune_thread_checkpoints", AsyncMock()) as prune_mock,
+    ):
         await runner.run(user_request="hi")
 
     done_payloads = [
@@ -189,16 +218,20 @@ async def test_prune_thread_checkpoints_calls_prune_with_session_id():
     fake_session = MagicMock(close=AsyncMock())
     fake_checkpointer = MagicMock()
 
-    with patch(
-        "app.agent_runtime.runner.session_runner.create_session",
-        AsyncMock(return_value=fake_session),
-    ), patch(
-        "app.agent_runtime.runner.session_runner.get_checkpointer",
-        AsyncMock(return_value=fake_checkpointer),
-    ), patch(
-        "app.agent_runtime.runner.session_runner.prune_thread_checkpoints",
-        AsyncMock(return_value=0),
-    ) as prune_mock:
+    with (
+        patch(
+            "app.agent_runtime.runner.session_runner.create_session",
+            AsyncMock(return_value=fake_session),
+        ),
+        patch(
+            "app.agent_runtime.runner.session_runner.get_checkpointer",
+            AsyncMock(return_value=fake_checkpointer),
+        ),
+        patch(
+            "app.agent_runtime.runner.session_runner.prune_thread_checkpoints",
+            AsyncMock(return_value=0),
+        ) as prune_mock,
+    ):
         await runner._prune_thread_checkpoints()
 
     prune_mock.assert_awaited_once_with(fake_session, fake_checkpointer, "sess_prune_001")
@@ -220,12 +253,15 @@ async def test_prune_thread_checkpoints_failure_is_silent():
     )
     fake_session = MagicMock(close=AsyncMock())
 
-    with patch(
-        "app.agent_runtime.runner.session_runner.create_session",
-        AsyncMock(return_value=fake_session),
-    ), patch(
-        "app.agent_runtime.runner.session_runner.get_checkpointer",
-        AsyncMock(side_effect=RuntimeError("maintenance locked")),
+    with (
+        patch(
+            "app.agent_runtime.runner.session_runner.create_session",
+            AsyncMock(return_value=fake_session),
+        ),
+        patch(
+            "app.agent_runtime.runner.session_runner.get_checkpointer",
+            AsyncMock(side_effect=RuntimeError("maintenance locked")),
+        ),
     ):
         await runner._prune_thread_checkpoints()
 
@@ -376,23 +412,27 @@ async def test_run_emits_preview_for_each_parallel_tool_approval_interrupt():
         created_at=datetime.now(UTC),
     )
 
-    with patch.object(runner, "_get_graph", AsyncMock(return_value=_Graph())), \
-         patch.object(runner, "_prepare_run_persistence", AsyncMock(return_value=[])), \
-         patch.object(runner, "_persist_user_message", AsyncMock(return_value=persisted_message)), \
-         patch(
-             "app.agent_runtime.runner.session_runner.begin_user_revision",
-             AsyncMock(return_value=SimpleNamespace(id="rev_parallel_approval")),
-         ), \
-         patch("app.agent_runtime.runner.session_runner.finalize_revision_status", AsyncMock()), \
-         patch("app.agent_runtime.runner.session_runner.emit", new=AsyncMock()) as emit_mock, \
-         patch(
-             "app.agent_runtime.runner.session_runner.create_session",
-             AsyncMock(return_value=fake_session),
-         ), \
-         patch.object(runner, "_make_persister", MagicMock(return_value=fake_persister)):
+    with (
+        patch.object(runner, "_get_graph", AsyncMock(return_value=_Graph())),
+        patch.object(runner, "_prepare_run_persistence", AsyncMock(return_value=[])),
+        patch.object(runner, "_persist_user_message", AsyncMock(return_value=persisted_message)),
+        patch(
+            "app.agent_runtime.runner.session_runner.begin_user_revision",
+            AsyncMock(return_value=SimpleNamespace(id="rev_parallel_approval")),
+        ),
+        patch("app.agent_runtime.runner.session_runner.finalize_revision_status", AsyncMock()),
+        patch("app.agent_runtime.runner.session_runner.emit", new=AsyncMock()) as emit_mock,
+        patch(
+            "app.agent_runtime.runner.session_runner.create_session",
+            AsyncMock(return_value=fake_session),
+        ),
+        patch.object(runner, "_make_persister", MagicMock(return_value=fake_persister)),
+    ):
         await runner.run(user_request="create note and character")
 
-    preview_payloads = [call.args[0] for call in fake_persister.apply_interrupt_preview.await_args_list]
+    preview_payloads = [
+        call.args[0] for call in fake_persister.apply_interrupt_preview.await_args_list
+    ]
     assert [payload["tool_call_id"] for payload in preview_payloads] == [
         "call-note",
         "call-character",
@@ -505,20 +545,22 @@ async def test_run_emits_each_preview_carried_by_first_approval_interrupt():
         created_at=datetime.now(UTC),
     )
 
-    with patch.object(runner, "_get_graph", AsyncMock(return_value=_Graph())), \
-         patch.object(runner, "_prepare_run_persistence", AsyncMock(return_value=[])), \
-         patch.object(runner, "_persist_user_message", AsyncMock(return_value=persisted_message)), \
-         patch(
-             "app.agent_runtime.runner.session_runner.begin_user_revision",
-             AsyncMock(return_value=SimpleNamespace(id="rev_batch_preview")),
-         ), \
-         patch("app.agent_runtime.runner.session_runner.finalize_revision_status", AsyncMock()), \
-         patch("app.agent_runtime.runner.session_runner.emit", new=AsyncMock()) as emit_mock, \
-         patch(
-             "app.agent_runtime.runner.session_runner.create_session",
-             AsyncMock(return_value=fake_session),
-         ), \
-         patch.object(runner, "_make_persister", MagicMock(return_value=fake_persister)):
+    with (
+        patch.object(runner, "_get_graph", AsyncMock(return_value=_Graph())),
+        patch.object(runner, "_prepare_run_persistence", AsyncMock(return_value=[])),
+        patch.object(runner, "_persist_user_message", AsyncMock(return_value=persisted_message)),
+        patch(
+            "app.agent_runtime.runner.session_runner.begin_user_revision",
+            AsyncMock(return_value=SimpleNamespace(id="rev_batch_preview")),
+        ),
+        patch("app.agent_runtime.runner.session_runner.finalize_revision_status", AsyncMock()),
+        patch("app.agent_runtime.runner.session_runner.emit", new=AsyncMock()) as emit_mock,
+        patch(
+            "app.agent_runtime.runner.session_runner.create_session",
+            AsyncMock(return_value=fake_session),
+        ),
+        patch.object(runner, "_make_persister", MagicMock(return_value=fake_persister)),
+    ):
         await runner.run(user_request="create volume and category")
 
     preview_results = [
@@ -597,15 +639,20 @@ async def test_resume_targets_the_approved_parallel_tool_interrupt():
         apply_interrupt_preview=AsyncMock(),
     )
 
-    with patch.object(runner, "_get_graph", AsyncMock(return_value=_Graph())), \
-         patch("app.agent_runtime.runner.session_runner.finalize_revision_status", AsyncMock()), \
-         patch("app.agent_runtime.runner.session_runner.emit", new=AsyncMock()), \
-         patch("app.agent_runtime.runner.session_runner.revision_repo.get_by_id", AsyncMock(return_value=None)), \
-         patch(
-             "app.agent_runtime.runner.session_runner.create_session",
-             AsyncMock(return_value=fake_session),
-         ), \
-         patch.object(runner, "_make_persister", MagicMock(return_value=fake_persister)):
+    with (
+        patch.object(runner, "_get_graph", AsyncMock(return_value=_Graph())),
+        patch("app.agent_runtime.runner.session_runner.finalize_revision_status", AsyncMock()),
+        patch("app.agent_runtime.runner.session_runner.emit", new=AsyncMock()),
+        patch(
+            "app.agent_runtime.runner.session_runner.revision_repo.get_by_id",
+            AsyncMock(return_value=None),
+        ),
+        patch(
+            "app.agent_runtime.runner.session_runner.create_session",
+            AsyncMock(return_value=fake_session),
+        ),
+        patch.object(runner, "_make_persister", MagicMock(return_value=fake_persister)),
+    ):
         await runner.resume(
             {
                 "action_type": "tool_approval",
@@ -671,20 +718,22 @@ async def test_resume_user_skip_uses_exit_durability():
     fake_session = MagicMock(close=AsyncMock(), commit=AsyncMock())
     fake_persister = MagicMock(handle=AsyncMock(), finalize=AsyncMock())
 
-    with patch.object(runner, "_get_graph", AsyncMock(return_value=_Graph())), \
-         patch(
-             "app.agent_runtime.runner.session_runner.finalize_revision_status",
-             AsyncMock(),
-         ), \
-         patch(
-             "app.agent_runtime.runner.session_runner.revision_repo.get_by_id",
-             AsyncMock(return_value=None),
-         ), \
-         patch(
-             "app.agent_runtime.runner.session_runner.create_session",
-             AsyncMock(return_value=fake_session),
-         ), \
-         patch.object(runner, "_make_persister", MagicMock(return_value=fake_persister)):
+    with (
+        patch.object(runner, "_get_graph", AsyncMock(return_value=_Graph())),
+        patch(
+            "app.agent_runtime.runner.session_runner.finalize_revision_status",
+            AsyncMock(),
+        ),
+        patch(
+            "app.agent_runtime.runner.session_runner.revision_repo.get_by_id",
+            AsyncMock(return_value=None),
+        ),
+        patch(
+            "app.agent_runtime.runner.session_runner.create_session",
+            AsyncMock(return_value=fake_session),
+        ),
+        patch.object(runner, "_make_persister", MagicMock(return_value=fake_persister)),
+    ):
         await runner.resume(
             {
                 "action_type": "clarification",
@@ -760,11 +809,19 @@ async def test_resume_restores_all_parallel_interrupts_in_one_command() -> None:
         },
     ]
 
-    with patch.object(runner, "_get_graph", AsyncMock(return_value=_Graph())), \
-         patch("app.agent_runtime.runner.session_runner.finalize_revision_status", AsyncMock()), \
-         patch("app.agent_runtime.runner.session_runner.revision_repo.get_by_id", AsyncMock(return_value=None)), \
-         patch("app.agent_runtime.runner.session_runner.create_session", AsyncMock(return_value=fake_session)), \
-         patch.object(runner, "_make_persister", MagicMock(return_value=fake_persister)):
+    with (
+        patch.object(runner, "_get_graph", AsyncMock(return_value=_Graph())),
+        patch("app.agent_runtime.runner.session_runner.finalize_revision_status", AsyncMock()),
+        patch(
+            "app.agent_runtime.runner.session_runner.revision_repo.get_by_id",
+            AsyncMock(return_value=None),
+        ),
+        patch(
+            "app.agent_runtime.runner.session_runner.create_session",
+            AsyncMock(return_value=fake_session),
+        ),
+        patch.object(runner, "_make_persister", MagicMock(return_value=fake_persister)),
+    ):
         await runner.resume_interrupt_batch("batch-1", responses)
 
     assert isinstance(captured["command"], Command)
@@ -798,30 +855,44 @@ async def test_initial_state_does_not_include_context_anchor_state():
             captured_config.update(config)
             if False:
                 yield None
+
         async def aget_state(self, config):
             class _S:
                 next = ()
                 tasks = ()
                 values: dict = {}
+
             return _S()
 
     fake_session = MagicMock(close=AsyncMock(), commit=AsyncMock())
     begin_revision = AsyncMock(return_value=SimpleNamespace(id="rev_1"))
-    with patch.object(runner, "_get_graph", AsyncMock(return_value=_Graph())), \
-         patch.object(runner, "_prepare_run_persistence", AsyncMock(return_value=[])), \
-         patch.object(runner, "_persist_user_message", AsyncMock(return_value=SimpleNamespace(id="msg_1", seq=0))), \
-         patch("app.agent_runtime.runner.session_runner.begin_user_revision", begin_revision), \
-         patch("app.agent_runtime.runner.session_runner.finalize_revision_status", AsyncMock()), \
-         patch("app.agent_runtime.runner.session_runner.emit", AsyncMock()), \
-         patch(
-             "app.agent_runtime.runner.session_runner.create_session",
-             AsyncMock(return_value=fake_session),
-         ), \
-         patch.object(runner, "_make_persister", MagicMock(return_value=MagicMock(
-             handle=AsyncMock(),
-             mark_user_sent=AsyncMock(),
-             finalize=AsyncMock(),
-         ))):
+    with (
+        patch.object(runner, "_get_graph", AsyncMock(return_value=_Graph())),
+        patch.object(runner, "_prepare_run_persistence", AsyncMock(return_value=[])),
+        patch.object(
+            runner,
+            "_persist_user_message",
+            AsyncMock(return_value=SimpleNamespace(id="msg_1", seq=0)),
+        ),
+        patch("app.agent_runtime.runner.session_runner.begin_user_revision", begin_revision),
+        patch("app.agent_runtime.runner.session_runner.finalize_revision_status", AsyncMock()),
+        patch("app.agent_runtime.runner.session_runner.emit", AsyncMock()),
+        patch(
+            "app.agent_runtime.runner.session_runner.create_session",
+            AsyncMock(return_value=fake_session),
+        ),
+        patch.object(
+            runner,
+            "_make_persister",
+            MagicMock(
+                return_value=MagicMock(
+                    handle=AsyncMock(),
+                    mark_user_sent=AsyncMock(),
+                    finalize=AsyncMock(),
+                )
+            ),
+        ),
+    ):
         await runner.run(user_request="hi")
 
     assert "context_anchor_order" not in captured
@@ -861,8 +932,10 @@ async def test_start_new_run_restarts_without_handoff_payload():
 
             return _S()
 
-    with patch.object(runner, "_get_graph", AsyncMock(return_value=_Graph())), \
-         patch.object(runner, "run", run_mock):
+    with (
+        patch.object(runner, "_get_graph", AsyncMock(return_value=_Graph())),
+        patch.object(runner, "run", run_mock),
+    ):
         await runner.start_new_run("continue")
 
     assert not hasattr(runner, "mode")
@@ -910,32 +983,40 @@ async def test_run_starts_new_turns_after_interrupted_graph_without_concurrent_r
         apply_interrupt_preview=AsyncMock(),
     )
 
-    with patch.object(runner, "_get_graph", AsyncMock(return_value=graph)), patch.object(
-        runner,
-        "_prepare_run_persistence",
-        AsyncMock(return_value=[]),
-    ), patch.object(
-        runner,
-        "_begin_user_turn",
-        AsyncMock(
-            side_effect=[
-                (SimpleNamespace(id="msg_1"), SimpleNamespace(id="rev_1")),
-                (SimpleNamespace(id="msg_2"), SimpleNamespace(id="rev_2")),
-            ]
+    with (
+        patch.object(runner, "_get_graph", AsyncMock(return_value=graph)),
+        patch.object(
+            runner,
+            "_prepare_run_persistence",
+            AsyncMock(return_value=[]),
         ),
-    ), patch(
-        "app.agent_runtime.runner.session_runner.create_session",
-        AsyncMock(return_value=fake_session),
-    ), patch(
-        "app.agent_runtime.runner.session_runner.finalize_revision_status",
-        AsyncMock(),
-    ), patch(
-        "app.agent_runtime.runner.session_runner.emit",
-        AsyncMock(),
-    ), patch.object(
-        runner,
-        "_make_persister",
-        MagicMock(return_value=fake_persister),
+        patch.object(
+            runner,
+            "_begin_user_turn",
+            AsyncMock(
+                side_effect=[
+                    (SimpleNamespace(id="msg_1"), SimpleNamespace(id="rev_1")),
+                    (SimpleNamespace(id="msg_2"), SimpleNamespace(id="rev_2")),
+                ]
+            ),
+        ),
+        patch(
+            "app.agent_runtime.runner.session_runner.create_session",
+            AsyncMock(return_value=fake_session),
+        ),
+        patch(
+            "app.agent_runtime.runner.session_runner.finalize_revision_status",
+            AsyncMock(),
+        ),
+        patch(
+            "app.agent_runtime.runner.session_runner.emit",
+            AsyncMock(),
+        ),
+        patch.object(
+            runner,
+            "_make_persister",
+            MagicMock(return_value=fake_persister),
+        ),
     ):
         await runner.run("第一条新消息")
         await runner.run("第二条新消息")
@@ -981,17 +1062,29 @@ async def test_run_compiles_user_request_for_model_and_persistence():
     raw_message = '<of-mention chapter_id="chap_1" label="旧章节" />'
     compiled_message = " @chapter:修订卷/修订章节 "
 
-    with patch(
-        "app.agent_runtime.runner.session_runner.compile_canonical_mentions",
-        AsyncMock(return_value=compiled_message),
-        create=True,
-    ), patch.object(runner, "_get_graph", AsyncMock(return_value=_Graph())),          patch.object(runner, "_prepare_run_persistence", AsyncMock(return_value=[])),          patch.object(runner, "_persist_user_message", AsyncMock(return_value=persisted_message)) as persist_user_message,          patch(
-             "app.agent_runtime.runner.session_runner.begin_user_revision",
-             AsyncMock(return_value=SimpleNamespace(id="rev_mentions_001")),
-         ),          patch("app.agent_runtime.runner.session_runner.finalize_revision_status", AsyncMock()),          patch("app.agent_runtime.runner.session_runner.emit", new=AsyncMock()),          patch(
-             "app.agent_runtime.runner.session_runner.create_session",
-             AsyncMock(return_value=fake_session),
-         ),          patch.object(runner, "_make_persister", MagicMock(return_value=fake_persister)):
+    with (
+        patch(
+            "app.agent_runtime.runner.session_runner.compile_canonical_mentions",
+            AsyncMock(return_value=compiled_message),
+            create=True,
+        ),
+        patch.object(runner, "_get_graph", AsyncMock(return_value=_Graph())),
+        patch.object(runner, "_prepare_run_persistence", AsyncMock(return_value=[])),
+        patch.object(
+            runner, "_persist_user_message", AsyncMock(return_value=persisted_message)
+        ) as persist_user_message,
+        patch(
+            "app.agent_runtime.runner.session_runner.begin_user_revision",
+            AsyncMock(return_value=SimpleNamespace(id="rev_mentions_001")),
+        ),
+        patch("app.agent_runtime.runner.session_runner.finalize_revision_status", AsyncMock()),
+        patch("app.agent_runtime.runner.session_runner.emit", new=AsyncMock()),
+        patch(
+            "app.agent_runtime.runner.session_runner.create_session",
+            AsyncMock(return_value=fake_session),
+        ),
+        patch.object(runner, "_make_persister", MagicMock(return_value=fake_persister)),
+    ):
         await runner.run(user_request=raw_message)
 
     persist_user_message.assert_awaited_once_with(raw_message)
@@ -1048,13 +1141,13 @@ async def test_run_emits_error_and_marks_revision_failed_on_runtime_exception():
         },
         project_id="proj_001",
     )
- 
+
     class _Graph:
         async def astream_events(self, *_args, **_kwargs):
             raise GraphRecursionError("Recursion limit reached")
             if False:
                 yield None
- 
+
     fake_runtime_session = MagicMock(close=AsyncMock())
     fake_status_session = MagicMock(close=AsyncMock(), commit=AsyncMock())
     fake_persister = MagicMock(
@@ -1062,36 +1155,47 @@ async def test_run_emits_error_and_marks_revision_failed_on_runtime_exception():
         finalize=AsyncMock(),
         persist_node_event=AsyncMock(),
     )
- 
-    with patch.object(runner, "_prepare_run_persistence", AsyncMock(return_value=[])), patch.object(
-        runner,
-        "_get_graph",
-        AsyncMock(return_value=_Graph()),
-    ), patch.object(
-        runner,
-        "_begin_user_turn",
-        AsyncMock(return_value=(SimpleNamespace(id="msg_1"), SimpleNamespace(id="rev_error_1"))),
-    ), patch(
-        "app.agent_runtime.runner.session_runner.create_session",
-        AsyncMock(side_effect=[fake_runtime_session, fake_status_session]),
-    ), patch(
-        "app.agent_runtime.runner.session_runner.finalize_revision_status",
-        AsyncMock(),
-    ) as finalize_revision_status, patch(
-        "app.agent_runtime.runner.session_runner.emit",
-        AsyncMock(),
-    ) as emit_mock, patch.object(
-        runner,
-        "_make_persister",
-        MagicMock(return_value=fake_persister),
-    ), patch.object(
-        runner,
-        "_clear_replay_session",
-        AsyncMock(),
+
+    with (
+        patch.object(runner, "_prepare_run_persistence", AsyncMock(return_value=[])),
+        patch.object(
+            runner,
+            "_get_graph",
+            AsyncMock(return_value=_Graph()),
+        ),
+        patch.object(
+            runner,
+            "_begin_user_turn",
+            AsyncMock(
+                return_value=(SimpleNamespace(id="msg_1"), SimpleNamespace(id="rev_error_1"))
+            ),
+        ),
+        patch(
+            "app.agent_runtime.runner.session_runner.create_session",
+            AsyncMock(side_effect=[fake_runtime_session, fake_status_session]),
+        ),
+        patch(
+            "app.agent_runtime.runner.session_runner.finalize_revision_status",
+            AsyncMock(),
+        ) as finalize_revision_status,
+        patch(
+            "app.agent_runtime.runner.session_runner.emit",
+            AsyncMock(),
+        ) as emit_mock,
+        patch.object(
+            runner,
+            "_make_persister",
+            MagicMock(return_value=fake_persister),
+        ),
+        patch.object(
+            runner,
+            "_clear_replay_session",
+            AsyncMock(),
+        ),
     ):
         with pytest.raises(GraphRecursionError):
             await runner.run("触发异常")
- 
+
     fake_persister.finalize.assert_awaited_once_with(reason="error")
     finalize_revision_status.assert_awaited_once_with(
         fake_status_session,
@@ -1107,8 +1211,8 @@ async def test_run_emits_error_and_marks_revision_failed_on_runtime_exception():
         },
         room=runner._room,
     )
- 
- 
+
+
 @pytest.mark.asyncio
 async def test_resume_emits_error_and_keeps_pending_revision_resumable_on_runtime_exception():
     runner = SessionRunner(
@@ -1123,7 +1227,7 @@ async def test_resume_emits_error_and_keeps_pending_revision_resumable_on_runtim
         },
         project_id="proj_001",
     )
- 
+
     class _Graph:
         async def astream_events(self, *_args, **_kwargs):
             raise GraphRecursionError("Resume recursion limit reached")
@@ -1151,26 +1255,34 @@ async def test_resume_emits_error_and_keeps_pending_revision_resumable_on_runtim
         apply_interrupt_preview=AsyncMock(),
     )
 
-    with patch.object(runner, "_get_graph", AsyncMock(return_value=_Graph())), patch(
-        "app.agent_runtime.runner.session_runner.create_session",
-        AsyncMock(side_effect=[fake_runtime_session, fake_status_session]),
-    ), patch(
-        "app.agent_runtime.runner.session_runner.finalize_revision_status",
-        AsyncMock(return_value=False),
-    ) as finalize_revision_status, patch(
-        "app.agent_runtime.runner.session_runner.emit",
-        AsyncMock(),
-    ) as emit_mock, patch.object(
-        runner,
-        "_make_persister",
-        MagicMock(return_value=fake_persister),
-    ), patch(
-        "app.agent_runtime.runner.session_runner.revision_repo.get_by_id",
-        AsyncMock(return_value=None),
-    ), patch.object(
-        runner,
-        "_clear_replay_session",
-        AsyncMock(),
+    with (
+        patch.object(runner, "_get_graph", AsyncMock(return_value=_Graph())),
+        patch(
+            "app.agent_runtime.runner.session_runner.create_session",
+            AsyncMock(side_effect=[fake_runtime_session, fake_status_session]),
+        ),
+        patch(
+            "app.agent_runtime.runner.session_runner.finalize_revision_status",
+            AsyncMock(return_value=False),
+        ) as finalize_revision_status,
+        patch(
+            "app.agent_runtime.runner.session_runner.emit",
+            AsyncMock(),
+        ) as emit_mock,
+        patch.object(
+            runner,
+            "_make_persister",
+            MagicMock(return_value=fake_persister),
+        ),
+        patch(
+            "app.agent_runtime.runner.session_runner.revision_repo.get_by_id",
+            AsyncMock(return_value=None),
+        ),
+        patch.object(
+            runner,
+            "_clear_replay_session",
+            AsyncMock(),
+        ),
     ):
         with pytest.raises(GraphRecursionError):
             await runner.resume({"answer": "继续"})
@@ -1243,36 +1355,45 @@ async def test_manual_compact_builds_window_and_returns_metrics_without_revision
     )
     list_by_session = AsyncMock(return_value=[])
 
-    with patch(
-        "app.agent_runtime.runner.session_runner.create_session",
-        AsyncMock(return_value=fake_session),
-    ), patch(
-        "app.agent_runtime.runner.session_runner.load_history",
-        AsyncMock(return_value=[history_message]),
-    ) as load_history_mock, patch(
-        "app.agent_runtime.runner.session_runner._to_history_dict",
-        MagicMock(return_value=node_message),
-        create=True,
-    ) as to_history_dict, patch(
-        "app.agent_runtime.runner.session_runner.build_context_parts",
-        AsyncMock(return_value=[static_part, history_part]),
-        create=True,
-    ) as build_context_parts, patch(
-        "app.agent_runtime.runner.session_runner.compaction_repo",
-        SimpleNamespace(list_by_session=list_by_session),
-        create=True,
-    ), patch(
-        "app.agent_runtime.runner.session_runner.select_compaction_window",
-        MagicMock(return_value=window),
-        create=True,
-    ) as select_compaction_window, patch(
-        "app.agent_runtime.runner.session_runner.compact_window",
-        AsyncMock(return_value=compaction),
-        create=True,
-    ) as compact_window, patch(
-        "app.agent_runtime.runner.session_runner.begin_user_revision",
-        AsyncMock(),
-    ) as begin_user_revision:
+    with (
+        patch(
+            "app.agent_runtime.runner.session_runner.create_session",
+            AsyncMock(return_value=fake_session),
+        ),
+        patch(
+            "app.agent_runtime.runner.session_runner.load_history",
+            AsyncMock(return_value=[history_message]),
+        ) as load_history_mock,
+        patch(
+            "app.agent_runtime.runner.session_runner._to_history_dict",
+            MagicMock(return_value=node_message),
+            create=True,
+        ) as to_history_dict,
+        patch(
+            "app.agent_runtime.runner.session_runner.build_context_parts",
+            AsyncMock(return_value=[static_part, history_part]),
+            create=True,
+        ) as build_context_parts,
+        patch(
+            "app.agent_runtime.runner.session_runner.compaction_repo",
+            SimpleNamespace(list_by_session=list_by_session),
+            create=True,
+        ),
+        patch(
+            "app.agent_runtime.runner.session_runner.select_compaction_window",
+            MagicMock(return_value=window),
+            create=True,
+        ) as select_compaction_window,
+        patch(
+            "app.agent_runtime.runner.session_runner.compact_window",
+            AsyncMock(return_value=compaction),
+            create=True,
+        ) as compact_window,
+        patch(
+            "app.agent_runtime.runner.session_runner.begin_user_revision",
+            AsyncMock(),
+        ) as begin_user_revision,
+    ):
         result = await runner.compact()
 
     assert result == {
@@ -1303,8 +1424,7 @@ async def test_manual_compact_builds_window_and_returns_metrics_without_revision
     assert compact_window.await_args.kwargs["trigger"] == "manual"
     assert compact_window.await_args.kwargs["event_sink"] == runner._emit_agent_event
     assert (
-        compact_window.await_args.kwargs["usage_sink"]
-        == runner._emit_persisted_task_usage_events
+        compact_window.await_args.kwargs["usage_sink"] == runner._emit_persisted_task_usage_events
     )
     begin_user_revision.assert_not_awaited()
     fake_session.close.assert_awaited_once_with()
@@ -1331,19 +1451,23 @@ async def test_consume_next_pending_user_message_persists_and_removes_injected_i
     await runner._inject_queue.put(("msg_pending_1", "user", "压缩后继续处理"))
     await runner._inject_queue.put(("msg_pending_2", "user", "下一条 pending"))
 
-    with patch.object(
-        runner,
-        "_persist_user_message",
-        AsyncMock(),
-    ) as persist_user_message, patch.object(
-        runner,
-        "_emit_pending_user_message",
-        AsyncMock(),
-    ) as emit_pending_user_message, patch.object(
-        runner,
-        "_emit_runtime_user_message",
-        AsyncMock(),
-    ) as emit_runtime_user_message:
+    with (
+        patch.object(
+            runner,
+            "_persist_user_message",
+            AsyncMock(),
+        ) as persist_user_message,
+        patch.object(
+            runner,
+            "_emit_pending_user_message",
+            AsyncMock(),
+        ) as emit_pending_user_message,
+        patch.object(
+            runner,
+            "_emit_runtime_user_message",
+            AsyncMock(),
+        ) as emit_runtime_user_message,
+    ):
         result = await runner.consume_next_pending_user_message_for_continuation()
 
     assert result == ("msg_pending_1", "压缩后继续处理")
@@ -1396,19 +1520,23 @@ async def test_consume_next_pending_user_message_keeps_pending_when_persist_fail
     runner._queued_user_messages["msg_pending_1"] = ("压缩后继续处理", created_at)
     await runner._inject_queue.put(("msg_pending_1", "user", "压缩后继续处理"))
 
-    with patch.object(
-        runner,
-        "_persist_user_message",
-        AsyncMock(side_effect=RuntimeError("db write failed")),
-    ), patch.object(
-        runner,
-        "_emit_pending_user_message",
-        AsyncMock(),
-    ) as emit_pending_user_message, patch.object(
-        runner,
-        "_emit_runtime_user_message",
-        AsyncMock(),
-    ) as emit_runtime_user_message:
+    with (
+        patch.object(
+            runner,
+            "_persist_user_message",
+            AsyncMock(side_effect=RuntimeError("db write failed")),
+        ),
+        patch.object(
+            runner,
+            "_emit_pending_user_message",
+            AsyncMock(),
+        ) as emit_pending_user_message,
+        patch.object(
+            runner,
+            "_emit_runtime_user_message",
+            AsyncMock(),
+        ) as emit_runtime_user_message,
+    ):
         with pytest.raises(RuntimeError, match="db write failed"):
             await runner.consume_next_pending_user_message_for_continuation()
 

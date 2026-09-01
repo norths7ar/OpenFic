@@ -17,9 +17,7 @@ class NoteCategoryCreate(BaseModel):
 
 
 class NoteCategoryUpdate(BaseModel):
-    title: str | None = Field(
-        default=None, min_length=1, max_length=200, description="分类标题"
-    )
+    title: str | None = Field(default=None, min_length=1, max_length=200, description="分类标题")
 
 
 class NoteCreate(BaseModel):
@@ -30,9 +28,7 @@ class NoteCreate(BaseModel):
 
 
 class NoteUpdate(BaseModel):
-    title: str | None = Field(
-        default=None, min_length=1, max_length=200, description="笔记标题"
-    )
+    title: str | None = Field(default=None, min_length=1, max_length=200, description="笔记标题")
     content: str | None = Field(default=None, description="笔记内容")
     is_writing_visible: bool | None = Field(
         default=None,
@@ -146,9 +142,7 @@ class NoteTreeResponse(BaseModel):
 class NoteMoveResult(BaseModel):
     kind: Literal["category", "note"] = Field(description="移动类型")
     note: NoteResponse | None = Field(default=None, description="移动的笔记")
-    category: NoteCategoryResponse | None = Field(
-        default=None, description="移动的分类"
-    )
+    category: NoteCategoryResponse | None = Field(default=None, description="移动的分类")
 
 
 NoteCategoryItem.model_rebuild()

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Macro Lexer - 宏词法分析器。
 
@@ -189,8 +188,8 @@ class MacroLexer:
         try:
             lower = int(parts[0])
             upper = int(parts[1])
-        except ValueError:
-            raise ValueError(f"范围边界必须是整数: {part}")
+        except ValueError as exc:
+            raise ValueError(f"范围边界必须是整数: {part}") from exc
 
         if lower > upper:
             raise ValueError(f"范围下界必须小于上界: {part}")
@@ -203,8 +202,8 @@ class MacroLexer:
         try:
             value = int(part)
             return MacroToken(type=TokenType.NUMBER, value=value, raw=part)
-        except ValueError:
-            raise ValueError(f"无效的数值: {part}")
+        except ValueError as exc:
+            raise ValueError(f"无效的数值: {part}") from exc
 
     @classmethod
     def _parse_boolean(cls, part: str) -> MacroToken:

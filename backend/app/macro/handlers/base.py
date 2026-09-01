@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Macro Handler Base - 宏处理器基类。
 """

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Models Services - 模型业务逻辑层。
 """

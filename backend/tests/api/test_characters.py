@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """角色 API 测试。"""
 
 from io import BytesIO
@@ -170,10 +169,7 @@ async def test_list_characters_returns_all_project_characters(
 ) -> None:
     project_id = await create_project(client, "完整角色列表项目")
     session.add_all(
-        [
-            Character(project_id=project_id, name=f"角色 {index}")
-            for index in range(101)
-        ]
+        [Character(project_id=project_id, name=f"角色 {index}") for index in range(101)]
     )
     await session.flush()
 

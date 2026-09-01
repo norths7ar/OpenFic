@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 PromptEntry Repository - 提示词条目数据访问层。
 """
@@ -18,9 +17,7 @@ async def create(session: AsyncSession, entry: PromptEntry) -> PromptEntry:
     return entry
 
 
-async def create_many(
-    session: AsyncSession, entries: list[PromptEntry]
-) -> list[PromptEntry]:
+async def create_many(session: AsyncSession, entries: list[PromptEntry]) -> list[PromptEntry]:
     """批量创建提示词条目。"""
     session.add_all(entries)
     await session.flush()
@@ -31,9 +28,7 @@ async def create_many(
 
 async def get_by_id(session: AsyncSession, entry_id: str) -> PromptEntry | None:
     """根据ID获取提示词条目。"""
-    result = await session.execute(
-        select(PromptEntry).where(col(PromptEntry.id) == entry_id)
-    )
+    result = await session.execute(select(PromptEntry).where(col(PromptEntry.id) == entry_id))
     return result.scalar_one_or_none()
 
 
@@ -74,7 +69,5 @@ async def delete_by_id(session: AsyncSession, entry_id: str) -> bool:
 
 async def delete_by_version(session: AsyncSession, version_id: str) -> None:
     """删除某个版本的所有提示词条目。"""
-    await session.execute(
-        delete(PromptEntry).where(col(PromptEntry.version_id) == version_id)
-    )
+    await session.execute(delete(PromptEntry).where(col(PromptEntry.version_id) == version_id))
     await session.flush()

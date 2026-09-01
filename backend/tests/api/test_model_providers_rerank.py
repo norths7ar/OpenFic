@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 ModelProvider API Tests - Rerank 能力暴露测试。
 """
@@ -11,9 +10,7 @@ from app.models.repos import model_provider_repo
 
 
 @pytest.mark.asyncio
-async def test_openai_provider_exposes_rerank_task_type(
-    client: AsyncClient, session: AsyncSession
-):
+async def test_openai_provider_exposes_rerank_task_type(client: AsyncClient, session: AsyncSession):
     from app.core.encryption import EncryptionService
     from app.settings import settings
 

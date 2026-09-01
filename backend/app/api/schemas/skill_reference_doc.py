@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """SkillReferenceDoc API Schemas。"""
 
 from datetime import datetime

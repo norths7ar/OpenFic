@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Mention Service - 统一的 mention 候选搜索逻辑。
 """
@@ -10,8 +9,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import NotFoundError
 from app.storage.repos import (
-    character_repo,
     chapter_repo,
+    character_repo,
     note_category_repo,
     note_repo,
     project_repo,
@@ -91,9 +90,7 @@ async def search_all_mention_candidates(
                 (
                     _match_rank(title, normalized_query),
                     index,
-                    MentionCandidate(
-                        kind="volume", id=volume.id, title=title, label=title
-                    ),
+                    MentionCandidate(kind="volume", id=volume.id, title=title, label=title),
                 )
             )
 
@@ -225,9 +222,7 @@ async def search_all_mention_candidates(
                 "note_category": 3,
                 "world_info_entry": 4,
                 "character": 5,
-            }.get(
-                item[2].kind, 4
-            ),
+            }.get(item[2].kind, 4),
             item[1],
         )
     )

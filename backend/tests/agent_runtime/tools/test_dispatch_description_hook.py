@@ -1,10 +1,10 @@
 from types import MappingProxyType
 
 from app.agent_runtime.agents.definitions import AgentDefinition, get_default_agent_definition
-from app.agent_runtime.tools.registry import ToolRegistry
 from app.agent_runtime.tools.hooks.dispatch_description import (
     build_dispatch_subagent_description_hook,
 )
+from app.agent_runtime.tools.registry import ToolRegistry
 
 
 def _make_state() -> dict:

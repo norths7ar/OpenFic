@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 OpenFic retrieval wrapper service.
 """
@@ -22,8 +21,8 @@ from app.retrieval.internal.contracts.index_contracts import (
 )
 from app.retrieval.types import (
     ChunkIndexResult,
-    IndexDescription,
     IndexChunk,
+    IndexDescription,
     IndexDocument,
     RetrievalIndexContract,
 )
@@ -61,10 +60,7 @@ class OpenFicRetrievalService:
                 ),
             )
 
-        if (
-            existing.status == "needs_rebuild"
-            and replace_contract_if_needs_rebuild
-        ):
+        if existing.status == "needs_rebuild" and replace_contract_if_needs_rebuild:
             await self._drop_index_table(existing)
             kwargs = build_index_create_kwargs(
                 index_key=index_key,
@@ -73,12 +69,8 @@ class OpenFicRetrievalService:
             )
             existing.status = kwargs["status"]
             existing.embedding_model_ref_id = kwargs["embedding_model_ref_id"]
-            existing.embedding_model_id_snapshot = kwargs[
-                "embedding_model_id_snapshot"
-            ]
-            existing.embedding_dimensions_snapshot = kwargs[
-                "embedding_dimensions_snapshot"
-            ]
+            existing.embedding_model_id_snapshot = kwargs["embedding_model_id_snapshot"]
+            existing.embedding_dimensions_snapshot = kwargs["embedding_dimensions_snapshot"]
             existing.distance_metric = kwargs["distance_metric"]
             existing.chunker_type = kwargs["chunker_type"]
             existing.chunk_size = kwargs["chunk_size"]
@@ -95,9 +87,7 @@ class OpenFicRetrievalService:
             raise ValueError("Index contract mismatch for existing index_key")
         return existing
 
-    async def describe_index(
-        self, session: AsyncSession, index_key: str
-    ) -> IndexDescription:
+    async def describe_index(self, session: AsyncSession, index_key: str) -> IndexDescription:
         row = await self._get_index(session, index_key)
         return IndexDescription(
             index_key=row.index_key,
@@ -215,9 +205,7 @@ class OpenFicRetrievalService:
             raise IndexNotReadyError(f"Index {index_key} is not ready")
         return self._engine_for(row).query(text, embedding_client)
 
-    async def _get_index(
-        self, session: AsyncSession, index_key: str
-    ) -> RetrievalIndex:
+    async def _get_index(self, session: AsyncSession, index_key: str) -> RetrievalIndex:
         row = await retrieval_index_repo.get_by_index_key(session, index_key)
         if row is None:
             raise ValueError(f"Unknown index_key: {index_key}")
@@ -255,7 +243,5 @@ class OpenFicRetrievalService:
     ) -> None:
         model = await model_repo.get_by_id(session, contract.embedding_model_ref_id)
         if model is None:
-            raise NotFoundError(
-                f"Embedding model {contract.embedding_model_ref_id} not found"
-            )
+            raise NotFoundError(f"Embedding model {contract.embedding_model_ref_id} not found")
         validate_contract_model(model, contract)

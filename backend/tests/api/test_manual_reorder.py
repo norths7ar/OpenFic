@@ -11,12 +11,8 @@ async def _project(client: AsyncClient, title: str) -> str:
 @pytest.mark.asyncio
 async def test_reorder_characters_updates_zero_based_order(client: AsyncClient) -> None:
     project_id = await _project(client, "角色排序")
-    first = await client.post(
-        f"/api/v1/projects/{project_id}/characters", data={"name": "甲"}
-    )
-    second = await client.post(
-        f"/api/v1/projects/{project_id}/characters", data={"name": "乙"}
-    )
+    first = await client.post(f"/api/v1/projects/{project_id}/characters", data={"name": "甲"})
+    second = await client.post(f"/api/v1/projects/{project_id}/characters", data={"name": "乙"})
     ids = [first.json()["id"], second.json()["id"]]
 
     response = await client.post(
@@ -26,9 +22,7 @@ async def test_reorder_characters_updates_zero_based_order(client: AsyncClient) 
     assert response.status_code == 200
     assert response.json() == {"updated_count": 2}
 
-    listed = (await client.get(f"/api/v1/projects/{project_id}/characters")).json()[
-        "items"
-    ]
+    listed = (await client.get(f"/api/v1/projects/{project_id}/characters")).json()["items"]
     assert [(item["id"], item["order"]) for item in listed] == [
         (ids[1], 0),
         (ids[0], 1),
@@ -143,18 +137,10 @@ async def test_reorder_characters_rejects_duplicate_or_incomplete_ids(
     client: AsyncClient, ordered_ids: list[str]
 ) -> None:
     project_id = await _project(client, "角色排序校验")
-    created = await client.post(
-        f"/api/v1/projects/{project_id}/characters", data={"name": "甲"}
-    )
+    created = await client.post(f"/api/v1/projects/{project_id}/characters", data={"name": "甲"})
     actual_id = created.json()["id"]
-    payload = {
-        "ordered_ids": [actual_id, actual_id]
-        if ordered_ids == ["x", "x"]
-        else ["other"]
-    }
-    response = await client.post(
-        f"/api/v1/projects/{project_id}/characters/reorder", json=payload
-    )
+    payload = {"ordered_ids": [actual_id, actual_id] if ordered_ids == ["x", "x"] else ["other"]}
+    response = await client.post(f"/api/v1/projects/{project_id}/characters/reorder", json=payload)
     assert response.status_code == 400
 
 

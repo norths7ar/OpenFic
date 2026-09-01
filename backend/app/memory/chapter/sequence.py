@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 全局阅读序位 helper 函数。
 
@@ -36,8 +35,6 @@ def global_order_index(chapters: list[Chapter], volumes: list[Volume]) -> dict[s
     return {ch.id: ord_num for ord_num, ch in global_reading_sequence(chapters, volumes)}
 
 
-def chapter_by_global_order(
-    chapters: list[Chapter], volumes: list[Volume]
-) -> dict[int, Chapter]:
+def chapter_by_global_order(chapters: list[Chapter], volumes: list[Volume]) -> dict[int, Chapter]:
     """返回 {global_order: chapter}。"""
     return {ord_num: ch for ord_num, ch in global_reading_sequence(chapters, volumes)}

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Conditional Handler - 条件渲染宏处理器。
 
@@ -9,7 +8,7 @@ Conditional Handler - 条件渲染宏处理器。
 - condition_var 必须是 MacroContext.variables 中的 bool 类型变量
 """
 
-from app.macro.handlers.base import MacroHandler, MacroValidateError, MacroEvaluateError
+from app.macro.handlers.base import MacroEvaluateError, MacroHandler, MacroValidateError
 from app.macro.types import MacroContext, MacroNode, TokenType
 
 

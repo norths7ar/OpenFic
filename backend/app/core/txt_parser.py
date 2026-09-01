@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 TXT 文件解析模块 - 章节识别和内容切分。
 
@@ -212,9 +211,7 @@ def _create_fallback_chapter(content: str) -> ParsedChapter | None:
 
     lines = content.split("\n", 1)
     title = lines[0].strip() if len(lines[0].strip()) <= 50 else "正文"
-    chapter_content = (
-        lines[1].strip() if title != "正文" and len(lines) > 1 else content
-    )
+    chapter_content = lines[1].strip() if title != "正文" and len(lines) > 1 else content
 
     return ParsedChapter(
         title=title or "正文",

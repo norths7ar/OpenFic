@@ -47,9 +47,7 @@ async def test_next_seq_isolated_per_session(db_session: AsyncSession, sample_ta
 
 
 @pytest.mark.asyncio
-async def test_insert_message_assigns_seq_and_persists(
-    db_session: AsyncSession, sample_task
-):
+async def test_insert_message_assigns_seq_and_persists(db_session: AsyncSession, sample_task):
     msg = await repo.insert_message(
         db_session,
         session_id="session_a",
@@ -71,9 +69,7 @@ async def test_insert_message_assigns_seq_and_persists(
 
     row = await db_session.get(AgentRunMessage, msg.id)
     assert row is not None
-    assert row.tool_calls == json.dumps(
-        [{"id": "call_1", "name": "read_chapter", "args": {}}]
-    )
+    assert row.tool_calls == json.dumps([{"id": "call_1", "name": "read_chapter", "args": {}}])
 
 
 @pytest.mark.asyncio
@@ -245,9 +241,7 @@ async def test_update_status(db_session: AsyncSession, sample_task):
 
 
 @pytest.mark.asyncio
-async def test_update_status_missing_raises_write_error(
-    db_session: AsyncSession, sample_task
-):
+async def test_update_status_missing_raises_write_error(db_session: AsyncSession, sample_task):
     with pytest.raises(PersistenceWriteError):
         await repo.update_status(db_session, "msg_does_not_exist", "sent")
 
@@ -270,8 +264,6 @@ async def test_delete_by_id(db_session: AsyncSession, sample_task):
 
 
 @pytest.mark.asyncio
-async def test_delete_by_id_missing_returns_false(
-    db_session: AsyncSession, sample_task
-):
+async def test_delete_by_id_missing_returns_false(db_session: AsyncSession, sample_task):
     deleted = await repo.delete_by_id(db_session, "msg_does_not_exist")
     assert deleted is False

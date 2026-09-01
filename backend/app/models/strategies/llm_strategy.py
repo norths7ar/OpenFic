@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 LLM Strategy - LLM模型策略。
 
@@ -51,26 +50,17 @@ class LLMStrategy(BaseStrategy):
             normalized["top_a"] = max(0.0, min(1.0, top_a))
 
         # Frequency Penalty: -2.0-2.0
-        if (
-            "frequency_penalty" in raw_params
-            and raw_params["frequency_penalty"] is not None
-        ):
+        if "frequency_penalty" in raw_params and raw_params["frequency_penalty"] is not None:
             freq_pen = float(raw_params["frequency_penalty"])
             normalized["frequency_penalty"] = max(-2.0, min(2.0, freq_pen))
 
         # Presence Penalty: -2.0-2.0
-        if (
-            "presence_penalty" in raw_params
-            and raw_params["presence_penalty"] is not None
-        ):
+        if "presence_penalty" in raw_params and raw_params["presence_penalty"] is not None:
             pres_pen = float(raw_params["presence_penalty"])
             normalized["presence_penalty"] = max(-2.0, min(2.0, pres_pen))
 
         # Repetition Penalty: 0.0-2.0
-        if (
-            "repetition_penalty" in raw_params
-            and raw_params["repetition_penalty"] is not None
-        ):
+        if "repetition_penalty" in raw_params and raw_params["repetition_penalty"] is not None:
             rep_pen = float(raw_params["repetition_penalty"])
             normalized["repetition_penalty"] = max(0.0, min(2.0, rep_pen))
 

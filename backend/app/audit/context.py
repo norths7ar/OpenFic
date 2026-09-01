@@ -424,10 +424,16 @@ class LLMCallAudit:
             model_id=record.model_id,
             model_provider=record.model_provider,
             model_name=record.model_name,
-            request_messages=_pretty_json(record.request_messages) if record.request_messages else None,
-            tool_references=_pretty_json(record.tool_references) if record.tool_references else None,
+            request_messages=_pretty_json(record.request_messages)
+            if record.request_messages
+            else None,
+            tool_references=_pretty_json(record.tool_references)
+            if record.tool_references
+            else None,
             response_content=record.response_content or None,
-            response_tool_calls=_pretty_json(record.response_tool_calls) if record.response_tool_calls else None,
+            response_tool_calls=_pretty_json(record.response_tool_calls)
+            if record.response_tool_calls
+            else None,
             tool_call_results=_pretty_json(tool_call_results) if tool_call_results else None,
             tokens_input=record.tokens_input,
             tokens_output=record.tokens_output,

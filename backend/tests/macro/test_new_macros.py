@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """条件宏测试。"""
 
 from app.macro.evaluator import MacroEvaluator
@@ -71,9 +70,7 @@ class TestConditionalBlocks:
         context.variables["third"] = True
         evaluator = MacroEvaluator(context)
 
-        text = (
-            "{{if::first}}A{{endif}} {{if::second}}B{{endif}} {{if::third}}C{{endif}}"
-        )
+        text = "{{if::first}}A{{endif}} {{if::second}}B{{endif}} {{if::third}}C{{endif}}"
         result = evaluator.evaluate_text(text)
 
         assert result == "A  C"

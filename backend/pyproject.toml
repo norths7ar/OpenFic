@@ -111,6 +111,20 @@ packages = ["app"]
 [tool.hatch.build.targets.sdist]
 force-include = { "alembic.ini" = "alembic.ini", "../LICENSE" = "LICENSE", "frontend" = "frontend", "app/skills" = "app/skills" }
 
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+extend-exclude = ["app/storage/migrations/versions"]
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I", "UP", "B"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app"]
+
+[tool.ruff.lint.per-file-ignores]
+"app/api/routers/*.py" = ["B008"]
+
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "module"

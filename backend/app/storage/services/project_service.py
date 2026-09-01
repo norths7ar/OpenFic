@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Project Service - 项目业务逻辑层。
 """

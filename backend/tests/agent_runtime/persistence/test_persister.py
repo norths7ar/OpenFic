@@ -10,8 +10,8 @@ from langchain_core.messages.tool import invalid_tool_call
 from langgraph.errors import GraphInterrupt
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.agent_runtime.persistence import repo
 from app.agent_runtime.persistence import persister as persister_module
+from app.agent_runtime.persistence import repo
 from app.agent_runtime.persistence.persister import MessagePersister
 
 
@@ -31,25 +31,33 @@ async def test_persister_normal_chat_model_stream(
         db_session_factory=db_session_factory,
     )
 
-    await p.handle({
-        "event": "on_chain_start",
-        "name": "writer",
-        "tags": ["agent_node"],
-        "data": {},
-    })
+    await p.handle(
+        {
+            "event": "on_chain_start",
+            "name": "writer",
+            "tags": ["agent_node"],
+            "data": {},
+        }
+    )
     await p.handle({"event": "on_chat_model_start", "data": {}})
-    await p.handle({
-        "event": "on_chat_model_stream",
-        "data": {"chunk": AIMessageChunk(content="hello ")},
-    })
-    await p.handle({
-        "event": "on_chat_model_stream",
-        "data": {"chunk": AIMessageChunk(content="world")},
-    })
-    await p.handle({
-        "event": "on_chat_model_end",
-        "data": {"output": AIMessageChunk(content="hello world")},
-    })
+    await p.handle(
+        {
+            "event": "on_chat_model_stream",
+            "data": {"chunk": AIMessageChunk(content="hello ")},
+        }
+    )
+    await p.handle(
+        {
+            "event": "on_chat_model_stream",
+            "data": {"chunk": AIMessageChunk(content="world")},
+        }
+    )
+    await p.handle(
+        {
+            "event": "on_chat_model_end",
+            "data": {"output": AIMessageChunk(content="hello world")},
+        }
+    )
 
     items = await repo.list_by_session(db_session, sid)
     assert len(items) == 1
@@ -73,21 +81,25 @@ async def test_persister_extracts_anthropic_text_content_blocks(
     )
 
     await p.handle({"event": "on_chat_model_start", "data": {}})
-    await p.handle({
-        "event": "on_chat_model_stream",
-        "data": {
-            "chunk": AIMessageChunk(
-                content=[
-                    {"type": "thinking", "thinking": "分析中"},
-                    {"type": "text", "text": "可见回复"},
-                ]
-            )
-        },
-    })
-    await p.handle({
-        "event": "on_chat_model_end",
-        "data": {"output": AIMessage(content=[{"type": "text", "text": "可见回复"}])},
-    })
+    await p.handle(
+        {
+            "event": "on_chat_model_stream",
+            "data": {
+                "chunk": AIMessageChunk(
+                    content=[
+                        {"type": "thinking", "thinking": "分析中"},
+                        {"type": "text", "text": "可见回复"},
+                    ]
+                )
+            },
+        }
+    )
+    await p.handle(
+        {
+            "event": "on_chat_model_end",
+            "data": {"output": AIMessage(content=[{"type": "text", "text": "可见回复"}])},
+        }
+    )
 
     items = await repo.list_by_session(db_session, sid)
     assert len(items) == 1
@@ -107,22 +119,28 @@ async def test_persister_persists_non_streaming_chat_model_end_output(
         db_session_factory=db_session_factory,
     )
 
-    await p.handle({
-        "event": "on_chain_start",
-        "name": "composer",
-        "tags": ["agent_node"],
-        "data": {},
-    })
-    await p.handle({
-        "event": "on_chat_model_start",
-        "run_id": "non-stream-run",
-        "data": {},
-    })
-    await p.handle({
-        "event": "on_chat_model_end",
-        "run_id": "non-stream-run",
-        "data": {"output": AIMessage(content="final non-stream answer")},
-    })
+    await p.handle(
+        {
+            "event": "on_chain_start",
+            "name": "composer",
+            "tags": ["agent_node"],
+            "data": {},
+        }
+    )
+    await p.handle(
+        {
+            "event": "on_chat_model_start",
+            "run_id": "non-stream-run",
+            "data": {},
+        }
+    )
+    await p.handle(
+        {
+            "event": "on_chat_model_end",
+            "run_id": "non-stream-run",
+            "data": {"output": AIMessage(content="final non-stream answer")},
+        }
+    )
 
     items = await repo.list_by_session(db_session, sid)
     assert len(items) == 1
@@ -279,23 +297,29 @@ async def test_persister_ignores_subagent_child_events(
     )
 
     await p.handle({"event": "on_chat_model_start", "tags": ["subagent_child"], "data": {}})
-    await p.handle({
-        "event": "on_chat_model_stream",
-        "tags": ["subagent_child"],
-        "data": {"chunk": AIMessageChunk(content="hidden child output")},
-    })
-    await p.handle({
-        "event": "on_chat_model_end",
-        "tags": ["subagent_child"],
-        "data": {"output": AIMessageChunk(content="hidden child output")},
-    })
-    await p.handle({
-        "event": "on_tool_end",
-        "name": "read_chapter",
-        "run_id": "child-tool-run",
-        "tags": ["subagent_child"],
-        "data": {"output": "hidden child tool result"},
-    })
+    await p.handle(
+        {
+            "event": "on_chat_model_stream",
+            "tags": ["subagent_child"],
+            "data": {"chunk": AIMessageChunk(content="hidden child output")},
+        }
+    )
+    await p.handle(
+        {
+            "event": "on_chat_model_end",
+            "tags": ["subagent_child"],
+            "data": {"output": AIMessageChunk(content="hidden child output")},
+        }
+    )
+    await p.handle(
+        {
+            "event": "on_tool_end",
+            "name": "read_chapter",
+            "run_id": "child-tool-run",
+            "tags": ["subagent_child"],
+            "data": {"output": "hidden child tool result"},
+        }
+    )
 
     items = await repo.list_by_session(db_session, sid)
     assert items == []
@@ -314,45 +338,57 @@ async def test_persister_persists_subagent_child_events_when_opted_in(
         allow_subagent_child_events=True,
     )
 
-    await p.handle({
-        "event": "on_chain_start",
-        "name": "writer",
-        "tags": ["agent_node", "subagent_child"],
-        "data": {},
-    })
-    await p.handle({
-        "event": "on_chat_model_start",
-        "run_id": "child-run-1",
-        "tags": ["subagent_child"],
-        "data": {},
-    })
-    await p.handle({
-        "event": "on_chat_model_stream",
-        "run_id": "child-run-1",
-        "tags": ["subagent_child"],
-        "data": {"chunk": AIMessageChunk(content="visible child output")},
-    })
-    await p.handle({
-        "event": "on_chat_model_end",
-        "run_id": "child-run-1",
-        "tags": ["subagent_child"],
-        "data": {"output": AIMessageChunk(content="visible child output")},
-    })
-    await p.handle({
-        "event": "on_tool_start",
-        "name": "read_chapter",
-        "run_id": "child-tool-run",
-        "tags": ["subagent_child"],
-        "data": {"input": {"order": 1}},
-        "metadata": {"tool_call_id": "call-child-tool"},
-    })
-    await p.handle({
-        "event": "on_tool_end",
-        "name": "read_chapter",
-        "run_id": "child-tool-run",
-        "tags": ["subagent_child"],
-        "data": {"output": "visible child tool result"},
-    })
+    await p.handle(
+        {
+            "event": "on_chain_start",
+            "name": "writer",
+            "tags": ["agent_node", "subagent_child"],
+            "data": {},
+        }
+    )
+    await p.handle(
+        {
+            "event": "on_chat_model_start",
+            "run_id": "child-run-1",
+            "tags": ["subagent_child"],
+            "data": {},
+        }
+    )
+    await p.handle(
+        {
+            "event": "on_chat_model_stream",
+            "run_id": "child-run-1",
+            "tags": ["subagent_child"],
+            "data": {"chunk": AIMessageChunk(content="visible child output")},
+        }
+    )
+    await p.handle(
+        {
+            "event": "on_chat_model_end",
+            "run_id": "child-run-1",
+            "tags": ["subagent_child"],
+            "data": {"output": AIMessageChunk(content="visible child output")},
+        }
+    )
+    await p.handle(
+        {
+            "event": "on_tool_start",
+            "name": "read_chapter",
+            "run_id": "child-tool-run",
+            "tags": ["subagent_child"],
+            "data": {"input": {"order": 1}},
+            "metadata": {"tool_call_id": "call-child-tool"},
+        }
+    )
+    await p.handle(
+        {
+            "event": "on_tool_end",
+            "name": "read_chapter",
+            "run_id": "child-tool-run",
+            "tags": ["subagent_child"],
+            "data": {"output": "visible child tool result"},
+        }
+    )
 
     items = await repo.list_by_session(db_session, sid)
     assert len(items) == 2
@@ -380,54 +416,64 @@ async def test_persister_persists_subagent_tool_approval_preview(
         allow_subagent_child_events=True,
     )
 
-    await p.handle({
-        "event": "on_chain_start",
-        "name": "composer",
-        "tags": ["agent_node", "subagent_child"],
-        "data": {},
-    })
-    await p.handle({
-        "event": "on_chat_model_start",
-        "run_id": "child-run-approval",
-        "tags": ["subagent_child"],
-        "data": {},
-    })
-    await p.handle({
-        "event": "on_chat_model_end",
-        "run_id": "child-run-approval",
-        "tags": ["subagent_child"],
-        "data": {
-            "output": AIMessage(
-                content="",
-                tool_calls=[
-                    {
-                        "id": "call-write-plan",
-                        "name": "write_plan",
-                        "args": {"value": "plan child beats"},
-                    }
-                ],
-            ),
-        },
-    })
-    await p.handle({
-        "event": "on_tool_start",
-        "name": "write_plan",
-        "run_id": "child-tool-approval",
-        "tags": ["subagent_child"],
-        "data": {"input": {"value": "plan child beats"}},
-        "metadata": {"tool_call_id": "call-write-plan"},
-    })
-    await p.handle({
-        "event": "on_tool_error",
-        "name": "write_plan",
-        "run_id": "child-tool-approval",
-        "tags": ["subagent_child"],
-        "data": {
-            "input": {"value": "plan child beats"},
-            "error": GraphInterrupt(()),
-        },
-        "metadata": {"tool_call_id": "call-write-plan"},
-    })
+    await p.handle(
+        {
+            "event": "on_chain_start",
+            "name": "composer",
+            "tags": ["agent_node", "subagent_child"],
+            "data": {},
+        }
+    )
+    await p.handle(
+        {
+            "event": "on_chat_model_start",
+            "run_id": "child-run-approval",
+            "tags": ["subagent_child"],
+            "data": {},
+        }
+    )
+    await p.handle(
+        {
+            "event": "on_chat_model_end",
+            "run_id": "child-run-approval",
+            "tags": ["subagent_child"],
+            "data": {
+                "output": AIMessage(
+                    content="",
+                    tool_calls=[
+                        {
+                            "id": "call-write-plan",
+                            "name": "write_plan",
+                            "args": {"value": "plan child beats"},
+                        }
+                    ],
+                ),
+            },
+        }
+    )
+    await p.handle(
+        {
+            "event": "on_tool_start",
+            "name": "write_plan",
+            "run_id": "child-tool-approval",
+            "tags": ["subagent_child"],
+            "data": {"input": {"value": "plan child beats"}},
+            "metadata": {"tool_call_id": "call-write-plan"},
+        }
+    )
+    await p.handle(
+        {
+            "event": "on_tool_error",
+            "name": "write_plan",
+            "run_id": "child-tool-approval",
+            "tags": ["subagent_child"],
+            "data": {
+                "input": {"value": "plan child beats"},
+                "error": GraphInterrupt(()),
+            },
+            "metadata": {"tool_call_id": "call-write-plan"},
+        }
+    )
 
     items = await repo.list_by_session(db_session, sid)
     assert len(items) == 2
@@ -508,19 +554,23 @@ async def test_persister_persists_reasoning_duration_on_chat_model_end(
     )
 
     await p.handle({"event": "on_chat_model_start", "data": {}})
-    await p.handle({
-        "event": "on_chat_model_stream",
-        "data": {
-            "chunk": AIMessageChunk(
-                content="",
-                additional_kwargs={"reasoning_content": "先分析需求"},
-            ),
-        },
-    })
-    await p.handle({
-        "event": "on_chat_model_end",
-        "data": {"output": AIMessageChunk(content="")},
-    })
+    await p.handle(
+        {
+            "event": "on_chat_model_stream",
+            "data": {
+                "chunk": AIMessageChunk(
+                    content="",
+                    additional_kwargs={"reasoning_content": "先分析需求"},
+                ),
+            },
+        }
+    )
+    await p.handle(
+        {
+            "event": "on_chat_model_end",
+            "data": {"output": AIMessageChunk(content="")},
+        }
+    )
 
     items = await repo.list_by_session(db_session, sid)
     assert len(items) == 1
@@ -554,42 +604,50 @@ async def test_persister_stops_reasoning_duration_at_last_reasoning_chunk(
     await p.handle({"event": "on_chat_model_start", "run_id": "run-1", "data": {}})
 
     FrozenDateTime.current = datetime(2026, 1, 1, 0, 0, 1, tzinfo=UTC)
-    await p.handle({
-        "event": "on_chat_model_stream",
-        "run_id": "run-1",
-        "data": {
-            "chunk": AIMessageChunk(
-                content="",
-                additional_kwargs={"reasoning_content": "先分析"},
-            ),
-        },
-    })
+    await p.handle(
+        {
+            "event": "on_chat_model_stream",
+            "run_id": "run-1",
+            "data": {
+                "chunk": AIMessageChunk(
+                    content="",
+                    additional_kwargs={"reasoning_content": "先分析"},
+                ),
+            },
+        }
+    )
 
     FrozenDateTime.current = datetime(2026, 1, 1, 0, 0, 3, tzinfo=UTC)
-    await p.handle({
-        "event": "on_chat_model_stream",
-        "run_id": "run-1",
-        "data": {
-            "chunk": AIMessageChunk(
-                content="",
-                additional_kwargs={"reasoning_content": "再推演"},
-            ),
-        },
-    })
+    await p.handle(
+        {
+            "event": "on_chat_model_stream",
+            "run_id": "run-1",
+            "data": {
+                "chunk": AIMessageChunk(
+                    content="",
+                    additional_kwargs={"reasoning_content": "再推演"},
+                ),
+            },
+        }
+    )
 
     FrozenDateTime.current = datetime(2026, 1, 1, 0, 0, 5, tzinfo=UTC)
-    await p.handle({
-        "event": "on_chat_model_stream",
-        "run_id": "run-1",
-        "data": {"chunk": AIMessageChunk(content="最终结论")},
-    })
+    await p.handle(
+        {
+            "event": "on_chat_model_stream",
+            "run_id": "run-1",
+            "data": {"chunk": AIMessageChunk(content="最终结论")},
+        }
+    )
 
     FrozenDateTime.current = datetime(2026, 1, 1, 0, 0, 7, tzinfo=UTC)
-    await p.handle({
-        "event": "on_chat_model_end",
-        "run_id": "run-1",
-        "data": {"output": AIMessageChunk(content="最终结论")},
-    })
+    await p.handle(
+        {
+            "event": "on_chat_model_end",
+            "run_id": "run-1",
+            "data": {"output": AIMessageChunk(content="最终结论")},
+        }
+    )
 
     items = await repo.list_by_session(db_session, sid)
     assert len(items) == 1
@@ -609,19 +667,23 @@ async def test_persister_tool_start_end_writes_tool_complete(
         project_id=sample_task.project_id,
         db_session_factory=db_session_factory,
     )
-    await p.handle({
-        "event": "on_tool_start",
-        "name": "read_chapter",
-        "run_id": "run-1",
-        "data": {"input": {"order": 1}},
-        "metadata": {"tool_call_id": "c1"},
-    })
-    await p.handle({
-        "event": "on_tool_end",
-        "name": "read_chapter",
-        "run_id": "run-1",
-        "data": {"output": "chapter body"},
-    })
+    await p.handle(
+        {
+            "event": "on_tool_start",
+            "name": "read_chapter",
+            "run_id": "run-1",
+            "data": {"input": {"order": 1}},
+            "metadata": {"tool_call_id": "c1"},
+        }
+    )
+    await p.handle(
+        {
+            "event": "on_tool_end",
+            "name": "read_chapter",
+            "run_id": "run-1",
+            "data": {"output": "chapter body"},
+        }
+    )
 
     items = await repo.list_by_session(db_session, sid)
     assert len(items) == 1
@@ -661,9 +723,7 @@ async def test_persister_assistant_with_tool_calls(
     assert len(items) == 1
     assert items[0].role == "assistant"
     assert items[0].status == "complete"
-    assert items[0].tool_calls == [
-        {"id": "c1", "name": "read_chapter", "args": {"order": 1}}
-    ]
+    assert items[0].tool_calls == [{"id": "c1", "name": "read_chapter", "args": {"order": 1}}]
 
 
 @pytest.mark.asyncio
@@ -683,54 +743,62 @@ async def test_persister_recovers_malformed_write_plan_todos_for_reload(
         '{"content":"done","status":"completed","priority":"low"}]}'
     )
 
-    await p.handle({
-        "event": "on_chain_start",
-        "name": "composer",
-        "tags": ["agent_node", "subagent_child"],
-        "data": {},
-    })
-    await p.handle({
-        "event": "on_chat_model_start",
-        "run_id": "child-run-invalid-tool-call",
-        "tags": ["subagent_child"],
-        "data": {},
-    })
-    await p.handle({
-        "event": "on_chat_model_stream",
-        "run_id": "child-run-invalid-tool-call",
-        "tags": ["subagent_child"],
-        "data": {
-            "chunk": AIMessageChunk(
-                content="",
-                tool_call_chunks=[
-                    {
-                        "index": 0,
-                        "id": "call-write-plan",
-                        "name": "write_plan",
-                        "args": malformed_args,
-                    }
-                ],
-            )
-        },
-    })
-    await p.handle({
-        "event": "on_chat_model_end",
-        "run_id": "child-run-invalid-tool-call",
-        "tags": ["subagent_child"],
-        "data": {
-            "output": AIMessage(
-                content="",
-                invalid_tool_calls=[
-                    invalid_tool_call(
-                        id="call-write-plan",
-                        name="write_plan",
-                        args=malformed_args,
-                        error="invalid json in todos array",
-                    )
-                ],
-            )
-        },
-    })
+    await p.handle(
+        {
+            "event": "on_chain_start",
+            "name": "composer",
+            "tags": ["agent_node", "subagent_child"],
+            "data": {},
+        }
+    )
+    await p.handle(
+        {
+            "event": "on_chat_model_start",
+            "run_id": "child-run-invalid-tool-call",
+            "tags": ["subagent_child"],
+            "data": {},
+        }
+    )
+    await p.handle(
+        {
+            "event": "on_chat_model_stream",
+            "run_id": "child-run-invalid-tool-call",
+            "tags": ["subagent_child"],
+            "data": {
+                "chunk": AIMessageChunk(
+                    content="",
+                    tool_call_chunks=[
+                        {
+                            "index": 0,
+                            "id": "call-write-plan",
+                            "name": "write_plan",
+                            "args": malformed_args,
+                        }
+                    ],
+                )
+            },
+        }
+    )
+    await p.handle(
+        {
+            "event": "on_chat_model_end",
+            "run_id": "child-run-invalid-tool-call",
+            "tags": ["subagent_child"],
+            "data": {
+                "output": AIMessage(
+                    content="",
+                    invalid_tool_calls=[
+                        invalid_tool_call(
+                            id="call-write-plan",
+                            name="write_plan",
+                            args=malformed_args,
+                            error="invalid json in todos array",
+                        )
+                    ],
+                )
+            },
+        }
+    )
 
     items = await repo.list_by_session(db_session, sid)
     assert len(items) == 1
@@ -762,55 +830,63 @@ async def test_persister_persists_unrecoverable_invalid_tool_call_with_synthesiz
         allow_subagent_child_events=True,
     )
 
-    await p.handle({
-        "event": "on_chain_start",
-        "name": "composer",
-        "tags": ["agent_node", "subagent_child"],
-        "data": {},
-    })
-    await p.handle({
-        "event": "on_chat_model_start",
-        "run_id": "child-run-invalid-tool-call-no-id",
-        "tags": ["subagent_child"],
-        "data": {},
-    })
-    await p.handle({
-        "event": "on_chat_model_stream",
-        "run_id": "child-run-invalid-tool-call-no-id",
-        "tags": ["subagent_child"],
-        "data": {
-            "chunk": AIMessageChunk(
-                content="",
-                tool_call_chunks=[
-                    {
-                        "index": 0,
-                        "id": None,
-                        "name": "write_plan",
-                        "args": "<<<<",
-                    }
-                ],
-            )
-        },
-    })
-    with patch.object(persister_module, "log_tool_failure") as log_failure:
-        await p.handle({
-            "event": "on_chat_model_end",
+    await p.handle(
+        {
+            "event": "on_chain_start",
+            "name": "composer",
+            "tags": ["agent_node", "subagent_child"],
+            "data": {},
+        }
+    )
+    await p.handle(
+        {
+            "event": "on_chat_model_start",
+            "run_id": "child-run-invalid-tool-call-no-id",
+            "tags": ["subagent_child"],
+            "data": {},
+        }
+    )
+    await p.handle(
+        {
+            "event": "on_chat_model_stream",
             "run_id": "child-run-invalid-tool-call-no-id",
             "tags": ["subagent_child"],
             "data": {
-                "output": AIMessage(
+                "chunk": AIMessageChunk(
                     content="",
-                    invalid_tool_calls=[
+                    tool_call_chunks=[
                         {
+                            "index": 0,
+                            "id": None,
                             "name": "write_plan",
                             "args": "<<<<",
-                            "error": "invalid json",
-                            "type": "invalid_tool_call",
                         }
                     ],
                 )
             },
-        })
+        }
+    )
+    with patch.object(persister_module, "log_tool_failure") as log_failure:
+        await p.handle(
+            {
+                "event": "on_chat_model_end",
+                "run_id": "child-run-invalid-tool-call-no-id",
+                "tags": ["subagent_child"],
+                "data": {
+                    "output": AIMessage(
+                        content="",
+                        invalid_tool_calls=[
+                            {
+                                "name": "write_plan",
+                                "args": "<<<<",
+                                "error": "invalid json",
+                                "type": "invalid_tool_call",
+                            }
+                        ],
+                    )
+                },
+            }
+        )
     log_failure.assert_not_called()
 
     items = await repo.list_by_session(db_session, sid)
@@ -835,14 +911,16 @@ async def test_persister_persists_unrecoverable_invalid_tool_call_with_synthesiz
 
 
 @pytest.mark.asyncio
-async def test_persister_mark_user_sent(
-    db_session: AsyncSession, db_session_factory, sample_task
-):
+async def test_persister_mark_user_sent(db_session: AsyncSession, db_session_factory, sample_task):
     sid = "session_a"
     pending = await repo.insert_message(
-        db_session, session_id=sid, task_id=sample_task.id,
+        db_session,
+        session_id=sid,
+        task_id=sample_task.id,
         project_id=sample_task.project_id,
-        role="user", content="hi", status="pending",
+        role="user",
+        content="hi",
+        status="pending",
     )
     p = MessagePersister(
         session_id=sid,
@@ -867,22 +945,26 @@ async def test_persister_persists_node_events_as_hidden_system_messages(
         db_session_factory=db_session_factory,
     )
 
-    await p.persist_node_event({
-        "session_id": sid,
-        "node": "composer",
-        "phase": "start",
-        "status": "running",
-        "current_node": "composer",
-        "previous_node": "explore",
-    })
-    await p.persist_node_event({
-        "session_id": sid,
-        "node": "composer",
-        "phase": "end",
-        "status": "completed",
-        "current_node": None,
-        "previous_node": "explore",
-    })
+    await p.persist_node_event(
+        {
+            "session_id": sid,
+            "node": "composer",
+            "phase": "start",
+            "status": "running",
+            "current_node": "composer",
+            "previous_node": "explore",
+        }
+    )
+    await p.persist_node_event(
+        {
+            "session_id": sid,
+            "node": "composer",
+            "phase": "end",
+            "status": "completed",
+            "current_node": None,
+            "previous_node": "explore",
+        }
+    )
 
     items = await repo.list_by_session(db_session, sid)
     assert [item.role for item in items] == ["system", "system"]

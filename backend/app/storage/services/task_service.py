@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Task Service - 任务业务逻辑层。
 """
@@ -68,9 +67,7 @@ async def get_task(session: AsyncSession, task_id: str) -> Task:
     return task
 
 
-async def get_task_by_agent_session_id(
-    session: AsyncSession, agent_session_id: str
-) -> Task:
+async def get_task_by_agent_session_id(session: AsyncSession, agent_session_id: str) -> Task:
     """根据 Agent 会话 ID 获取任务。"""
     task = await task_repo.get_by_agent_session_id(session, agent_session_id)
     if task is None:
@@ -238,11 +235,7 @@ async def _delete_runtime_data_for_tasks(
     task_ids = [task.id for task in tasks]
     if not task_ids:
         return
-    session_ids = [
-        task.agent_session_id
-        for task in tasks
-        if task.agent_session_id
-    ]
+    session_ids = [task.agent_session_id for task in tasks if task.agent_session_id]
     child_session_result = await session.execute(
         select(col(AgentChildRun.child_thread_id)).where(
             col(AgentChildRun.parent_task_id).in_(task_ids)
@@ -254,21 +247,15 @@ async def _delete_runtime_data_for_tasks(
         if child_thread_id
     )
     await session.execute(
-        delete(AgentChildRunRequest).where(
-            col(AgentChildRunRequest.parent_task_id).in_(task_ids)
-        )
+        delete(AgentChildRunRequest).where(col(AgentChildRunRequest.parent_task_id).in_(task_ids))
     )
     await session.execute(
         delete(AgentChildRun).where(col(AgentChildRun.parent_task_id).in_(task_ids))
     )
     await session.execute(
-        delete(AgentContextCompaction).where(
-            col(AgentContextCompaction.task_id).in_(task_ids)
-        )
+        delete(AgentContextCompaction).where(col(AgentContextCompaction.task_id).in_(task_ids))
     )
-    await session.execute(
-        delete(AgentRunMessage).where(col(AgentRunMessage.task_id).in_(task_ids))
-    )
+    await session.execute(delete(AgentRunMessage).where(col(AgentRunMessage.task_id).in_(task_ids)))
     await task_message_repo.delete_by_task_ids(session, task_ids)
     await _delete_plans_for_sessions(session, session_ids)
     await session.flush()
@@ -280,9 +267,7 @@ async def _delete_plans_for_sessions(
 ) -> int:
     if not session_ids:
         return 0
-    plan_ids = select(col(PlanRecord.id)).where(
-        col(PlanRecord.session_id).in_(session_ids)
-    )
+    plan_ids = select(col(PlanRecord.id)).where(col(PlanRecord.session_id).in_(session_ids))
     todo_result = await session.execute(
         delete(PlanTodoRecord).where(col(PlanTodoRecord.plan_id).in_(plan_ids))
     )
@@ -305,9 +290,7 @@ async def _list_orphan_plan_session_ids(
         )
     )
     reachable_session_ids = {
-        session_id
-        for session_id in root_session_result.scalars().all()
-        if session_id
+        session_id for session_id in root_session_result.scalars().all() if session_id
     }
     child_session_result = await session.execute(
         select(col(AgentChildRun.child_thread_id)).where(

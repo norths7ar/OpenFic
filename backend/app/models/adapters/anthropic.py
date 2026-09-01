@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Anthropic Adapter - Anthropic API适配器。
 """

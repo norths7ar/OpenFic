@@ -2,13 +2,13 @@ import json
 
 from pydantic import BaseModel, Field
 
-from app.agent_runtime.tools.base import AgentTool
 from app.agent_runtime.revisions import (
     current_revision_id_from_state,
     images_by_id,
     record_agent_activity_for_change,
     record_chapter_diffs,
 )
+from app.agent_runtime.tools.base import AgentTool
 from app.agent_runtime.tools.errors import ToolExecutionError
 from app.agent_runtime.tools.impls.chapter.refs import (
     ChapterRef,
@@ -52,14 +52,10 @@ class DeleteChapterTool(AgentTool):
                 ref_type=ref.type,
                 ref_value=ref.value,
             )
-            match = resolve_chapter_from_list(
-                [matched] if matched is not None else [], ref
-            )
+            match = resolve_chapter_from_list([matched] if matched is not None else [], ref)
             deleted_order = match.order
             before = images_by_id(
-                await chapter_repo.list_by_volume_from_order(
-                    session, volume.id, deleted_order
-                )
+                await chapter_repo.list_by_volume_from_order(session, volume.id, deleted_order)
             )
             await chapter_service.delete_chapter(
                 session,
@@ -70,9 +66,7 @@ class DeleteChapterTool(AgentTool):
                 agent_session_id=self.session_id,
             )
             after = images_by_id(
-                await chapter_repo.list_by_volume_from_order(
-                    session, volume.id, deleted_order
-                )
+                await chapter_repo.list_by_volume_from_order(session, volume.id, deleted_order)
             )
             affected = await record_chapter_diffs(
                 session,

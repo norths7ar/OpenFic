@@ -7,13 +7,13 @@ from loguru import logger
 
 from app.background.events.publisher import BackgroundEventPublisher
 from app.background.events.types import EVENT_JOB_STARTED
+from app.background.jobs import repos as job_repo
+from app.background.jobs import service as job_service
 from app.background.jobs.constants import (
     JOB_TYPE_CHAPTER_EXPORT,
     JOB_TYPE_RETRIEVAL_CHAPTER_INDEX_BATCH,
     JOB_TYPE_SUMMARY_BATCH,
 )
-from app.background.jobs import repos as job_repo
-from app.background.jobs import service as job_service
 from app.background.jobs.states import JOB_STATUS_CANCEL_REQUESTED, JOB_STATUS_RUNNING
 from app.background.runtime.context import JobCancelledError, JobContext
 from app.background.runtime.dispatcher import dispatch_job
@@ -86,9 +86,7 @@ class BackgroundWorker:
                     f"background worker iteration failed: {exc}"
                 )
             with suppress(asyncio.TimeoutError):
-                await asyncio.wait_for(
-                    self._stop_event.wait(), timeout=self.scan_interval_seconds
-                )
+                await asyncio.wait_for(self._stop_event.wait(), timeout=self.scan_interval_seconds)
         logger.bind(worker_id=self.worker_id).info("Background worker stopped")
 
     async def _run_pending_once(self) -> None:
@@ -165,7 +163,11 @@ class BackgroundWorker:
             is_summary_batch_cancelled = job_id in self._preempted_summary_batch_ids
             is_index_batch_cancelled = job_id in self._preempted_index_batch_ids
             is_chapter_export_cancelled = job_id in self._preempted_chapter_export_ids
-            if not is_summary_batch_cancelled and not is_index_batch_cancelled and not is_chapter_export_cancelled:
+            if (
+                not is_summary_batch_cancelled
+                and not is_index_batch_cancelled
+                and not is_chapter_export_cancelled
+            ):
                 raise
             if is_summary_batch_cancelled:
                 job_name = "summary batch"
@@ -264,7 +266,9 @@ class BackgroundWorker:
         try:
             job = await job_repo.get_job(session, job_id)
             if job is not None:
-                await self._run_lifecycle_hook_safely(session, publisher, job, "timeout", error_message)
+                await self._run_lifecycle_hook_safely(
+                    session, publisher, job, "timeout", error_message
+                )
                 await job_service.mark_timeout(session, publisher, job, error_message=error_message)
                 await job_service.commit_and_notify(session)
         finally:
@@ -278,12 +282,18 @@ class BackgroundWorker:
             job = await job_repo.get_job(session, job_id)
             if job is not None:
                 if job.status == JOB_STATUS_CANCEL_REQUESTED:
-                    await self._run_lifecycle_hook_safely(session, publisher, job, "cancelled", job.cancel_reason or error_message)
-                    await job_service.mark_cancelled(session, publisher, job, reason=job.cancel_reason or error_message)
+                    await self._run_lifecycle_hook_safely(
+                        session, publisher, job, "cancelled", job.cancel_reason or error_message
+                    )
+                    await job_service.mark_cancelled(
+                        session, publisher, job, reason=job.cancel_reason or error_message
+                    )
                 elif job.attempt_count < job.max_attempts:
                     await job_service.schedule_retry(session, publisher, job, reason=error_message)
                 else:
-                    await self._run_lifecycle_hook_safely(session, publisher, job, "failed", error_message)
+                    await self._run_lifecycle_hook_safely(
+                        session, publisher, job, "failed", error_message
+                    )
                     await job_service.mark_failed(
                         session,
                         publisher,

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Writing Activity Service - 写作活动采集与统计。
 """

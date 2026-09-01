@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 RetrievalIndex 数据模型。
 """
@@ -20,9 +19,7 @@ class RetrievalIndex(SQLModel, table=True):
     table_name: str = Field(index=True, max_length=200)
     status: str = Field(default="registered", max_length=20, index=True)
 
-    embedding_model_ref_id: str = Field(
-        foreign_key="models.id", index=True, max_length=200
-    )
+    embedding_model_ref_id: str = Field(foreign_key="models.id", index=True, max_length=200)
     embedding_model_id_snapshot: str = Field(max_length=200)
     embedding_dimensions_snapshot: int = Field(ge=1)
     distance_metric: str = Field(default="cosine", max_length=20)

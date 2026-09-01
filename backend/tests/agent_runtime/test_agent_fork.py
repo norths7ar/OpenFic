@@ -265,8 +265,7 @@ async def test_fork_copies_only_compactions_fully_inside_forked_message_range(fo
         rows = await compaction_repo.list_by_session(session, "sess-fork")
 
     assert [
-        (row.session_id, row.task_id, row.start_seq, row.end_seq, row.summary)
-        for row in rows
+        (row.session_id, row.task_id, row.start_seq, row.end_seq, row.summary) for row in rows
     ] == [
         (
             "sess-fork",

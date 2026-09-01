@@ -29,9 +29,7 @@ def _parse_output(output: str | None) -> dict[str, Any] | None:
 
 def _extract_entry_id(result: dict[str, Any]) -> str | None:
     metadata = result.get("metadata")
-    world_entry_diff = (
-        metadata.get("world_entry_diff") if isinstance(metadata, dict) else None
-    )
+    world_entry_diff = metadata.get("world_entry_diff") if isinstance(metadata, dict) else None
     if isinstance(world_entry_diff, dict):
         entry_id = world_entry_diff.get("entry_id")
         if isinstance(entry_id, str) and entry_id:

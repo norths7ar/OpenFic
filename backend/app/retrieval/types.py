@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Types for retrieval subsystem.
 """
@@ -6,16 +5,15 @@ Types for retrieval subsystem.
 from __future__ import annotations
 
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-
 JSONScalar = str | int | float | bool | None
 
 
-class FilterableFieldType(str, Enum):
+class FilterableFieldType(StrEnum):
     STRING = "string"
     INTEGER = "integer"
     FLOAT = "float"

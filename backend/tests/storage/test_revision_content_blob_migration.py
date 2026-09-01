@@ -5,10 +5,7 @@ import pytest
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Connection
 
-
-migration = importlib.import_module(
-    "app.storage.migrations.versions.1018_revision_content_blobs"
-)
+migration = importlib.import_module("app.storage.migrations.versions.1018_revision_content_blobs")
 
 
 def _create_revision_blob_schema(connection: Connection) -> None:
@@ -56,8 +53,7 @@ def _insert_blob(connection: Connection, blob_id: str, content: str) -> None:
     raw = content.encode("utf-8")
     connection.execute(
         text(
-            "INSERT INTO revision_content_blobs (id, data, raw_size) "
-            "VALUES (:id, :data, :raw_size)"
+            "INSERT INTO revision_content_blobs (id, data, raw_size) VALUES (:id, :data, :raw_size)"
         ),
         {"id": blob_id, "data": zlib.compress(raw), "raw_size": len(raw)},
     )
@@ -92,10 +88,7 @@ def test_restore_blob_backed_content_and_reset_marker() -> None:
             ("revision_world_entry_snapshots", "world"),
         ):
             connection.execute(
-                text(
-                    f"INSERT INTO {table_name} (id, content_blob_id) "
-                    "VALUES (:id, :blob_id)"
-                ),
+                text(f"INSERT INTO {table_name} (id, content_blob_id) VALUES (:id, :blob_id)"),
                 {"id": f"{blob_id}-1", "blob_id": blob_id},
             )
         connection.execute(
@@ -118,12 +111,13 @@ def test_restore_blob_backed_content_and_reset_marker() -> None:
         migration._restore_blob_backed_content(connection)
         migration._reset_backfill_marker(connection)
 
-        commit = connection.execute(
-            text(
-                "SELECT snapshot_content, new_content FROM commits "
-                "WHERE id = 'commit-1'"
+        commit = (
+            connection.execute(
+                text("SELECT snapshot_content, new_content FROM commits WHERE id = 'commit-1'")
             )
-        ).mappings().one()
+            .mappings()
+            .one()
+        )
         assert commit["snapshot_content"] == contents["before"]
         assert commit["new_content"] == contents["after"]
 
@@ -132,9 +126,7 @@ def test_restore_blob_backed_content_and_reset_marker() -> None:
             ("revision_note_snapshots", "note"),
             ("revision_world_entry_snapshots", "world"),
         ):
-            restored = connection.execute(
-                text(f"SELECT content FROM {table_name}")
-            ).scalar_one()
+            restored = connection.execute(text(f"SELECT content FROM {table_name}")).scalar_one()
             assert restored == contents[blob_id]
         restored_description = connection.execute(
             text("SELECT description FROM revision_character_snapshots")
@@ -142,9 +134,7 @@ def test_restore_blob_backed_content_and_reset_marker() -> None:
         assert restored_description == contents["character"]
 
         markers = set(
-            connection.execute(
-                text("SELECT name FROM openfic_maintenance_migrations")
-            ).scalars()
+            connection.execute(text("SELECT name FROM openfic_maintenance_migrations")).scalars()
         )
         assert markers == {"unrelated-marker"}
 

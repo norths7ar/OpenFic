@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Agent Definitions Router。
 """
@@ -6,17 +5,17 @@ Agent Definitions Router。
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.agent_runtime.agents.definitions import agent_definition_from_record
+from app.agent_runtime.agents.tool_categories import list_tool_categories
+from app.api.agent_settings_lock import require_agent_settings_unlocked
 from app.api.schemas.agent_definition import (
     AgentDefinitionCreateRequest,
     AgentDefinitionListResponse,
     AgentDefinitionResponse,
+    AgentDefinitionUpdateRequest,
     AgentToolCategoryListResponse,
     AgentToolCategoryResponse,
-    AgentDefinitionUpdateRequest,
 )
-from app.api.agent_settings_lock import require_agent_settings_unlocked
-from app.agent_runtime.agents.definitions import agent_definition_from_record
-from app.agent_runtime.agents.tool_categories import list_tool_categories
 from app.core.errors import NotFoundError, ValidationError
 from app.storage.database import get_session
 from app.storage.services import agent_definition_service, prompt_chain_service
@@ -82,11 +81,11 @@ async def get_definition(
 ) -> AgentDefinitionResponse:
     try:
         defn = await agent_definition_service.get_definition(session, key)
-    except KeyError:
+    except KeyError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"智能体定义不存在: {key}",
-        )
+        ) from exc
     return _to_response(defn)
 
 
@@ -127,7 +126,7 @@ async def create_definition(
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=str(exc),
-        )
+        ) from exc
 
     return _to_response(agent_definition_from_record(record))
 
@@ -161,9 +160,9 @@ async def update_definition(
             icon=body.icon,
         )
     except NotFoundError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     except ValidationError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     await session.commit()
     return _to_response(agent_definition_from_record(record))
 
@@ -181,7 +180,7 @@ async def reset_definition(
         await require_agent_settings_unlocked(session)
         defn = await agent_definition_service.reset_definition(session, key)
     except ValidationError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     await session.commit()
     return _to_response(defn)
 
@@ -199,7 +198,7 @@ async def delete_definition(
         await require_agent_settings_unlocked(session)
         await agent_definition_service.delete_definition(session, key)
     except NotFoundError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     except ValidationError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     await session.commit()

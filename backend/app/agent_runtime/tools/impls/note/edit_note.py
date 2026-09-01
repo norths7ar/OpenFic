@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 编辑笔记内容（查找替换）。
 """
@@ -51,22 +50,26 @@ def _build_diff_lines(before: str, after: str) -> list[dict[str, Any]]:
 
         if tag in {"delete", "replace"}:
             for line in before_lines[before_start:before_end]:
-                lines.append({
-                    "type": "removed",
-                    "before_line_number": before_line_number,
-                    "after_line_number": None,
-                    "text": line,
-                })
+                lines.append(
+                    {
+                        "type": "removed",
+                        "before_line_number": before_line_number,
+                        "after_line_number": None,
+                        "text": line,
+                    }
+                )
                 before_line_number += 1
 
         if tag in {"insert", "replace"}:
             for line in after_lines[after_start:after_end]:
-                lines.append({
-                    "type": "added",
-                    "before_line_number": None,
-                    "after_line_number": after_line_number,
-                    "text": line,
-                })
+                lines.append(
+                    {
+                        "type": "added",
+                        "before_line_number": None,
+                        "after_line_number": after_line_number,
+                        "text": line,
+                    }
+                )
                 after_line_number += 1
 
     return lines
@@ -113,9 +116,7 @@ class EditNoteTool(AgentTool):
                 return None
         else:
             notes = await note_repo.list_by_project(session, self.project_id, include_hidden=False)
-            notes = [
-                note for note in notes if note_is_visible(note, include_all=include_all)
-            ]
+            notes = [note for note in notes if note_is_visible(note, include_all=include_all)]
             categories = await note_category_repo.list_by_project(session, self.project_id)
             try:
                 note = resolve_note_from_list(notes, ref, categories=categories)
@@ -129,9 +130,7 @@ class EditNoteTool(AgentTool):
         ):
             return None
 
-        preview_result = fuzzy_replace(
-            note.content, old_content, new_content, replace_all=True
-        )
+        preview_result = fuzzy_replace(note.content, old_content, new_content, replace_all=True)
         if preview_result is None:
             return None
         preview_content = preview_result.new_content
@@ -180,14 +179,8 @@ class EditNoteTool(AgentTool):
                 notes = await note_repo.list_by_project(
                     session, self.project_id, include_hidden=False
                 )
-                notes = [
-                    note
-                    for note in notes
-                    if note_is_visible(note, include_all=include_all)
-                ]
-                cats = await note_category_repo.list_by_project(
-                    session, self.project_id
-                )
+                notes = [note for note in notes if note_is_visible(note, include_all=include_all)]
+                cats = await note_category_repo.list_by_project(session, self.project_id)
                 note = resolve_note_from_list(notes, ref, categories=cats)
 
             if note.project_id != self.project_id:
@@ -200,14 +193,10 @@ class EditNoteTool(AgentTool):
                 raise ToolExecutionError("笔记不在当前上下文范围内")
 
             before = note_images_by_id(
-                await note_repo.list_by_project(
-                    session, self.project_id, include_hidden=True
-                )
+                await note_repo.list_by_project(session, self.project_id, include_hidden=True)
             )
             before_content = note.content
-            replace_result = fuzzy_replace(
-                note.content, old_content, new_content, replace_all=True
-            )
+            replace_result = fuzzy_replace(note.content, old_content, new_content, replace_all=True)
             if replace_result is None:
                 raise ToolExecutionError("未在笔记内容中找到要替换的文本")
             note.content = replace_result.new_content
@@ -218,9 +207,7 @@ class EditNoteTool(AgentTool):
             note.updated_at = datetime.now(UTC)
             await note_repo.update_note(session, note)
             after = note_images_by_id(
-                await note_repo.list_by_project(
-                    session, self.project_id, include_hidden=True
-                )
+                await note_repo.list_by_project(session, self.project_id, include_hidden=True)
             )
             await record_note_diffs(
                 session,

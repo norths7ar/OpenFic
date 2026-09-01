@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Dashboard API Schemas - LLM API 统计仪表盘响应模型。
 """
@@ -128,15 +127,21 @@ class DashboardFilterOptions(BaseModel):
     categories: list[str] = Field(description="调用分类列表")
     operations: list[str] = Field(description="调用操作列表")
     statuses: list[str] = Field(description="状态列表")
-    project_options: list[DashboardFilterOptionItem] = Field(default_factory=list, description="项目筛选显示项")
-    model_options: list[DashboardFilterOptionItem] = Field(default_factory=list, description="模型筛选显示项")
+    project_options: list[DashboardFilterOptionItem] = Field(
+        default_factory=list, description="项目筛选显示项"
+    )
+    model_options: list[DashboardFilterOptionItem] = Field(
+        default_factory=list, description="模型筛选显示项"
+    )
 
 
 class DashboardStatsResponse(BaseModel):
     """LLM API 统计仪表盘响应。"""
 
     summary: DashboardSummary = Field(description="总览指标")
-    model_time_series: list[DashboardModelTimeSeriesPoint] = Field(description="按模型聚合的时间趋势")
+    model_time_series: list[DashboardModelTimeSeriesPoint] = Field(
+        description="按模型聚合的时间趋势"
+    )
     by_model: list[DashboardBreakdownItem] = Field(description="按模型统计")
     by_project: list[DashboardBreakdownItem] = Field(description="按项目统计")
     options: DashboardFilterOptions = Field(description="筛选选项")

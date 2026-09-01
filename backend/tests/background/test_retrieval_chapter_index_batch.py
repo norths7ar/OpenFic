@@ -1,10 +1,10 @@
-# -*- coding: utf-8 -*-
 """Retrieval chapter index background job tests."""
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.background.events.publisher import BackgroundEventPublisher
+from app.background.jobs.definitions import retrieval_chapter_index_batch as definition
 from app.background.jobs.models import BackgroundJob, BackgroundJobItem
 from app.background.jobs.states import (
     JOB_STATUS_CANCELLED,
@@ -14,7 +14,6 @@ from app.background.jobs.states import (
     JOB_STATUS_SUCCEEDED,
 )
 from app.background.runtime.context import JobCancelledError, JobContext
-from app.background.jobs.definitions import retrieval_chapter_index_batch as definition
 from app.core.encryption import EncryptionService
 from app.models.repos import model_provider_repo, model_repo
 from app.retrieval.chapter_index import (
@@ -107,9 +106,7 @@ class ContentChangingRetrievalService(FakeRetrievalService):
 
         chapter_id = chunks[0].metadata["chapter_id"]
         chapter = (
-            await session.execute(
-                select(Chapter).where(col(Chapter.id) == chapter_id)
-            )
+            await session.execute(select(Chapter).where(col(Chapter.id) == chapter_id))
         ).scalar_one()
         chapter.content = "英雄在索引期间改写了正文"
         await session.flush()
@@ -155,9 +152,7 @@ class StateReassigningChapterIndexService:
 
         for chapter_id in chapter_ids:
             chapter = (
-                await session.execute(
-                    select(Chapter).where(col(Chapter.id) == chapter_id)
-                )
+                await session.execute(select(Chapter).where(col(Chapter.id) == chapter_id))
             ).scalar_one()
             state = (
                 await session.execute(
@@ -230,8 +225,7 @@ class MutatingFailingChapterIndexService:
                 select(RetrievalChapterIndexState).where(
                     col(RetrievalChapterIndexState.project_id) == self.project_id,
                     col(RetrievalChapterIndexState.chapter_id) == self.chapter_id,
-                    col(RetrievalChapterIndexState.index_key)
-                    == f"chapters:{self.project_id}",
+                    col(RetrievalChapterIndexState.index_key) == f"chapters:{self.project_id}",
                 )
             )
         ).scalar_one()
@@ -331,9 +325,7 @@ async def test_retrieval_chapter_index_batch_saves_ready_state(
     monkeypatch.setattr(
         definition,
         "ChapterIndexIntegrationService",
-        lambda: ChapterIndexIntegrationService(
-            retrieval_service=FakeRetrievalService()
-        ),
+        lambda: ChapterIndexIntegrationService(retrieval_service=FakeRetrievalService()),
     )
 
     context = JobContext(
@@ -369,9 +361,7 @@ async def test_retrieval_chapter_index_batch_saves_failed_state(
     monkeypatch.setattr(
         definition,
         "ChapterIndexIntegrationService",
-        lambda: ChapterIndexIntegrationService(
-            retrieval_service=FakeRetrievalService(fail=True)
-        ),
+        lambda: ChapterIndexIntegrationService(retrieval_service=FakeRetrievalService(fail=True)),
     )
 
     context = JobContext(
@@ -595,9 +585,7 @@ async def test_retrieval_chapter_index_batch_marks_stale_if_content_changes_duri
     monkeypatch.setattr(
         definition,
         "ChapterIndexIntegrationService",
-        lambda: ChapterIndexIntegrationService(
-            retrieval_service=ContentChangingRetrievalService()
-        ),
+        lambda: ChapterIndexIntegrationService(retrieval_service=ContentChangingRetrievalService()),
     )
 
     context = JobContext(
@@ -792,9 +780,7 @@ class StopsAfterStartingFirstChapterIndexService:
         raise JobCancelledError("用户停止索引")
 
 
-async def _seed_multi_chapter_job(
-    session: AsyncSession, *, chapter_count: int
-):
+async def _seed_multi_chapter_job(session: AsyncSession, *, chapter_count: int):
     """创建含多个章节的索引任务，返回 (job, items, states)。"""
     model = await _create_embedding_model(session)
     await setting_repo.upsert(session, "default_embedding_model", model.id)
@@ -822,7 +808,7 @@ async def _seed_multi_chapter_job(
             id=chapter_id,
             project_id=project.id,
             volume_id=volume.id,
-            title=f"第{i+1}章",
+            title=f"第{i + 1}章",
             content=f"内容{i}",
             word_count=3,
             order=i + 1,
@@ -915,9 +901,7 @@ async def test_batch_emits_progress_per_sub_batch(
     monkeypatch.setattr(
         definition,
         "ChapterIndexIntegrationService",
-        lambda: ChapterIndexIntegrationService(
-            retrieval_service=MultiDocumentRetrievalService()
-        ),
+        lambda: ChapterIndexIntegrationService(retrieval_service=MultiDocumentRetrievalService()),
     )
 
     emit_count = 0
@@ -1025,9 +1009,7 @@ async def test_batch_cancellation_preserves_completed_chapters_and_resets_incomp
     monkeypatch.setattr(
         definition,
         "ChapterIndexIntegrationService",
-        lambda: ChapterIndexIntegrationService(
-            retrieval_service=MultiDocumentRetrievalService()
-        ),
+        lambda: ChapterIndexIntegrationService(retrieval_service=MultiDocumentRetrievalService()),
     )
 
     deleted_document_ids: list[str] = []
@@ -1151,8 +1133,6 @@ async def test_batch_cancellation_batches_pending_items_and_cleans_only_running_
         assert state.item_id is None
 
 
-
-
 class FailOneChapterRetrievalService(MultiDocumentRetrievalService):
     """首次 chunk 写入失败，验证任务会停止。"""
 
@@ -1177,9 +1157,7 @@ async def test_batch_stops_on_partial_chapter_failure(
     monkeypatch.setattr(
         definition,
         "ChapterIndexIntegrationService",
-        lambda: ChapterIndexIntegrationService(
-            retrieval_service=FailOneChapterRetrievalService()
-        ),
+        lambda: ChapterIndexIntegrationService(retrieval_service=FailOneChapterRetrievalService()),
     )
 
     async def _noop_emit(*_args, **_kwargs):

@@ -1,7 +1,9 @@
-# -*- coding: utf-8 -*-
 """
 测试全局阅读序位 helper 函数。
 """
+
+import subprocess
+import sys
 
 from app.memory.chapter.sequence import (
     chapter_by_global_order,
@@ -10,6 +12,18 @@ from app.memory.chapter.sequence import (
 )
 from app.storage.models.chapter import Chapter
 from app.storage.models.volume import Volume
+
+
+def test_sequence_module_imports_in_a_fresh_interpreter() -> None:
+    """Leaf model imports must not depend on a lucky application import order."""
+    result = subprocess.run(
+        [sys.executable, "-c", "import app.memory.chapter.sequence"],
+        capture_output=True,
+        check=False,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
 
 
 def _make_chapter(chapter_id: str, volume_id: str, order: int) -> Chapter:

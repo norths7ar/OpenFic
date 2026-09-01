@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Summary scheduling and status service."""
 
 import hashlib
@@ -14,8 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.background.events.publisher import BackgroundEventPublisher
 from app.background.jobs import service as job_service
 from app.background.jobs.constants import JOB_TYPE_SUMMARY_BATCH
-from app.background.jobs.models import BackgroundJob
-from app.background.jobs.models import BackgroundJobItem
+from app.background.jobs.models import BackgroundJob, BackgroundJobItem
 from app.background.jobs.states import (
     JOB_STATUS_PENDING,
     JOB_STATUS_RUNNING,
@@ -49,7 +47,9 @@ SUMMARY_BATCH_ITEM_PROGRESS_TOTAL = 3
 
 
 def get_background_supervisor():
-    from app.background.runtime.supervisor import get_background_supervisor as _get_background_supervisor
+    from app.background.runtime.supervisor import (
+        get_background_supervisor as _get_background_supervisor,
+    )
 
     return _get_background_supervisor()
 
@@ -155,10 +155,13 @@ def is_chapter_summary_skipped(chapter: Chapter) -> bool:
 def is_chapter_summary_stale(summary: ChapterSummary | None, chapter: Chapter) -> bool:
     if summary is None or summary.status != SUMMARY_STATUS_READY:
         return False
-    return _diff_character_count(
-        summary.source_content_normalized,
-        normalize_summary_source_content(chapter.content),
-    ) > SUMMARY_STALE_DIFF_THRESHOLD
+    return (
+        _diff_character_count(
+            summary.source_content_normalized,
+            normalize_summary_source_content(chapter.content),
+        )
+        > SUMMARY_STALE_DIFF_THRESHOLD
+    )
 
 
 def normalize_summary_source_content(content: str) -> str:
@@ -249,11 +252,7 @@ def _fixed_summary_windows(
     ordered = sorted(chapters, key=lambda chapter: order_map.get(chapter.id, float("inf")))
     windows: list[list[Chapter]] = []
     for start in range(1, len(ordered) + 1, size):
-        group = [
-            chapter
-            for chapter in ordered
-            if start <= order_map[chapter.id] < start + size
-        ]
+        group = [chapter for chapter in ordered if start <= order_map[chapter.id] < start + size]
         if len(group) == size:
             windows.append(group)
     return windows
@@ -293,9 +292,7 @@ def build_long_term_summary_window(
     summary_by_chapter_id = {summary.chapter_id: summary for summary in chapter_summaries}
     order_map = global_order_index(chapters, volumes)
     chapter_group = [
-        chapter
-        for chapter in chapters
-        if start_order <= order_map.get(chapter.id, -1) <= end_order
+        chapter for chapter in chapters if start_order <= order_map.get(chapter.id, -1) <= end_order
     ]
     if len(chapter_group) != end_order - start_order + 1:
         return None
@@ -345,23 +342,15 @@ def list_ready_unaggregated_long_term_windows(
     return windows
 
 
-async def list_chapter_summaries(
-    session: AsyncSession, project_id: str
-) -> list[ChapterSummary]:
+async def list_chapter_summaries(session: AsyncSession, project_id: str) -> list[ChapterSummary]:
     return await chapter_summary_repo.list_chapter_summaries_by_project(session, project_id)
 
 
-async def list_long_term_summaries(
-    session: AsyncSession, project_id: str
-) -> list[ChapterSummary]:
-    return await chapter_summary_repo.list_long_term_summaries_by_project(
-        session, project_id
-    )
+async def list_long_term_summaries(session: AsyncSession, project_id: str) -> list[ChapterSummary]:
+    return await chapter_summary_repo.list_long_term_summaries_by_project(session, project_id)
 
 
-async def get_chapter_summary(
-    session: AsyncSession, chapter_id: str
-) -> ChapterSummary | None:
+async def get_chapter_summary(session: AsyncSession, chapter_id: str) -> ChapterSummary | None:
     return await chapter_summary_repo.get_by_chapter_id(session, chapter_id)
 
 
@@ -497,7 +486,9 @@ async def create_or_update_long_term_summary(
         if source_chapter_ids is not None
         else _window_source_chapter_ids(source_summaries)
     )
-    source_signatures_json = encode_summary_list(_source_chapter_summary_signatures(source_summaries))
+    source_signatures_json = encode_summary_list(
+        _source_chapter_summary_signatures(source_summaries)
+    )
     existing = await chapter_summary_repo.get_long_term_by_range(
         session, project_id, start_order, end_order
     )
@@ -711,7 +702,11 @@ async def list_all_missing_summary_ranges(
         if is_chapter_summary_skipped(chapter):
             continue
         summary = summary_by_chapter_id.get(chapter.id)
-        if summary is None or summary.status == SUMMARY_STATUS_FAILED or is_chapter_summary_stale(summary, chapter):
+        if (
+            summary is None
+            or summary.status == SUMMARY_STATUS_FAILED
+            or is_chapter_summary_stale(summary, chapter)
+        ):
             chapter_ids.append(chapter.id)
     ranges: list[tuple[int, int]] = []
     long_term_by_range = {
@@ -719,9 +714,15 @@ async def list_all_missing_summary_ranges(
         for summary in long_term_summaries
         if summary.start_order is not None and summary.end_order is not None
     }
-    for start_order, end_order in list_eligible_long_term_ranges(chapters, volumes, chapter_summaries):
+    for start_order, end_order in list_eligible_long_term_ranges(
+        chapters, volumes, chapter_summaries
+    ):
         existing = long_term_by_range.get((start_order, end_order))
-        if existing is None or existing.status == SUMMARY_STATUS_FAILED or is_long_term_summary_stale(existing, chapters, chapter_summaries, volumes):
+        if (
+            existing is None
+            or existing.status == SUMMARY_STATUS_FAILED
+            or is_long_term_summary_stale(existing, chapters, chapter_summaries, volumes)
+        ):
             ranges.append((start_order, end_order))
     return chapter_ids, ranges
 
@@ -767,7 +768,9 @@ async def _get_or_create_summary_batch_job(
     return job, True
 
 
-async def _existing_batch_item_map(session: AsyncSession, batch_job_id: str) -> dict[str, BackgroundJobItem]:
+async def _existing_batch_item_map(
+    session: AsyncSession, batch_job_id: str
+) -> dict[str, BackgroundJobItem]:
     items = await job_service.list_job_items(session, job_id=batch_job_id)
     return {
         item.item_key: item
@@ -958,7 +961,9 @@ async def append_long_term_summary_items(
         if summary.start_order is not None and summary.end_order is not None
     }
     for start_order, end_order in ranges:
-        window = build_long_term_summary_window(chapters, volumes, chapter_summaries, start_order, end_order)
+        window = build_long_term_summary_window(
+            chapters, volumes, chapter_summaries, start_order, end_order
+        )
         if window is None:
             raise ValidationError("该区间缺少可参与聚合的章节摘要，需先生成满足条件的章节摘要。")
         key = _long_term_item_key(start_order, end_order)
@@ -1210,7 +1215,9 @@ async def list_active_summary_jobs(
 
     for job in jobs:
         items = await job_service.list_job_items(session, job_id=job.id)
-        chapter_by_job_id = {summary.job_id: summary for summary in chapter_summaries if summary.job_id}
+        chapter_by_job_id = {
+            summary.job_id: summary for summary in chapter_summaries if summary.job_id
+        }
         long_term_by_job_id = {
             summary.job_id: summary for summary in long_term_summaries if summary.job_id
         }
@@ -1246,9 +1253,15 @@ async def list_active_summary_jobs(
                     start_order=start_order,
                     end_order=end_order,
                     progress_current=int(progress.get("current") or 0),
-                    progress_total=progress.get("total") if isinstance(progress.get("total"), int) else None,
-                    progress_message=progress.get("message") if isinstance(progress.get("message"), str) else None,
-                    error_message=error.get("message") if isinstance(error.get("message"), str) else None,
+                    progress_total=progress.get("total")
+                    if isinstance(progress.get("total"), int)
+                    else None,
+                    progress_message=progress.get("message")
+                    if isinstance(progress.get("message"), str)
+                    else None,
+                    error_message=error.get("message")
+                    if isinstance(error.get("message"), str)
+                    else None,
                     created_at=item.created_at,
                     updated_at=item.updated_at,
                 )

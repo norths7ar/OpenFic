@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Skill Repository - Skill 数据访问层。"""
 
 from sqlalchemy import case, func, select
@@ -142,9 +141,7 @@ async def get_all_names(session: AsyncSession) -> list[str]:
 
 
 async def get_total(session: AsyncSession) -> int:
-    result = await session.execute(
-        select(func.count(col(Skill.id))).where(_custom_skill_filter())
-    )
+    result = await session.execute(select(func.count(col(Skill.id))).where(_custom_skill_filter()))
     return result.scalar_one()
 
 

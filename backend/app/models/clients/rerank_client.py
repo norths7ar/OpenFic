@@ -1,13 +1,11 @@
-# -*- coding: utf-8 -*-
 """
 Rerank Client - Rerank 模型调用客户端。
 """
 
+import asyncio
 import math
 from dataclasses import dataclass
 from typing import Any
-
-import asyncio
 
 import httpx
 from loguru import logger
@@ -21,7 +19,6 @@ from app.core.errors import (
 )
 from app.models.clients.client_factory import ClientFactory
 from app.models.helpers.openrouter_attribution import get_openrouter_attribution_headers
-
 
 DEFAULT_RERANK_TIMEOUT = 60
 SUPPORTED_RERANK_PROVIDERS = {
@@ -75,9 +72,7 @@ class RerankClient:
             else config.provider_type
         )
         if self.runtime_provider_type not in SUPPORTED_RERANK_PROVIDERS:
-            raise ValueError(
-                f"Unsupported rerank provider_type: {self.runtime_provider_type}"
-            )
+            raise ValueError(f"Unsupported rerank provider_type: {self.runtime_provider_type}")
         self.config = config
 
     async def rerank(
@@ -120,9 +115,7 @@ class RerankClient:
         if response.status_code == 429:
             raise RateLimitError("Rerank rate limit exceeded")
         if response.status_code >= 400:
-            raise ProviderError(
-                f"Rerank request failed with status {response.status_code}"
-            )
+            raise ProviderError(f"Rerank request failed with status {response.status_code}")
 
         data = response.json()
         results_raw = data.get("results")
@@ -139,9 +132,7 @@ class RerankClient:
                 raise ValidationError("Rerank result missing index or relevance_score")
             if index < 0 or index >= len(documents):
                 raise ValidationError("Rerank result index out of range")
-            parsed_results.append(
-                RerankItem(index=index, relevance_score=float(score))
-            )
+            parsed_results.append(RerankItem(index=index, relevance_score=float(score)))
 
         logger.debug("Rerank request succeeded with {} results", len(parsed_results))
         return RerankResponse(
@@ -157,9 +148,7 @@ class RerankClient:
         try:
             from fastembed.rerank.cross_encoder import TextCrossEncoder
         except ModuleNotFoundError as exc:
-            raise ImportError(
-                "fastembed 未安装。请运行 uv sync 安装依赖。"
-            ) from exc
+            raise ImportError("fastembed 未安装。请运行 uv sync 安装依赖。") from exc
 
         from app.models.clients.fastembed_embeddings import _load_fastembed_model
 

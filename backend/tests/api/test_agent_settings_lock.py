@@ -1,10 +1,8 @@
-# -*- coding: utf-8 -*-
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
-
-from unittest.mock import AsyncMock, MagicMock, patch
 
 from app.agent_runtime.persistence.child_runs import create_child_run
 from app.api.routers.agent_runtime import _SESSION_RUNNERS

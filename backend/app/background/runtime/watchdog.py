@@ -8,8 +8,8 @@ from loguru import logger
 from app.background.events.publisher import BackgroundEventPublisher
 from app.background.jobs import repos as job_repo
 from app.background.jobs import service as job_service
-from app.chapter_export.service import cleanup_chapter_export_files
 from app.background.transport.base import BackgroundTransport
+from app.chapter_export.service import cleanup_chapter_export_files
 from app.settings import settings
 from app.storage.database import create_session
 

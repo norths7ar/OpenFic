@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Import API 测试。
 """
@@ -54,9 +53,7 @@ async def test_preview_txt_with_chapters(client: AsyncClient) -> None:
     assert data["chapter_count"] >= 2  # 至少解析出 2 个章节
     assert data["total_word_count"] > 0
     # 验证章节标题包含关键字
-    titles = [
-        chapter["title"] for volume in data["volumes"] for chapter in volume["chapters"]
-    ]
+    titles = [chapter["title"] for volume in data["volumes"] for chapter in volume["chapters"]]
     assert any("第一章" in t for t in titles)
     assert any("第二章" in t for t in titles)
 

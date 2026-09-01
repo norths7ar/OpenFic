@@ -49,15 +49,11 @@ class ProposeProjectCreateInput(_ProposalInput):
         supplied = self.model_fields_set
         if self.target_type != "note" and "category_id" in supplied:
             raise ValueError("category_id 只适用于新建笔记")
-        if self.target_type not in {"note", "note_category"} and (
-            "document_type" in supplied
-        ):
+        if self.target_type not in {"note", "note_category"} and ("document_type" in supplied):
             raise ValueError("document_type 只适用于新建笔记或笔记分类")
         if self.target_type != "world_entry" and "section" in supplied:
             raise ValueError("section 只适用于新建背景设定")
-        if self.target_type == "note_category" and (
-            {"body", "writing_visible"} & supplied
-        ):
+        if self.target_type == "note_category" and ({"body", "writing_visible"} & supplied):
             raise ValueError("笔记分类只需要标题和文档类型")
         return self
 
@@ -224,9 +220,7 @@ async def _queue_pending_change(
 @ToolRegistry.register
 class ProposeProjectCreateTool(AgentTool):
     name: str = "propose_project_create"
-    description: str = (
-        "为当前项目提议新建一项正式资料；只进入待审队列，不直接写入正式资料。"
-    )
+    description: str = "为当前项目提议新建一项正式资料；只进入待审队列，不直接写入正式资料。"
     access_level: str = "write"
     args_schema: type[BaseModel] = ProposeProjectCreateInput
 
@@ -298,9 +292,7 @@ class ProposeProjectUpdateTool(AgentTool):
 @ToolRegistry.register
 class ProposeProjectDeleteTool(AgentTool):
     name: str = "propose_project_delete"
-    description: str = (
-        "为当前项目提议删除一项正式资料；只进入待审队列，不直接删除正式资料。"
-    )
+    description: str = "为当前项目提议删除一项正式资料；只进入待审队列，不直接删除正式资料。"
     access_level: str = "write"
     args_schema: type[BaseModel] = ProposeProjectDeleteInput
 

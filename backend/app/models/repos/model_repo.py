@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Model Repository - 模型数据访问层。
 """
@@ -26,9 +25,7 @@ from app.models.entities.model import Model
 from app.models.entities.model_provider import ModelProvider
 
 
-async def get_all(
-    session: AsyncSession, *, include_disabled: bool = False
-) -> list[Model]:
+async def get_all(session: AsyncSession, *, include_disabled: bool = False) -> list[Model]:
     """
     获取所有模型。
 

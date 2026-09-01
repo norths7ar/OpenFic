@@ -16,9 +16,7 @@ def test_encryption_key_file_path_resolves_under_data_dir() -> None:
     assert settings_module.ENCRYPTION_KEY_FILE_PATH.parent == settings_module.BACKEND_DATA_DIR
 
 
-def test_ensure_encryption_key_reads_key_file_and_ignores_env(
-    monkeypatch, tmp_path: Path
-) -> None:
+def test_ensure_encryption_key_reads_key_file_and_ignores_env(monkeypatch, tmp_path: Path) -> None:
     known_key = Fernet.generate_key().decode()
     key_file = tmp_path / "data" / ".key"
     key_file.parent.mkdir(parents=True)
@@ -31,9 +29,7 @@ def test_ensure_encryption_key_reads_key_file_and_ignores_env(
     assert key == known_key
 
 
-def test_ensure_encryption_key_writes_to_key_file_not_cwd(
-    monkeypatch, tmp_path: Path
-) -> None:
+def test_ensure_encryption_key_writes_to_key_file_not_cwd(monkeypatch, tmp_path: Path) -> None:
     data_dir = tmp_path / "data"
     data_dir.mkdir()
     key_file = data_dir / ".key"

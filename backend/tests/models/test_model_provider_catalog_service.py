@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Model provider catalog service tests.
 """
@@ -144,7 +143,7 @@ def _sample_modelsdev_payload() -> dict[str, dict[str, object]]:
                     "release_date": "2026-01",
                     "reasoning": True,
                     "tool_call": True,
-                }
+                },
             },
         },
     }
@@ -203,11 +202,14 @@ async def test_catalog_service_identifies_reasoning_for_openai_compatible_provid
 ) -> None:
     service = _build_service(tmp_path)
 
-    assert await service.supports_provider_model_reasoning(
-        "openai-compatible",
-        "https://api.openai.com/v1",
-        "gpt-4.1",
-    ) is True
+    assert (
+        await service.supports_provider_model_reasoning(
+            "openai-compatible",
+            "https://api.openai.com/v1",
+            "gpt-4.1",
+        )
+        is True
+    )
 
 
 @pytest.mark.asyncio
@@ -257,8 +259,7 @@ async def test_catalog_service_preserves_bundled_urls_when_refresh_payload_omits
 ) -> None:
     service = _build_service(tmp_path)
     expected_urls = {
-        provider.provider_type: provider.default_url
-        for provider in await service.list_providers()
+        provider.provider_type: provider.default_url for provider in await service.list_providers()
     }
 
     source_payload = _sample_modelsdev_payload()
@@ -273,7 +274,9 @@ async def test_catalog_service_preserves_bundled_urls_when_refresh_payload_omits
     assert {
         provider.provider_type: provider.default_url for provider in refreshed_providers
     } == expected_urls
-    assert {provider.provider_type: provider.api for provider in refreshed_providers} == expected_urls
+    assert {
+        provider.provider_type: provider.api for provider in refreshed_providers
+    } == expected_urls
 
 
 @pytest.mark.asyncio
@@ -376,9 +379,7 @@ async def test_catalog_service_applies_locked_model_classification_and_display_m
 
     openai_models = await service.get_provider_models("openai", "llm")
     embedding_models = await service.get_provider_models("openai", "embedding")
-    rerank_models = await service.get_provider_models(
-        "nvidia-ai-endpoints", "rerank"
-    )
+    rerank_models = await service.get_provider_models("nvidia-ai-endpoints", "rerank")
 
     assert [model.model_id for model in openai_models.models] == ["gpt-4.1", "gpt-4o-mini"]
     assert openai_models.models[0].metadata == {
@@ -390,9 +391,7 @@ async def test_catalog_service_applies_locked_model_classification_and_display_m
         "cost": {"input": 2.0, "output": 8.0},
     }
 
-    assert [model.model_id for model in embedding_models.models] == [
-        "text-embedding-3-small"
-    ]
+    assert [model.model_id for model in embedding_models.models] == ["text-embedding-3-small"]
     assert embedding_models.models[0].metadata == {
         "release_date": "2024-01-25",
         "reasoning": False,
@@ -402,9 +401,7 @@ async def test_catalog_service_applies_locked_model_classification_and_display_m
         "cost": {"input": 0.02, "output": 0},
     }
 
-    assert [model.model_id for model in rerank_models.models] == [
-        "nvidia/rerank-qa-mistral-4b"
-    ]
+    assert [model.model_id for model in rerank_models.models] == ["nvidia/rerank-qa-mistral-4b"]
     assert rerank_models.models[0].metadata == {
         "release_date": "2024-08-01",
         "reasoning": False,
@@ -450,9 +447,9 @@ async def test_catalog_service_matches_openai_responses_compatible_provider_by_e
 
     assert match is not None
     assert match.catalog_provider_type == "openai"
-    assert service.get_supported_task_types(
-        "openai-compatible-responses", catalog_match=match
-    ) == ["llm"]
+    assert service.get_supported_task_types("openai-compatible-responses", catalog_match=match) == [
+        "llm"
+    ]
 
 
 @pytest.mark.asyncio

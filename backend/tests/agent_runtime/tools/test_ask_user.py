@@ -39,7 +39,9 @@ class TestAskUser:
 
         tool = AskUserTool(_state=_make_state())
 
-        with patch("app.agent_runtime.tools.impls.interaction.ask_user.interrupt") as mock_interrupt:
+        with patch(
+            "app.agent_runtime.tools.impls.interaction.ask_user.interrupt"
+        ) as mock_interrupt:
             result = await tool.ainvoke({"questions": []})
 
         assert "参数校验失败" in result
@@ -47,11 +49,14 @@ class TestAskUser:
 
     async def test_ask_user_triggers_interrupt(self):
         from langgraph.errors import GraphInterrupt
+
         from app.agent_runtime.tools.impls.interaction.ask_user import AskUserTool
 
         tool = AskUserTool(_state=_make_state())
 
-        with patch("app.agent_runtime.tools.impls.interaction.ask_user.interrupt") as mock_interrupt:
+        with patch(
+            "app.agent_runtime.tools.impls.interaction.ask_user.interrupt"
+        ) as mock_interrupt:
             mock_interrupt.side_effect = GraphInterrupt(())
             with pytest.raises(GraphInterrupt):
                 await tool.ainvoke(_valid_input())
@@ -73,7 +78,9 @@ class TestAskUser:
             "answer": [{"question": "风格选择", "answer": "正式"}],
         }
 
-        with patch("app.agent_runtime.tools.impls.interaction.ask_user.interrupt") as mock_interrupt:
+        with patch(
+            "app.agent_runtime.tools.impls.interaction.ask_user.interrupt"
+        ) as mock_interrupt:
             mock_interrupt.return_value = interrupt_response
             result = await tool.ainvoke(_valid_input())
 
@@ -84,7 +91,9 @@ class TestAskUser:
         from app.agent_runtime.tools.impls.interaction.ask_user import AskUserTool
 
         tool = AskUserTool(_state=_make_state())
-        with patch("app.agent_runtime.tools.impls.interaction.ask_user.interrupt") as mock_interrupt:
+        with patch(
+            "app.agent_runtime.tools.impls.interaction.ask_user.interrupt"
+        ) as mock_interrupt:
             mock_interrupt.return_value = {
                 "action_type": "clarification",
                 "action_id": "question-1",
@@ -123,7 +132,9 @@ class TestAskUser:
             "answer": [{"question": "Q0", "answer": "A"}],
         }
 
-        with patch("app.agent_runtime.tools.impls.interaction.ask_user.interrupt") as mock_interrupt:
+        with patch(
+            "app.agent_runtime.tools.impls.interaction.ask_user.interrupt"
+        ) as mock_interrupt:
             mock_interrupt.return_value = interrupt_response
             result = await tool.ainvoke(tool_input)
 
@@ -154,7 +165,9 @@ class TestAskUser:
             "answer": [{"question": "Q", "answer": "D"}],
         }
 
-        with patch("app.agent_runtime.tools.impls.interaction.ask_user.interrupt") as mock_interrupt:
+        with patch(
+            "app.agent_runtime.tools.impls.interaction.ask_user.interrupt"
+        ) as mock_interrupt:
             mock_interrupt.return_value = interrupt_response
             result = await tool.ainvoke(tool_input)
 

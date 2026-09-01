@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """OpenAI-compatible provider adapters with distinct provider_type values."""
 
 from app.models.adapters.openai_compatible import OpenAICompatibleAdapter

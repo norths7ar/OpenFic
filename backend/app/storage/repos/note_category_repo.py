@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Note Category Repository - 笔记分类数据访问层。
 """
@@ -19,9 +18,7 @@ async def create(session: AsyncSession, category: NoteCategory) -> NoteCategory:
 
 
 async def get_by_id(session: AsyncSession, category_id: str) -> NoteCategory | None:
-    result = await session.execute(
-        select(NoteCategory).where(col(NoteCategory.id) == category_id)
-    )
+    result = await session.execute(select(NoteCategory).where(col(NoteCategory.id) == category_id))
     return result.scalar_one_or_none()
 
 
@@ -48,13 +45,9 @@ async def list_by_project(
     project_id: str,
     document_type: str | None = None,
 ) -> list[NoteCategory]:
-    statement = select(NoteCategory).where(
-        col(NoteCategory.project_id) == project_id
-    )
+    statement = select(NoteCategory).where(col(NoteCategory.project_id) == project_id)
     if document_type is not None:
-        statement = statement.where(
-            col(NoteCategory.document_type) == document_type
-        )
+        statement = statement.where(col(NoteCategory.document_type) == document_type)
     result = await session.execute(
         statement.order_by(
             col(NoteCategory.order).asc(),
@@ -73,14 +66,14 @@ async def get_by_parent(
         stmt = select(NoteCategory).where(col(NoteCategory.parent_id).is_(None))
     else:
         stmt = select(NoteCategory).where(col(NoteCategory.parent_id) == parent_id)
-    stmt = stmt.order_by(col(NoteCategory.order).asc(), col(NoteCategory.title).asc(), col(NoteCategory.id).asc())
+    stmt = stmt.order_by(
+        col(NoteCategory.order).asc(), col(NoteCategory.title).asc(), col(NoteCategory.id).asc()
+    )
     result = await session.execute(stmt)
     return list(result.scalars().all())
 
 
-async def update_category(
-    session: AsyncSession, category: NoteCategory
-) -> NoteCategory:
+async def update_category(session: AsyncSession, category: NoteCategory) -> NoteCategory:
     session.add(category)
     await session.flush()
     await session.refresh(category)

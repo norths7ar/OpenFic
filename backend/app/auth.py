@@ -77,10 +77,15 @@ class AuthMiddleware:
             return
 
         path = scope.get("path", "")
-        if path.startswith(f"{self.api_prefix}/auth/") or path in {
-            f"{self.api_prefix}/health",
-            f"{self.api_prefix}/health/shutdown",
-        } or not path.startswith(self._protected_prefixes):
+        if (
+            path.startswith(f"{self.api_prefix}/auth/")
+            or path
+            in {
+                f"{self.api_prefix}/health",
+                f"{self.api_prefix}/health/shutdown",
+            }
+            or not path.startswith(self._protected_prefixes)
+        ):
             await self.app(scope, receive, send)
             return
 

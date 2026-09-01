@@ -1,9 +1,9 @@
+import pytest
 import tiktoken.load
 import tiktoken.registry
-import pytest
 
 from app.agent_runtime.model_config import to_client_model_config, without_api_key
-from app.models.clients.model_factory import create_chat_model, ModelConfig
+from app.models.clients.model_factory import ModelConfig, create_chat_model
 
 
 def test_to_client_model_config_excludes_internal_model_record_id():
@@ -321,12 +321,12 @@ def test_create_chat_model_enables_nvidia_thinking_mode():
         )
     )
 
-    assert getattr(nvidia_model, "kwargs") == {"thinking_mode": True}
-    bound_model = getattr(nvidia_model, "bound")
+    assert nvidia_model.kwargs == {"thinking_mode": True}
+    bound_model = nvidia_model.bound
     payload = bound_model._get_payload(  # type: ignore[no-untyped-call]
         [{"role": "user", "content": "test"}],
         stop=None,
-        **getattr(nvidia_model, "kwargs"),
+        **nvidia_model.kwargs,
     )
     assert payload["chat_template_kwargs"] == {"thinking": True}
 
@@ -567,9 +567,7 @@ def test_create_chat_model_deepseek_uses_bundled_tiktoken_encoding(
     monkeypatch.setattr(tiktoken.registry, "ENCODINGS", {})
 
     def fail_if_network_requested(_: str) -> bytes:
-        raise AssertionError(
-            "LangChain token counting must not request network resources"
-        )
+        raise AssertionError("LangChain token counting must not request network resources")
 
     monkeypatch.setattr(tiktoken.load, "read_file", fail_if_network_requested)
     model = create_chat_model(

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Project API 测试。
 """

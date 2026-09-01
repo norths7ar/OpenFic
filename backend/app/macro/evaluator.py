@@ -1,17 +1,15 @@
-# -*- coding: utf-8 -*-
 """
 Macro Evaluator - 宏求值器。
 
 负责遍历文本中的宏并求值替换。
 """
 
+from app.macro.handlers.base import MacroEvaluateError, MacroHandler
+from app.macro.handlers.conditional_handler import EndIfHandler, IfHandler
+from app.macro.handlers.mem_handler import GetListHandler, GetMemHandler, GetWorldHandler
 from app.macro.lexer import MacroLexer
 from app.macro.parser import MacroParser
 from app.macro.types import MacroContext, MacroNode, MacroResult
-from app.macro.handlers.base import MacroHandler, MacroEvaluateError
-from app.macro.handlers.mem_handler import GetListHandler, GetMemHandler, GetWorldHandler
-from app.macro.handlers.conditional_handler import IfHandler, EndIfHandler
-
 
 HANDLER_MAP: dict[str, MacroHandler] = {
     "getmem": GetMemHandler(),
@@ -72,9 +70,7 @@ class MacroEvaluator:
 
                     value = self._evaluate_node(node)
                     current_text = (
-                        current_text[:adjusted_start]
-                        + value
-                        + current_text[adjusted_end:]
+                        current_text[:adjusted_start] + value + current_text[adjusted_end:]
                     )
                     offset += len(value) - (match.end - match.start)
                 except Exception:
@@ -129,12 +125,7 @@ class MacroEvaluator:
                     if endif_match.start > if_match.end:
                         has_nested = False
                         for j, (other_if_match, _) in enumerate(if_positions):
-                            if (
-                                j != i
-                                and if_match.end
-                                < other_if_match.start
-                                < endif_match.start
-                            ):
+                            if j != i and if_match.end < other_if_match.start < endif_match.start:
                                 has_nested = True
                                 break
 
@@ -145,9 +136,7 @@ class MacroEvaluator:
                             try:
                                 if_handler = HANDLER_MAP.get("if")
                                 if if_handler is None:
-                                    text = (
-                                        text[: if_match.start] + text[endif_match.end :]
-                                    )
+                                    text = text[: if_match.start] + text[endif_match.end :]
                                 else:
                                     result = if_handler.evaluate(if_node, self.context)
                                     condition_met = result == "true"
@@ -159,10 +148,7 @@ class MacroEvaluator:
                                             + text[endif_match.end :]
                                         )
                                     else:
-                                        text = (
-                                            text[: if_match.start]
-                                            + text[endif_match.end :]
-                                        )
+                                        text = text[: if_match.start] + text[endif_match.end :]
                             except Exception:
                                 text = text[: if_match.start] + text[endif_match.end :]
 

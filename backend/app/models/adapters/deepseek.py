@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 DeepSeek Adapter - DeepSeek API适配器。
 

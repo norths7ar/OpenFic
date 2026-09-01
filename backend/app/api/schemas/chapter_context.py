@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Chapter Context API Schemas - 章节上下文请求/响应模型。"""
 
 from datetime import datetime
@@ -110,8 +109,12 @@ class SummaryMaintenanceResponse(BaseModel):
     auto_generation_blocked: bool = False
     block_reason_code: str | None = None
     block_reason_params: dict[str, int | str] | None = None
-    missing_or_failed_chapter_summaries: list[MissingChapterSummaryItem] = Field(default_factory=list)
-    missing_or_failed_long_term_summaries: list[MissingLongTermSummaryItem] = Field(default_factory=list)
+    missing_or_failed_chapter_summaries: list[MissingChapterSummaryItem] = Field(
+        default_factory=list
+    )
+    missing_or_failed_long_term_summaries: list[MissingLongTermSummaryItem] = Field(
+        default_factory=list
+    )
     skipped_chapter_summaries: list[SkippedChapterSummaryItem] = Field(default_factory=list)
     batch_progress: SummaryBatchProgressItem | None = None
     active_jobs: list["SummaryBackgroundJobItem"] = Field(default_factory=list)

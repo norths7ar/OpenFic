@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Persistent per-chapter retrieval index state."""
 
 from datetime import UTC, datetime

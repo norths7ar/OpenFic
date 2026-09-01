@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Validation helpers for retrieval input and query construction.
 """
@@ -46,9 +45,7 @@ def check_attribute_type(value: Any, field: FilterableField) -> None:
         raise ValueError(f"Field {field.name} must be a boolean")
 
 
-def validate_attributes(
-    contract: RetrievalIndexContract, attributes: dict[str, Any]
-) -> None:
+def validate_attributes(contract: RetrievalIndexContract, attributes: dict[str, Any]) -> None:
     declared = {field.name: field for field in contract.filterable_fields}
     for name in attributes:
         if name not in declared:
@@ -96,9 +93,7 @@ def validate_batch(
         validate_metadata(document.metadata)
 
 
-def validate_embedding_client(
-    contract: RetrievalIndexContract, embedding_client: Any
-) -> None:
+def validate_embedding_client(contract: RetrievalIndexContract, embedding_client: Any) -> None:
     config = getattr(embedding_client, "config", None)
     if config is None:
         raise ValueError("embedding_client must expose config")
@@ -108,9 +103,7 @@ def validate_embedding_client(
         raise ValueError("Embedding dimensions mismatch")
 
 
-def validate_query_filter(
-    contract: RetrievalIndexContract, field_name: str, value: Any
-) -> None:
+def validate_query_filter(contract: RetrievalIndexContract, field_name: str, value: Any) -> None:
     field = next(
         (item for item in contract.filterable_fields if item.name == field_name),
         None,

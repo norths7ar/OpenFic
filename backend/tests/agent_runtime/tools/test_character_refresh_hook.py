@@ -17,9 +17,7 @@ async def test_character_refresh_hook_emits_parent_refresh_event(monkeypatch) ->
     async def fake_emit(event: str, data: dict, *, room: str | None = None) -> None:
         captured.append((event, data, room))
 
-    monkeypatch.setattr(
-        "app.agent_runtime.tools.hooks.character_refresh.emit", fake_emit
-    )
+    monkeypatch.setattr("app.agent_runtime.tools.hooks.character_refresh.emit", fake_emit)
 
     await character_refresh_post_hook(
         HookContext(
@@ -63,9 +61,7 @@ async def test_character_refresh_hook_ignores_non_mutation_or_failed_output(
     async def fake_emit(event: str, data: dict, *, room: str | None = None) -> None:
         captured.append((event, data, room))
 
-    monkeypatch.setattr(
-        "app.agent_runtime.tools.hooks.character_refresh.emit", fake_emit
-    )
+    monkeypatch.setattr("app.agent_runtime.tools.hooks.character_refresh.emit", fake_emit)
 
     await character_refresh_post_hook(
         HookContext(
@@ -102,9 +98,7 @@ async def test_character_refresh_hook_emits_direct_session_refresh_event(
     async def fake_emit(event: str, data: dict, *, room: str | None = None) -> None:
         captured.append((event, data, room))
 
-    monkeypatch.setattr(
-        "app.agent_runtime.tools.hooks.character_refresh.emit", fake_emit
-    )
+    monkeypatch.setattr("app.agent_runtime.tools.hooks.character_refresh.emit", fake_emit)
 
     await character_refresh_post_hook(
         HookContext(
@@ -138,9 +132,7 @@ async def test_character_refresh_hook_marks_delete_operation(monkeypatch) -> Non
     async def fake_emit(event: str, data: dict, *, room: str | None = None) -> None:
         captured.append((event, data, room))
 
-    monkeypatch.setattr(
-        "app.agent_runtime.tools.hooks.character_refresh.emit", fake_emit
-    )
+    monkeypatch.setattr("app.agent_runtime.tools.hooks.character_refresh.emit", fake_emit)
 
     await character_refresh_post_hook(
         HookContext(

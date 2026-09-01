@@ -1,10 +1,10 @@
 import pytest
 
-from app.agent_runtime.context.helpers.canonical_mentions import compile_canonical_mentions
 from app.agent_runtime.context.helpers.canonical_commands import (
     extract_referenced_skill_ids,
     parse_canonical_skill_commands,
 )
+from app.agent_runtime.context.helpers.canonical_mentions import compile_canonical_mentions
 
 
 @pytest.mark.asyncio

@@ -32,15 +32,9 @@ def _create_previous_schema(connection) -> None:
             "title TEXT NOT NULL)"
         )
     )
-    connection.execute(
-        text("CREATE TABLE revision_character_snapshots (id TEXT PRIMARY KEY)")
-    )
-    connection.execute(
-        text("CREATE TABLE revision_note_snapshots (id TEXT PRIMARY KEY)")
-    )
-    connection.execute(
-        text("CREATE TABLE revision_note_category_snapshots (id TEXT PRIMARY KEY)")
-    )
+    connection.execute(text("CREATE TABLE revision_character_snapshots (id TEXT PRIMARY KEY)"))
+    connection.execute(text("CREATE TABLE revision_note_snapshots (id TEXT PRIMARY KEY)"))
+    connection.execute(text("CREATE TABLE revision_note_category_snapshots (id TEXT PRIMARY KEY)"))
 
 
 def test_upgrade_backfills_existing_display_order_and_visibility() -> None:
@@ -79,10 +73,7 @@ def test_upgrade_backfills_existing_display_order_and_visibility() -> None:
 
         characters = (
             connection.execute(
-                text(
-                    'SELECT id, "order", is_writing_visible FROM characters '
-                    'ORDER BY "order"'
-                )
+                text('SELECT id, "order", is_writing_visible FROM characters ORDER BY "order"')
             )
             .mappings()
             .all()

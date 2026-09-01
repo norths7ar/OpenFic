@@ -15,6 +15,7 @@ def _is_context_history_message(raw: dict) -> bool:
     message_type = raw.get("message_type", raw.get("messageType"))
     return message_type in {None, "", "message"}
 
+
 def _string_value(value: Any) -> str | None:
     return value if isinstance(value, str) and value else None
 
@@ -71,11 +72,7 @@ async def build_history(
             and isinstance(content, str)
             and ("<of-mention" in content or "<of-skill" in content)
         ):
-            context_kwargs = (
-                {"context_mode": "global"}
-                if context_mode == "global"
-                else {}
-            )
+            context_kwargs = {"context_mode": "global"} if context_mode == "global" else {}
             if project_id is None:
                 content = await compile_canonical_mentions(
                     content,
@@ -100,14 +97,16 @@ async def build_history(
             if role == "user" and isinstance(attachment_metadata, list)
             else None
         )
-        result.append(ContextMessage(
-            role=role,
-            content=content,
-            name=name,
-            tool_call_id=raw.get("tool_call_id"),
-            tool_calls=raw.get("tool_calls"),
-            additional_kwargs=additional_kwargs,
-            metadata=metadata,
-            attachments=attachments,
-        ))
+        result.append(
+            ContextMessage(
+                role=role,
+                content=content,
+                name=name,
+                tool_call_id=raw.get("tool_call_id"),
+                tool_calls=raw.get("tool_calls"),
+                additional_kwargs=additional_kwargs,
+                metadata=metadata,
+                attachments=attachments,
+            )
+        )
     return result

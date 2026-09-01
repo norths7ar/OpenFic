@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Schemas for project retrieval index APIs."""
 
 from pydantic import BaseModel, Field

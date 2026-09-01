@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """AgentMemory 数据模型 - 用户偏好记忆。"""
 
 from datetime import UTC, datetime

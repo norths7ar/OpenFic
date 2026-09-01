@@ -10,19 +10,18 @@ from loguru import logger
 
 from app.agent_runtime.agents.definitions import load_agent_definition
 from app.agent_runtime.persistence import repo as message_repo
-from app.agent_runtime.persistence.types import PersistedMessage
 from app.agent_runtime.persistence.child_runs import (
     get_child_run_agent_number,
     get_child_run_for_parent,
 )
 from app.agent_runtime.persistence.model import AgentChildRun, AgentChildRunRequest
+from app.agent_runtime.persistence.types import PersistedMessage
 from app.agent_runtime.runner.run_registry import get_agent_run_registry
 from app.agent_runtime.streaming.replay_buffer import get_agent_event_replay_buffer
 from app.agent_runtime.tools.errors import ToolExecutionError
 from app.socket import emit
 from app.socket.handlers import agent_subagent_session_room
 from app.storage.database import create_session
-
 
 POLL_INTERVAL_SECONDS = 0.1
 _CHILD_PROCESS_FAILURES: dict[tuple[str, str], str] = {}
@@ -97,9 +96,7 @@ async def ensure_primary(
 ) -> None:
     active_agent = state.get("active_agent")
     if not isinstance(active_agent, str) or not active_agent:
-        raise ToolExecutionError(
-            "this orchestration tool may only be called by a primary agent"
-        )
+        raise ToolExecutionError("this orchestration tool may only be called by a primary agent")
     session = await open_session(session_factory)
     try:
         definition = await load_agent_definition(session, active_agent)
@@ -110,9 +107,7 @@ async def ensure_primary(
     finally:
         await close_session(session)
     if not definition.enabled or definition.kind != "primary":
-        raise ToolExecutionError(
-            "this orchestration tool may only be called by a primary agent"
-        )
+        raise ToolExecutionError("this orchestration tool may only be called by a primary agent")
 
 
 def build_subagent_identity_payload(row: AgentChildRun) -> dict[str, Any]:
@@ -354,9 +349,7 @@ async def wait_for_request_resolution(
             if request.status == "completed":
                 return ChildRequestResolution(child_run=child_run, request=request)
             if request.status == "cancelled":
-                raise ToolExecutionError(
-                    request.error or "subagent request was cancelled"
-                )
+                raise ToolExecutionError(request.error or "subagent request was cancelled")
             if request.status == "error":
                 raise ToolExecutionError(request.error or "subagent request failed")
             if not child_run.is_active:
@@ -366,9 +359,7 @@ async def wait_for_request_resolution(
                 child_run_id=child_run_id,
             )
             if child_processing_error:
-                raise ToolExecutionError(
-                    f"subagent processing failed: {child_processing_error}"
-                )
+                raise ToolExecutionError(f"subagent processing failed: {child_processing_error}")
         finally:
             await close_session(session)
         await asyncio.sleep(POLL_INTERVAL_SECONDS)

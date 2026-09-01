@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Models.dev-backed provider catalog with bundled snapshot fallback."""
 
 from __future__ import annotations
@@ -14,8 +13,8 @@ from loguru import logger
 
 from app.models.catalog.types import (
     CatalogMatch,
-    CatalogProviderModelSummary,
     CatalogProviderModelsResponse,
+    CatalogProviderModelSummary,
     CatalogProviderSummary,
 )
 from app.models.registry import AdapterRegistry
@@ -79,9 +78,7 @@ _EMBEDDING_FAMILIES = {
 }
 
 # 进程级 catalog snapshot 缓存：key 为 (快照文件路径, mtime)，避免每次请求重复解析大 JSON。
-_SNAPSHOT_CACHE: dict[
-    tuple[Path, int], tuple[dict[str, Any], str, str | None]
-] = {}
+_SNAPSHOT_CACHE: dict[tuple[Path, int], tuple[dict[str, Any], str, str | None]] = {}
 
 
 class ModelProviderCatalogService:
@@ -107,9 +104,7 @@ class ModelProviderCatalogService:
         self.cache_metadata_path = cache_metadata_path or (_CACHE_DIR / "metadata.json")
         self.source_snapshot_path = source_snapshot_path
         self.source_logo_dir = source_logo_dir
-        self.served_icon_dir = served_icon_dir or (
-            BACKEND_DATA_DIR / "icons" / "model" / "catalog"
-        )
+        self.served_icon_dir = served_icon_dir or (BACKEND_DATA_DIR / "icons" / "model" / "catalog")
 
     async def list_providers(self) -> list[CatalogProviderSummary]:
         snapshot, _, _ = self._load_current_snapshot()
@@ -189,9 +184,7 @@ class ModelProviderCatalogService:
         except Exception as exc:
             logger.warning("Catalog refresh failed, keeping last successful cache: {}", exc)
 
-    async def match_saved_provider(
-        self, provider_type: str, url: str
-    ) -> CatalogMatch | None:
+    async def match_saved_provider(self, provider_type: str, url: str) -> CatalogMatch | None:
         providers = await self.list_providers()
 
         if provider_type not in {
@@ -288,9 +281,7 @@ class ModelProviderCatalogService:
         _SNAPSHOT_CACHE[(bundled_path, bundled_mtime)] = result
         return result
 
-    def _find_provider(
-        self, snapshot: dict[str, Any], provider_type: str
-    ) -> dict[str, Any] | None:
+    def _find_provider(self, snapshot: dict[str, Any], provider_type: str) -> dict[str, Any] | None:
         for provider in snapshot.get("providers", []):
             if provider.get("provider_type") == provider_type:
                 return provider
@@ -337,9 +328,7 @@ class ModelProviderCatalogService:
             models_dev_provider_id = str(raw_provider.get("id") or raw_provider_key)
             definition = _PROVIDER_BY_MODELS_DEV_ID.get(models_dev_provider_id)
             provider_type = (
-                definition.provider_type
-                if definition is not None
-                else models_dev_provider_id
+                definition.provider_type if definition is not None else models_dev_provider_id
             )
             display_name = str(raw_provider.get("name") or provider_type)
             api_url = raw_provider.get("api")
@@ -365,9 +354,7 @@ class ModelProviderCatalogService:
                 "api": api_url,
                 "icon_path": self._icon_path_for(models_dev_provider_id),
                 "models_dev_provider_id": models_dev_provider_id,
-                "supported_task_types": self._supported_task_types_for(
-                    provider_type, counts
-                ),
+                "supported_task_types": self._supported_task_types_for(provider_type, counts),
                 "model_counts": counts,
                 "models": self._sort_model_dicts_by_release_date(normalized_models),
             }
@@ -421,17 +408,14 @@ class ModelProviderCatalogService:
         lowered_family = family.lower()
 
         if (
-            ("embed" in lowered_name or "embedding" in lowered_name)
-            and lowered_family in _EMBEDDING_FAMILIES
-        ):
+            "embed" in lowered_name or "embedding" in lowered_name
+        ) and lowered_family in _EMBEDDING_FAMILIES:
             return "embedding"
         if "rerank" in lowered_name:
             return "rerank"
         return "llm"
 
-    def _supported_task_types_for(
-        self, provider_type: str, counts: dict[str, int]
-    ) -> list[str]:
+    def _supported_task_types_for(self, provider_type: str, counts: dict[str, int]) -> list[str]:
         supported = set()
         if provider_type in _REGISTERED_PROVIDER_TYPES:
             supported.update(AdapterRegistry.get_supported_task_types(provider_type))
@@ -443,9 +427,7 @@ class ModelProviderCatalogService:
         return sorted(supported)
 
     @staticmethod
-    def _release_date_sort_key(
-        value: str | None, index: int
-    ) -> tuple[int, int, int, int, int]:
+    def _release_date_sort_key(value: str | None, index: int) -> tuple[int, int, int, int, int]:
         if not value:
             return (1, 0, 0, 0, index)
 
@@ -517,9 +499,8 @@ class ModelProviderCatalogService:
         return _CATALOG_ICON_PATH_TEMPLATE.format(provider_id=provider_id)
 
     def _is_current_snapshot(self, snapshot: dict[str, Any]) -> bool:
-        return (
-            snapshot.get("schema_version") == _SNAPSHOT_SCHEMA_VERSION
-            and isinstance(snapshot.get("providers"), list)
+        return snapshot.get("schema_version") == _SNAPSHOT_SCHEMA_VERSION and isinstance(
+            snapshot.get("providers"), list
         )
 
     def _read_json(self, path: Path) -> dict[str, Any]:

@@ -5,13 +5,16 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
-from langchain_core.tools import BaseTool
-from langchain_core.tools import StructuredTool
+from langchain_core.tools import BaseTool, StructuredTool
 
 from app.agent_runtime.context.compaction.service import CompactionError
 from app.agent_runtime.context.compaction.window import CompactionNoWindowError
 from app.agent_runtime.context.types import ContextMessage
-from app.agent_runtime.graph.react_agent import _to_history_dict, create_react_agent, maybe_auto_compact
+from app.agent_runtime.graph.react_agent import (
+    _to_history_dict,
+    create_react_agent,
+    maybe_auto_compact,
+)
 from app.agent_runtime.persistence.errors import PersistenceLoadError
 from app.agent_runtime.types import ReactAgentConfig, TerminationCondition
 
@@ -178,11 +181,7 @@ async def test_react_agent_executes_tool_calls_in_parallel() -> None:
         release.set()
         result = await asyncio.wait_for(task, timeout=1)
 
-    tool_messages = [
-        message
-        for message in result["messages"]
-        if isinstance(message, ToolMessage)
-    ]
+    tool_messages = [message for message in result["messages"] if isinstance(message, ToolMessage)]
     assert [message.tool_call_id for message in tool_messages] == ["call-1", "call-2"]
 
 
@@ -246,11 +245,7 @@ async def test_react_agent_preserves_tool_call_order_when_tools_finish_out_of_or
             }
         )
 
-    tool_messages = [
-        message
-        for message in result["messages"]
-        if isinstance(message, ToolMessage)
-    ]
+    tool_messages = [message for message in result["messages"] if isinstance(message, ToolMessage)]
     assert [message.tool_call_id for message in tool_messages] == ["call-1", "call-2"]
 
 
@@ -282,7 +277,9 @@ def _compaction_parts() -> list[ContextMessage]:
     return [
         ContextMessage(role="system", content="static", metadata={"part": "system"}),
         ContextMessage(role="user", content="history user", metadata={"part": "history", "seq": 1}),
-        ContextMessage(role="assistant", content="history assistant", metadata={"part": "history", "seq": 2}),
+        ContextMessage(
+            role="assistant", content="history assistant", metadata={"part": "history", "seq": 2}
+        ),
     ]
 
 
@@ -447,12 +444,18 @@ def test_auto_compaction_runs_before_main_model_and_rebuilds_context() -> None:
     first_parts = [
         ContextMessage(role="system", content="static", metadata={"part": "system"}),
         ContextMessage(role="user", content="history user", metadata={"part": "history", "seq": 1}),
-        ContextMessage(role="assistant", content="history assistant", metadata={"part": "history", "seq": 2}),
-        ContextMessage(role="system", content="old summary", metadata={"part": "compaction_summary"}),
+        ContextMessage(
+            role="assistant", content="history assistant", metadata={"part": "history", "seq": 2}
+        ),
+        ContextMessage(
+            role="system", content="old summary", metadata={"part": "compaction_summary"}
+        ),
     ]
     rebuilt_parts = [
         ContextMessage(role="system", content="static rebuilt", metadata={"part": "system"}),
-        ContextMessage(role="user", content="post-summary history", metadata={"part": "history", "seq": 3}),
+        ContextMessage(
+            role="user", content="post-summary history", metadata={"part": "history", "seq": 3}
+        ),
     ]
     build_calls = deque([first_parts, rebuilt_parts])
     counted_candidates: list[list[str]] = []
@@ -465,9 +468,8 @@ def test_auto_compaction_runs_before_main_model_and_rebuilds_context() -> None:
     def fake_count_context_tokens(parts):
         contents = [part.content for part in parts]
         counted_candidates.append(contents)
-        has_runtime_messages = (
-            "补充要求" in contents
-            and any("Call the `noop` tool" in content for content in contents)
+        has_runtime_messages = "补充要求" in contents and any(
+            "Call the `noop` tool" in content for content in contents
         )
         return 9 if has_runtime_messages else 0
 
@@ -574,14 +576,16 @@ def test_auto_compaction_runs_before_main_model_and_rebuilds_context() -> None:
         )
 
     assert mocked_build_parts.await_count == 2
-    assert counted_candidates == [[
-        "static",
-        "history user",
-        "history assistant",
-        "old summary",
-        "补充要求",
-        "Call the `noop` tool to finish this step. Do not answer in plain text.",
-    ]]
+    assert counted_candidates == [
+        [
+            "static",
+            "history user",
+            "history assistant",
+            "old summary",
+            "补充要求",
+            "Call the `noop` tool to finish this step. Do not answer in plain text.",
+        ]
+    ]
     mocked_select.assert_called_once()
     assert [part.content for part in selected_history] == [
         "history user",
@@ -606,7 +610,9 @@ def test_auto_compaction_stays_silent_below_threshold() -> None:
     events: list[tuple[str, dict]] = []
     parts = [
         ContextMessage(role="system", content="static", metadata={"part": "system"}),
-        ContextMessage(role="user", content="short history", metadata={"part": "history", "seq": 1}),
+        ContextMessage(
+            role="user", content="short history", metadata={"part": "history", "seq": 1}
+        ),
     ]
 
     async def event_sink(name: str, payload: dict) -> None:
@@ -768,9 +774,7 @@ def test_llm_call_updates_skill_references_for_injected_command() -> None:
         ),
         patch(
             "app.storage.services.skill_service.list_enabled_skills",
-            new=AsyncMock(
-                return_value=[SimpleNamespace(id="skill-explicit", name="显式引用技能")]
-            ),
+            new=AsyncMock(return_value=[SimpleNamespace(id="skill-explicit", name="显式引用技能")]),
         ),
         patch(
             "app.agent_runtime.graph.react_agent.build_context_parts",
@@ -929,24 +933,24 @@ def test_tool_success_path_continues_with_pending_follow_up_before_ending() -> N
 
     consume_sink = AsyncMock(return_value=True)
     observed_human_contents: deque[list[str]] = deque()
-    responses = deque([
-        AIMessage(
-            content="",
-            tool_calls=[{"id": "call_1", "name": "submit_result", "args": {"result": "done"}}],
-        ),
-        AIMessage(
-            content="",
-            tool_calls=[{"id": "call_2", "name": "submit_result", "args": {"result": "follow-up"}}],
-        ),
-    ])
+    responses = deque(
+        [
+            AIMessage(
+                content="",
+                tool_calls=[{"id": "call_1", "name": "submit_result", "args": {"result": "done"}}],
+            ),
+            AIMessage(
+                content="",
+                tool_calls=[
+                    {"id": "call_2", "name": "submit_result", "args": {"result": "follow-up"}}
+                ],
+            ),
+        ]
+    )
 
     async def _mock_invoke(_model, messages, **_kwargs):
         observed_human_contents.append(
-            [
-                message.content
-                for message in messages
-                if isinstance(message, HumanMessage)
-            ]
+            [message.content for message in messages if isinstance(message, HumanMessage)]
         )
         return responses.popleft()
 

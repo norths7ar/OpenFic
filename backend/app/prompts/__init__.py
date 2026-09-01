@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Prompts - 默认提示词配置模块。
 
@@ -9,13 +8,13 @@ Prompts - 默认提示词配置模块。
 """
 
 from app.prompts.loader import (
+    builtin_agent_prompt_id,
     create_custom_agent_prompt_yaml,
+    custom_agent_prompt_id,
     delete_custom_agent_prompt_yaml,
     get_prompt_chains_metadata,
     load_prompt_chain,
     reset_custom_agent_prompt_yaml,
-    builtin_agent_prompt_id,
-    custom_agent_prompt_id,
 )
 
 __all__ = [

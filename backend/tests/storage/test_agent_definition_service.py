@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Agent Definition Service 测试。"""
 
 import pytest
@@ -303,8 +302,8 @@ async def test_update_builtin_definition_rejects_kind_change():
 
 @pytest.mark.asyncio
 async def test_update_builtin_creates_override_row():
-    from app.storage.services import agent_definition_service
     from app.storage.repos import agent_definition_repo
+    from app.storage.services import agent_definition_service
 
     engine = create_async_engine("sqlite+aiosqlite:///:memory:", future=True)
     factory = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
@@ -336,9 +335,9 @@ async def test_update_builtin_creates_override_row():
 
 @pytest.mark.asyncio
 async def test_reset_builtin_removes_override():
-    from app.storage.services import agent_definition_service
-    from app.storage.repos import agent_definition_repo
     from app.agent_runtime.agents.definitions import get_default_agent_definition
+    from app.storage.repos import agent_definition_repo
+    from app.storage.services import agent_definition_service
 
     engine = create_async_engine("sqlite+aiosqlite:///:memory:", future=True)
     factory = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
@@ -348,7 +347,9 @@ async def test_reset_builtin_removes_override():
     try:
         async with factory() as session:
             await agent_definition_service.update_definition(
-                session, key="reviewer", display_name="Custom",
+                session,
+                key="reviewer",
+                display_name="Custom",
             )
             await session.commit()
 
@@ -399,8 +400,8 @@ async def test_reset_custom_raises_validation_error():
 
 @pytest.mark.asyncio
 async def test_delete_custom_definition():
-    from app.storage.services import agent_definition_service
     from app.storage.repos import agent_definition_repo
+    from app.storage.services import agent_definition_service
 
     engine = create_async_engine("sqlite+aiosqlite:///:memory:", future=True)
     factory = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
@@ -452,9 +453,9 @@ async def test_delete_nonexistent_raises_not_found():
 
 @pytest.mark.asyncio
 async def test_delete_removes_delegatable_reference_from_primaries():
-    from app.storage.services import agent_definition_service
-    from app.storage.repos import agent_definition_repo
     from app.agent_runtime.persistence.model import AgentDefinitionRecord
+    from app.storage.repos import agent_definition_repo
+    from app.storage.services import agent_definition_service
 
     engine = create_async_engine("sqlite+aiosqlite:///:memory:", future=True)
     factory = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)

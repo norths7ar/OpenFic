@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Clients Module - 模型调用客户端模块。
 

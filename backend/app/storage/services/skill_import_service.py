@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Skill Import Service - 按 Agent Skills 规范导入技能与参考文档。
 
 参考: https://agentskills.io/specification

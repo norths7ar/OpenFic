@@ -3,7 +3,6 @@ import json
 
 from sqlalchemy import create_engine, text
 
-
 migration = importlib.import_module(
     "app.storage.migrations.versions.1019_add_model_pricing_and_task_cost"
 )
@@ -69,7 +68,7 @@ def test_backfill_model_metadata_from_bundled_catalog(tmp_path) -> None:
                                 },
                             }
                         ],
-                    }
+                    },
                 ]
             }
         ),
@@ -102,12 +101,16 @@ def test_backfill_model_metadata_from_bundled_catalog(tmp_path) -> None:
 
         migration._backfill_model_metadata(connection, snapshot_path)
 
-        rows = connection.execute(
-            text(
-                "SELECT id, context_length, input_price, output_price, "
-                "cache_read_price, cache_write_price FROM models ORDER BY id"
+        rows = (
+            connection.execute(
+                text(
+                    "SELECT id, context_length, input_price, output_price, "
+                    "cache_read_price, cache_write_price FROM models ORDER BY id"
+                )
             )
-        ).mappings().all()
+            .mappings()
+            .all()
+        )
 
     assert rows == [
         {
@@ -146,9 +149,7 @@ def test_backfill_model_metadata_from_bundled_catalog(tmp_path) -> None:
 
 
 def test_bundled_catalog_path_contains_provider_metadata() -> None:
-    provider_urls, catalog_models = migration._load_catalog_index(
-        migration._BUNDLED_SNAPSHOT_PATH
-    )
+    provider_urls, catalog_models = migration._load_catalog_index(migration._BUNDLED_SNAPSHOT_PATH)
 
     assert provider_urls["openai"] == "https://api.openai.com/v1"
     assert ("openai", "gpt-4o", "llm") in catalog_models

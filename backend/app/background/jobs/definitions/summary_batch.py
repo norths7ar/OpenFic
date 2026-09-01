@@ -7,17 +7,22 @@ from typing import Any
 from pydantic import BaseModel
 
 from app.audit import AuditContext
-from app.background.jobs import service as job_service
 from app.background.jobs import repos as job_repo
+from app.background.jobs import service as job_service
 from app.background.jobs.base import JobDefinition
 from app.background.jobs.constants import JOB_QUEUE_LLM, JOB_TYPE_SUMMARY_BATCH
 from app.background.jobs.models import BackgroundJobItem
-from app.background.jobs.states import JOB_STATUS_FAILED, JOB_STATUS_PENDING, JOB_STATUS_RUNNING, JOB_STATUS_SKIPPED, JOB_STATUS_SUCCEEDED
+from app.background.jobs.states import (
+    JOB_STATUS_FAILED,
+    JOB_STATUS_PENDING,
+    JOB_STATUS_RUNNING,
+    JOB_STATUS_SKIPPED,
+    JOB_STATUS_SUCCEEDED,
+)
 from app.background.llm.resolver import BackgroundModelUnavailableError, resolve_background_llm
 from app.background.runtime.context import JobContext
 from app.memory.chapter import summary_generator, summary_service
 from app.storage.repos import chapter_repo
-
 
 SUMMARY_ITEM_STAGE_TOTAL = 3
 
@@ -52,14 +57,27 @@ async def _mark_item_running(session, item: BackgroundJobItem) -> BackgroundJobI
     return await _save_item(session, item)
 
 
-async def _mark_item_terminal(session, item: BackgroundJobItem, status: str, *, error_message: str | None = None) -> BackgroundJobItem:
+async def _mark_item_terminal(
+    session, item: BackgroundJobItem, status: str, *, error_message: str | None = None
+) -> BackgroundJobItem:
     item.status = status
     item.finished_at = datetime.now(UTC)
-    item.error_json = None if error_message is None else json.dumps({"message": error_message}, ensure_ascii=False)
+    item.error_json = (
+        None
+        if error_message is None
+        else json.dumps({"message": error_message}, ensure_ascii=False)
+    )
     return await _save_item(session, item)
 
 
-async def _update_item_progress(session, item: BackgroundJobItem, *, current: int, total: int | None = None, message: str | None = None) -> BackgroundJobItem:
+async def _update_item_progress(
+    session,
+    item: BackgroundJobItem,
+    *,
+    current: int,
+    total: int | None = None,
+    message: str | None = None,
+) -> BackgroundJobItem:
     return await job_service.update_item_progress(
         session,
         item,
@@ -149,9 +167,13 @@ def _item_progress_units(item: BackgroundJobItem) -> int:
     return SUMMARY_ITEM_STAGE_TOTAL
 
 
-def _build_batch_progress_payload(job, items: list[BackgroundJobItem], message: str | None) -> dict[str, Any]:
+def _build_batch_progress_payload(
+    job, items: list[BackgroundJobItem], message: str | None
+) -> dict[str, Any]:
     completed_item_count = sum(
-        1 for item in items if item.status in {JOB_STATUS_SUCCEEDED, JOB_STATUS_FAILED, JOB_STATUS_SKIPPED}
+        1
+        for item in items
+        if item.status in {JOB_STATUS_SUCCEEDED, JOB_STATUS_FAILED, JOB_STATUS_SKIPPED}
     )
     running_item_count = sum(1 for item in items if item.status == JOB_STATUS_RUNNING)
     queued_item_count = sum(1 for item in items if item.status == JOB_STATUS_PENDING)
@@ -175,7 +197,9 @@ def _build_batch_progress_payload(job, items: list[BackgroundJobItem], message: 
     }
 
 
-async def _update_batch_progress(session, context: JobContext, *, message: str | None = None) -> None:
+async def _update_batch_progress(
+    session, context: JobContext, *, message: str | None = None
+) -> None:
     items = await job_service.list_job_items(session, job_id=context.job_id)
     progress_payload = _build_batch_progress_payload(context.job, items, message)
     await job_service.update_progress(
@@ -189,7 +213,9 @@ async def _update_batch_progress(session, context: JobContext, *, message: str |
     )
 
 
-async def _process_chapter_item(context: JobContext, item: BackgroundJobItem, metadata: SummaryBatchContext) -> None:
+async def _process_chapter_item(
+    context: JobContext, item: BackgroundJobItem, metadata: SummaryBatchContext
+) -> None:
     payload = job_service.parse_json_object(item.payload_json)
     chapter_id = payload.get("chapter_id")
     if not isinstance(chapter_id, str):
@@ -199,7 +225,9 @@ async def _process_chapter_item(context: JobContext, item: BackgroundJobItem, me
         resolved = await resolve_background_llm(
             context.session,
             model_policy=str(payload.get("model_policy") or metadata.model_policy),
-            model_id=str(payload.get("model_id")) if isinstance(payload.get("model_id"), str) else metadata.model_id,
+            model_id=str(payload.get("model_id"))
+            if isinstance(payload.get("model_id"), str)
+            else metadata.model_id,
         )
     except BackgroundModelUnavailableError as exc:
         summary = await summary_service.get_chapter_summary(context.session, chapter_id)
@@ -224,7 +252,9 @@ async def _process_chapter_item(context: JobContext, item: BackgroundJobItem, me
         resolved.model.id,
     )
     await summary_service.publish_chapter_summary_update(context, row)
-    await _update_item_progress(context.session, item, current=1, total=3, message=PROGRESS_MSG_CHAPTER_GENERATING)
+    await _update_item_progress(
+        context.session, item, current=1, total=3, message=PROGRESS_MSG_CHAPTER_GENERATING
+    )
     await _publish_item_progress(
         context,
         item,
@@ -266,7 +296,9 @@ async def _process_chapter_item(context: JobContext, item: BackgroundJobItem, me
         model_id=resolved.model.id,
         job_id=item.id,
     )
-    await _update_item_progress(context.session, item, current=2, total=3, message=PROGRESS_MSG_CHAPTER_SAVED)
+    await _update_item_progress(
+        context.session, item, current=2, total=3, message=PROGRESS_MSG_CHAPTER_SAVED
+    )
     await _publish_item_progress(
         context,
         item,
@@ -283,7 +315,9 @@ async def _process_chapter_item(context: JobContext, item: BackgroundJobItem, me
         model_policy=metadata.model_policy,
         batch_job_id=context.job_id,
     )
-    await _update_item_progress(context.session, item, current=3, total=3, message=PROGRESS_MSG_CHAPTER_COMPLETED)
+    await _update_item_progress(
+        context.session, item, current=3, total=3, message=PROGRESS_MSG_CHAPTER_COMPLETED
+    )
     await _publish_item_progress(
         context,
         item,
@@ -296,12 +330,18 @@ async def _process_chapter_item(context: JobContext, item: BackgroundJobItem, me
     await _publish_item_terminal(context, item, row, terminal_status="succeeded")
 
 
-async def _process_long_term_item(context: JobContext, item: BackgroundJobItem, metadata: SummaryBatchContext) -> None:
+async def _process_long_term_item(
+    context: JobContext, item: BackgroundJobItem, metadata: SummaryBatchContext
+) -> None:
     payload = job_service.parse_json_object(item.payload_json)
     project_id = payload.get("project_id")
     start_order = payload.get("start_order")
     end_order = payload.get("end_order")
-    if not isinstance(project_id, str) or not isinstance(start_order, int) or not isinstance(end_order, int):
+    if (
+        not isinstance(project_id, str)
+        or not isinstance(start_order, int)
+        or not isinstance(end_order, int)
+    ):
         raise ValueError("长期摘要 item 缺少区间信息")
 
     window = await summary_service.load_long_term_summary_window(
@@ -318,12 +358,18 @@ async def _process_long_term_item(context: JobContext, item: BackgroundJobItem, 
             start_order=start_order,
             end_order=end_order,
             status=summary_service.SUMMARY_STATUS_FAILED,
-            source_chapter_ids=await summary_service.load_long_term_chapter_ids(context.session, project_id, start_order, end_order),
+            source_chapter_ids=await summary_service.load_long_term_chapter_ids(
+                context.session, project_id, start_order, end_order
+            ),
             job_id=item.id,
         )
-        await summary_service.mark_summary_failed(context.session, row, ERROR_MSG_INSUFFICIENT_SOURCE)
+        await summary_service.mark_summary_failed(
+            context.session, row, ERROR_MSG_INSUFFICIENT_SOURCE
+        )
         await summary_service.publish_long_term_summary_update(context, row)
-        await _mark_item_terminal(context.session, item, JOB_STATUS_SKIPPED, error_message=ERROR_MSG_INSUFFICIENT_SOURCE)
+        await _mark_item_terminal(
+            context.session, item, JOB_STATUS_SKIPPED, error_message=ERROR_MSG_INSUFFICIENT_SOURCE
+        )
         await _publish_item_terminal(
             context,
             item,
@@ -339,7 +385,9 @@ async def _process_long_term_item(context: JobContext, item: BackgroundJobItem, 
         resolved = await resolve_background_llm(
             context.session,
             model_policy=str(payload.get("model_policy") or metadata.model_policy),
-            model_id=str(payload.get("model_id")) if isinstance(payload.get("model_id"), str) else metadata.model_id,
+            model_id=str(payload.get("model_id"))
+            if isinstance(payload.get("model_id"), str)
+            else metadata.model_id,
         )
     except BackgroundModelUnavailableError as exc:
         row = await summary_service.create_or_update_long_term_summary(
@@ -349,7 +397,9 @@ async def _process_long_term_item(context: JobContext, item: BackgroundJobItem, 
             start_order=start_order,
             end_order=end_order,
             status=summary_service.SUMMARY_STATUS_FAILED,
-            source_chapter_ids=await summary_service.load_long_term_chapter_ids(context.session, project_id, start_order, end_order),
+            source_chapter_ids=await summary_service.load_long_term_chapter_ids(
+                context.session, project_id, start_order, end_order
+            ),
             job_id=item.id,
         )
         await summary_service.mark_summary_failed(context.session, row, str(exc))
@@ -371,12 +421,16 @@ async def _process_long_term_item(context: JobContext, item: BackgroundJobItem, 
         start_order=start_order,
         end_order=end_order,
         status=summary_service.SUMMARY_STATUS_RUNNING,
-        source_chapter_ids=await summary_service.load_long_term_chapter_ids(context.session, project_id, start_order, end_order),
+        source_chapter_ids=await summary_service.load_long_term_chapter_ids(
+            context.session, project_id, start_order, end_order
+        ),
         job_id=item.id,
         model_id=resolved.model.id,
     )
     await summary_service.publish_long_term_summary_update(context, row)
-    await _update_item_progress(context.session, item, current=1, total=3, message=PROGRESS_MSG_LONG_TERM_GENERATING)
+    await _update_item_progress(
+        context.session, item, current=1, total=3, message=PROGRESS_MSG_LONG_TERM_GENERATING
+    )
     await _publish_item_progress(
         context,
         item,
@@ -385,9 +439,13 @@ async def _process_long_term_item(context: JobContext, item: BackgroundJobItem, 
         total=3,
         message=PROGRESS_MSG_LONG_TERM_GENERATING,
     )
-    await _update_batch_progress(context.session, context, message=PROGRESS_MSG_LONG_TERM_GENERATING)
+    await _update_batch_progress(
+        context.session, context, message=PROGRESS_MSG_LONG_TERM_GENERATING
+    )
     await job_service.commit_and_notify(context.session)
-    prompt = await summary_generator.build_long_term_summary_prompt(context.session, source, chapters)
+    prompt = await summary_generator.build_long_term_summary_prompt(
+        context.session, source, chapters
+    )
     result = await summary_generator.generate_long_term_summary_from_prompt(
         resolved.client,
         prompt,
@@ -424,9 +482,13 @@ async def _process_long_term_item(context: JobContext, item: BackgroundJobItem, 
         token_count=result.token_count,
         model_id=resolved.model.id,
         job_id=item.id,
-        source_chapter_ids=await summary_service.load_long_term_chapter_ids(context.session, project_id, start_order, end_order),
+        source_chapter_ids=await summary_service.load_long_term_chapter_ids(
+            context.session, project_id, start_order, end_order
+        ),
     )
-    await _update_item_progress(context.session, item, current=2, total=3, message=PROGRESS_MSG_LONG_TERM_SAVED)
+    await _update_item_progress(
+        context.session, item, current=2, total=3, message=PROGRESS_MSG_LONG_TERM_SAVED
+    )
     await _publish_item_progress(
         context,
         item,
@@ -436,7 +498,9 @@ async def _process_long_term_item(context: JobContext, item: BackgroundJobItem, 
         message=PROGRESS_MSG_LONG_TERM_SAVED,
     )
     await summary_service.publish_long_term_summary_update(context, row)
-    await _update_item_progress(context.session, item, current=3, total=3, message=PROGRESS_MSG_LONG_TERM_COMPLETED)
+    await _update_item_progress(
+        context.session, item, current=3, total=3, message=PROGRESS_MSG_LONG_TERM_COMPLETED
+    )
     await _publish_item_progress(
         context,
         item,
@@ -476,13 +540,19 @@ async def handle_summary_batch(context: JobContext) -> dict[str, int] | None:
                 if isinstance(chapter_id, str):
                     summary = await summary_service.get_chapter_summary(context.session, chapter_id)
                     if summary is not None:
-                        summary_row = await summary_service.mark_summary_failed(context.session, summary, str(exc))
+                        summary_row = await summary_service.mark_summary_failed(
+                            context.session, summary, str(exc)
+                        )
                         await summary_service.publish_chapter_summary_update(context, summary_row)
             elif pending_item.type == summary_service.SUMMARY_BATCH_ITEM_TYPE_LONG_TERM:
                 project_id = payload.get("project_id")
                 start_order = payload.get("start_order")
                 end_order = payload.get("end_order")
-                if isinstance(project_id, str) and isinstance(start_order, int) and isinstance(end_order, int):
+                if (
+                    isinstance(project_id, str)
+                    and isinstance(start_order, int)
+                    and isinstance(end_order, int)
+                ):
                     long_term_row = await summary_service.get_long_term_summary_by_range(
                         context.session,
                         project_id,
@@ -496,7 +566,9 @@ async def handle_summary_batch(context: JobContext) -> dict[str, int] | None:
                             str(exc),
                         )
                         await summary_service.publish_long_term_summary_update(context, summary_row)
-            await _mark_item_terminal(context.session, pending_item, JOB_STATUS_FAILED, error_message=str(exc))
+            await _mark_item_terminal(
+                context.session, pending_item, JOB_STATUS_FAILED, error_message=str(exc)
+            )
             if summary_row is not None:
                 await _publish_item_terminal(
                     context,
@@ -549,7 +621,11 @@ async def _finalize_incomplete_batch_items(context: JobContext, reason: str) -> 
         project_id = payload.get("project_id")
         start_order = payload.get("start_order")
         end_order = payload.get("end_order")
-        if not isinstance(project_id, str) or not isinstance(start_order, int) or not isinstance(end_order, int):
+        if (
+            not isinstance(project_id, str)
+            or not isinstance(start_order, int)
+            or not isinstance(end_order, int)
+        ):
             continue
         summary = await summary_service.get_long_term_summary_by_range(
             context.session,

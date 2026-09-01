@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 读取单条笔记内容。
 """
@@ -45,9 +44,7 @@ class ReadNoteTool(AgentTool):
                 notes = await note_repo.list_by_project(
                     session, self.project_id, include_hidden=False
                 )
-                cats = await note_category_repo.list_by_project(
-                    session, self.project_id
-                )
+                cats = await note_category_repo.list_by_project(session, self.project_id)
                 note = resolve_note_from_list(notes, ref, categories=cats)
 
             if note.project_id != self.project_id:

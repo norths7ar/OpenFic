@@ -8,7 +8,6 @@ from app.core.errors import NotFoundError
 from app.storage.database import get_session
 from app.storage.services import command_service
 
-
 router = APIRouter(tags=["commands"])
 
 
@@ -44,4 +43,4 @@ async def search_commands(
             ]
         )
     except NotFoundError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc

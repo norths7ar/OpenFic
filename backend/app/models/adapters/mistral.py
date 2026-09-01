@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Mistral AI Adapter - Mistral API适配器。
 

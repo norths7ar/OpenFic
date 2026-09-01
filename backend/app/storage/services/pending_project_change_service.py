@@ -64,9 +64,7 @@ async def list_pending_changes(
 ) -> list[PendingProjectChange]:
     """获取项目下的待审变更。"""
     await _ensure_project_exists(session, project_id)
-    return await pending_project_change_repo.list_by_project(
-        session, project_id, status
-    )
+    return await pending_project_change_repo.list_by_project(session, project_id, status)
 
 
 async def count_pending_changes(
@@ -76,9 +74,7 @@ async def count_pending_changes(
 ) -> int:
     """统计项目下指定状态的待审变更。"""
     await _ensure_project_exists(session, project_id)
-    return await pending_project_change_repo.count_by_project(
-        session, project_id, status
-    )
+    return await pending_project_change_repo.count_by_project(session, project_id, status)
 
 
 async def get_pending_change(

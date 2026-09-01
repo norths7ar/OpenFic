@@ -4,15 +4,15 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from app.agent_runtime.tools.base import AgentTool
-from app.core.editor_content_limits import EditorContentLimitError, validate_editor_content
 from app.agent_runtime.revisions import (
     current_revision_id_from_state,
     images_by_id,
     record_agent_activity_for_change,
     record_chapter_diffs,
 )
+from app.agent_runtime.tools.base import AgentTool
 from app.agent_runtime.tools.errors import ToolExecutionError
+from app.agent_runtime.tools.impls._locks import keyed_lock
 from app.agent_runtime.tools.impls.chapter.diff_preview import (
     build_chapter_diff_preview,
     build_write_chapter_tool_result_preview,
@@ -24,13 +24,13 @@ from app.agent_runtime.tools.impls.chapter.refs import (
     resolve_chapter_from_list,
     resolve_volume_from_list,
 )
-from app.agent_runtime.tools.impls._locks import keyed_lock
 from app.agent_runtime.tools.registry import ToolRegistry
+from app.core.editor_content_limits import EditorContentLimitError, validate_editor_content
 from app.storage.database import create_session
 from app.storage.models.chapter import Chapter
 from app.storage.repos import chapter_repo, volume_repo
-from app.storage.services.volume_service import refresh_volume_chapter_count
 from app.storage.services.version_control_service import refresh_project_stats
+from app.storage.services.volume_service import refresh_volume_chapter_count
 
 
 def count_words(text: str) -> int:
@@ -116,18 +116,14 @@ class WriteChapterTool(AgentTool):
                         ref_type=ref.type,
                         ref_value=ref.value,
                     )
-                    match = resolve_chapter_from_list(
-                        [matched] if matched is not None else [], ref
-                    )
+                    match = resolve_chapter_from_list([matched] if matched is not None else [], ref)
                     insert_order = match.order
                     before = images_by_id(
                         await chapter_repo.list_by_volume_from_order(
                             session, volume.id, insert_order
                         )
                     )
-                    await chapter_repo.shift_orders(
-                        session, volume.id, insert_order, max_order, 1
-                    )
+                    await chapter_repo.shift_orders(session, volume.id, insert_order, max_order, 1)
                     order = insert_order
                 else:
                     before = {}
@@ -145,9 +141,7 @@ class WriteChapterTool(AgentTool):
                     after = images_by_id([chapter])
                 else:
                     after = images_by_id(
-                        await chapter_repo.list_by_volume_from_order(
-                            session, volume.id, order
-                        )
+                        await chapter_repo.list_by_volume_from_order(session, volume.id, order)
                     )
                 affected = await record_chapter_diffs(
                     session,

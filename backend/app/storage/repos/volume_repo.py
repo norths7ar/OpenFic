@@ -1,10 +1,9 @@
-# -*- coding: utf-8 -*-
 """
 Volume Repository - 卷数据访问层。
 """
 
-from sqlalchemy import case, delete as sql_delete
-from sqlalchemy import func, select, update
+from sqlalchemy import case, func, select, update
+from sqlalchemy import delete as sql_delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col
 
@@ -28,9 +27,7 @@ async def get_by_id(session: AsyncSession, volume_id: str) -> Volume | None:
 async def list_by_project(session: AsyncSession, project_id: str) -> list[Volume]:
     """获取项目下的卷列表。"""
     result = await session.execute(
-        select(Volume)
-        .where(col(Volume.project_id) == project_id)
-        .order_by(col(Volume.order).asc())
+        select(Volume).where(col(Volume.project_id) == project_id).order_by(col(Volume.order).asc())
     )
     return list(result.scalars().all())
 

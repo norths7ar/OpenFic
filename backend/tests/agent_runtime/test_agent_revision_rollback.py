@@ -6,8 +6,8 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 from sqlmodel import SQLModel
 
-from app.agent_runtime.persistence.model import AgentAttachment
 from app.agent_runtime.persistence import repo as message_repo
+from app.agent_runtime.persistence.model import AgentAttachment
 from app.storage.models.chapter import Chapter
 from app.storage.models.character import Character
 from app.storage.models.note import Note, NoteCategory
@@ -221,9 +221,7 @@ async def test_write_chapter_records_current_revision_and_structured_result(revi
         rows = chapters.mappings().all()
         inserted_row = next(row for row in rows if row["title"] == "插入章")
         commits = await commit_repo.list_by_revision(session, revision.id)
-        snapshots = await revision_chapter_snapshot_repo.list_by_revision(
-            session, revision.id
-        )
+        snapshots = await revision_chapter_snapshot_repo.list_by_revision(session, revision.id)
     inserted_id = chapter_diff["chapter_id"]
     assert inserted_row["order"] == 2
     assert {(item.chapter_id, item.operation) for item in commits} == {
@@ -744,9 +742,7 @@ async def test_write_note_records_revision_snapshot(revision_db):
     created_id = result["metadata"]["note_diff"]["note_id"]
 
     async with revision_db() as session:
-        snapshots = await revision_note_snapshot_repo.list_by_revision(
-            session, revision.id
-        )
+        snapshots = await revision_note_snapshot_repo.list_by_revision(session, revision.id)
 
     assert {(item.note_id, item.exists) for item in snapshots} == {
         (created_id, False),
@@ -816,9 +812,7 @@ async def test_rollback_revision_restores_notes(revision_db):
     assert edit_result["success"] is True
 
     delete_tool = DeleteNoteTool(_state=state)
-    delete_result = json.loads(
-        await delete_tool.ainvoke({"note_ref": {"id": "note-1"}})
-    )
+    delete_result = json.loads(await delete_tool.ainvoke({"note_ref": {"id": "note-1"}}))
     assert delete_result["success"] is True
 
     async with revision_db() as session:
@@ -954,17 +948,13 @@ async def test_create_note_category_records_revision_snapshot(revision_db):
             "current_revision_id": revision.id,
         }
     )
-    result = json.loads(
-        await tool.ainvoke({"title": "新分类", "parent_ref": {"id": "cat-1"}})
-    )
+    result = json.loads(await tool.ainvoke({"title": "新分类", "parent_ref": {"id": "cat-1"}}))
     assert result["success"] is True
     created_id = result["metadata"]["category"]["id"]
 
     async with revision_db() as session:
-        snapshots = (
-            await revision_note_snapshot_repo.list_category_snapshots_by_revision(
-                session, revision.id
-            )
+        snapshots = await revision_note_snapshot_repo.list_category_snapshots_by_revision(
+            session, revision.id
         )
 
     assert {(item.category_id, item.exists) for item in snapshots} == {
@@ -1081,17 +1071,13 @@ async def test_rollback_restores_nested_category_before_note(revision_db):
     }
 
     cat_tool = CreateNoteCategoryTool(_state=state)
-    cat_result = json.loads(
-        await cat_tool.ainvoke({"title": "新父分类"})
-    )
+    cat_result = json.loads(await cat_tool.ainvoke({"title": "新父分类"}))
     assert cat_result["success"] is True
     new_cat_id = cat_result["metadata"]["category"]["id"]
 
     sub_cat_tool = CreateNoteCategoryTool(_state=state)
     sub_cat_result = json.loads(
-        await sub_cat_tool.ainvoke(
-            {"title": "子分类", "parent_ref": {"id": new_cat_id}}
-        )
+        await sub_cat_tool.ainvoke({"title": "子分类", "parent_ref": {"id": new_cat_id}})
     )
     assert sub_cat_result["success"] is True
     sub_cat_id = sub_cat_result["metadata"]["category"]["id"]
@@ -1171,9 +1157,7 @@ async def test_rollback_revision_restores_created_world_entries(revision_db):
             "current_revision_id": revision.id,
         }
     )
-    result = json.loads(
-        await tool.ainvoke({"title": "临时条目", "content": "临时设定"})
-    )
+    result = json.loads(await tool.ainvoke({"title": "临时条目", "content": "临时设定"}))
     assert result["success"] is True
     entry_id = result["metadata"]["world_entry_diff"]["entry_id"]
 

@@ -119,9 +119,7 @@ async def _build_embedding_client(session: AsyncSession, model_ref_id: str):
         raise ToolExecutionError("章节检索 embedding client 初始化失败") from exc
 
 
-async def _build_rerank_client(
-    session: AsyncSession, model_ref_id: str
-) -> RerankClient | None:
+async def _build_rerank_client(session: AsyncSession, model_ref_id: str) -> RerankClient | None:
     """构造 rerank client；模型缺失或类型不符时返回 None（降级为纯 RRF）。"""
     model = await model_repo.get_by_id(session, model_ref_id)
     if model is None or model.task_type != "rerank":
@@ -219,10 +217,7 @@ def _not_latest_text(
             "现有索引无法用于检索，需要先更新索引后才能检索章节内容。"
         )
     if freshness == INDEX_STATUS_NO_INDEX:
-        return (
-            "当前项目尚未建立可用的检索索引，无法检索章节内容。"
-            "请先更新索引后再进行检索。"
-        )
+        return "当前项目尚未建立可用的检索索引，无法检索章节内容。请先更新索引后再进行检索。"
     # stale
     text = (
         "当前项目的检索索引不是最新的（部分章节内容已发生变更），"
@@ -355,17 +350,13 @@ class SearchChaptersTool(AgentTool):
                 if isinstance(exc, ToolExecutionError):
                     raise
                 logger.exception("章节检索执行失败: {}", exc)
-                raise ToolExecutionError(
-                    f"章节检索执行失败: {type(exc).__name__}"
-                ) from exc
+                raise ToolExecutionError(f"章节检索执行失败: {type(exc).__name__}") from exc
             if not results:
                 return SearchChaptersOutput(query=query, results=[]).model_dump_json()
 
             # 置信度裁剪：丢弃低于阈值的不相关分块，降低上下文噪声。
             results = [
-                result
-                for result in results
-                if result.score >= SEARCH_CHAPTERS_CONFIDENCE_THRESHOLD
+                result for result in results if result.score >= SEARCH_CHAPTERS_CONFIDENCE_THRESHOLD
             ]
             if not results:
                 return SearchChaptersOutput(query=query, results=[]).model_dump_json()
@@ -380,13 +371,11 @@ class SearchChaptersTool(AgentTool):
                 list(dict.fromkeys(chapter_ids)),
             )
             chapters = [
-                chapter
-                for chapter in candidate_chapters
-                if chapter.project_id == self.project_id
+                chapter for chapter in candidate_chapters if chapter.project_id == self.project_id
             ]
-            volume_ids = list(dict.fromkeys(
-                chapter.volume_id for chapter in chapters if chapter.volume_id
-            ))
+            volume_ids = list(
+                dict.fromkeys(chapter.volume_id for chapter in chapters if chapter.volume_id)
+            )
             volumes_by_id: dict[str, Any] = {}
             if volume_ids:
                 volumes = await volume_repo.list_by_project(session, self.project_id)

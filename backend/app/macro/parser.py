@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Macro Parser - 宏语法解析器。
 
@@ -51,7 +50,7 @@ class MacroParser:
         try:
             args = MacroLexer.tokenize_args(args_str)
         except ValueError as e:
-            raise MacroParseError(str(e), match.raw)
+            raise MacroParseError(str(e), match.raw) from e
 
         if name == "getmem":
             from app.macro.handlers.mem_handler import GetMemHandler

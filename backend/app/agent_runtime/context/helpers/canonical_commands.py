@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 import html
 import re
 from collections.abc import Iterable
-
+from dataclasses import dataclass
 
 _SKILL_COMMAND_RE = re.compile(
     r"<of-skill\b(?P<attrs_self>[^<>]*?)\s*/>",

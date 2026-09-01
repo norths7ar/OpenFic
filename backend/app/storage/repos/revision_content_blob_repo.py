@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Content-addressed blob repository for revision/commit large text payloads."""
 
 from __future__ import annotations
@@ -74,10 +73,7 @@ async def get_many(session: AsyncSession, blob_ids: set[str]) -> dict[str, str]:
     result = await session.execute(
         select(RevisionContentBlob).where(col(RevisionContentBlob.id).in_(blob_ids))
     )
-    return {
-        blob.id: decompress_text(blob.data)
-        for blob in result.scalars().all()
-    }
+    return {blob.id: decompress_text(blob.data) for blob in result.scalars().all()}
 
 
 async def hydrate_content(
@@ -93,11 +89,7 @@ async def hydrate_content(
     written as committed (not dirty) so later flushes never write blob content
     back into the inline column.
     """
-    blob_ids = {
-        getattr(row, blob_id_attr)
-        for row in rows
-        if getattr(row, blob_id_attr, None)
-    }
+    blob_ids = {getattr(row, blob_id_attr) for row in rows if getattr(row, blob_id_attr, None)}
     if not blob_ids:
         return
     contents = await get_many(session, blob_ids)
@@ -105,4 +97,3 @@ async def hydrate_content(
         blob_id = getattr(row, blob_id_attr, None)
         if blob_id:
             set_committed_value(row, content_attr, contents.get(blob_id))
-

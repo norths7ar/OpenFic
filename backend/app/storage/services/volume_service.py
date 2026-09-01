@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Volume Service - 卷业务逻辑层。
 """
@@ -126,9 +125,7 @@ async def delete_volume(
 
     max_order = await volume_repo.get_max_order(session, project_id)
     if deleted_order <= max_order:
-        await volume_repo.shift_orders(
-            session, project_id, deleted_order + 1, max_order, -1
-        )
+        await volume_repo.shift_orders(session, project_id, deleted_order + 1, max_order, -1)
 
 
 async def move_volume(

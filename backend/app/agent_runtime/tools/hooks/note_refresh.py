@@ -4,11 +4,12 @@ import json
 from datetime import UTC, datetime
 from typing import Any
 
+from loguru import logger
+
 from app.agent_runtime.agents.tool_categories import TOOL_CATEGORIES
 from app.agent_runtime.tools.base import HookContext, HookResult
 from app.socket.emitter import emit
 from app.socket.handlers import agent_session_room
-from loguru import logger
 
 NOTE_WRITE_TOOL_NAMES = frozenset(TOOL_CATEGORIES["note_write"])
 NOTE_TOOL_OPERATIONS = {

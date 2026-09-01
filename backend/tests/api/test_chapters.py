@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Chapter API 测试。
 """
@@ -316,9 +315,7 @@ async def test_delete_chapter_updates_orders_and_stats(client: AsyncClient) -> N
     """测试删除章节后顺序和统计更新。"""
     project_id, volume_id = await _create_project(client)
     chapters = [
-        await _create_chapter(
-            client, project_id, volume_id, title=f"第{i + 1}章", content="内容"
-        )
+        await _create_chapter(client, project_id, volume_id, title=f"第{i + 1}章", content="内容")
         for i in range(3)
     ]
 
@@ -339,8 +336,7 @@ async def test_delete_reordered_chapter_updates_orders(client: AsyncClient) -> N
     """测试删除章节时能安全收紧已重排章节的顺序。"""
     project_id, volume_id = await _create_project(client)
     chapters = [
-        await _create_chapter(client, project_id, volume_id, title=f"第{i + 1}章")
-        for i in range(4)
+        await _create_chapter(client, project_id, volume_id, title=f"第{i + 1}章") for i in range(4)
     ]
     reordered_ids = [
         chapters[0]["id"],
@@ -416,18 +412,14 @@ async def test_delete_chapter_removes_summary_and_affected_long_term_summaries(
         f"/api/v1/projects/{project_id}/chapter-context/summaries/chapters"
     )
     assert chapter_list.status_code == 200
-    assert all(
-        item["chapter_id"] != chapters[10]["id"]
-        for item in chapter_list.json()["items"]
-    )
+    assert all(item["chapter_id"] != chapters[10]["id"] for item in chapter_list.json()["items"])
 
     long_term_list = await client.get(
         f"/api/v1/projects/{project_id}/chapter-context/summaries/long-term"
     )
     assert long_term_list.status_code == 200
     assert [
-        (item["start_order"], item["end_order"])
-        for item in long_term_list.json()["items"]
+        (item["start_order"], item["end_order"]) for item in long_term_list.json()["items"]
     ] == [(1, 10)]
 
 
@@ -477,9 +469,7 @@ async def test_delete_chapter_in_later_volume_keeps_prior_long_term_summaries(
         )
     await session.commit()
 
-    response = await client.delete(
-        f"/api/v1/chapters/{second_volume_chapters[0]['id']}"
-    )
+    response = await client.delete(f"/api/v1/chapters/{second_volume_chapters[0]['id']}")
 
     assert response.status_code == 204
     long_term_list = await client.get(
@@ -487,8 +477,7 @@ async def test_delete_chapter_in_later_volume_keeps_prior_long_term_summaries(
     )
     assert long_term_list.status_code == 200
     assert [
-        (item["start_order"], item["end_order"])
-        for item in long_term_list.json()["items"]
+        (item["start_order"], item["end_order"]) for item in long_term_list.json()["items"]
     ] == [(1, 10)]
 
 
@@ -512,8 +501,7 @@ async def test_reorder_chapters(client: AsyncClient) -> None:
     """测试批量重排章节顺序。"""
     project_id, volume_id = await _create_project(client)
     chapters = [
-        await _create_chapter(client, project_id, volume_id, title=f"第{i + 1}章")
-        for i in range(4)
+        await _create_chapter(client, project_id, volume_id, title=f"第{i + 1}章") for i in range(4)
     ]
 
     new_order = [

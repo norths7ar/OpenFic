@@ -1,11 +1,12 @@
-# -*- coding: utf-8 -*-
 """
 Builtin models tests - 内置 fastembed 模型的 seeding 与保护逻辑。
 """
 
 import pytest
 from httpx import AsyncClient
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import col
 
 from app.models.builtin import (
     BUILTIN_EMBEDDING_MODEL_ID,
@@ -17,10 +18,8 @@ from app.models.builtin import (
     seed_builtin_models,
 )
 from app.models.entities.model import Model
-from app.models.repos import model_repo, model_provider_repo
+from app.models.repos import model_provider_repo, model_repo
 from app.models.services.model_provider_service import ModelProviderService
-from sqlalchemy import select
-from sqlmodel import col
 
 
 @pytest.mark.asyncio
@@ -61,9 +60,7 @@ async def test_seed_builtin_models_is_idempotent(session: AsyncSession):
 
 
 @pytest.mark.asyncio
-async def test_delete_builtin_model_is_blocked(
-    client: AsyncClient, session: AsyncSession
-):
+async def test_delete_builtin_model_is_blocked(client: AsyncClient, session: AsyncSession):
     await seed_builtin_models(session)
     await session.commit()
 
@@ -72,9 +69,7 @@ async def test_delete_builtin_model_is_blocked(
 
 
 @pytest.mark.asyncio
-async def test_update_builtin_model_is_blocked(
-    client: AsyncClient, session: AsyncSession
-):
+async def test_update_builtin_model_is_blocked(client: AsyncClient, session: AsyncSession):
     await seed_builtin_models(session)
     await session.commit()
 
@@ -86,9 +81,7 @@ async def test_update_builtin_model_is_blocked(
 
 
 @pytest.mark.asyncio
-async def test_delete_builtin_provider_is_blocked(
-    client: AsyncClient, session: AsyncSession
-):
+async def test_delete_builtin_provider_is_blocked(client: AsyncClient, session: AsyncSession):
     await seed_builtin_models(session)
     await session.commit()
 
@@ -104,15 +97,15 @@ async def test_builtin_provider_supported_task_types(session: AsyncSession):
     provider = await model_provider_repo.get_by_id(session, BUILTIN_PROVIDER_ID)
     assert provider is not None
 
-    service = ModelProviderService(EncryptionService("id-hEPdEELwlgep9FQhcYQtX7ow188l7WHwy65qOZGQ="))
+    service = ModelProviderService(
+        EncryptionService("id-hEPdEELwlgep9FQhcYQtX7ow188l7WHwy65qOZGQ=")
+    )
     task_types = await service.get_supported_task_types(provider)
     assert task_types == ["embedding", "rerank"]
 
 
 @pytest.mark.asyncio
-async def test_builtin_provider_models_endpoint(
-    client: AsyncClient, session: AsyncSession
-):
+async def test_builtin_provider_models_endpoint(client: AsyncClient, session: AsyncSession):
     await seed_builtin_models(session)
     await session.commit()
 
@@ -128,9 +121,7 @@ async def test_builtin_provider_models_endpoint(
 
 
 @pytest.mark.asyncio
-async def test_list_models_includes_builtin_flag(
-    client: AsyncClient, session: AsyncSession
-):
+async def test_list_models_includes_builtin_flag(client: AsyncClient, session: AsyncSession):
     await seed_builtin_models(session)
     await session.commit()
 

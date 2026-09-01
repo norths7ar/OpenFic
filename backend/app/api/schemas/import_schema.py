@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Import API Schemas - 导入请求/响应模型。
 """

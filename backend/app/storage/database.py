@@ -1,11 +1,10 @@
-# -*- coding: utf-8 -*-
 """
 数据库连接与 session 管理。
 """
 
 import os
-from pathlib import Path
 from collections.abc import AsyncGenerator
+from pathlib import Path
 
 from alembic import command
 from alembic.config import Config
@@ -72,6 +71,7 @@ def _upgrade_db_to_head() -> None:
     """使用 Alembic 将数据库升级到最新版本。"""
     config = Config(str(ALEMBIC_INI_PATH))
     command.upgrade(config, "head")
+
 
 async def init_db() -> None:
     """初始化数据库。"""

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """WorldInfo Router - 世界书 API。"""
 
 from typing import Annotated
@@ -44,7 +43,7 @@ async def get_world_info(
         world_info = await world_info_service.get_world_info(session, world_info_id)
         return WorldInfoResponse.model_validate(world_info)
     except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
 
 
 @router.get(
@@ -75,7 +74,7 @@ async def get_project_world_info(
         )
         return WorldInfoResponse.model_validate(world_info)
     except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
 
 
 @router.delete(
@@ -101,4 +100,4 @@ async def delete_world_info(
         logger.info(f"删除世界书: {world_info_id}")
         await world_info_service.delete_world_info(session, world_info_id)
     except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Settings Router - 用户设置 API。
 """
@@ -10,16 +9,15 @@ from fastapi import APIRouter, Depends, status
 from loguru import logger
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.agent_runtime.context.processors.compress import (
+    SETTING_KEY_COMPRESS_SYSTEM_PROMPTS,
+)
+from app.agent_runtime.session_activity import has_active_agent_sessions
 from app.agent_runtime.tools.permission_metadata import (
     SETTING_KEY_AGENT_BYPASS_TOOL_APPROVAL,
     SETTING_KEY_AGENT_TOOL_PERMISSIONS,
     get_default_agent_tool_permissions,
 )
-from app.agent_runtime.context.processors.compress import (
-    SETTING_KEY_COMPRESS_SYSTEM_PROMPTS,
-)
-from app.agent_runtime.session_activity import has_active_agent_sessions
-from app.telemetry import SETTING_KEY_TELEMETRY_ENABLED, set_telemetry_enabled
 from app.api.agent_settings_lock import require_agent_settings_unlocked
 from app.api.schemas.setting import (
     AgentSettingsLockResponse,
@@ -35,21 +33,21 @@ from app.audit.queue import (
 )
 from app.audit.repo import LLMAuditLogRepo
 from app.retrieval.chapter_index import (
+    _VALID_INDEX_AUTO_STRATEGIES,
+    _VALID_INDEX_MODES,
     DEFAULT_INDEX_AUTO_STRATEGY,
     DEFAULT_INDEX_CHUNK_OVERLAP,
     DEFAULT_INDEX_CHUNK_SIZE,
     DEFAULT_INDEX_MODE,
     DEFAULT_INDEX_RERANK_ENABLED,
     DEFAULT_INDEX_RERANK_MODEL,
+    SETTING_KEY_DEFAULT_RERANK_MODEL,
     SETTING_KEY_INDEX_AUTO_STRATEGY,
     SETTING_KEY_INDEX_CHUNK_OVERLAP,
     SETTING_KEY_INDEX_CHUNK_SIZE,
     SETTING_KEY_INDEX_ENABLED_PROJECTS,
     SETTING_KEY_INDEX_MODE,
     SETTING_KEY_INDEX_RERANK_ENABLED,
-    SETTING_KEY_DEFAULT_RERANK_MODEL,
-    _VALID_INDEX_AUTO_STRATEGIES,
-    _VALID_INDEX_MODES,
 )
 from app.retrieval.index_status import schedule_emit_index_config
 from app.storage.database import get_session
@@ -58,6 +56,7 @@ from app.storage.repos import (
     retrieval_index_repo,
     setting_repo,
 )
+from app.telemetry import SETTING_KEY_TELEMETRY_ENABLED, set_telemetry_enabled
 
 router = APIRouter(prefix="/settings", tags=["settings"])
 
@@ -94,9 +93,7 @@ DEFAULT_SETTINGS = {
     SETTING_KEY_INDEX_CHUNK_SIZE: str(DEFAULT_INDEX_CHUNK_SIZE),
     SETTING_KEY_INDEX_CHUNK_OVERLAP: str(DEFAULT_INDEX_CHUNK_OVERLAP),
     SETTING_KEY_INDEX_AUTO_STRATEGY: DEFAULT_INDEX_AUTO_STRATEGY,
-    SETTING_KEY_INDEX_RERANK_ENABLED: json.dumps(
-        DEFAULT_INDEX_RERANK_ENABLED, ensure_ascii=False
-    ),
+    SETTING_KEY_INDEX_RERANK_ENABLED: json.dumps(DEFAULT_INDEX_RERANK_ENABLED, ensure_ascii=False),
     SETTING_KEY_DEFAULT_RERANK_MODEL: DEFAULT_INDEX_RERANK_MODEL,
     SETTING_KEY_AGENT_BYPASS_TOOL_APPROVAL: "false",
     SETTING_KEY_AGENT_TOOL_PERMISSIONS: "[]",
@@ -256,7 +253,7 @@ async def get_settings(
         font_family=settings_dict.get(
             SETTING_KEY_FONT_FAMILY, DEFAULT_SETTINGS[SETTING_KEY_FONT_FAMILY]
         ),
-code_font_family=settings_dict.get(
+        code_font_family=settings_dict.get(
             SETTING_KEY_CODE_FONT_FAMILY, DEFAULT_SETTINGS[SETTING_KEY_CODE_FONT_FAMILY]
         ),
         base_font_size=_parse_int_setting(
@@ -459,9 +456,7 @@ async def update_settings(
         )
         if old_embedding_model and old_embedding_model != request.default_embedding_model:
             index_contract_changed = True
-        settings_to_update[SETTING_KEY_DEFAULT_EMBEDDING_MODEL] = (
-            request.default_embedding_model
-        )
+        settings_to_update[SETTING_KEY_DEFAULT_EMBEDDING_MODEL] = request.default_embedding_model
         index_config_changed = True
     if request.index_mode is not None:
         new_mode = _normalize_index_mode(request.index_mode)
@@ -517,9 +512,7 @@ async def update_settings(
         )
         index_config_changed = True
     if request.default_rerank_model is not None:
-        settings_to_update[SETTING_KEY_DEFAULT_RERANK_MODEL] = (
-            request.default_rerank_model
-        )
+        settings_to_update[SETTING_KEY_DEFAULT_RERANK_MODEL] = request.default_rerank_model
         index_config_changed = True
     if request.agent_bypass_tool_approval is not None:
         settings_to_update[SETTING_KEY_AGENT_BYPASS_TOOL_APPROVAL] = json.dumps(

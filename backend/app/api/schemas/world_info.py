@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 WorldInfo API Schemas - 世界书请求/响应模型。
 """

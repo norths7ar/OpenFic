@@ -83,9 +83,7 @@ async def test_local_visibility_filters_character_and_world_entry_but_global_all
         name="隐藏人物",
         is_writing_visible=False,
     )
-    world = WorldInfo(
-        id="knowledge-boundary-world", project_id=project.id, name="世界书"
-    )
+    world = WorldInfo(id="knowledge-boundary-world", project_id=project.id, name="世界书")
     disabled = WorldInfoEntry(
         id="disabled-world-entry",
         world_info_id=world.id,
@@ -103,9 +101,7 @@ async def test_local_visibility_filters_character_and_world_entry_but_global_all
     assert {item.name for item in global_} == {"可见人物", "隐藏人物"}
 
     with pytest.raises(ToolExecutionError):
-        await _resolve_enabled_entry_by_title(
-            session, world.id, "隐藏设定", include_all=False
-        )
+        await _resolve_enabled_entry_by_title(session, world.id, "隐藏设定", include_all=False)
     resolved = await _resolve_enabled_entry_by_title(
         session, world.id, "隐藏设定", include_all=True
     )
@@ -144,21 +140,13 @@ async def test_note_read_and_edit_preview_follow_local_global_boundary(
         AsyncMock(return_value=proxy),
     )
 
-    local_reader = ReadNoteTool(
-        _state={"project_id": project.id, "context_mode": "local"}
-    )
+    local_reader = ReadNoteTool(_state={"project_id": project.id, "context_mode": "local"})
     with pytest.raises(ToolExecutionError):
         await local_reader._execute({"id": note.id})
-    global_reader = ReadNoteTool(
-        _state={"project_id": project.id, "context_mode": "global"}
-    )
-    assert (
-        json.loads(await global_reader._execute({"id": note.id}))["content"] == "旧正文"
-    )
+    global_reader = ReadNoteTool(_state={"project_id": project.id, "context_mode": "global"})
+    assert json.loads(await global_reader._execute({"id": note.id}))["content"] == "旧正文"
 
-    local_editor = EditNoteTool(
-        _state={"project_id": project.id, "context_mode": "local"}
-    )
+    local_editor = EditNoteTool(_state={"project_id": project.id, "context_mode": "local"})
     object.__setattr__(
         local_editor,
         "_config",
@@ -174,9 +162,7 @@ async def test_note_read_and_edit_preview_follow_local_global_boundary(
         )
         is None
     )
-    global_editor = EditNoteTool(
-        _state={"project_id": project.id, "context_mode": "global"}
-    )
+    global_editor = EditNoteTool(_state={"project_id": project.id, "context_mode": "global"})
     object.__setattr__(
         global_editor,
         "_config",
@@ -211,9 +197,7 @@ async def test_expanded_mentions_drop_hidden_body_in_local_but_compile_global(
         content="不应泄漏的笔记正文",
         is_writing_visible=False,
     )
-    world = WorldInfo(
-        id="expanded-boundary-world", project_id=project.id, name="世界书"
-    )
+    world = WorldInfo(id="expanded-boundary-world", project_id=project.id, name="世界书")
     entry = WorldInfoEntry(
         id="expanded-hidden-entry",
         world_info_id=world.id,
@@ -234,12 +218,8 @@ async def test_expanded_mentions_drop_hidden_body_in_local_but_compile_global(
         'line_start="1" line_end="1">世界书正文</of-mention>'
     )
 
-    local = await compile_canonical_mentions(
-        source, session, project.id, context_mode="local"
-    )
-    global_ = await compile_canonical_mentions(
-        source, session, project.id, context_mode="global"
-    )
+    local = await compile_canonical_mentions(source, session, project.id, context_mode="local")
+    global_ = await compile_canonical_mentions(source, session, project.id, context_mode="global")
     assert "人物正文" not in local
     assert "笔记正文" not in local
     assert "世界书正文" not in local

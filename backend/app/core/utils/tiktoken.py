@@ -1,13 +1,11 @@
-# -*- coding: utf-8 -*-
 """离线 tiktoken 编码器。"""
 
-from hashlib import sha1
 import os
+from hashlib import sha1
 from pathlib import Path
 from tempfile import gettempdir
 
 import tiktoken
-
 
 _ENCODING_RESOURCE_DIR = Path(__file__).parents[1] / "resources" / "tiktoken"
 _ENCODING_URLS = {
@@ -18,11 +16,7 @@ _ENCODING_URLS = {
 
 def _cache_dir() -> Path:
     configured_dir = os.getenv("TIKTOKEN_CACHE_DIR") or os.getenv("DATA_GYM_CACHE_DIR")
-    return (
-        Path(configured_dir)
-        if configured_dir
-        else Path(gettempdir()) / "data-gym-cache"
-    )
+    return Path(configured_dir) if configured_dir else Path(gettempdir()) / "data-gym-cache"
 
 
 def _cache_path(encoding_name: str) -> Path:

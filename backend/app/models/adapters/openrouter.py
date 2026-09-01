@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 OpenRouter Adapter - OpenRouter API适配器。
 """

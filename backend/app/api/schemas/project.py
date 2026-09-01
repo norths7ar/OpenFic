@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Project API Schemas - 项目请求/响应模型。
 """
@@ -18,9 +17,7 @@ class ProjectCreate(BaseModel):
 class ProjectUpdate(BaseModel):
     """更新项目请求。"""
 
-    title: str | None = Field(
-        default=None, min_length=1, max_length=200, description="项目标题"
-    )
+    title: str | None = Field(default=None, min_length=1, max_length=200, description="项目标题")
     description: str | None = Field(default=None, description="项目简介")
 
 

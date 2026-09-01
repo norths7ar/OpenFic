@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 ModelProvider Repository - 模型服务提供商数据访问层。
 """

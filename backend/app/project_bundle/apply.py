@@ -60,9 +60,7 @@ async def _apply_categories(
     now: datetime,
 ) -> None:
     by_id = {category.id: category for category in categories}
-    ordered = sorted(
-        categories, key=lambda item: (_category_depth(item, by_id), item.id)
-    )
+    ordered = sorted(categories, key=lambda item: (_category_depth(item, by_id), item.id))
     for category in ordered:
         action = actions[("note_category", category.id)]
         if action == "unchanged":
@@ -289,11 +287,7 @@ async def _apply_discussion_message(
         return
     fields = document.semantic_fields
     task = await session.get(Task, fields["discussion_id"])
-    if (
-        task is None
-        or not task.is_imported_archive
-        or task.agent_session_id is not None
-    ):
+    if task is None or not task.is_imported_archive or task.agent_session_id is not None:
         raise BundleFormatError("discussion message target is not an imported archive")
     created_at = datetime.fromisoformat(fields["created_at"])
     updated_at = datetime.fromisoformat(fields["updated_at"])
@@ -372,9 +366,7 @@ async def apply_project_bundle(
 
     for document in bundle.documents:
         if document.kind == "discussion":
-            await _apply_discussion(
-                session, document, actions[(document.kind, document.id)], now
-            )
+            await _apply_discussion(session, document, actions[(document.kind, document.id)], now)
     await session.flush()
     for document in bundle.documents:
         if document.kind == "discussion_message":

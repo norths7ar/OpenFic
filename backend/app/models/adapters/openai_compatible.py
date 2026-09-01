@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 OpenAI Compatible Adapter - OpenAI兼容API适配器。
 
@@ -6,9 +5,10 @@ OpenAI Compatible Adapter - OpenAI兼容API适配器。
 由于是通用兼容接口，无法区分LLM和Embedding，两个方法都返回全部模型列表。
 """
 
+from collections.abc import Mapping
+
 import httpx
 from loguru import logger
-from collections.abc import Mapping
 
 from app.models.adapters.base import BaseAdapter
 

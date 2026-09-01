@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Hashable
+from collections.abc import Hashable
 
 _LOCKS: dict[Hashable, asyncio.Lock] = {}
 _GUARD = asyncio.Lock()

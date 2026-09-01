@@ -1,10 +1,11 @@
 from uuid import uuid4
 
 import yaml
+from httpx import AsyncClient
+
 from app.project_bundle.archive import build_zip, read_zip
 from app.storage.models.note import Note, NoteCategory
 from app.storage.models.project import Project
-from httpx import AsyncClient
 
 
 async def _create_project(session) -> Project:
@@ -86,9 +87,7 @@ async def test_source_export_uses_saved_mapping_and_falls_back_by_semantic_type(
     session.add_all([category, note])
     await session.flush()
 
-    response = await client.get(
-        f"/api/v1/projects/{project.id}/bundle/source/export"
-    )
+    response = await client.get(f"/api/v1/projects/{project.id}/bundle/source/export")
     assert response.status_code == 200
     files = read_zip(response.content)
     assert {"world.md", "character.md", "outline.md"}.issubset(files)
@@ -116,9 +115,7 @@ async def test_source_export_without_profile_generates_portable_optional_map(
 ) -> None:
     project = await _create_project(session)
 
-    response = await client.get(
-        f"/api/v1/projects/{project.id}/bundle/source/export"
-    )
+    response = await client.get(f"/api/v1/projects/{project.id}/bundle/source/export")
 
     assert response.status_code == 200
     files = read_zip(response.content)

@@ -2,7 +2,6 @@
 
 from typing import Final
 
-
 JOB_STATUS_PENDING: Final = "pending"
 JOB_STATUS_RUNNING: Final = "running"
 JOB_STATUS_SUCCEEDED: Final = "succeeded"
