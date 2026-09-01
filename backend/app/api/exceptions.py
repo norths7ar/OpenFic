@@ -1,7 +1,7 @@
 """
 全局异常处理器。
 
-将领域层异常统一映射为 HTTP 响应。1
+将领域层异常统一映射为 HTTP 响应。
 """
 
 from fastapi import FastAPI, Request, status

@@ -4,7 +4,7 @@ Chapters Router - 章节 CRUD API。
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Query, status
 from loguru import logger
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -22,7 +22,6 @@ from app.api.schemas.chapter import (
     VolumeTreeResponse,
 )
 from app.background.jobs import service as background_service
-from app.core.errors import NotFoundError
 from app.storage.database import get_session
 from app.storage.services import chapter_service
 
@@ -51,22 +50,17 @@ async def create_chapter(
     Returns:
         创建的章节。
     """
-    try:
-        logger.info(f"创建章节: project_id={project_id}, title={data.title}")
-        chapter = await chapter_service.create_chapter(
-            session,
-            project_id=project_id,
-            volume_id=data.volume_id,
-            title=data.title,
-            content=data.content,
-            word_count=data.word_count,
-        )
-        await background_service.commit_and_notify(session)
-        return ChapterResponse.model_validate(chapter)
-    except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+    logger.info(f"创建章节: project_id={project_id}, title={data.title}")
+    chapter = await chapter_service.create_chapter(
+        session,
+        project_id=project_id,
+        volume_id=data.volume_id,
+        title=data.title,
+        content=data.content,
+        word_count=data.word_count,
+    )
+    await background_service.commit_and_notify(session)
+    return ChapterResponse.model_validate(chapter)
 
 
 @router.get(
@@ -88,22 +82,17 @@ async def list_chapters(
     Returns:
         章节列表（精简版）。
     """
-    try:
-        result = await chapter_service.list_chapters(session, project_id)
-        return VolumeTreeResponse(
-            volumes=[
-                VolumeTreeItem(
-                    **group.volume.model_dump(),
-                    chapters=[
-                        ChapterListItem.model_validate(chapter) for chapter in group.chapters
-                    ],
-                )
-                for group in result.volumes
-            ],
-            total_chapters=result.total_chapters,
-        )
-    except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
+    result = await chapter_service.list_chapters(session, project_id)
+    return VolumeTreeResponse(
+        volumes=[
+            VolumeTreeItem(
+                **group.volume.model_dump(),
+                chapters=[ChapterListItem.model_validate(chapter) for chapter in group.chapters],
+            )
+            for group in result.volumes
+        ],
+        total_chapters=result.total_chapters,
+    )
 
 
 @router.get(
@@ -125,14 +114,9 @@ async def get_chapter(
     Returns:
         章节详情。
 
-    Raises:
-        HTTPException: 章节不存在时返回 404。
     """
-    try:
-        chapter = await chapter_service.get_chapter(session, chapter_id)
-        return ChapterResponse.model_validate(chapter)
-    except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
+    chapter = await chapter_service.get_chapter(session, chapter_id)
+    return ChapterResponse.model_validate(chapter)
 
 
 @router.patch(
@@ -156,24 +140,17 @@ async def update_chapter(
     Returns:
         更新后的章节。
 
-    Raises:
-        HTTPException: 章节不存在时返回 404。
     """
-    try:
-        logger.info(f"更新章节: {chapter_id}")
-        chapter = await chapter_service.update_chapter(
-            session,
-            chapter_id,
-            title=data.title,
-            content=data.content,
-            word_count=data.word_count,
-        )
-        await background_service.commit_and_notify(session)
-        return ChapterResponse.model_validate(chapter)
-    except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+    logger.info(f"更新章节: {chapter_id}")
+    chapter = await chapter_service.update_chapter(
+        session,
+        chapter_id,
+        title=data.title,
+        content=data.content,
+        word_count=data.word_count,
+    )
+    await background_service.commit_and_notify(session)
+    return ChapterResponse.model_validate(chapter)
 
 
 @router.delete(
@@ -192,15 +169,10 @@ async def delete_chapter(
         chapter_id: 章节 ID。
         session: 数据库 session。
 
-    Raises:
-        HTTPException: 章节不存在时返回 404。
     """
-    try:
-        logger.info(f"删除章节: {chapter_id}")
-        await chapter_service.delete_chapter(session, chapter_id)
-        await background_service.commit_and_notify(session)
-    except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
+    logger.info(f"删除章节: {chapter_id}")
+    await chapter_service.delete_chapter(session, chapter_id)
+    await background_service.commit_and_notify(session)
 
 
 @router.post(
@@ -222,16 +194,11 @@ async def reorder_chapters(
     Returns:
         更新后的章节列表。
 
-    Raises:
-        HTTPException: 章节不存在或不属于指定卷时返回 400。
     """
-    try:
-        logger.info(f"批量重排章节: volume_id={data.volume_id}, chapter_ids={data.chapter_ids}")
-        chapters = await chapter_service.reorder_chapters(session, data.volume_id, data.chapter_ids)
-        await background_service.commit_and_notify(session)
-        return [ChapterListItem.model_validate(chapter) for chapter in chapters]
-    except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
+    logger.info(f"批量重排章节: volume_id={data.volume_id}, chapter_ids={data.chapter_ids}")
+    chapters = await chapter_service.reorder_chapters(session, data.volume_id, data.chapter_ids)
+    await background_service.commit_and_notify(session)
+    return [ChapterListItem.model_validate(chapter) for chapter in chapters]
 
 
 @router.get(
@@ -245,28 +212,23 @@ async def search_chapters(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> ChapterSearchResponse:
     """按内容搜索章节，返回匹配的章节及匹配行。"""
-    try:
-        result = await chapter_service.search_chapters(session, project_id, q)
-        return ChapterSearchResponse(
-            results=[
-                ChapterSearchResult(
-                    chapter_id=r.chapter_id,
-                    chapter_title=r.chapter_title,
-                    volume_title=r.volume_title,
-                    matches=[
-                        ChapterSearchMatch(line_number=m.line_number, line_text=m.line_text)
-                        for m in r.matches
-                    ],
-                )
-                for r in result.results
-            ],
-            total_chapters=result.total_chapters,
-            total_matches=result.total_matches,
-        )
-    except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+    result = await chapter_service.search_chapters(session, project_id, q)
+    return ChapterSearchResponse(
+        results=[
+            ChapterSearchResult(
+                chapter_id=r.chapter_id,
+                chapter_title=r.chapter_title,
+                volume_title=r.volume_title,
+                matches=[
+                    ChapterSearchMatch(line_number=m.line_number, line_text=m.line_text)
+                    for m in r.matches
+                ],
+            )
+            for r in result.results
+        ],
+        total_chapters=result.total_chapters,
+        total_matches=result.total_matches,
+    )
 
 
 @router.post(
@@ -280,14 +242,11 @@ async def move_chapter_to_volume(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> ChapterResponse:
     """跨卷移动章节，追加到目标卷末尾。"""
-    try:
-        logger.info(f"移动章节到卷: {chapter_id} -> volume={data.volume_id}")
-        chapter = await chapter_service.move_chapter_to_volume(
-            session,
-            chapter_id=chapter_id,
-            volume_id=data.volume_id,
-        )
-        await background_service.commit_and_notify(session)
-        return ChapterResponse.model_validate(chapter)
-    except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
+    logger.info(f"移动章节到卷: {chapter_id} -> volume={data.volume_id}")
+    chapter = await chapter_service.move_chapter_to_volume(
+        session,
+        chapter_id=chapter_id,
+        volume_id=data.volume_id,
+    )
+    await background_service.commit_and_notify(session)
+    return ChapterResponse.model_validate(chapter)
