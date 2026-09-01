@@ -120,10 +120,7 @@ async def preview_world_info_import(
             detail="文件内容为空",
         )
 
-    try:
-        preview = world_info_entry_service.parse_sillytavern_worldbook(content)
-    except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    preview = world_info_entry_service.parse_sillytavern_worldbook(content)
 
     return WorldInfoImportPreviewResponse(
         entry_count=len(preview.entries),
@@ -229,22 +226,17 @@ async def create_entry(
     Raises:
         HTTPException: 世界书不存在。
     """
-    try:
-        logger.info(f"创建条目: world_info_id={world_info_id}, name={data.name}")
-        entry = await world_info_entry_service.create_entry(
-            session,
-            world_info_id,
-            name=data.name,
-            section=data.section,
-            content=data.content,
-            token_count=data.token_count,
-            is_enabled=data.is_enabled,
-        )
-        return _entry_to_response(entry)
-    except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+    logger.info(f"创建条目: world_info_id={world_info_id}, name={data.name}")
+    entry = await world_info_entry_service.create_entry(
+        session,
+        world_info_id,
+        name=data.name,
+        section=data.section,
+        content=data.content,
+        token_count=data.token_count,
+        is_enabled=data.is_enabled,
+    )
+    return _entry_to_response(entry)
 
 
 @router.get(
@@ -268,14 +260,11 @@ async def list_entries(
     Raises:
         HTTPException: 世界书不存在。
     """
-    try:
-        entries = await world_info_entry_service.list_entries(session, world_info_id)
-        return WorldInfoEntryBriefListResponse(
-            items=[_entry_to_brief_response(entry) for entry in entries],
-            total=len(entries),
-        )
-    except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
+    entries = await world_info_entry_service.list_entries(session, world_info_id)
+    return WorldInfoEntryBriefListResponse(
+        items=[_entry_to_brief_response(entry) for entry in entries],
+        total=len(entries),
+    )
 
 
 @router.get(
@@ -300,11 +289,8 @@ async def get_entry(
     Raises:
         HTTPException: 条目不存在。
     """
-    try:
-        entry = await world_info_entry_service.get_entry(session, entry_id)
-        return _entry_to_response(entry)
-    except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
+    entry = await world_info_entry_service.get_entry(session, entry_id)
+    return _entry_to_response(entry)
 
 
 @router.patch(
@@ -343,12 +329,8 @@ async def update_entry(
             is_enabled=data.is_enabled,
         )
         return _entry_to_response(entry)
-    except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
     except world_info_entry_service.WorldInfoEntryNameConflictError as e:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e)) from e
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
 
 
 @router.delete(
@@ -370,12 +352,9 @@ async def delete_all_entries(
     Returns:
         删除的条目数量。
     """
-    try:
-        logger.info(f"删除世界书所有条目: world_info_id={world_info_id}")
-        deleted_count = await world_info_entry_service.delete_all_entries(session, world_info_id)
-        return {"deleted_count": deleted_count}
-    except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
+    logger.info(f"删除世界书所有条目: world_info_id={world_info_id}")
+    deleted_count = await world_info_entry_service.delete_all_entries(session, world_info_id)
+    return {"deleted_count": deleted_count}
 
 
 @router.delete(
@@ -397,11 +376,8 @@ async def delete_entry(
     Raises:
         HTTPException: 条目不存在。
     """
-    try:
-        logger.info(f"删除条目: {entry_id}")
-        await world_info_entry_service.delete_entry(session, entry_id)
-    except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
+    logger.info(f"删除条目: {entry_id}")
+    await world_info_entry_service.delete_entry(session, entry_id)
 
 
 @router.post(
@@ -428,14 +404,9 @@ async def move_entry(
     Raises:
         HTTPException: 条目不存在或位置无效。
     """
-    try:
-        logger.info(f"移动条目: {entry_id} -> order={data.new_order}")
-        entry = await world_info_entry_service.move_entry(session, entry_id, data.new_order)
-        return _entry_to_brief_response(entry)
-    except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+    logger.info(f"移动条目: {entry_id} -> order={data.new_order}")
+    entry = await world_info_entry_service.move_entry(session, entry_id, data.new_order)
+    return _entry_to_brief_response(entry)
 
 
 @router.post(
@@ -460,12 +431,9 @@ async def toggle_entry(
     Raises:
         HTTPException: 条目不存在。
     """
-    try:
-        logger.info(f"切换条目开关: {entry_id}")
-        entry = await world_info_entry_service.toggle_entry(session, entry_id)
-        return _entry_to_response(entry)
-    except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
+    logger.info(f"切换条目开关: {entry_id}")
+    entry = await world_info_entry_service.toggle_entry(session, entry_id)
+    return _entry_to_response(entry)
 
 
 @router.post(
@@ -479,14 +447,11 @@ async def batch_toggle_entries(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> WorldInfoEntryBatchToggleResponse:
     """批量切换世界书条目的开关状态。"""
-    try:
-        logger.info(f"批量切换条目开关: world_info_id={world_info_id}, count={len(data.entry_ids)}")
-        updated_count = await world_info_entry_service.batch_toggle_entries(
-            session, world_info_id, data.entry_ids, data.is_enabled
-        )
-        return WorldInfoEntryBatchToggleResponse(updated_count=updated_count)
-    except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
+    logger.info(f"批量切换条目开关: world_info_id={world_info_id}, count={len(data.entry_ids)}")
+    updated_count = await world_info_entry_service.batch_toggle_entries(
+        session, world_info_id, data.entry_ids, data.is_enabled
+    )
+    return WorldInfoEntryBatchToggleResponse(updated_count=updated_count)
 
 
 @router.post(
@@ -500,14 +465,11 @@ async def batch_delete_entries(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> WorldInfoEntryBatchDeleteResponse:
     """批量删除世界书条目。"""
-    try:
-        logger.info(f"批量删除条目: world_info_id={world_info_id}, count={len(data.entry_ids)}")
-        deleted_count = await world_info_entry_service.batch_delete_entries(
-            session, world_info_id, data.entry_ids
-        )
-        return WorldInfoEntryBatchDeleteResponse(deleted_count=deleted_count)
-    except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
+    logger.info(f"批量删除条目: world_info_id={world_info_id}, count={len(data.entry_ids)}")
+    deleted_count = await world_info_entry_service.batch_delete_entries(
+        session, world_info_id, data.entry_ids
+    )
+    return WorldInfoEntryBatchDeleteResponse(deleted_count=deleted_count)
 
 
 @router.get(
@@ -520,26 +482,23 @@ async def search_entries(
     q: Annotated[str, Query(min_length=1, description="搜索关键词")],
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> WorldInfoEntrySearchResponse:
-    try:
-        result = await world_info_entry_service.search_entries(session, world_info_id, q)
-        return WorldInfoEntrySearchResponse(
-            results=[
-                WorldInfoEntrySearchResult(
-                    entry_id=r.entry_id,
-                    entry_name=r.entry_name,
-                    uid=r.uid,
-                    matches=[
-                        WorldInfoEntrySearchMatch(
-                            line_number=m.line_number,
-                            line_text=m.line_text,
-                        )
-                        for m in r.matches
-                    ],
-                )
-                for r in result.results
-            ],
-            total_entries=result.total_entries,
-            total_matches=result.total_matches,
-        )
-    except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
+    result = await world_info_entry_service.search_entries(session, world_info_id, q)
+    return WorldInfoEntrySearchResponse(
+        results=[
+            WorldInfoEntrySearchResult(
+                entry_id=r.entry_id,
+                entry_name=r.entry_name,
+                uid=r.uid,
+                matches=[
+                    WorldInfoEntrySearchMatch(
+                        line_number=m.line_number,
+                        line_text=m.line_text,
+                    )
+                    for m in r.matches
+                ],
+            )
+            for r in result.results
+        ],
+        total_entries=result.total_entries,
+        total_matches=result.total_matches,
+    )
