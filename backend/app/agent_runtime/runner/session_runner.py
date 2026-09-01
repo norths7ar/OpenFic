@@ -22,8 +22,8 @@ from app.agent_runtime.context.helpers import (
     compile_canonical_mentions,
     extract_referenced_skill_ids,
 )
+from app.agent_runtime.graph.message_conversion import _to_history_dict
 from app.agent_runtime.graph.orchestrator.graph import build_orchestrator_graph
-from app.agent_runtime.graph.react_agent import _to_history_dict
 from app.agent_runtime.graph.state import AgentRuntimeState
 from app.agent_runtime.model_config import without_api_key
 from app.agent_runtime.persistence import compaction_repo, repo
