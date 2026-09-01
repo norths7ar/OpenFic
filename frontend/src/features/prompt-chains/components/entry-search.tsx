@@ -4,8 +4,9 @@ import { ChevronDown, ChevronRight, ChevronsUpDown } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { searchPromptChainVersionEntries } from "@/lib/api-client";
 import type { PromptEntrySearchResult } from "@/lib/prompt-chain.types";
+
+import { searchPromptChainVersionEntries } from "../lib/prompt-chain-api";
 
 interface EntrySearchProps {
   promptId: string;

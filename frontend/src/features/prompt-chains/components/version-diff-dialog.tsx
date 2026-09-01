@@ -35,8 +35,9 @@ import { motion, AnimatePresence } from "motion/react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { fetchPromptChainVersion } from "@/lib/api-client";
 import type { PromptEntry } from "@/lib/prompt-chain.types";
+
+import { fetchPromptChainVersion } from "../lib/prompt-chain-api";
 
 interface VersionDiffDialogProps {
   open: boolean;

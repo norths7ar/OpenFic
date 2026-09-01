@@ -9,18 +9,19 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect, useCallback, useRef } from "react";
 
 import {
-  fetchPromptChainVersions,
-  fetchLatestPromptChainVersion,
-  fetchPromptChainVersion,
-  createPromptChainVersion,
-} from "@/lib/api-client";
-import {
   getPromptChainWorkingCopy,
   savePromptChainWorkingCopy,
   deletePromptChainWorkingCopy,
 } from "@/lib/local-db";
 import type { PromptEntry, PromptEntryData } from "@/lib/prompt-chain.types";
 import { countTokens } from "@/lib/tiktoken-utils";
+
+import {
+  fetchPromptChainVersions,
+  fetchLatestPromptChainVersion,
+  fetchPromptChainVersion,
+  createPromptChainVersion,
+} from "../lib/prompt-chain-api";
 
 function getEntryTokenCount(content: string, tokenCount: number): number {
   if (!content.trim()) return 0;

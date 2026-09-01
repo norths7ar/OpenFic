@@ -19,7 +19,6 @@ import { useAppShell } from "@/app/app-shell-context";
 import { ConfirmDialog, PanelLayoutLoading, PromptChainDialog } from "@/components";
 import { MobileAppSidebarTrigger } from "@/features/app-shell/components/mobile-app-sidebar-trigger";
 import { usePersistedPanelLayout } from "@/hooks/use-persisted-panel-layout";
-import { fetchPromptChainsMetadata, compilePromptChain, resetPromptChain } from "@/lib/api-client";
 import type { PromptEntryData, CompileResponse } from "@/lib/prompt-chain.types";
 import type { PromptChainsMetadata } from "@/lib/prompt-chain.types";
 
@@ -27,6 +26,11 @@ import { EntriesSidebar } from "../components/entries-sidebar";
 import { PromptEditor } from "../components/prompt-editor";
 import { VersionHistorySidebar } from "../components/version-history-sidebar";
 import { usePromptChain } from "../hooks/use-prompt-chain";
+import {
+  compilePromptChain,
+  fetchPromptChainsMetadata,
+  resetPromptChain,
+} from "../lib/prompt-chain-api";
 
 const MotionBox = motion.create(Box);
 
