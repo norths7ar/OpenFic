@@ -35,6 +35,7 @@ import { SidebarNav } from "./sidebar-nav";
 
 const MotionBox = motion.create(Box);
 const LAST_PROJECT_ID_KEY = "openfic.appSidebar.lastProjectId";
+const SIDEBAR_EXPANDED_KEY = "openfic.appSidebar.expanded";
 
 export function AppSidebar() {
   const { t } = useTranslation();
@@ -43,7 +44,9 @@ export function AppSidebar() {
   const { projectId } = useParams<{ projectId: string }>();
   const { isMobile, isSidebarOpen, closeSidebar, openSettings } = useAppShell();
 
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(
+    () => window.localStorage.getItem(SIDEBAR_EXPANDED_KEY) === "true",
+  );
   const [isProjectListOpen, setIsProjectListOpen] = useState(false);
   const [isLogoHovered, setIsLogoHovered] = useState(false);
   const [lastProjectId, setLastProjectId] = useState<string | null>(() =>
@@ -187,7 +190,11 @@ export function AppSidebar() {
 
     logoPointerInsideRef.current = false;
     setIsLogoHovered(false);
-    setIsExpanded((prev) => !prev);
+    setIsExpanded((prev) => {
+      const next = !prev;
+      window.localStorage.setItem(SIDEBAR_EXPANDED_KEY, String(next));
+      return next;
+    });
   }, [closeSidebar, isMobile]);
 
   const handleLogoPointerEnter = useCallback(() => {
