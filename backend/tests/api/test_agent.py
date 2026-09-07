@@ -28,6 +28,7 @@ from app.agent_runtime.runner.session_runner import SessionRunner
 from app.agent_runtime.streaming.replay_buffer import get_agent_event_replay_buffer
 from app.api.routers.agent_runtime import (
     _SESSION_RUNNERS,
+    _build_fallback_agent_session_title,
     _build_model_config,
     _checkpoint_has_pending_interrupt,
     _launch_task,
@@ -45,6 +46,14 @@ from app.storage.repos import revision_repo
 from app.storage.services import task_service
 
 pytestmark = pytest.mark.usefixtures("fast_checkpoint_sqlite")
+
+
+def test_fallback_agent_session_title_stays_compact() -> None:
+    assert (
+        _build_fallback_agent_session_title("你觉得现在后面的几卷和阶段划分是不是跟不上")
+        == "你觉得现在后面的几卷和…"
+    )
+    assert _build_fallback_agent_session_title("短标题") == "短标题"
 
 
 @pytest_asyncio.fixture(autouse=True)

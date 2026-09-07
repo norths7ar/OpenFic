@@ -177,8 +177,8 @@ def _clean_title(raw_title: str) -> str:
     title = title.strip(" \t\n\r`*_\"'“”‘’《》")
     title = title.splitlines()[0].strip() if title else ""
     title = re.sub(r"[。.!！?？]+$", "", title).strip()
-    if len(title) > 50:
-        title = title[:50].rstrip()
+    if len(title) > 12:
+        title = title[:12].rstrip()
     return title
 
 

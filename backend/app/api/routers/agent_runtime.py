@@ -164,13 +164,14 @@ def _is_pending_agent_session_title(title: str) -> bool:
 
 def _build_fallback_agent_session_title(seed_message: str) -> str:
     """Build an immediate local title; the optional title job may refine it later."""
+    max_length = 12
     first_line = seed_message.strip().splitlines()[0] if seed_message.strip() else ""
     plain_text = re.sub(r"<[^>]+>", " ", first_line)
     plain_text = re.sub(r"\s+", " ", plain_text).strip(" \t\r\n#-*`_，,。.!！?？")
     if not plain_text:
         return "新讨论"
-    if len(plain_text) > 40:
-        return plain_text[:40].rstrip() + "…"
+    if len(plain_text) > max_length:
+        return plain_text[: max_length - 1].rstrip() + "…"
     return plain_text
 
 
