@@ -1,7 +1,7 @@
 import { Box, Flex, Text, IconButton } from "@radix-ui/themes";
 import { useQuery } from "@tanstack/react-query";
 import { useEditor, EditorContent } from "@tiptap/react";
-import { AtSign, FilePenLine, Globe, FileText } from "lucide-react";
+import { AtSign, FilePenLine, Globe } from "lucide-react";
 import { AnimatePresence } from "motion/react";
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
@@ -73,7 +73,6 @@ interface ChapterEditorProps {
   onAddToConversation?: (markup: string) => void;
   projectId?: string;
   isAgentLocked?: boolean;
-  onOpenSummary?: () => void;
   onSelectionChange?: (hasSelection: boolean) => void;
   addSelectionToConversationRef?: React.MutableRefObject<(() => void) | null>;
   onPrepareSceneDraft?: (request: SceneDraftRequest) => void;
@@ -93,7 +92,6 @@ interface ChapterEditorContentProps {
   onAddToConversation?: (markup: string) => void;
   projectId?: string;
   isAgentLocked?: boolean;
-  onOpenSummary?: () => void;
   onSelectionChange?: (hasSelection: boolean) => void;
   addSelectionToConversationRef?: React.MutableRefObject<(() => void) | null>;
   onPrepareSceneDraft?: (request: SceneDraftRequest) => void;
@@ -113,7 +111,6 @@ function ChapterEditorContent({
   onAddToConversation,
   projectId,
   isAgentLocked = false,
-  onOpenSummary,
   onSelectionChange,
   addSelectionToConversationRef,
   onPrepareSceneDraft,
@@ -237,17 +234,9 @@ function ChapterEditorContent({
             <FilePenLine size={18} />
           </IconButton>
         ) : null}
-        <IconButton
-          variant="ghost"
-          size="2"
-          aria-label={t("summary.openPanel")}
-          onClick={onOpenSummary}
-        >
-          <FileText size={18} />
-        </IconButton>
       </>
     );
-  }, [projectId, chapter.id, onOpenSummary, onPrepareSceneDraft, t]);
+  }, [projectId, chapter.id, onPrepareSceneDraft, t]);
 
   const openFind = useCallback(() => {
     if (isAgentLocked) {
@@ -848,7 +837,6 @@ export function ChapterEditor({
   onAddToConversation,
   projectId,
   isAgentLocked = false,
-  onOpenSummary,
   onSelectionChange,
   addSelectionToConversationRef,
   onPrepareSceneDraft,
@@ -902,7 +890,6 @@ export function ChapterEditor({
       onAddToConversation={onAddToConversation}
       projectId={projectId}
       isAgentLocked={isAgentLocked}
-      onOpenSummary={onOpenSummary}
       onSelectionChange={onSelectionChange}
       addSelectionToConversationRef={addSelectionToConversationRef}
       onPrepareSceneDraft={onPrepareSceneDraft}
@@ -921,7 +908,6 @@ function ChapterEditorWorkingCopy({
   onAddToConversation,
   projectId,
   isAgentLocked,
-  onOpenSummary,
   onSelectionChange,
   addSelectionToConversationRef,
   onPrepareSceneDraft,
@@ -945,7 +931,6 @@ function ChapterEditorWorkingCopy({
       onAddToConversation={onAddToConversation}
       projectId={projectId}
       isAgentLocked={isAgentLocked}
-      onOpenSummary={onOpenSummary}
       onSelectionChange={onSelectionChange}
       addSelectionToConversationRef={addSelectionToConversationRef}
       onPrepareSceneDraft={onPrepareSceneDraft}

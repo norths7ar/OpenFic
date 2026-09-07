@@ -1,6 +1,7 @@
 import { Badge, Box, DropdownMenu, IconButton, Tooltip } from "@radix-ui/themes";
 import {
   BookPlus,
+  BookOpenText,
   Check,
   Download,
   FilePlus,
@@ -27,6 +28,7 @@ interface SidebarToolbarProps {
   onCreateChapter: () => void;
   onCreateVolume: () => void;
   onExport: () => void;
+  onOpenSummary?: () => void;
   onSaveOrder: () => void;
   onCancelOrder: () => void;
   isSavingOrder?: boolean;
@@ -41,6 +43,7 @@ export function SidebarToolbar({
   onCreateChapter,
   onCreateVolume,
   onExport,
+  onOpenSummary,
   onSaveOrder,
   onCancelOrder,
   isSavingOrder,
@@ -316,6 +319,12 @@ export function SidebarToolbar({
                 <Download size={16} />
                 {t("writing.chapterExport.open")}
               </DropdownMenu.Item>
+              {onOpenSummary && (
+                <DropdownMenu.Item onClick={onOpenSummary}>
+                  <BookOpenText size={16} />
+                  {t("summary.tabs.chapters")}
+                </DropdownMenu.Item>
+              )}
             </DropdownMenu.Content>
           </DropdownMenu.Root>
         ) : null

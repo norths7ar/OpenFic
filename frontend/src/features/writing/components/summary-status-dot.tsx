@@ -27,10 +27,12 @@ const STATUS_COLORS: Record<SummaryStatus, string> = {
 };
 
 export function SummaryStatusDot({
-  status = "not_generated",
+  status,
   isStale = false,
   onOpenSummary,
 }: SummaryStatusDotProps) {
+  if (!status) return null;
+
   const label = status === "ready" && isStale ? "摘要待更新" : STATUS_LABELS[status];
   const color = status === "ready" && isStale ? "var(--orange-8)" : STATUS_COLORS[status];
   return (

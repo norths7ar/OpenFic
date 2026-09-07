@@ -62,13 +62,13 @@ export function WritingSidebar({
 
       {!showNotes || sidebarView === "chapters" ? (
         <ChapterSidebar
+          onOpenSummary={onOpenSummary}
           projectId={projectId}
           onChapterSelect={onChapterSelect}
           onAddToConversation={onAddToConversation}
           isAgentLocked={isAgentLocked}
           compact={compact}
           initialCurrentChapterNavigationKey={initialCurrentChapterNavigationKey}
-          onOpenSummary={onOpenSummary}
         />
       ) : (
         <NoteSidebar

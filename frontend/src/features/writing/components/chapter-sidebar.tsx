@@ -15,7 +15,6 @@ import {
   useReorderChapters,
   useMoveChapterToVolume,
 } from "../hooks/use-chapters";
-import { useSummaryStatuses } from "../hooks/use-summaries";
 import {
   useCreateVolume,
   useDeleteVolume,
@@ -58,7 +57,6 @@ export function ChapterSidebar({
   const { t } = useTranslation();
 
   const { data, isLoading } = useVolumeTree(projectId);
-  const { data: summaryStatuses } = useSummaryStatuses(projectId);
   const createChapterMutation = useCreateChapter(projectId);
   const updateChapterMutation = useUpdateChapter();
   const deleteChapterMutation = useDeleteChapter(projectId);
@@ -203,11 +201,6 @@ export function ChapterSidebar({
     scrollRequestSequenceRef.current += 1;
     return `${prefix}:${id}:${scrollRequestSequenceRef.current}`;
   }, []);
-
-  const summaryStatusMap = useMemo(
-    () => Object.fromEntries((summaryStatuses ?? []).map((item) => [item.chapterId, item])),
-    [summaryStatuses],
-  );
 
   const createChapterInVolume = useCallback(
     async (volumeId: string) => {
@@ -544,6 +537,7 @@ export function ChapterSidebar({
       }}
     >
       <SidebarToolbar
+        onOpenSummary={onOpenSummary}
         projectId={projectId}
         chapters={allChapters}
         onChapterSelect={handleChapterSelect}
@@ -566,8 +560,6 @@ export function ChapterSidebar({
         renamingVolumeId={renamingVolumeId}
         isAgentLocked={isAgentLocked}
         compact={compact}
-        summaryStatusMap={summaryStatusMap}
-        onOpenSummary={onOpenSummary}
         initialCurrentChapterNavigationKey={initialCurrentChapterNavigationKey}
         onToggleVolume={toggleVolumeExpanded}
         onStartRenameVolume={setRenamingVolumeId}
@@ -649,7 +641,10 @@ export function ChapterSidebar({
       >
         <Dialog.Content maxWidth="420px">
           <Dialog.Title>{t("volume.menu.editDescription")}</Dialog.Title>
-          <Dialog.Description size="2" color="gray">
+          <Dialog.Description
+            size="2"
+            color="gray"
+          >
             {editingVolume?.title ?? t("volume.untitled")}
           </Dialog.Description>
           <TextArea
@@ -659,9 +654,16 @@ export function ChapterSidebar({
             resize="vertical"
             style={{ minHeight: 120 }}
           />
-          <Flex justify="end" gap="3" mt="4">
+          <Flex
+            justify="end"
+            gap="3"
+            mt="4"
+          >
             <Dialog.Close>
-              <Button variant="soft" color="gray">
+              <Button
+                variant="soft"
+                color="gray"
+              >
                 {t("common.cancel")}
               </Button>
             </Dialog.Close>

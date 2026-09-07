@@ -379,6 +379,7 @@ export function WritingPage({ workspaceView = "write" }: WritingPageProps) {
 
   const sidebarContent = (
     <WritingSidebar
+      onOpenSummary={handleOpenSummary}
       projectId={projectId}
       onChapterSelect={handleChapterSelect}
       onNoteSelect={handleNoteSelect}
@@ -386,7 +387,6 @@ export function WritingPage({ workspaceView = "write" }: WritingPageProps) {
       onAddToConversation={isViewingSubagent ? undefined : handleAddToConversation}
       initialCurrentChapterNavigationKey={initialCurrentChapterNavigationKey}
       showNotes={false}
-      onOpenSummary={handleOpenSummary}
     />
   );
 
@@ -406,7 +406,10 @@ export function WritingPage({ workspaceView = "write" }: WritingPageProps) {
                 defaultLayout={panelLayout.defaultLayout}
                 onLayoutChanged={panelLayout.onLayoutChanged}
               >
-                <Panel id="editor" minSize={30}>
+                <Panel
+                  id="editor"
+                  minSize={30}
+                >
                   <div className="writing-page-editor-shell">
                     <EditorTabs
                       onAddTab={handleShowEmptyTab}
@@ -435,7 +438,6 @@ export function WritingPage({ workspaceView = "write" }: WritingPageProps) {
                             }
                             onPrepareSceneDraft={prepareSceneDraft}
                             applySceneDraftRef={applySceneDraftRef}
-                            onOpenSummary={handleOpenSummary}
                           />
                         )
                       ) : (
@@ -483,7 +485,10 @@ export function WritingPage({ workspaceView = "write" }: WritingPageProps) {
                 py="2"
                 className="writing-page-mobile-topbar"
               >
-                <Flex align="center" gap="1">
+                <Flex
+                  align="center"
+                  gap="1"
+                >
                   <MobileAppSidebarTrigger />
                   <Tooltip content={t("writing.chapters")}>
                     <IconButton
@@ -497,7 +502,10 @@ export function WritingPage({ workspaceView = "write" }: WritingPageProps) {
                   </Tooltip>
                 </Flex>
 
-                <Flex align="center" gap="1">
+                <Flex
+                  align="center"
+                  gap="1"
+                >
                   {!isViewingSubagent && hasEditorSelection && (
                     <Tooltip content={t("editor.addSelectedToConversation")}>
                       <IconButton
@@ -545,7 +553,6 @@ export function WritingPage({ workspaceView = "write" }: WritingPageProps) {
                       addSelectionToConversationRef={addSelectionToConversationRef}
                       onPrepareSceneDraft={prepareSceneDraft}
                       applySceneDraftRef={applySceneDraftRef}
-                      onOpenSummary={handleOpenSummary}
                     />
                   )
                 ) : (
@@ -579,6 +586,7 @@ export function WritingPage({ workspaceView = "write" }: WritingPageProps) {
                 }}
               >
                 <WritingSidebar
+                  onOpenSummary={handleOpenSummary}
                   projectId={projectId}
                   onChapterSelect={handleChapterSelect}
                   onNoteSelect={handleNoteSelect}
@@ -587,7 +595,6 @@ export function WritingPage({ workspaceView = "write" }: WritingPageProps) {
                   compact
                   initialCurrentChapterNavigationKey={initialCurrentChapterNavigationKey}
                   showNotes={false}
-                  onOpenSummary={handleOpenSummary}
                 />
               </MotionBox>
             </div>
