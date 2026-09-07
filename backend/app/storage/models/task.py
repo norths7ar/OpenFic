@@ -38,6 +38,7 @@ class Task(SQLModel, table=True):
 
     id: str = Field(default_factory=generate_id, primary_key=True)
     project_id: str = Field(index=True, foreign_key="projects.id")
+    folder_id: str | None = Field(default=None, index=True, foreign_key="project_folders.id")
     title: str = Field(max_length=200)
     mode: str = Field(max_length=20, index=True)
     context_mode: str = Field(default="local", max_length=20)

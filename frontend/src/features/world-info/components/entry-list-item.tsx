@@ -1,15 +1,15 @@
+import { useDraggable } from "@dnd-kit/core";
 /**
  * Entry List Item Component
  *
  * 世界书条目列表项组件，支持拖拽排序。
  */
-
-import { useDraggable } from "@dnd-kit/core";
-import { Box, Flex, Text, Switch, Checkbox, Tooltip } from "@radix-ui/themes";
+import { Box, Flex, Switch, Checkbox, Tooltip } from "@radix-ui/themes";
 import { GripVertical } from "lucide-react";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { ProjectNavItemRow } from "@/features/project-navigation/components/project-nav-item-row";
 import { formatRelativeTime } from "@/lib/time-utils";
 import type { WorldInfoEntryBrief } from "@/lib/world-info.types";
 
@@ -104,12 +104,7 @@ function EntryListItemComponent({
       transform: dragOffset === 0 ? undefined : `translateY(${dragOffset}px)`,
       transition: getEntryListTransition(isDragActive),
       opacity: shouldHideDraggedEntry({ isDragSource }) ? 0 : isPressed ? 0.5 : 1,
-      borderBottom: isSelected ? "1px solid var(--gray-6)" : "1px solid var(--gray-a5)",
-      background: isDarkPressed
-        ? "var(--gray-12)"
-        : isSelected
-          ? "var(--accent-a3)"
-          : "transparent",
+      background: isDarkPressed ? "var(--gray-12)" : "transparent",
       cursor: "pointer",
       height: ENTRY_LIST_ITEM_HEIGHT,
       width: "100%",
@@ -125,16 +120,7 @@ function EntryListItemComponent({
       WebkitTouchCallout: "none" as const,
       WebkitTapHighlightColor: "transparent",
     }),
-    [
-      isDragActive,
-      dragOffset,
-      isDragging,
-      isDragSource,
-      isPressed,
-      isDarkPressed,
-      isSelected,
-      isLanding,
-    ],
+    [isDragActive, dragOffset, isDragging, isDragSource, isPressed, isDarkPressed, isLanding],
   );
 
   useEffect(() => {
@@ -304,138 +290,83 @@ function EntryListItemComponent({
       onPointerUp={handleContentPointerUp}
       onPointerCancel={handleContentPointerUp}
     >
-      <Flex
-        align="stretch"
-        justify="between"
-        style={{ minWidth: 0, width: "100%" }}
-      >
-        {isMultiSelect ? (
-          <Flex
-            align="center"
-            justify="center"
-            style={{
-              width: 44,
-              minWidth: 44,
-              flexShrink: 0,
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <Checkbox
-              checked={isChecked}
-              onCheckedChange={() => onCheckChange?.(entry.id)}
-              size="1"
-            />
-          </Flex>
-        ) : showDragHandle ? (
-          <Flex
-            {...attributes}
-            align="center"
-            justify="center"
-            style={{
-              width: 44,
-              minWidth: 44,
-              flexShrink: 0,
-              cursor: isDragging ? "grabbing" : "grab",
-              color: "var(--gray-a9)",
-              touchAction: "none",
-            }}
-            onClick={(e) => e.stopPropagation()}
-            onPointerDown={isDragOverlay ? undefined : handleDragHandlePointerDown}
-            onKeyDown={handleDragHandleKeyDown}
-            onContextMenu={handleHandleContextMenu}
-          >
-            <GripVertical size={16} />
-          </Flex>
-        ) : (
-          <Box style={{ width: 44, minWidth: 44, flexShrink: 0 }} />
-        )}
-
-        <Flex
-          align="center"
-          gap="2"
-          justify="between"
-          style={{
-            flex: 1,
-            minWidth: 0,
-            padding: "12px 12px 12px 0",
-          }}
-        >
-          <Flex
-            direction="column"
-            gap="1"
-            style={{ flex: 1, minWidth: 0, overflow: "hidden" }}
-          >
+      <ProjectNavItemRow
+        selected={isSelected}
+        style={{ color: textColor }}
+        title={entry.name}
+        metadata={
+          <>
+            <span>
+              {entry.tokenCount} {t("worldInfo.tokenCount")}
+            </span>
+            <span>· {formatRelativeTime(entry.updatedAt)}</span>
+          </>
+        }
+        leading={
+          isMultiSelect ? (
             <Flex
               align="center"
-              style={{ minWidth: 0, width: "100%" }}
+              justify="center"
+              style={{
+                width: 44,
+                minWidth: 44,
+                flexShrink: 0,
+              }}
+              onClick={(e) => e.stopPropagation()}
             >
-              <Box style={{ flex: 1, minWidth: 0, overflow: "hidden" }}>
-                <Text
-                  size="2"
-                  weight="medium"
-                  style={{
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                    display: "block",
-                    width: "100%",
-                    color: textColor,
-                    userSelect: "none",
-                    WebkitUserSelect: "none",
-                  }}
-                >
-                  {entry.name}
-                </Text>
-              </Box>
-            </Flex>
-            <Flex gap="2">
-              <Text
+              <Checkbox
+                checked={isChecked}
+                onCheckedChange={() => onCheckChange?.(entry.id)}
                 size="1"
-                color={isDarkPressed ? undefined : "gray"}
-                style={{ color: isDarkPressed ? textColor : undefined }}
-              >
-                {entry.tokenCount} {t("worldInfo.tokenCount")}
-              </Text>
-              <Text
-                size="1"
-                color={isDarkPressed ? undefined : "gray"}
-                style={{ color: isDarkPressed ? textColor : undefined }}
-              >
-                · {formatRelativeTime(entry.updatedAt)}
-              </Text>
+              />
             </Flex>
-          </Flex>
-
-          <Flex
-            align="center"
-            gap="1"
-            style={{ flexShrink: 0 }}
+          ) : showDragHandle ? (
+            <Flex
+              {...attributes}
+              align="center"
+              justify="center"
+              style={{
+                width: 44,
+                minWidth: 44,
+                flexShrink: 0,
+                cursor: isDragging ? "grabbing" : "grab",
+                color: "var(--gray-a9)",
+                touchAction: "none",
+              }}
+              onClick={(e) => e.stopPropagation()}
+              onPointerDown={isDragOverlay ? undefined : handleDragHandlePointerDown}
+              onKeyDown={handleDragHandleKeyDown}
+              onContextMenu={handleHandleContextMenu}
+            >
+              <GripVertical size={16} />
+            </Flex>
+          ) : null
+        }
+        actions={
+          <Tooltip
+            content={
+              entry.isEnabled
+                ? t("worldInfo.visibleToWritingAgent")
+                : t("worldInfo.notVisibleToWritingAgent")
+            }
           >
-            <Tooltip
-              content={
-                entry.isEnabled
-                  ? t("worldInfo.visibleToWritingAgent")
-                  : t("worldInfo.notVisibleToWritingAgent")
-              }
-            >
-              <span>
-                <Switch
-                  size="1"
-                  checked={entry.isEnabled}
-                  color="green"
-                  aria-label={
-                    entry.isEnabled
-                      ? t("worldInfo.visibleToWritingAgent")
-                      : t("worldInfo.notVisibleToWritingAgent")
-                  }
-                  onClick={(e) => e.stopPropagation()}
-                  onCheckedChange={() => onToggle(entry.id)}
-                />
-              </span>
-            </Tooltip>
-          </Flex>
-        </Flex>
-      </Flex>
+            <span>
+              <Switch
+                size="1"
+                checked={entry.isEnabled}
+                color="green"
+                aria-label={
+                  entry.isEnabled
+                    ? t("worldInfo.visibleToWritingAgent")
+                    : t("worldInfo.notVisibleToWritingAgent")
+                }
+                onClick={(e) => e.stopPropagation()}
+                onCheckedChange={() => onToggle(entry.id)}
+              />
+            </span>
+          </Tooltip>
+        }
+      />
     </Box>
   );
 }

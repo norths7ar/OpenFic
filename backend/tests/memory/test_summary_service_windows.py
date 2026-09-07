@@ -14,7 +14,7 @@ from app.memory.chapter.summary_service import (
 )
 from app.storage.models.chapter import Chapter
 from app.storage.models.chapter_summary import ChapterSummary
-from app.storage.models.volume import Volume
+from app.storage.models.project_folder import ProjectFolder as Volume
 from app.storage.repos.chapter_summary_repo import (
     SUMMARY_STATUS_READY,
     SUMMARY_TYPE_CHAPTER,
@@ -54,6 +54,7 @@ def test_summary_service_reexports_summary_policy() -> None:
 
 def _make_volume(volume_id: str, order: int) -> Volume:
     return Volume(
+        scope="writing",
         id=volume_id,
         project_id="project-1",
         title=f"Volume {volume_id}",

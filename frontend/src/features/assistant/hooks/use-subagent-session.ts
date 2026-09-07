@@ -64,6 +64,7 @@ function buildTaskSnapshot(payload: SubagentSessionPayload): TaskListItem {
   return {
     id: payload.childRunId,
     projectId: "",
+    folderId: null,
     title: payload.agentKey,
     contextMode: "local",
     tokenInput: payload.tokenInput,

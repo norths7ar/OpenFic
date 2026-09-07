@@ -24,6 +24,7 @@ export interface WorldInfo {
 export interface WorldInfoEntry {
   id: string;
   worldInfoId: string;
+  folderId: string | null;
   uid: number;
   name: string;
   section: string;
@@ -39,6 +40,7 @@ export interface WorldInfoEntry {
 export interface WorldInfoEntryBrief {
   id: string;
   worldInfoId: string;
+  folderId: string | null;
   uid: number;
   name: string;
   section: string;

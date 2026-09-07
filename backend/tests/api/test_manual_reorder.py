@@ -99,7 +99,7 @@ async def test_reorder_mixed_note_items_preserves_one_sibling_order(
     assert [first_category["order"], note["order"], second_category["order"]] == [
         1,
         2,
-        3,
+        2,
     ]
     ordered_items = [
         {"kind": "note", "id": note["id"]},

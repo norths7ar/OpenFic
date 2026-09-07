@@ -10,7 +10,7 @@ from app.memory.chapter.summary_policy import (
 )
 from app.storage.models.chapter import Chapter
 from app.storage.models.chapter_summary import ChapterSummary
-from app.storage.models.volume import Volume
+from app.storage.models.project_folder import ProjectFolder as Volume
 from app.storage.repos.chapter_summary_repo import SUMMARY_STATUS_READY, SUMMARY_TYPE_CHAPTER
 
 
@@ -60,8 +60,8 @@ def test_chapter_summary_staleness_ignores_whitespace_and_punctuation() -> None:
 
 def test_long_term_window_keeps_short_chapter_at_global_boundary() -> None:
     volumes = [
-        Volume(id="v1", project_id="project-1", title="第一卷", order=1),
-        Volume(id="v2", project_id="project-1", title="第二卷", order=2),
+        Volume(scope="writing", id="v1", project_id="project-1", title="第一卷", order=1),
+        Volume(scope="writing", id="v2", project_id="project-1", title="第二卷", order=2),
     ]
     chapters = [
         *[_chapter(f"c1-{index}", "v1", index) for index in range(1, 6)],

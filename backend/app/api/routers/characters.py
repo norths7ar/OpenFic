@@ -42,6 +42,7 @@ def to_response(character: Character) -> CharacterResponse:
     return CharacterResponse(
         id=character.id,
         project_id=character.project_id,
+        folder_id=character.folder_id,
         name=character.name,
         description=character.description,
         image_url=get_character_image_url(character.image_path),
@@ -58,6 +59,7 @@ def to_list_item_response(character: Character) -> CharacterListItemResponse:
     return CharacterListItemResponse(
         id=character.id,
         project_id=character.project_id,
+        folder_id=character.folder_id,
         name=character.name,
         image_url=get_character_image_url(character.image_path),
         token_count=character_service.calculate_token_count(character.description),

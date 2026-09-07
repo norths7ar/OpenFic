@@ -11,8 +11,9 @@ from app.project_bundle.export import (
 )
 from app.project_bundle.markdown import parse_markdown_document
 from app.storage.models.character import Character
-from app.storage.models.note import Note, NoteCategory
+from app.storage.models.note import Note
 from app.storage.models.project import Project
+from app.storage.models.project_folder import ProjectFolder as NoteCategory
 from app.storage.models.task import Task
 from app.storage.models.world_info import WorldInfo
 from app.storage.models.world_info_entry import WorldInfoEntry
@@ -25,7 +26,7 @@ async def test_export_structure_is_deterministic_and_filters_internal_messages(
     project = Project(id="bundle-project", title="测试项目", description="简介")
     other = Project(id="other-project", title="不应导出")
     world = WorldInfo(id="bundle-world", project_id=project.id, name="世界书")
-    category = NoteCategory(id="cat", project_id=project.id, title="设定", order=1)
+    category = NoteCategory(scope="note", id="cat", project_id=project.id, title="设定", order=1)
     session.add_all(
         [
             project,
@@ -64,7 +65,7 @@ async def test_export_structure_is_deterministic_and_filters_internal_messages(
                 content="正文",
                 order=1,
             ),
-            NoteCategory(id="empty", project_id=project.id, title="空分类", order=2),
+            NoteCategory(scope="note", id="empty", project_id=project.id, title="空分类", order=2),
             Task(
                 id="task",
                 project_id=project.id,
@@ -217,7 +218,7 @@ async def test_export_structure_is_deterministic_and_filters_internal_messages(
 
 
 @pytest.mark.asyncio
-async def test_export_rejects_category_cycle_and_missing_project(
+async def test_export_accepts_flat_folders_and_rejects_missing_project(
     client: AsyncClient, session
 ) -> None:
     project = Project(id="cycle-project", title="环")
@@ -225,13 +226,12 @@ async def test_export_rejects_category_cycle_and_missing_project(
     await session.flush()
     session.add_all(
         [
-            NoteCategory(id="a", project_id=project.id, parent_id="b", title="A", order=1),
-            NoteCategory(id="b", project_id=project.id, parent_id="a", title="B", order=1),
+            NoteCategory(scope="note", id="a", project_id=project.id, title="A", order=1),
+            NoteCategory(scope="note", id="b", project_id=project.id, title="B", order=1),
         ]
     )
     await session.flush()
-    with pytest.raises(BundleFormatError):
-        await export_project_bundle(session, project.id)
+    assert await export_project_bundle(session, project.id)
     response = await client.get("/api/v1/projects/does-not-exist/bundle/export")
     assert response.status_code == 404
 
@@ -243,7 +243,7 @@ async def test_export_places_outlines_in_their_own_directory(session) -> None:
         id="outline-category",
         project_id=project.id,
         title="第一卷",
-        document_type="outline",
+        scope="outline",
         order=1,
     )
     outline = Note(

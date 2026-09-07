@@ -36,7 +36,7 @@ class ListVolumesTool(AgentTool):
                         order=volume.order,
                         title=volume.title,
                         description=volume.description,
-                        chapter_count=volume.chapter_count,
+                        chapter_count=volume.item_count,
                     ).model_dump()
                     for volume in volumes
                 ],

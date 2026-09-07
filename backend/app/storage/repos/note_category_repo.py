@@ -1,117 +1,74 @@
-"""
-Note Category Repository - 笔记分类数据访问层。
-"""
+"""Compatibility queries for note-category endpoints, backed only by project folders."""
 
-from sqlalchemy import case as sa_case
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col
 
-from app.storage.models.note import NoteCategory
+from app.storage.models.project_folder import ProjectFolder
+from app.storage.repos import project_folder_repo
 
 
-async def create(session: AsyncSession, category: NoteCategory) -> NoteCategory:
-    session.add(category)
-    await session.flush()
-    await session.refresh(category)
-    return category
+async def create(session: AsyncSession, category: ProjectFolder) -> ProjectFolder:
+    return await project_folder_repo.save(session, category)
 
 
-async def get_by_id(session: AsyncSession, category_id: str) -> NoteCategory | None:
-    result = await session.execute(select(NoteCategory).where(col(NoteCategory.id) == category_id))
-    return result.scalar_one_or_none()
+async def get_by_id(session: AsyncSession, category_id: str) -> ProjectFolder | None:
+    folder = await project_folder_repo.get_by_id(session, category_id)
+    return folder if folder is not None and folder.scope in {"note", "outline"} else None
 
 
 async def get_max_order(
-    session: AsyncSession,
-    project_id: str,
-    parent_id: str | None,
-    document_type: str = "note",
+    session: AsyncSession, project_id: str, parent_id: str | None, document_type: str = "note"
 ) -> int:
-    statement = select(func.max(col(NoteCategory.order))).where(
-        col(NoteCategory.project_id) == project_id,
-        col(NoteCategory.document_type) == document_type,
-    )
-    if parent_id is None:
-        statement = statement.where(col(NoteCategory.parent_id).is_(None))
-    else:
-        statement = statement.where(col(NoteCategory.parent_id) == parent_id)
-    result = await session.execute(statement)
-    return int(result.scalar_one_or_none() or 0)
+    if parent_id is not None:
+        raise ValueError("文件夹只支持一层")
+    return await project_folder_repo.get_max_order(session, project_id, document_type)
 
 
 async def list_by_project(
-    session: AsyncSession,
-    project_id: str,
-    document_type: str | None = None,
-) -> list[NoteCategory]:
-    statement = select(NoteCategory).where(col(NoteCategory.project_id) == project_id)
-    if document_type is not None:
-        statement = statement.where(col(NoteCategory.document_type) == document_type)
+    session: AsyncSession, project_id: str, document_type: str | None = None
+) -> list[ProjectFolder]:
+    scopes = [document_type] if document_type is not None else ["note", "outline"]
     result = await session.execute(
-        statement.order_by(
-            col(NoteCategory.order).asc(),
-            col(NoteCategory.title).asc(),
-            col(NoteCategory.id).asc(),
-        )
+        select(ProjectFolder)
+        .where(col(ProjectFolder.project_id) == project_id, col(ProjectFolder.scope).in_(scopes))
+        .order_by(col(ProjectFolder.order), col(ProjectFolder.id))
     )
     return list(result.scalars().all())
 
 
-async def get_by_parent(
-    session: AsyncSession,
-    parent_id: str | None,
-) -> list[NoteCategory]:
-    if parent_id is None:
-        stmt = select(NoteCategory).where(col(NoteCategory.parent_id).is_(None))
-    else:
-        stmt = select(NoteCategory).where(col(NoteCategory.parent_id) == parent_id)
-    stmt = stmt.order_by(
-        col(NoteCategory.order).asc(), col(NoteCategory.title).asc(), col(NoteCategory.id).asc()
+async def get_by_parent(session: AsyncSession, parent_id: str | None) -> list[ProjectFolder]:
+    if parent_id is not None:
+        return []
+    result = await session.execute(
+        select(ProjectFolder)
+        .where(col(ProjectFolder.scope).in_(["note", "outline"]))
+        .order_by(col(ProjectFolder.order), col(ProjectFolder.id))
     )
-    result = await session.execute(stmt)
     return list(result.scalars().all())
 
 
-async def update_category(session: AsyncSession, category: NoteCategory) -> NoteCategory:
-    session.add(category)
-    await session.flush()
-    await session.refresh(category)
-    return category
+async def update_category(session: AsyncSession, category: ProjectFolder) -> ProjectFolder:
+    return await project_folder_repo.save(session, category)
 
 
-async def delete(session: AsyncSession, category: NoteCategory) -> None:
-    await session.delete(category)
-    await session.flush()
+async def delete(session: AsyncSession, category: ProjectFolder) -> None:
+    await project_folder_repo.delete(session, category)
 
 
 async def search_mention_candidates(
-    session: AsyncSession,
-    project_id: str,
-    query: str,
-    *,
-    limit: int,
-) -> list[NoteCategory]:
-    normalized_query = query.strip().lower()
-    if not normalized_query:
+    session: AsyncSession, project_id: str, query: str, *, limit: int
+) -> list[ProjectFolder]:
+    if not query.strip():
         return []
-
-    title_expr = func.lower(func.coalesce(col(NoteCategory.title), ""))
-    match_rank = sa_case(
-        (title_expr == normalized_query, 0),
-        (title_expr.like(f"{normalized_query}%"), 1),
-        (title_expr.contains(normalized_query), 2),
-        else_=99,
-    )
-
-    stmt = (
-        select(NoteCategory)
+    result = await session.execute(
+        select(ProjectFolder)
         .where(
-            col(NoteCategory.project_id) == project_id,
-            title_expr.contains(normalized_query),
+            col(ProjectFolder.project_id) == project_id,
+            col(ProjectFolder.scope).in_(["note", "outline"]),
+            func.lower(col(ProjectFolder.title)).contains(query.strip().lower()),
         )
-        .order_by(match_rank.asc(), col(NoteCategory.title).asc())
+        .order_by(col(ProjectFolder.order), col(ProjectFolder.id))
         .limit(limit)
     )
-    result = await session.execute(stmt)
     return list(result.scalars().all())

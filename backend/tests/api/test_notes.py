@@ -104,7 +104,7 @@ async def test_update_note(client: AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
-async def test_update_note_writing_visibility(client: AsyncClient) -> None:
+async def test_update_note_agent_visibility_atomically(client: AsyncClient) -> None:
     project_id, _ = await _create_project(client)
     create = await client.post(
         f"/api/v1/projects/{project_id}/notes",
@@ -114,11 +114,12 @@ async def test_update_note_writing_visibility(client: AsyncClient) -> None:
 
     response = await client.patch(
         f"/api/v1/notes/{note_id}",
-        json={"is_writing_visible": False},
+        json={"is_writing_visible": False, "is_hidden": True},
     )
 
     assert response.status_code == 200
     assert response.json()["is_writing_visible"] is False
+    assert response.json()["is_hidden"] is True
 
 
 @pytest.mark.asyncio
@@ -279,23 +280,19 @@ async def test_create_category(client: AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
-async def test_create_category_third_level_rejected(client: AsyncClient) -> None:
+async def test_create_nested_category_rejected(client: AsyncClient) -> None:
     project_id, _ = await _create_project(client)
     c1 = await client.post(
         f"/api/v1/projects/{project_id}/note-categories",
         json={"title": "一级"},
     )
     c1_id = c1.json()["id"]
-    c2 = await client.post(
+    response = await client.post(
         f"/api/v1/projects/{project_id}/note-categories",
         json={"title": "二级", "parent_id": c1_id},
     )
-    c2_id = c2.json()["id"]
-    resp = await client.post(
-        f"/api/v1/projects/{project_id}/note-categories",
-        json={"title": "三级", "parent_id": c2_id},
-    )
-    assert resp.status_code == 400
+    assert response.status_code == 400
+    assert "只支持一层" in response.json()["detail"]
 
 
 @pytest.mark.asyncio
@@ -308,7 +305,7 @@ async def test_create_category_rejects_missing_parent(client: AsyncClient) -> No
     )
 
     assert response.status_code == 400
-    assert "父分类不存在" in response.json()["detail"]
+    assert "只支持一层" in response.json()["detail"]
 
 
 @pytest.mark.asyncio

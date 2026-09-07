@@ -1,5 +1,5 @@
 """
-删除笔记分类及其下的所有内容。
+删除笔记文件夹，保留其中内容。
 """
 
 import json
@@ -19,7 +19,6 @@ from app.agent_runtime.tools.errors import ToolExecutionError
 from app.agent_runtime.tools.impls.note.refs import CategoryRef, resolve_category_from_list
 from app.agent_runtime.tools.registry import ToolRegistry
 from app.storage.database import create_session
-from app.storage.models.note import NoteCategory
 from app.storage.repos import note_category_repo, note_repo
 from app.storage.services import note_service
 
@@ -28,26 +27,10 @@ class DeleteNoteCategoryInput(BaseModel):
     category_ref: CategoryRef = Field(description="目标分类")
 
 
-def _collect_descendant_category_ids(
-    category_id: str,
-    categories: list[NoteCategory],
-) -> set[str]:
-    affected_ids = {category_id}
-    while True:
-        child_ids = {
-            category.id
-            for category in categories
-            if category.parent_id in affected_ids and category.id not in affected_ids
-        }
-        if not child_ids:
-            return affected_ids
-        affected_ids.update(child_ids)
-
-
 @ToolRegistry.register
 class DeleteNoteCategoryTool(AgentTool):
     name: str = "delete_note_category"
-    description: str = "删除指定笔记分类及其下的子分类和笔记"
+    description: str = "删除笔记文件夹，其中笔记移回根目录"
     access_level: str = "write"
     args_schema: type[BaseModel] = DeleteNoteCategoryInput
 
@@ -70,7 +53,7 @@ class DeleteNoteCategoryTool(AgentTool):
         if category is None or category.project_id != self.project_id:
             return None
 
-        affected_category_ids = _collect_descendant_category_ids(category.id, categories)
+        affected_category_ids = {category.id}
         notes = await note_repo.list_by_project(session, self.project_id, include_hidden=True)
         return {
             "type": "preview",

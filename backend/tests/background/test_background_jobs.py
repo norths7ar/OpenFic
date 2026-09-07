@@ -51,8 +51,8 @@ from app.storage import database
 from app.storage.models.chapter import Chapter
 from app.storage.models.chapter_summary import ChapterSummary
 from app.storage.models.project import Project
+from app.storage.models.project_folder import ProjectFolder as Volume
 from app.storage.models.task import Task
-from app.storage.models.volume import Volume
 from app.storage.repos.chapter_summary_repo import (
     SUMMARY_STATUS_FAILED,
     SUMMARY_STATUS_QUEUED,
@@ -68,11 +68,12 @@ def _default_volume_id(project: Project) -> str:
 
 def _default_volume(project: Project, *, chapter_count: int = 1) -> Volume:
     return Volume(
+        scope="writing",
         id=_default_volume_id(project),
         project_id=project.id,
         title="第一卷",
         order=1,
-        chapter_count=chapter_count,
+        item_count=chapter_count,
     )
 
 

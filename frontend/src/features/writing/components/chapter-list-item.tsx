@@ -1,17 +1,17 @@
+import { useSortable } from "@dnd-kit/sortable";
 /**
  * Chapter List Item
  *
  * 章节列表项组件，显示章节名、字数和编辑时间。
  * 普通滚动路径不接入 dnd-kit，只在拖拽模式下启用 sortable。
  */
-
-import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Box, Flex, Text, Tooltip } from "@radix-ui/themes";
+import { Box, Flex, Tooltip } from "@radix-ui/themes";
 import { GripVertical, MoreHorizontal } from "lucide-react";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { ProjectNavItemRow } from "@/features/project-navigation/components/project-nav-item-row";
 import type { ChapterListItem as ChapterListItemType } from "@/lib/chapter.types";
 import { formatRelativeTime } from "@/lib/time-utils";
 
@@ -108,6 +108,8 @@ interface ChapterListItemBaseProps {
 
 interface ChapterRowContentProps {
   chapter: ChapterListItemType;
+  selected: boolean;
+  dragging?: boolean;
   isRenaming: boolean;
   onRenameConfirm?: (newTitle: string) => void;
   onRenameCancel?: () => void;
@@ -122,6 +124,8 @@ interface ChapterRowContentProps {
 
 function ChapterRowContent({
   chapter,
+  selected,
+  dragging,
   isRenaming,
   onRenameConfirm,
   onRenameCancel,
@@ -137,115 +141,85 @@ function ChapterRowContent({
   const showMenuTrigger = Boolean(onOpenMenu);
 
   return (
-    <Flex
-      gap="2"
-      align="center"
-      style={{ minWidth: 0, padding: "12px 18px" }}
-    >
-      {dragHandle}
-
-      <Box style={{ flex: 1, minWidth: 0 }}>
-        {isRenaming && onRenameConfirm && onRenameCancel ? (
-          <Box style={{ height: "20px" }}>
-            <RenameInput
-              key={chapter.id}
-              initialValue={chapter.title}
-              onConfirm={onRenameConfirm}
-              onCancel={onRenameCancel}
-            />
-          </Box>
+    <ProjectNavItemRow
+      selected={selected}
+      dragging={dragging}
+      leading={dragHandle}
+      style={{ color: textColor }}
+      title={
+        isRenaming && onRenameConfirm && onRenameCancel ? (
+          <RenameInput
+            key={chapter.id}
+            initialValue={chapter.title}
+            onConfirm={onRenameConfirm}
+            onCancel={onRenameCancel}
+          />
         ) : (
-          <Text
-            size="2"
-            weight="medium"
-            style={{
-              display: "block",
-              height: "20px",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-              color: textColor,
-              userSelect: "none",
-              WebkitUserSelect: "none",
-            }}
-          >
-            {chapter.title || t("writing.untitledChapter")}
-          </Text>
-        )}
-
-        <Flex
-          gap="2"
-          mt="1"
-        >
-          <Text
-            size="1"
-            color={textColor ? undefined : "gray"}
-            style={{ color: textColor }}
-          >
+          chapter.title || t("writing.untitledChapter")
+        )
+      }
+      metadata={
+        <>
+          <span>
             {chapter.wordCount} {t("writing.words")}
-          </Text>
-          <Text
-            size="1"
-            color={textColor ? undefined : "gray"}
-            style={{ color: textColor }}
+          </span>
+          <span>· {formatRelativeTime(chapter.updatedAt)}</span>
+        </>
+      }
+      actions={
+        showMenuTrigger ? (
+          <Flex
+            align="center"
+            gap="4"
+            style={{ flexShrink: 0 }}
           >
-            · {formatRelativeTime(chapter.updatedAt)}
-          </Text>
-        </Flex>
-      </Box>
-
-      {showMenuTrigger ? (
-        <Flex
-          align="center"
-          gap="4"
-          style={{ flexShrink: 0 }}
-        >
-          <Tooltip content={t("chapterMenu.moreActions")}>
-            <button
-              type="button"
-              aria-label={t("chapterMenu.moreActions")}
-              tabIndex={isMenuButtonVisible ? 0 : -1}
-              onPointerDown={(event) => event.stopPropagation()}
-              onClick={(event) => {
-                event.stopPropagation();
-                onOpenMenu?.(event.currentTarget);
-              }}
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-                width: 20,
-                height: 20,
-                padding: 0,
-                border: "none",
-                borderRadius: 6,
-                background: "transparent",
-                color: textColor ?? "var(--gray-10)",
-                opacity: isMenuButtonVisible ? 1 : 0,
-                pointerEvents: isMenuButtonVisible ? "auto" : "none",
-                transform: isMenuButtonVisible ? "scale(1)" : "scale(0.72)",
-                transformOrigin: "center",
-                transition: "opacity 0.16s ease, transform 0.16s ease, color 0.16s ease",
-                cursor: "pointer",
-              }}
-            >
-              <MoreHorizontal size={14} />
-            </button>
-          </Tooltip>
+            <Tooltip content={t("chapterMenu.moreActions")}>
+              <button
+                type="button"
+                aria-label={t("chapterMenu.moreActions")}
+                tabIndex={isMenuButtonVisible ? 0 : -1}
+                onPointerDown={(event) => event.stopPropagation()}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onOpenMenu?.(event.currentTarget);
+                }}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  width: 20,
+                  height: 20,
+                  padding: 0,
+                  border: "none",
+                  borderRadius: 6,
+                  background: "transparent",
+                  color: textColor ?? "var(--gray-10)",
+                  opacity: isMenuButtonVisible ? 1 : 0,
+                  pointerEvents: isMenuButtonVisible ? "auto" : "none",
+                  transform: isMenuButtonVisible ? "scale(1)" : "scale(0.72)",
+                  transformOrigin: "center",
+                  transition: "opacity 0.16s ease, transform 0.16s ease, color 0.16s ease",
+                  cursor: "pointer",
+                }}
+              >
+                <MoreHorizontal size={14} />
+              </button>
+            </Tooltip>
+            <SummaryStatusDot
+              status={summaryStatus}
+              isStale={summaryIsStale}
+              onOpenSummary={onOpenSummary}
+            />
+          </Flex>
+        ) : (
           <SummaryStatusDot
             status={summaryStatus}
             isStale={summaryIsStale}
             onOpenSummary={onOpenSummary}
           />
-        </Flex>
-      ) : (
-        <SummaryStatusDot
-          status={summaryStatus}
-          isStale={summaryIsStale}
-          onOpenSummary={onOpenSummary}
-        />
-      )}
-    </Flex>
+        )
+      }
+    />
   );
 }
 
@@ -285,9 +259,7 @@ function ChapterListItemComponent({
         ? "var(--gray-12)"
         : isPendingPressed
           ? "var(--gray-a6)"
-          : isActive
-            ? "var(--accent-a3)"
-            : "transparent",
+          : "transparent",
       cursor: "pointer",
       width: "100%",
       minWidth: 0,
@@ -301,7 +273,7 @@ function ChapterListItemComponent({
       WebkitTapHighlightColor: "transparent",
       transition: "background-color 0.08s ease, color 0.08s ease, opacity 0.08s ease",
     }),
-    [isActive, isDarkPressed, isPendingPressed, isPressed],
+    [isDarkPressed, isPendingPressed, isPressed],
   );
 
   useEffect(() => {
@@ -471,6 +443,7 @@ function ChapterListItemComponent({
       onPointerMove={handlePointerMove}
     >
       <ChapterRowContent
+        selected={isActive}
         chapter={chapter}
         isRenaming={isRenaming}
         onRenameConfirm={handleRenameConfirm}
@@ -514,7 +487,7 @@ function SortableChapterListItemComponent({
         ? `${transition}, background-color 0.08s ease, opacity 0.08s ease`
         : "background-color 0.08s ease, opacity 0.08s ease",
       opacity: isDragging ? 0.5 : 1,
-      background: isDragging ? "var(--accent-a2)" : isActive ? "var(--accent-a3)" : "transparent",
+      background: "transparent",
       cursor: "grab",
       width: "100%",
       minWidth: 0,
@@ -527,7 +500,7 @@ function SortableChapterListItemComponent({
       WebkitTouchCallout: "none" as const,
       WebkitTapHighlightColor: "transparent",
     }),
-    [isActive, isDragging, transform, transition],
+    [isDragging, transform, transition],
   );
 
   const handleSelect = useCallback(() => {
@@ -550,7 +523,9 @@ function SortableChapterListItemComponent({
       {...attributes}
     >
       <ChapterRowContent
+        selected={isActive}
         chapter={chapter}
+        dragging={isDragging}
         isRenaming={false}
         summaryStatus={summaryStatus}
         summaryIsStale={summaryIsStale}

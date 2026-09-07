@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { SimpleSelect } from "@/components";
+import { PROJECT_NAV_ROOT_ID } from "@/features/project-navigation/lib/project-nav-groups";
 import type { ChapterListItem, VolumeWithChapters } from "@/lib/chapter.types";
 
 interface MoveChapterToVolumeDialogProps {
@@ -31,7 +32,9 @@ export function MoveChapterToVolumeDialog({
     let cancelled = false;
     queueMicrotask(() => {
       if (cancelled) return;
-      setSelectedVolumeId(firstTarget?.id ?? "");
+      setSelectedVolumeId(
+        firstTarget?.id ?? (chapter.volumeId !== PROJECT_NAV_ROOT_ID ? PROJECT_NAV_ROOT_ID : ""),
+      );
     });
     return () => {
       cancelled = true;
@@ -39,12 +42,20 @@ export function MoveChapterToVolumeDialog({
   }, [chapter, open, volumes]);
 
   const options = useMemo(
-    () =>
-      volumes.map((volume) => ({
-        value: volume.id,
-        label: volume.title || t("volume.untitled"),
-        disabled: volume.id === chapter?.volumeId,
-      })),
+    () => [
+      {
+        value: PROJECT_NAV_ROOT_ID,
+        label: t("projectNavigation.root"),
+        disabled: chapter?.volumeId === PROJECT_NAV_ROOT_ID,
+      },
+      ...volumes
+        .filter((volume) => !volume.isRoot)
+        .map((volume) => ({
+          value: volume.id,
+          label: volume.title || t("volume.untitled"),
+          disabled: volume.id === chapter?.volumeId,
+        })),
+    ],
     [chapter?.volumeId, t, volumes],
   );
 

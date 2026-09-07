@@ -12,7 +12,7 @@ from sqlalchemy.orm import QueryableAttribute, load_only
 from sqlmodel import col
 
 from app.storage.models.chapter import Chapter
-from app.storage.models.volume import Volume
+from app.storage.models.project_folder import ProjectFolder
 
 
 class ChapterIndexSource(NamedTuple):
@@ -52,9 +52,9 @@ async def list_export_metadata_by_project(
             col(Chapter.title),
             col(Chapter.word_count),
         )
-        .join(Volume, col(Chapter.volume_id) == col(Volume.id))
+        .outerjoin(ProjectFolder, col(Chapter.volume_id) == col(ProjectFolder.id))
         .where(col(Chapter.project_id) == project_id)
-        .order_by(col(Volume.order).asc(), col(Chapter.order).asc())
+        .order_by(func.coalesce(col(ProjectFolder.order), -1).asc(), col(Chapter.order).asc())
     )
     return [
         (chapter_id, volume_id, title, word_count)
@@ -118,9 +118,9 @@ async def list_by_project(
     """
     result = await session.execute(
         select(Chapter)
-        .join(Volume, col(Chapter.volume_id) == col(Volume.id))
+        .outerjoin(ProjectFolder, col(Chapter.volume_id) == col(ProjectFolder.id))
         .where(col(Chapter.project_id) == project_id)
-        .order_by(col(Volume.order).asc(), col(Chapter.order).asc())
+        .order_by(func.coalesce(col(ProjectFolder.order), -1).asc(), col(Chapter.order).asc())
     )
     return list(result.scalars().all())
 
@@ -133,9 +133,9 @@ async def list_metadata_by_project(
     result = await session.execute(
         select(Chapter)
         .options(load_only(*_chapter_metadata_attributes()))
-        .join(Volume, col(Chapter.volume_id) == col(Volume.id))
+        .outerjoin(ProjectFolder, col(Chapter.volume_id) == col(ProjectFolder.id))
         .where(col(Chapter.project_id) == project_id)
-        .order_by(col(Volume.order).asc(), col(Chapter.order).asc())
+        .order_by(func.coalesce(col(ProjectFolder.order), -1).asc(), col(Chapter.order).asc())
     )
     return list(result.scalars().all())
 
@@ -164,9 +164,9 @@ async def list_index_source_by_project(
     """仅读取章节 id 与正文，用于索引状态计算，避免加载整行。"""
     result = await session.execute(
         select(col(Chapter.id), col(Chapter.content))
-        .join(Volume, col(Chapter.volume_id) == col(Volume.id))
+        .outerjoin(ProjectFolder, col(Chapter.volume_id) == col(ProjectFolder.id))
         .where(col(Chapter.project_id) == project_id)
-        .order_by(col(Volume.order).asc(), col(Chapter.order).asc())
+        .order_by(func.coalesce(col(ProjectFolder.order), -1).asc(), col(Chapter.order).asc())
     )
     return [
         ChapterIndexSource(project_id, chapter_id, content) for chapter_id, content in result.all()
@@ -182,9 +182,9 @@ async def list_index_source_by_projects(
         return []
     result = await session.execute(
         select(col(Chapter.project_id), col(Chapter.id), col(Chapter.content))
-        .join(Volume, col(Chapter.volume_id) == col(Volume.id))
+        .outerjoin(ProjectFolder, col(Chapter.volume_id) == col(ProjectFolder.id))
         .where(col(Chapter.project_id).in_(project_ids))
-        .order_by(col(Volume.order).asc(), col(Chapter.order).asc())
+        .order_by(func.coalesce(col(ProjectFolder.order), -1).asc(), col(Chapter.order).asc())
     )
     return [
         ChapterIndexSource(project_id, chapter_id, content)
@@ -198,14 +198,14 @@ async def search_with_volume_by_project(
     query: str,
     *,
     limit: int,
-) -> list[tuple[Chapter, Volume]]:
+) -> list[tuple[Chapter, ProjectFolder]]:
     """按章节标题或所属卷标题搜索章节。"""
     normalized_query = query.strip().lower()
     if not normalized_query:
         return []
 
     chapter_title_expr = func.lower(func.coalesce(col(Chapter.title), ""))
-    volume_title_expr = func.lower(func.coalesce(col(Volume.title), ""))
+    volume_title_expr = func.lower(func.coalesce(col(ProjectFolder.title), ""))
     match_rank = case(
         (chapter_title_expr == normalized_query, 0),
         (chapter_title_expr.like(f"{normalized_query}%"), 1),
@@ -216,8 +216,8 @@ async def search_with_volume_by_project(
     )
 
     result = await session.execute(
-        select(Chapter, Volume)
-        .join(Volume, col(Chapter.volume_id) == col(Volume.id))
+        select(Chapter, ProjectFolder)
+        .outerjoin(ProjectFolder, col(Chapter.volume_id) == col(ProjectFolder.id))
         .where(
             col(Chapter.project_id) == project_id,
             or_(
@@ -227,7 +227,7 @@ async def search_with_volume_by_project(
         )
         .order_by(
             match_rank.asc(),
-            col(Volume.order).asc(),
+            func.coalesce(col(ProjectFolder.order), -1).asc(),
             col(Chapter.order).asc(),
         )
         .limit(limit)
@@ -239,20 +239,20 @@ async def search_by_content(
     session: AsyncSession,
     project_id: str,
     query: str,
-) -> list[tuple[Chapter, Volume]]:
+) -> list[tuple[Chapter, ProjectFolder]]:
     """按章节内容搜索章节，返回匹配的章节及所属卷。"""
     normalized_query = query.strip()
     if not normalized_query:
         return []
 
     result = await session.execute(
-        select(Chapter, Volume)
-        .join(Volume, col(Chapter.volume_id) == col(Volume.id))
+        select(Chapter, ProjectFolder)
+        .outerjoin(ProjectFolder, col(Chapter.volume_id) == col(ProjectFolder.id))
         .where(
             col(Chapter.project_id) == project_id,
             col(Chapter.content).ilike(f"%{normalized_query}%"),
         )
-        .order_by(col(Volume.order).asc(), col(Chapter.order).asc())
+        .order_by(func.coalesce(col(ProjectFolder.order), -1).asc(), col(Chapter.order).asc())
     )
     return [(chapter, volume) for chapter, volume in result.all()]
 
@@ -326,9 +326,9 @@ async def list_by_project_page(
     """分页获取项目下章节列表。"""
     result = await session.execute(
         select(Chapter)
-        .join(Volume, col(Chapter.volume_id) == col(Volume.id))
+        .outerjoin(ProjectFolder, col(Chapter.volume_id) == col(ProjectFolder.id))
         .where(col(Chapter.project_id) == project_id)
-        .order_by(col(Volume.order).asc(), col(Chapter.order).asc())
+        .order_by(func.coalesce(col(ProjectFolder.order), -1).asc(), col(Chapter.order).asc())
         .offset(offset)
         .limit(limit)
     )
@@ -360,7 +360,9 @@ async def count_by_volume(session: AsyncSession, volume_id: str) -> int:
     return result.scalar_one()
 
 
-async def get_max_order(session: AsyncSession, volume_id: str) -> int:
+async def get_max_order(
+    session: AsyncSession, volume_id: str | None, *, project_id: str | None = None
+) -> int:
     """
     获取卷下的最大排序序号。
 
@@ -371,8 +373,13 @@ async def get_max_order(session: AsyncSession, volume_id: str) -> int:
     Returns:
         最大排序序号，如果没有章节则返回 0。
     """
+    if volume_id is None and project_id is None:
+        raise ValueError("Root chapter operations require a project ID")
     result = await session.execute(
-        select(func.max(col(Chapter.order))).where(col(Chapter.volume_id) == volume_id)
+        select(func.max(col(Chapter.order))).where(
+            col(Chapter.volume_id) == volume_id,
+            col(Chapter.project_id) == project_id if project_id is not None else True,
+        )
     )
     max_order = result.scalar_one_or_none()
     return max_order if max_order is not None else 0
@@ -482,6 +489,8 @@ async def shift_orders(
     start_order: int,
     end_order: int,
     delta: int,
+    *,
+    project_id: str | None = None,
 ) -> None:
     """
     批量调整排序序号。
@@ -495,9 +504,12 @@ async def shift_orders(
         end_order: 结束序号（包含）。
         delta: 调整量（+1 或 -1）。
     """
+    if volume_id is None and project_id is None:
+        raise ValueError("Root chapter operations require a project ID")
     result = await session.execute(
         select(Chapter).where(
             col(Chapter.volume_id) == volume_id,
+            col(Chapter.project_id) == project_id if project_id is not None else True,
             col(Chapter.order) >= start_order,
             col(Chapter.order) <= end_order,
         )

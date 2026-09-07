@@ -1,0 +1,1 @@
+export const PROJECT_NAV_ITEM_HEIGHT = 65;

@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, replace
 from datetime import datetime
-from typing import Any, Literal, cast
+from typing import Any, Literal
 
 import yaml
 from sqlalchemy import select
@@ -19,8 +19,9 @@ from app.project_bundle.archive import BundleFormatError, read_zip
 from app.project_bundle.export import document_semantic_hash, semantic_hash
 from app.project_bundle.markdown import parse_markdown_document
 from app.storage.models.character import Character
-from app.storage.models.note import Note, NoteCategory
+from app.storage.models.note import Note
 from app.storage.models.project import Project
+from app.storage.models.project_folder import ProjectFolder
 from app.storage.models.task import Task
 from app.storage.models.world_info import WorldInfo
 from app.storage.models.world_info_entry import WorldInfoEntry
@@ -50,10 +51,19 @@ class ParsedBundleCategory:
 
 
 @dataclass(frozen=True)
+class ParsedBundleFolder:
+    id: str
+    title: str
+    base_hash: str
+    semantic_fields: dict[str, Any]
+
+
+@dataclass(frozen=True)
 class ParsedProjectBundle:
     source_project: dict[str, Any]
     documents: list[ParsedBundleDocument]
     note_categories: list[ParsedBundleCategory]
+    project_folders: list[ParsedBundleFolder]
 
 
 @dataclass(frozen=True)
@@ -135,12 +145,16 @@ def _document_fields(frontmatter: dict[str, Any], kind: str, project_id: str) ->
             order=_nonnegative_int(frontmatter.get("order"), "order"),
             writing_visible=_bool(frontmatter.get("writing_visible"), "writing_visible"),
         )
+        if "folder_id" in frontmatter:
+            fields["folder_id"] = _nullable_text(frontmatter.get("folder_id"), "folder_id")
     elif kind == "character":
         fields.update(
             order=_nonnegative_int(frontmatter.get("order"), "order"),
             writing_visible=_bool(frontmatter.get("writing_visible"), "writing_visible"),
             is_favorited=_bool(frontmatter.get("is_favorited"), "is_favorited"),
         )
+        if "folder_id" in frontmatter:
+            fields["folder_id"] = _nullable_text(frontmatter.get("folder_id"), "folder_id")
     elif kind == "note":
         document_type = frontmatter.get("document_type", "note")
         if document_type not in {"note", "outline"}:
@@ -158,6 +172,8 @@ def _document_fields(frontmatter: dict[str, Any], kind: str, project_id: str) ->
         if context_mode not in {"global", "local"}:
             raise BundleFormatError("context_mode must be global or local")
         fields["context_mode"] = context_mode
+        if "folder_id" in frontmatter:
+            fields["folder_id"] = _nullable_text(frontmatter.get("folder_id"), "folder_id")
     elif kind == "discussion_message":
         role = frontmatter.get("role")
         if role not in {"user", "assistant"}:
@@ -205,7 +221,12 @@ def parse_project_bundle(data: bytes, target_project_id: str) -> ParsedProjectBu
     }
     documents = manifest.get("documents")
     categories = manifest.get("note_categories")
-    if not isinstance(documents, list) or not isinstance(categories, list):
+    folders = manifest.get("project_folders", [])
+    if (
+        not isinstance(documents, list)
+        or not isinstance(categories, list)
+        or not isinstance(folders, list)
+    ):
         raise BundleFormatError("documents and note_categories must be lists")
     listed_paths: set[str] = set()
     listed_keys: set[tuple[str, str]] = set()
@@ -285,6 +306,11 @@ def parse_project_bundle(data: bytes, target_project_id: str) -> ParsedProjectBu
             "id": category_id,
             "project_id": target_project_id,
             "parent_id": parent_id,
+            **(
+                {"description": _string(item["description"], "folder description")}
+                if "description" in item
+                else {}
+            ),
             "title": title,
             "document_type": item.get("document_type", "note"),
             "order": order,
@@ -298,34 +324,40 @@ def parse_project_bundle(data: bytes, target_project_id: str) -> ParsedProjectBu
         if parent_id is not None and parent_id not in category_ids:
             raise BundleFormatError("category parent is missing")
         if parent_id is not None:
-            parent = next(c for c in parsed_categories if c.id == parent_id)
-            if parent.semantic_fields["document_type"] != category.semantic_fields["document_type"]:
-                raise BundleFormatError("category document types do not match")
-    for category in parsed_categories:
-        seen: set[str] = set()
-        current: str | None = category.id
-        depth = 0
-        while current is not None:
-            if current in seen:
-                raise BundleFormatError("category hierarchy contains a cycle")
-            seen.add(current)
-            depth += 1
-            if depth > 2:
-                raise BundleFormatError("category hierarchy exceeds two levels")
-            current = next(
-                (c.semantic_fields["parent_id"] for c in parsed_categories if c.id == current),
-                None,
-            )
-    category_names: set[tuple[str, str | None, str]] = set()
-    for category in parsed_categories:
-        name_key = (
-            cast(str, category.semantic_fields["document_type"]),
-            cast(str | None, category.semantic_fields["parent_id"]),
-            category.title,
-        )
-        if name_key in category_names:
-            raise BundleFormatError("note category name is duplicated among siblings")
-        category_names.add(name_key)
+            raise BundleFormatError("category hierarchy is not supported")
+    parsed_folders: list[ParsedBundleFolder] = []
+    folder_ids: set[str] = set()
+    for item in folders:
+        if not isinstance(item, dict):
+            raise BundleFormatError("folder manifest item must be a mapping")
+        folder_id = _text(item.get("id"), "folder id")
+        title = _text(item.get("title"), "folder title")
+        scope = item.get("scope")
+        if scope not in {"writing", "world", "character", "discussion", "note", "outline"}:
+            raise BundleFormatError("project folder scope is invalid")
+        if (
+            folder_id in folder_ids
+            or folder_id in category_ids
+            or item.get("project_id") != target_project_id
+        ):
+            raise BundleFormatError("invalid or duplicate project folder")
+        order = _nonnegative_int(item.get("order"), "folder order")
+        base_hash = _hash(item.get("base_hash"), "folder base_hash")
+        fields = {
+            "kind": "project_folder",
+            "id": folder_id,
+            "project_id": target_project_id,
+            "scope": scope,
+            **(
+                {"description": _string(item["description"], "folder description")}
+                if "description" in item
+                else {}
+            ),
+            "title": title,
+            "order": order,
+        }
+        folder_ids.add(folder_id)
+        parsed_folders.append(ParsedBundleFolder(folder_id, title, base_hash, fields))
 
     discussions = {doc.id for doc in parsed if doc.kind == "discussion"}
     message_positions: set[tuple[str, int]] = set()
@@ -334,6 +366,16 @@ def parse_project_bundle(data: bytes, target_project_id: str) -> ParsedProjectBu
     character_names: set[str] = set()
     note_names: set[tuple[str | None, str]] = set()
     for doc in parsed:
+        folder_id = doc.semantic_fields.get("folder_id")
+        if folder_id is not None:
+            folder = next((value for value in parsed_folders if value.id == folder_id), None)
+            expected_scope = {
+                "world_entry": "world",
+                "character": "character",
+                "discussion": "discussion",
+            }.get(doc.kind)
+            if folder is None or folder.semantic_fields["scope"] != expected_scope:
+                raise BundleFormatError("document folder is missing or has the wrong scope")
         if (
             doc.kind == "note"
             and doc.semantic_fields["category_id"] is not None
@@ -381,7 +423,7 @@ def parse_project_bundle(data: bytes, target_project_id: str) -> ParsedProjectBu
     }
     if len(world_info_ids) > 1:
         raise BundleFormatError("bundle contains multiple world books")
-    return ParsedProjectBundle(source_project, parsed, parsed_categories)
+    return ParsedProjectBundle(source_project, parsed, parsed_categories, parsed_folders)
 
 
 async def preview_project_bundle(
@@ -399,8 +441,50 @@ async def preview_project_bundle(
         )
     ).scalar_one_or_none()
     items: list[PreviewItem] = []
+    for folder in bundle.project_folders:
+        current = await session.get(ProjectFolder, folder.id)
+        current_hash = None
+        if current is not None:
+            if current.project_id != target_project_id:
+                current_hash = "cross-project"
+            else:
+                current_hash = semantic_hash(
+                    {
+                        "kind": "project_folder",
+                        "id": current.id,
+                        "project_id": current.project_id,
+                        "scope": current.scope,
+                        "title": current.title,
+                        **(
+                            {"description": current.description}
+                            if current.description is not None
+                            else {}
+                        ),
+                        "order": current.order,
+                    }
+                )
+        item = _action(
+            mode,
+            "project_folder",
+            folder.id,
+            folder.title,
+            "",
+            folder.base_hash,
+            current_hash,
+            semantic_hash(folder.semantic_fields),
+        )
+        if await _has_name_conflict(
+            session,
+            kind="project_folder",
+            entity_id=folder.id,
+            title=folder.title,
+            fields=folder.semantic_fields,
+            project_id=target_project_id,
+        ):
+            item = replace(item, action="conflict", reason="same_name_different_id")
+        items.append(item)
     for category in bundle.note_categories:
-        current = await session.get(NoteCategory, category.id)
+        current = await session.get(ProjectFolder, category.id)
         current_hash = None
         if current is not None:
             if current.project_id != target_project_id:
@@ -411,9 +495,14 @@ async def preview_project_bundle(
                         "kind": "note_category",
                         "id": current.id,
                         "project_id": current.project_id,
-                        "parent_id": current.parent_id,
+                        "parent_id": None,
                         "title": current.title,
-                        "document_type": current.document_type,
+                        **(
+                            {"description": current.description}
+                            if current.description is not None
+                            else {}
+                        ),
+                        "document_type": current.scope,
                         "order": current.order,
                     }
                 )
@@ -569,20 +658,8 @@ async def _has_name_conflict(
             col(Note.title) == title,
             col(Note.id) != entity_id,
         )
-    elif kind == "note_category":
-        parent_id = fields["parent_id"]
-        parent_filter = (
-            col(NoteCategory.parent_id).is_(None)
-            if parent_id is None
-            else col(NoteCategory.parent_id) == parent_id
-        )
-        statement = select(col(NoteCategory.id)).where(
-            col(NoteCategory.project_id) == project_id,
-            col(NoteCategory.document_type) == fields["document_type"],
-            parent_filter,
-            col(NoteCategory.title) == title,
-            col(NoteCategory.id) != entity_id,
-        )
+    elif kind in {"note_category", "project_folder"}:
+        return False
     else:
         return False
     return (await session.execute(statement.limit(1))).scalar_one_or_none() is not None
@@ -649,6 +726,8 @@ async def _current_hash(
             "order": current.order,
             "writing_visible": current.is_enabled,
         }
+        if "folder_id" in doc.semantic_fields:
+            fields["folder_id"] = current.folder_id
         return document_semantic_hash(fields, current.name, current.content), True
     if doc.kind == "character":
         current = await session.get(Character, doc.id)
@@ -664,6 +743,8 @@ async def _current_hash(
             "writing_visible": current.is_writing_visible,
             "is_favorited": current.is_favorited,
         }
+        if "folder_id" in doc.semantic_fields:
+            fields["folder_id"] = current.folder_id
         return document_semantic_hash(fields, current.name, current.description), True
     if doc.kind == "note":
         current = await session.get(Note, doc.id)
@@ -695,6 +776,8 @@ async def _current_hash(
             "project_id": project_id,
             "context_mode": current.context_mode,
         }
+        if "folder_id" in doc.semantic_fields:
+            fields["folder_id"] = current.folder_id
         return document_semantic_hash(fields, current.title, ""), True
     current = await session.get(AgentRunMessage, doc.id)
     if current is None:

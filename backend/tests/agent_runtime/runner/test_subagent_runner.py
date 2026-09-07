@@ -27,9 +27,9 @@ from app.agent_runtime.persistence.model import (
 )
 from app.storage.models.chapter import Chapter
 from app.storage.models.project import Project
+from app.storage.models.project_folder import ProjectFolder as Volume
 from app.storage.models.setting import Setting
 from app.storage.models.task import Task
-from app.storage.models.volume import Volume
 
 
 @pytest_asyncio.fixture
@@ -46,11 +46,12 @@ async def db_session_factory() -> AsyncGenerator:
         session.add(Project(id="project-1", title="Project"))
         session.add(
             Volume(
+                scope="writing",
                 id="volume-1",
                 project_id="project-1",
                 title="Volume",
                 order=1,
-                chapter_count=1,
+                item_count=1,
             )
         )
         session.add(

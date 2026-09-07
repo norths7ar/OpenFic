@@ -14,13 +14,15 @@ from app.project_bundle.importer import (
     ImportMode,
     ParsedBundleCategory,
     ParsedBundleDocument,
+    ParsedBundleFolder,
     PreviewItem,
     parse_project_bundle,
     preview_project_bundle,
 )
 from app.storage.models.character import Character
-from app.storage.models.note import Note, NoteCategory
+from app.storage.models.note import Note
 from app.storage.models.project import Project
+from app.storage.models.project_folder import ProjectFolder
 from app.storage.models.task import Task
 from app.storage.models.world_info import WorldInfo
 from app.storage.models.world_info_entry import WorldInfoEntry
@@ -39,6 +41,44 @@ class ProjectBundleApplyResult:
     mode: ImportMode
     items: list[PreviewItem]
     summary: dict[str, int]
+
+
+async def _apply_folders(
+    session: AsyncSession,
+    folders: list[ParsedBundleFolder],
+    actions: dict[tuple[str, str], str],
+    now: datetime,
+) -> None:
+    for folder in folders:
+        action = actions[("project_folder", folder.id)]
+        if action == "unchanged":
+            continue
+        fields = folder.semantic_fields
+        if action == "create":
+            session.add(
+                ProjectFolder(
+                    id=folder.id,
+                    project_id=fields["project_id"],
+                    scope=fields["scope"],
+                    title=folder.title,
+                    description=fields.get("description"),
+                    order=fields["order"],
+                    created_at=now,
+                    updated_at=now,
+                )
+            )
+        else:
+            current = await session.get(ProjectFolder, folder.id)
+            if current is None:
+                raise BundleFormatError("folder disappeared during apply")
+            current.scope = fields["scope"]
+            current.title = folder.title
+            if "description" in fields:
+                current.description = fields["description"]
+            current.order = fields["order"]
+            current.updated_at = now
+            session.add(current)
+        await session.flush()
 
 
 def _category_depth(
@@ -68,24 +108,25 @@ async def _apply_categories(
         fields = category.semantic_fields
         if action == "create":
             session.add(
-                NoteCategory(
+                ProjectFolder(
                     id=category.id,
                     project_id=fields["project_id"],
-                    parent_id=fields["parent_id"],
                     title=category.title,
-                    document_type=fields["document_type"],
+                    description=fields.get("description"),
+                    scope=fields["document_type"],
                     order=fields["order"],
                     created_at=now,
                     updated_at=now,
                 )
             )
         else:
-            current = await session.get(NoteCategory, category.id)
+            current = await session.get(ProjectFolder, category.id)
             if current is None:
                 raise BundleFormatError("category disappeared during apply")
-            current.parent_id = fields["parent_id"]
             current.title = category.title
-            current.document_type = fields["document_type"]
+            if "description" in fields:
+                current.description = fields["description"]
+            current.scope = fields["document_type"]
             current.order = fields["order"]
             current.updated_at = now
             session.add(current)
@@ -145,6 +186,7 @@ async def _apply_world_entry(
                 content=document.body,
                 token_count=token_count,
                 is_enabled=fields["writing_visible"],
+                folder_id=fields.get("folder_id"),
                 created_at=now,
                 updated_at=now,
             )
@@ -160,6 +202,8 @@ async def _apply_world_entry(
     current.content = document.body
     current.token_count = token_count
     current.is_enabled = fields["writing_visible"]
+    if "folder_id" in fields:
+        current.folder_id = fields["folder_id"]
     current.updated_at = now
     session.add(current)
 
@@ -183,6 +227,7 @@ async def _apply_character(
                 order=fields["order"],
                 is_writing_visible=fields["writing_visible"],
                 is_favorited=fields["is_favorited"],
+                folder_id=fields.get("folder_id"),
                 created_at=now,
                 updated_at=now,
             )
@@ -196,6 +241,8 @@ async def _apply_character(
     current.order = fields["order"]
     current.is_writing_visible = fields["writing_visible"]
     current.is_favorited = fields["is_favorited"]
+    if "folder_id" in fields:
+        current.folder_id = fields["folder_id"]
     current.updated_at = now
     session.add(current)
 
@@ -262,6 +309,7 @@ async def _apply_discussion(
                 agent_session_id=None,
                 is_imported_archive=True,
                 is_running=False,
+                folder_id=fields.get("folder_id"),
                 created_at=now,
                 updated_at=now,
             )
@@ -274,6 +322,8 @@ async def _apply_discussion(
     current.context_mode = fields["context_mode"]
     current.agent_session_id = None
     current.is_running = False
+    if "folder_id" in fields:
+        current.folder_id = fields["folder_id"]
     current.updated_at = now
     session.add(current)
 
@@ -352,6 +402,7 @@ async def apply_project_bundle(
     actions = {(item.kind, item.id): item.action for item in preview.items}
     now = datetime.now(UTC)
 
+    await _apply_folders(session, bundle.project_folders, actions, now)
     await _apply_categories(session, bundle.note_categories, actions, now)
     await _ensure_world_book(session, project, bundle.documents, now)
     for document in bundle.documents:

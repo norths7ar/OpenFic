@@ -1,6 +1,7 @@
 const AUTO_SCROLL_EDGE_THRESHOLD = 56;
 const AUTO_SCROLL_MAX_SPEED = 18;
-export const ENTRY_LIST_ITEM_HEIGHT = 69;
+export { PROJECT_NAV_ITEM_HEIGHT as ENTRY_LIST_ITEM_HEIGHT } from "@/features/project-navigation/lib/project-nav-layout";
+import { PROJECT_NAV_ITEM_HEIGHT as ENTRY_LIST_ITEM_HEIGHT } from "@/features/project-navigation/lib/project-nav-layout";
 
 interface AutoScrollPosition {
   containerTop: number;

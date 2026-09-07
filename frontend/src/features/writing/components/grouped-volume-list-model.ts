@@ -90,7 +90,7 @@ export function getGroupedVolumeListStructureSignature(
 ): string {
   return volumes
     .map((volume) => {
-      const isExpanded = expandedVolumeIds.has(volume.id);
+      const isExpanded = volume.isRoot || expandedVolumeIds.has(volume.id);
       const chapterSignature = isExpanded
         ? volume.chapters.map((chapter) => chapter.id).join(",")
         : String(volume.chapterCount);
@@ -120,7 +120,7 @@ export function buildGroupedVolumeListModel({
       chapterById.set(chapter.id, chapter);
     }
 
-    if (!expandedVolumeIds.has(volume.id)) {
+    if (!(volume.isRoot || expandedVolumeIds.has(volume.id))) {
       groupCounts.push(0);
       continue;
     }

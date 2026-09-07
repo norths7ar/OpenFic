@@ -27,6 +27,7 @@ function transformWorldInfoEntry(raw: Record<string, unknown>): WorldInfoEntry {
   return {
     id: raw.id as string,
     worldInfoId: raw.world_info_id as string,
+    folderId: (raw.folder_id as string | null | undefined) ?? null,
     uid: raw.uid as number,
     name: raw.name as string,
     section: (raw.section as string | undefined) ?? "",
@@ -43,6 +44,7 @@ function transformWorldInfoEntryBrief(raw: Record<string, unknown>): WorldInfoEn
   return {
     id: raw.id as string,
     worldInfoId: raw.world_info_id as string,
+    folderId: (raw.folder_id as string | null | undefined) ?? null,
     uid: raw.uid as number,
     name: raw.name as string,
     section: (raw.section as string | undefined) ?? "",

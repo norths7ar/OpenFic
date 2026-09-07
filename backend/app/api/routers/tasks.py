@@ -107,6 +107,7 @@ async def get_task(
         return TaskResponse(
             id=task.id,
             project_id=task.project_id,
+            folder_id=task.folder_id,
             title=task.title,
             mode=_require_agent_mode(task.mode),
             context_mode=cast(Literal["global", "local"], task.context_mode),
@@ -178,6 +179,7 @@ async def list_tasks(
             TaskListItem(
                 id=task.id,
                 project_id=task.project_id,
+                folder_id=task.folder_id,
                 title=task.title,
                 mode=_require_agent_mode(task.mode),
                 context_mode=cast(Literal["global", "local"], task.context_mode),
@@ -231,6 +233,7 @@ async def update_task(
         return TaskResponse(
             id=task.id,
             project_id=task.project_id,
+            folder_id=task.folder_id,
             title=task.title,
             mode=_require_agent_mode(task.mode),
             context_mode=cast(Literal["global", "local"], task.context_mode),

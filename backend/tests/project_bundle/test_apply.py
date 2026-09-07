@@ -13,8 +13,9 @@ from app.project_bundle.markdown import (
     render_markdown_document,
 )
 from app.storage.models.character import Character
-from app.storage.models.note import Note, NoteCategory
+from app.storage.models.note import Note
 from app.storage.models.project import Project
+from app.storage.models.project_folder import ProjectFolder as NoteCategory
 from app.storage.models.task import Task
 from app.storage.models.world_info import WorldInfo
 from app.storage.models.world_info_entry import WorldInfoEntry
@@ -43,7 +44,9 @@ async def test_apply_restores_all_supported_entities_as_safe_archives(session) -
         content="世界内容",
         is_enabled=False,
     )
-    category = NoteCategory(id="apply-category", project_id=project.id, title="提纲", order=1)
+    category = NoteCategory(
+        scope="note", id="apply-category", project_id=project.id, title="提纲", order=1
+    )
     note = Note(
         id="apply-note",
         project_id=project.id,

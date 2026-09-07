@@ -7,16 +7,16 @@ from app.agent_runtime.tools.base import AgentTool
 from app.agent_runtime.tools.impls._locks import keyed_lock
 from app.agent_runtime.tools.registry import ToolRegistry
 from app.storage.database import create_session
-from app.storage.models.volume import Volume
+from app.storage.models.project_folder import ProjectFolder
 from app.storage.repos import volume_repo
 
 
-def serialize_volume(volume: Volume) -> dict[str, int | str | None]:
+def serialize_volume(volume: ProjectFolder) -> dict[str, int | str | None]:
     return {
         "order": volume.order,
         "title": volume.title,
         "description": volume.description,
-        "chapter_count": volume.chapter_count,
+        "chapter_count": volume.item_count,
     }
 
 
@@ -65,12 +65,13 @@ class CreateVolumeTool(AgentTool):
         try:
             async with await keyed_lock(self.project_id):
                 max_order = await volume_repo.get_max_order(session, self.project_id)
-                volume = Volume(
+                volume = ProjectFolder(
+                    scope="writing",
                     project_id=self.project_id,
                     title=title,
                     description=description,
                     order=max_order + 1,
-                    chapter_count=0,
+                    item_count=0,
                 )
                 volume = await volume_repo.create(session, volume)
                 await session.commit()

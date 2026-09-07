@@ -19,8 +19,9 @@ from app.project_bundle.archive import BundleFormatError, build_zip
 from app.project_bundle.markdown import render_markdown_document
 from app.project_bundle.names import slugify_filename
 from app.storage.models.character import Character
-from app.storage.models.note import Note, NoteCategory
+from app.storage.models.note import Note
 from app.storage.models.project import Project
+from app.storage.models.project_folder import ProjectFolder
 from app.storage.models.task import Task
 from app.storage.models.world_info import WorldInfo
 from app.storage.models.world_info_entry import WorldInfoEntry
@@ -51,42 +52,33 @@ def _iso_datetime(value: datetime) -> str:
     return value.astimezone(UTC).isoformat()
 
 
-def _category_paths(categories: Iterable[NoteCategory]) -> dict[str, str]:
-    by_id = {item.id: item for item in categories}
-    paths: dict[str, str] = {}
-
-    def build(category_id: str, stack: tuple[str, ...] = ()) -> str:
-        if category_id in paths:
-            return paths[category_id]
-        if category_id in stack:
-            raise BundleFormatError("note category hierarchy contains a cycle")
-        category = by_id[category_id]
-        if category.parent_id is None:
-            parent = PurePosixPath("outlines" if category.document_type == "outline" else "notes")
-        else:
-            parent_category = by_id.get(category.parent_id)
-            if (
-                parent_category is None
-                or parent_category.project_id != category.project_id
-                or parent_category.document_type != category.document_type
-            ):
-                raise BundleFormatError("note category parent is missing or cross-project")
-            parent = PurePosixPath(build(category.parent_id, (*stack, category_id)))
-        segment = (
-            f"{category.order:06d}-{slugify_filename(category.title, category.id)}--{category.id}"
+def _category_paths(categories: Iterable[ProjectFolder]) -> dict[str, str]:
+    return {
+        folder.id: str(
+            PurePosixPath("outlines" if folder.scope == "outline" else "notes")
+            / f"{folder.order:06d}-{slugify_filename(folder.title, folder.id)}--{folder.id}"
         )
-        paths[category_id] = str(parent / segment)
-        return paths[category_id]
-
-    for category_id in by_id:
-        build(category_id)
-    return paths
+        for folder in categories
+    }
 
 
 async def export_project_bundle(session: AsyncSession, project_id: str) -> bytes:
     project = await session.get(Project, project_id)
     if project is None:
         raise BundleFormatError(f"project not found: {project_id}")
+
+    project_folders = list(
+        (
+            await session.execute(
+                select(ProjectFolder)
+                .where(
+                    col(ProjectFolder.project_id) == project_id,
+                    col(ProjectFolder.scope).in_(["discussion", "world", "character"]),
+                )
+                .order_by(col(ProjectFolder.scope), col(ProjectFolder.order), col(ProjectFolder.id))
+            )
+        ).scalars()
+    )
 
     world_info = (
         await session.execute(select(WorldInfo).where(col(WorldInfo.project_id) == project_id))
@@ -114,9 +106,12 @@ async def export_project_bundle(session: AsyncSession, project_id: str) -> bytes
     categories = list(
         (
             await session.execute(
-                select(NoteCategory)
-                .where(col(NoteCategory.project_id) == project_id)
-                .order_by(col(NoteCategory.order), col(NoteCategory.id))
+                select(ProjectFolder)
+                .where(
+                    col(ProjectFolder.project_id) == project_id,
+                    col(ProjectFolder.scope).in_(["note", "outline"]),
+                )
+                .order_by(col(ProjectFolder.order), col(ProjectFolder.id))
             )
         ).scalars()
     )
@@ -143,6 +138,7 @@ async def export_project_bundle(session: AsyncSession, project_id: str) -> bytes
             "section": entry.section,
             "order": entry.order,
             "writing_visible": entry.is_enabled,
+            "folder_id": entry.folder_id,
         }
         path = (
             f"worldbook/{entry.order:06d}-{slugify_filename(entry.name, entry.id)}--{entry.id}.md"
@@ -174,6 +170,7 @@ async def export_project_bundle(session: AsyncSession, project_id: str) -> bytes
             "order": character.order,
             "writing_visible": character.is_writing_visible,
             "is_favorited": character.is_favorited,
+            "folder_id": character.folder_id,
         }
         path = (
             f"characters/{character.order:06d}-"
@@ -252,6 +249,7 @@ async def export_project_bundle(session: AsyncSession, project_id: str) -> bytes
             "id": task.id,
             "project_id": project_id,
             "context_mode": task.context_mode,
+            "folder_id": task.folder_id,
         }
         discussion_hash = document_semantic_hash(discussion_fields, task.title, "")
         discussion_path = f"{directory}/discussion.md"
@@ -340,23 +338,51 @@ async def export_project_bundle(session: AsyncSession, project_id: str) -> bytes
         {
             "id": c.id,
             "project_id": c.project_id,
-            "parent_id": c.parent_id,
+            "parent_id": None,
             "title": c.title,
-            "document_type": c.document_type,
+            **({"description": c.description} if c.description is not None else {}),
+            "document_type": c.scope,
             "order": c.order,
             "base_hash": semantic_hash(
                 {
                     "kind": "note_category",
                     "id": c.id,
                     "project_id": c.project_id,
-                    "parent_id": c.parent_id,
+                    "parent_id": None,
                     "title": c.title,
-                    "document_type": c.document_type,
+                    **({"description": c.description} if c.description is not None else {}),
+                    "document_type": c.scope,
                     "order": c.order,
                 }
             ),
         }
         for c in categories
+    ]
+    folders_manifest = [
+        {
+            "id": folder.id,
+            "project_id": folder.project_id,
+            "scope": folder.scope,
+            "title": folder.title,
+            **({"description": folder.description} if folder.description is not None else {}),
+            "order": folder.order,
+            "base_hash": semantic_hash(
+                {
+                    "kind": "project_folder",
+                    "id": folder.id,
+                    "project_id": folder.project_id,
+                    "scope": folder.scope,
+                    "title": folder.title,
+                    **(
+                        {"description": folder.description}
+                        if folder.description is not None
+                        else {}
+                    ),
+                    "order": folder.order,
+                }
+            ),
+        }
+        for folder in project_folders
     ]
     manifest = {
         "schema": "openfic.project-bundle",
@@ -368,6 +394,7 @@ async def export_project_bundle(session: AsyncSession, project_id: str) -> bytes
         },
         "documents": sorted(documents, key=lambda item: item["path"]),
         "note_categories": categories_manifest,
+        "project_folders": folders_manifest,
     }
     files["openfic.yaml"] = _yaml(manifest)
     return build_zip(files)

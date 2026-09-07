@@ -1,17 +1,46 @@
+import {
+  Box,
+  Button,
+  Dialog,
+  DropdownMenu,
+  Flex,
+  Text,
+  IconButton,
+  Tooltip,
+  TextField,
+} from "@radix-ui/themes";
 /**
  * All Tasks Page
  *
  * 查看全部任务页面组件。
  */
-
-import { Box, DropdownMenu, Flex, Text, IconButton, Tooltip, TextField } from "@radix-ui/themes";
 import { formatDistanceToNow } from "date-fns";
 import { zhCN } from "date-fns/locale";
-import { ArrowLeft, MoreHorizontal, Pencil, Plus, Star, Trash2, Search, ListX } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowUpDown,
+  FolderInput,
+  FolderPlus,
+  MoreHorizontal,
+  Pencil,
+  Plus,
+  Star,
+  Trash2,
+  Search,
+  ListX,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { ConfirmDialog, Spinner } from "@/components";
+import {
+  useProjectFolderMutations,
+  useProjectFolders,
+} from "@/features/project-folders/hooks/use-project-folders";
+import type { ProjectFolder } from "@/features/project-folders/lib/project-folder-api";
+import { ProjectFolderGroups } from "@/features/project-navigation/components/project-folder-groups";
+import { ProjectNavItemRow } from "@/features/project-navigation/components/project-nav-item-row";
+import { ProjectNavToolbar } from "@/features/project-navigation/components/project-nav-toolbar";
 import type { TaskListItem } from "@/lib/task.types";
 
 import { useTasks, useUpdateTask, useDeleteTask, useDeleteAllTasks } from "../../hooks/use-tasks";
@@ -24,7 +53,7 @@ interface AllTasksPageProps {
   activeTaskId?: string | null;
   showBack?: boolean;
   title?: string;
-  onNew?: () => void;
+  onNew?: (folderId?: string) => void;
   newLabel?: string;
   searchPlaceholder?: string;
   emptyLabel?: string;
@@ -49,6 +78,16 @@ export function AllTasksPage({
   const [deleteAllDialogOpen, setDeleteAllDialogOpen] = useState(false);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [savingTaskId, setSavingTaskId] = useState<string | null>(null);
+  const [sortBy, setSortBy] = useState<"updated" | "title">("updated");
+  const { data: folders = [] } = useProjectFolders(projectId, "discussion");
+  const folderMutations = useProjectFolderMutations(projectId, "discussion");
+  const [folderDialog, setFolderDialog] = useState<{
+    mode: "create" | "rename";
+    folder?: ProjectFolder;
+  } | null>(null);
+  const [folderTitle, setFolderTitle] = useState("");
+  const [deletingFolderId, setDeletingFolderId] = useState<string | null>(null);
+  const [folderDescription, setFolderDescription] = useState("");
 
   // 获取任务列表
   const { data, isLoading, refetch } = useTasks(projectId, {
@@ -130,7 +169,11 @@ export function AllTasksPage({
     setDeleteAllDialogOpen(false);
   };
 
-  const tasks = data?.items ?? [];
+  const tasks = [...(data?.items ?? [])].sort((left, right) =>
+    sortBy === "title"
+      ? left.title.localeCompare(right.title, "zh-CN")
+      : right.updatedAt.localeCompare(left.updatedAt),
+  );
   const allTasks = allTasksData?.items ?? [];
   const hasAnyTasks = allTasks.length > 0;
   const runningTaskCount = allTasks.filter((task) => task.isRunning).length;
@@ -149,31 +192,71 @@ export function AllTasksPage({
         background: "var(--color-panel)",
       }}
     >
-      {/* 顶部栏 */}
-      <Flex
-        px="3"
-        py="3"
-        align="center"
-        gap="2"
-        style={{ borderBottom: "1px solid var(--gray-a4)" }}
-      >
-        {showBack ? (
-          <IconButton
-            variant="ghost"
-            size="2"
-            onClick={onBack}
+      <ProjectNavToolbar
+        search={
+          <Flex
+            align="center"
+            gap="1"
           >
-            <ArrowLeft size={18} />
-          </IconButton>
-        ) : null}
-        <Text
-          size="3"
-          weight="medium"
-          style={{ flex: 1 }}
-        >
-          {title ?? t("writing.aiSidebar.allTasks")}
-        </Text>
-        {hasAnyTasks ? (
+            {showBack ? (
+              <IconButton
+                variant="ghost"
+                size="2"
+                onClick={onBack}
+                aria-label={t("common.back")}
+              >
+                <ArrowLeft size={18} />
+              </IconButton>
+            ) : null}
+            <TextField.Root
+              placeholder={searchPlaceholder ?? title ?? t("writing.aiSidebar.searchTasks")}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              size="2"
+              style={{ flex: 1 }}
+            >
+              <TextField.Slot>
+                <Search size={16} />
+              </TextField.Slot>
+            </TextField.Root>
+          </Flex>
+        }
+        sort={
+          <DropdownMenu.Root>
+            <DropdownMenu.Trigger>
+              <IconButton
+                variant="ghost"
+                size="2"
+                aria-label={t("characters.sort")}
+              >
+                <ArrowUpDown size={16} />
+              </IconButton>
+            </DropdownMenu.Trigger>
+            <DropdownMenu.Content align="end">
+              <DropdownMenu.Item onClick={() => setSortBy("updated")}>
+                {t("characters.sortByUpdated")}
+              </DropdownMenu.Item>
+              <DropdownMenu.Item onClick={() => setSortBy("title")}>
+                {t("characters.sortByName")}
+              </DropdownMenu.Item>
+            </DropdownMenu.Content>
+          </DropdownMenu.Root>
+        }
+        create={
+          onNew ? (
+            <Tooltip content={newLabel ?? t("assistant.newTask")}>
+              <IconButton
+                variant="soft"
+                size="2"
+                onClick={() => onNew?.()}
+                aria-label={newLabel ?? t("assistant.newTask")}
+              >
+                <Plus size={18} />
+              </IconButton>
+            </Tooltip>
+          ) : null
+        }
+        more={
           <DropdownMenu.Root>
             <DropdownMenu.Trigger>
               <IconButton
@@ -186,55 +269,34 @@ export function AllTasksPage({
             </DropdownMenu.Trigger>
             <DropdownMenu.Content align="end">
               <DropdownMenu.Item
-                color="red"
-                onClick={() => setDeleteAllDialogOpen(true)}
+                onClick={() => {
+                  setFolderTitle("");
+                  setFolderDescription("");
+                  setFolderDialog({ mode: "create" });
+                }}
               >
-                <ListX size={16} />
-                {t("writing.aiSidebar.deleteAllTasks")}
+                <FolderPlus size={16} />
+                {t("projectNavigation.newFolder")}
               </DropdownMenu.Item>
+              {hasAnyTasks ? (
+                <DropdownMenu.Item
+                  color="red"
+                  onClick={() => setDeleteAllDialogOpen(true)}
+                >
+                  <ListX size={16} />
+                  {t("writing.aiSidebar.deleteAllTasks")}
+                </DropdownMenu.Item>
+              ) : null}
             </DropdownMenu.Content>
           </DropdownMenu.Root>
-        ) : null}
-      </Flex>
-
-      {/* 搜索栏 */}
-      <Flex
-        px="3"
-        py="2"
-        gap="2"
-        align="center"
-      >
-        <TextField.Root
-          placeholder={searchPlaceholder ?? t("writing.aiSidebar.searchTasks")}
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          size="2"
-          style={{ flex: 1 }}
-        >
-          <TextField.Slot>
-            <Search size={16} />
-          </TextField.Slot>
-        </TextField.Root>
-        {onNew ? (
-          <Tooltip content={newLabel ?? t("assistant.newTask")}>
-            <IconButton
-              variant="soft"
-              size="2"
-              onClick={onNew}
-              aria-label={newLabel ?? t("assistant.newTask")}
-            >
-              <Plus size={18} />
-            </IconButton>
-          </Tooltip>
-        ) : null}
-      </Flex>
+        }
+      />
 
       {/* 任务列表 */}
       <Box
         style={{
           flex: 1,
           overflow: "auto",
-          padding: "8px 12px",
         }}
       >
         {isLoading ? (
@@ -245,7 +307,7 @@ export function AllTasksPage({
           >
             <Spinner size={18} />
           </Flex>
-        ) : tasks.length === 0 ? (
+        ) : tasks.length === 0 && folders.length === 0 ? (
           <Flex
             align="center"
             justify="center"
@@ -258,22 +320,53 @@ export function AllTasksPage({
             </Text>
           </Flex>
         ) : (
-          tasks.map((task) => (
-            <Box
-              key={task.id}
-              className="task-list-item"
-              data-active={task.id === activeTaskId}
-              onClick={() => {
-                if (editingTaskId !== task.id) onTaskClick(task);
-              }}
-            >
-              <Flex
-                align="center"
-                gap="2"
-                style={{ marginBottom: "8px" }}
-              >
-                {editingTaskId === task.id ? (
-                  <Box style={{ flex: 1, minWidth: 0, height: "20px" }}>
+          <ProjectFolderGroups
+            folders={folders}
+            items={tasks}
+            renderFolderMenu={(folder) => (
+              <DropdownMenu.Root>
+                <DropdownMenu.Trigger>
+                  <IconButton
+                    variant="ghost"
+                    size="1"
+                    aria-label={t("common.more")}
+                  >
+                    <MoreHorizontal size={14} />
+                  </IconButton>
+                </DropdownMenu.Trigger>
+                <DropdownMenu.Content align="end">
+                  {onNew && (
+                    <DropdownMenu.Item onClick={() => onNew(folder.id)}>
+                      {newLabel ?? t("assistant.newTask")}
+                    </DropdownMenu.Item>
+                  )}
+                  <DropdownMenu.Item
+                    onClick={() => {
+                      setFolderTitle(folder.title);
+                      setFolderDescription(folder.description ?? "");
+                      setFolderDialog({ mode: "rename", folder });
+                    }}
+                  >
+                    {t("common.rename")}
+                  </DropdownMenu.Item>
+                  <DropdownMenu.Item
+                    color="red"
+                    onClick={() => setDeletingFolderId(folder.id)}
+                  >
+                    {t("common.delete")}
+                  </DropdownMenu.Item>
+                </DropdownMenu.Content>
+              </DropdownMenu.Root>
+            )}
+            renderItem={(task) => (
+              <ProjectNavItemRow
+                key={task.id}
+                selected={task.id === activeTaskId}
+                onClick={() => {
+                  if (editingTaskId !== task.id) onTaskClick(task);
+                }}
+                title={
+                  editingTaskId === task.id ? (
                     <TaskRenameInput
                       key={task.id}
                       initialValue={task.title}
@@ -281,103 +374,116 @@ export function AllTasksPage({
                       onConfirm={(newTitle) => handleCommitEdit(task.id, task.title, newTitle)}
                       onCancel={handleCancelEdit}
                     />
-                  </Box>
-                ) : (
-                  <Text
-                    size="2"
-                    weight="medium"
-                    style={{
-                      flex: 1,
-                      minWidth: 0,
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    {task.title}
-                  </Text>
-                )}
-                {task.isRunning && (
-                  <span
-                    aria-label={runningLabel}
-                    className="task-running-dot"
-                    title={runningLabel}
-                  />
-                )}
-              </Flex>
-
-              {/* 底部栏 */}
-              <Flex
-                justify="between"
-                align="center"
-              >
-                {/* 左侧：时间 */}
-                <Text
-                  size="1"
-                  style={{ color: "var(--gray-10)" }}
-                >
-                  {formatTime(task.updatedAt)}
-                </Text>
-
-                {/* 右侧：操作按钮 */}
-                <Flex
-                  align="center"
-                  gap="1"
-                >
-                  <Tooltip content={t("common.edit")}>
-                    <IconButton
-                      variant="ghost"
-                      size="1"
-                      onClick={(e) => handleStartEdit(task, e)}
-                      disabled={savingTaskId === task.id}
-                      style={{ width: "24px", height: "24px" }}
-                    >
-                      <Pencil size={14} />
-                    </IconButton>
-                  </Tooltip>
-                  <Tooltip
-                    content={
-                      task.isFavorited
-                        ? t("writing.aiSidebar.unfavorite")
-                        : t("writing.aiSidebar.favorite")
-                    }
-                  >
-                    <IconButton
-                      variant="ghost"
-                      size="1"
-                      onClick={(e) => handleToggleFavorite(task, e)}
-                      style={{
-                        width: "24px",
-                        height: "24px",
-                        color: task.isFavorited ? "var(--amber-9)" : "var(--gray-9)",
-                      }}
-                    >
-                      <Star
-                        size={14}
-                        fill={task.isFavorited ? "currentColor" : "none"}
-                      />
-                    </IconButton>
-                  </Tooltip>
-                  {!task.isRunning && (
-                    <Tooltip content={t("common.delete")}>
+                  ) : (
+                    task.title
+                  )
+                }
+                status={
+                  task.isRunning && (
+                    <span
+                      aria-label={runningLabel}
+                      className="task-running-dot"
+                      title={runningLabel}
+                    />
+                  )
+                }
+                metadata={formatTime(task.updatedAt)}
+                actions={
+                  <>
+                    <DropdownMenu.Root>
+                      <DropdownMenu.Trigger>
+                        <IconButton
+                          variant="ghost"
+                          size="1"
+                          onClick={(event) => event.stopPropagation()}
+                          style={{ width: "24px", height: "24px" }}
+                        >
+                          <FolderInput size={14} />
+                        </IconButton>
+                      </DropdownMenu.Trigger>
+                      <DropdownMenu.Content
+                        align="end"
+                        onClick={(event) => event.stopPropagation()}
+                      >
+                        <DropdownMenu.Item
+                          disabled={task.folderId === null}
+                          onClick={() =>
+                            folderMutations.moveItem.mutate({ itemId: task.id, folderId: null })
+                          }
+                        >
+                          {t("projectNavigation.root")}
+                        </DropdownMenu.Item>
+                        {folders.map((folder) => (
+                          <DropdownMenu.Item
+                            key={folder.id}
+                            disabled={task.folderId === folder.id}
+                            onClick={() =>
+                              folderMutations.moveItem.mutate({
+                                itemId: task.id,
+                                folderId: folder.id,
+                              })
+                            }
+                          >
+                            {folder.title}
+                          </DropdownMenu.Item>
+                        ))}
+                      </DropdownMenu.Content>
+                    </DropdownMenu.Root>
+                    <Tooltip content={t("common.edit")}>
                       <IconButton
                         variant="ghost"
                         size="1"
-                        onClick={(e) => handleOpenDelete(task, e)}
+                        onClick={(e) => handleStartEdit(task, e)}
+                        disabled={savingTaskId === task.id}
+                        style={{ width: "24px", height: "24px" }}
+                      >
+                        <Pencil size={14} />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip
+                      content={
+                        task.isFavorited
+                          ? t("writing.aiSidebar.unfavorite")
+                          : t("writing.aiSidebar.favorite")
+                      }
+                    >
+                      <IconButton
+                        variant="ghost"
+                        size="1"
+                        onClick={(e) => handleToggleFavorite(task, e)}
                         style={{
                           width: "24px",
                           height: "24px",
-                          color: "var(--red-9)",
+                          color: task.isFavorited ? "var(--amber-9)" : "var(--gray-9)",
                         }}
                       >
-                        <Trash2 size={14} />
+                        <Star
+                          size={14}
+                          fill={task.isFavorited ? "currentColor" : "none"}
+                        />
                       </IconButton>
                     </Tooltip>
-                  )}
-                </Flex>
-              </Flex>
-            </Box>
-          ))
+                    {!task.isRunning && (
+                      <Tooltip content={t("common.delete")}>
+                        <IconButton
+                          variant="ghost"
+                          size="1"
+                          onClick={(e) => handleOpenDelete(task, e)}
+                          style={{
+                            width: "24px",
+                            height: "24px",
+                            color: "var(--red-9)",
+                          }}
+                        >
+                          <Trash2 size={14} />
+                        </IconButton>
+                      </Tooltip>
+                    )}
+                  </>
+                }
+              />
+            )}
+          />
         )}
       </Box>
 
@@ -394,6 +500,90 @@ export function AllTasksPage({
         confirmColor="red"
         loading={deleteMutation.isPending}
       />
+
+      <ConfirmDialog
+        open={deletingFolderId !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeletingFolderId(null);
+        }}
+        title={t("common.delete")}
+        description={t("projectNavigation.deleteFolderConfirm")}
+        onConfirm={() => {
+          if (deletingFolderId) folderMutations.remove.mutate(deletingFolderId);
+          setDeletingFolderId(null);
+        }}
+      />
+      <Dialog.Root
+        open={folderDialog !== null}
+        onOpenChange={(open) => {
+          if (!open) setFolderDialog(null);
+        }}
+      >
+        <Dialog.Content style={{ maxWidth: 400 }}>
+          <Dialog.Title>
+            {t(
+              folderDialog?.mode === "rename"
+                ? "projectNavigation.renameFolder"
+                : "projectNavigation.newFolder",
+            )}
+          </Dialog.Title>
+          <TextField.Root
+            value={folderTitle}
+            onChange={(event) => setFolderTitle(event.target.value)}
+            autoFocus
+          />
+          <textarea
+            aria-label={t("volume.menu.editDescription")}
+            placeholder={t("volume.menu.editDescription")}
+            value={folderDescription}
+            onChange={(event) => setFolderDescription(event.target.value)}
+            style={{
+              width: "100%",
+              boxSizing: "border-box",
+              marginTop: 12,
+              minHeight: 70,
+              background: "var(--color-background)",
+              color: "var(--gray-12)",
+            }}
+          />
+          <Flex
+            gap="3"
+            justify="end"
+            mt="4"
+          >
+            <Dialog.Close>
+              <Button
+                variant="soft"
+                color="gray"
+              >
+                {t("common.cancel")}
+              </Button>
+            </Dialog.Close>
+            <Button
+              onClick={() => {
+                const nextTitle = folderTitle.trim();
+                if (!nextTitle || !folderDialog) return;
+                if (folderDialog.mode === "rename" && folderDialog.folder)
+                  folderMutations.rename.mutate({
+                    folderId: folderDialog.folder.id,
+                    title: nextTitle,
+                    description: folderDescription || null,
+                  });
+                else
+                  folderMutations.create.mutate({
+                    title: nextTitle,
+                    description: folderDescription || null,
+                  });
+                setFolderDialog(null);
+                setFolderTitle("");
+                setFolderDescription("");
+              }}
+            >
+              {t("common.confirm")}
+            </Button>
+          </Flex>
+        </Dialog.Content>
+      </Dialog.Root>
 
       {/* 删除全部确认对话框 */}
       <ConfirmDialog

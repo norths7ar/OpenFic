@@ -46,9 +46,8 @@ def _source_bundle(
                 "id": "outline",
                 "target": "notes",
                 "source": "outline.md",
-                "split": {"type": "headings", "item_levels": [2, 3]},
-                "category_path": ["提纲"],
-                "category_levels": [2],
+                "split": {"type": "headings", "item_levels": [3]},
+                "folder_level": 2,
             },
         ],
     }
@@ -74,8 +73,8 @@ async def test_mapped_bundle_round_trip_and_three_way_baseline(session) -> None:
     source = _source_bundle(project.id)
     mapped = await build_mapped_project_bundle(session, project.id, source)
     parsed = parse_project_bundle(mapped.data, project.id)
-    assert len(parsed.documents) == 5
-    assert len(parsed.note_categories) == 2
+    assert len(parsed.documents) == 3
+    assert len(parsed.note_categories) == 1
     assert {document.kind for document in parsed.documents} == {
         "world_entry",
         "character",
@@ -85,7 +84,7 @@ async def test_mapped_bundle_round_trip_and_three_way_baseline(session) -> None:
 
     preview = await preview_project_bundle(session, project.id, mapped.data, "merge")
     assert preview.summary == {
-        "create": 7,
+        "create": 5,
         "update": 0,
         "unchanged": 0,
         "conflict": 0,
@@ -98,7 +97,7 @@ async def test_mapped_bundle_round_trip_and_three_way_baseline(session) -> None:
     assert unchanged.summary == {
         "create": 0,
         "update": 0,
-        "unchanged": 7,
+        "unchanged": 5,
         "conflict": 0,
     }
     changed_source = _source_bundle(project.id, volume_body="卷内容 v2")
@@ -134,7 +133,7 @@ async def test_mapped_bundle_round_trip_and_three_way_baseline(session) -> None:
             )
         ).scalars()
     )
-    assert len(bindings) == 7
+    assert len(bindings) == 5
 
 
 @pytest.mark.asyncio

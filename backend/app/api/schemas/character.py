@@ -10,6 +10,7 @@ class CharacterResponse(BaseModel):
 
     id: str = Field(description="角色 ID")
     project_id: str = Field(description="所属项目 ID")
+    folder_id: str | None = Field(default=None, description="所属文件夹 ID")
     name: str = Field(description="角色名称")
     description: str = Field(description="角色描述")
     image_url: str | None = Field(description="角色头像 URL")
@@ -25,6 +26,7 @@ class CharacterListItemResponse(BaseModel):
 
     id: str = Field(description="角色 ID")
     project_id: str = Field(description="所属项目 ID")
+    folder_id: str | None = Field(default=None, description="所属文件夹 ID")
     name: str = Field(description="角色名称")
     image_url: str | None = Field(description="角色头像 URL")
     token_count: int = Field(description="角色描述 Token 数")

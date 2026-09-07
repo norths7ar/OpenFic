@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field
 class ChapterCreate(BaseModel):
     """创建章节请求。"""
 
-    volume_id: str = Field(description="所属卷 ID")
+    volume_id: str | None = Field(default=None, description="所属卷 ID")
     title: str = Field(min_length=1, max_length=200, description="章节标题")
     content: str = Field(default="", description="章节内容")
     word_count: int | None = Field(default=None, ge=0, description="章节字数（前端计算）")
@@ -28,14 +28,14 @@ class ChapterUpdate(BaseModel):
 class ChapterReorder(BaseModel):
     """批量重排章节请求。"""
 
-    volume_id: str = Field(description="卷 ID")
+    volume_id: str | None = Field(default=None, description="卷 ID")
     chapter_ids: list[str] = Field(description="按新顺序排列的章节 ID 列表")
 
 
 class ChapterMoveToVolume(BaseModel):
     """跨卷移动章节请求。"""
 
-    volume_id: str = Field(description="目标卷 ID")
+    volume_id: str | None = Field(default=None, description="目标卷 ID")
 
 
 class ChapterResponse(BaseModel):
@@ -43,7 +43,7 @@ class ChapterResponse(BaseModel):
 
     id: str = Field(description="章节 ID")
     project_id: str = Field(description="所属项目 ID")
-    volume_id: str = Field(description="所属卷 ID")
+    volume_id: str | None = Field(default=None, description="所属卷 ID")
     title: str = Field(description="章节标题")
     content: str = Field(description="章节内容")
     word_count: int = Field(description="章节字数")
@@ -59,7 +59,7 @@ class ChapterListItem(BaseModel):
 
     id: str = Field(description="章节 ID")
     project_id: str = Field(description="所属项目 ID")
-    volume_id: str = Field(description="所属卷 ID")
+    volume_id: str | None = Field(default=None, description="所属卷 ID")
     title: str = Field(description="章节标题")
     word_count: int = Field(description="章节字数")
     order: int = Field(description="排序序号")
@@ -90,6 +90,7 @@ class VolumeTreeResponse(BaseModel):
 
     volumes: list[VolumeTreeItem] = Field(description="卷列表")
     total_chapters: int = Field(description="章节总数")
+    root_chapters: list[ChapterListItem] = Field(default_factory=list)
 
 
 class MentionCandidateItem(BaseModel):

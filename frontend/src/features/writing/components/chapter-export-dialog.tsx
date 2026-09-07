@@ -15,6 +15,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Virtuoso } from "react-virtuoso";
 
+import { PROJECT_NAV_ROOT_ID } from "@/features/project-navigation/lib/project-nav-groups";
+
 import "./chapter-export-dialog.css";
 
 import { fetchProject } from "@/features/projects/lib/project-api";
@@ -315,8 +317,19 @@ export function ChapterExportDialog({
     setErrorMessage(null);
     try {
       const nextExport = await createChapterExport(projectId, {
-        selectedVolumeIds: [...selection.selectedVolumeIds],
-        includedChapterIds: [...selection.includedChapterIds],
+        selectedVolumeIds: [...selection.selectedVolumeIds].filter(
+          (id) => id !== PROJECT_NAV_ROOT_ID,
+        ),
+        includedChapterIds: [
+          ...new Set([
+            ...selection.includedChapterIds,
+            ...(selection.selectedVolumeIds.has(PROJECT_NAV_ROOT_ID)
+              ? volumes
+                  .filter((folder) => folder.isRoot)
+                  .flatMap((folder) => folder.chapters.map((chapter) => chapter.id))
+              : []),
+          ]),
+        ],
         excludedChapterIds: [...selection.excludedChapterIds],
         localDate: getLocalDate(),
       });
@@ -436,7 +449,11 @@ export function ChapterExportDialog({
                               data-expanded={isExpanded ? "true" : "false"}
                             />
                             {isExpanded ? <FolderOpen size={15} /> : <Folder size={15} />}
-                            <span>{row.volume.title || t("volume.untitled")}</span>
+                            <span>
+                              {row.volume.isRoot
+                                ? t("projectNavigation.root")
+                                : row.volume.title || t("volume.untitled")}
+                            </span>
                             <small>{row.volume.chapterCount}</small>
                           </button>
                         </div>

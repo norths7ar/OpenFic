@@ -72,6 +72,42 @@ def test_heading_boundaries_ancestors_and_global_order() -> None:
     assert [item.order for item in items] == list(range(len(items)))
 
 
+def test_heading_rule_can_reserve_order_gaps_for_file_rules() -> None:
+    rules = [
+        {
+            "id": "outline",
+            "target": "outlines",
+            "source": "outline.md",
+            "split": {"type": "headings", "item_levels": [3]},
+            "order": 10,
+            "order_step": 10,
+        },
+        {
+            "id": "detail",
+            "target": "outlines",
+            "source": "detail.md",
+            "split": {"type": "file"},
+            "order": 25,
+        },
+    ]
+    data = bundle(
+        "p",
+        rules,
+        **{
+            "outline.md": "# 总纲\n## 阶段\n### 第一卷\n一\n### 第二卷\n二",
+            "detail.md": "# 第一卷细纲\n细节",
+        },
+    )
+
+    items = parse_source_mapping(data, "p")
+
+    assert [(item.title, item.order) for item in items] == [
+        ("第一卷", 10),
+        ("第二卷", 20),
+        ("第一卷细纲", 25),
+    ]
+
+
 def test_world_section_and_fenced_headings() -> None:
     rules = [
         {
@@ -133,14 +169,13 @@ def test_disabled_title_suffix_must_be_non_empty_and_single_line(value: str) -> 
         parse_source_mapping(bundle("p", [rule], **{"world.md": "# 世界"}), "p")
 
 
-def test_mixed_outline_levels_use_only_current_ancestor_category() -> None:
+def test_mixed_outline_levels_use_at_most_one_ancestor_folder() -> None:
     rules = [
         {
             "id": "outline",
             "target": "notes",
             "source": "outline.md",
             "split": {"type": "headings", "item_levels": [2, 3]},
-            "category_path": ["提纲"],
             "category_levels": [2],
         }
     ]
@@ -155,9 +190,9 @@ def test_mixed_outline_levels_use_only_current_ancestor_category() -> None:
     )
     items = parse_source_mapping(data, "p")
     assert [(item.title, item.category_path) for item in items] == [
-        ("第一阶段", ["提纲"]),
-        ("第一卷", ["提纲", "第一阶段"]),
-        ("第二阶段", ["提纲"]),
+        ("第一阶段", []),
+        ("第一卷", ["第一阶段"]),
+        ("第二阶段", []),
     ]
     assert items[0].body == "阶段序言"
     assert items[1].body == "卷内容"
@@ -215,6 +250,7 @@ def test_optional_rule_may_have_no_matching_source_and_project_id_is_optional() 
         lambda r: {**r, "extra": 1},
         lambda r: {**r, "context_mode": "global"},
         lambda r: {**r, "split": {"type": "file", "item_levels": [2]}},
+        lambda r: {**r, "order_step": 10},
     ],
 )
 def test_invalid_rule_options(mutator) -> None:
@@ -285,14 +321,13 @@ def test_rejects_structure_errors_and_isolates_project() -> None:
         parse_source_mapping(build_zip(files), "p")
 
 
-def test_categories_max_two_and_duplicate_logic() -> None:
+def test_category_path_cannot_exceed_one_level() -> None:
     rule = {
         "id": "r",
         "target": "notes",
         "source": "a.md",
         "split": {"type": "headings", "item_levels": [4]},
         "category_levels": [2, 3],
-        "category_path": ["static"],
     }
     with pytest.raises(BundleFormatError):
         parse_source_mapping(bundle("p", [rule], **{"a.md": "# A\n## B\n### C\n#### D"}), "p")

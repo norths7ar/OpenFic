@@ -7,8 +7,8 @@ from sqlmodel import SQLModel
 from app.agent_runtime.persistence import repo as message_repo
 from app.storage.models.chapter import Chapter
 from app.storage.models.project import Project
+from app.storage.models.project_folder import ProjectFolder as Volume
 from app.storage.models.task import Task
-from app.storage.models.volume import Volume
 from tests.model_registry import register_sqlmodel_models
 
 
@@ -25,11 +25,12 @@ async def fork_db():
         session.add(Project(id="proj-1", title="测试项目"))
         session.add(
             Volume(
+                scope="writing",
                 id="vol-1",
                 project_id="proj-1",
                 title="第一卷",
                 order=1,
-                chapter_count=1,
+                item_count=1,
             )
         )
         session.add(

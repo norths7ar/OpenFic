@@ -14,6 +14,8 @@ import { AssistantSidebarHost } from "@/features/app-shell/components/assistant-
 import { MobileAppSidebarTrigger } from "@/features/app-shell/components/mobile-app-sidebar-trigger";
 import type { AssistantSidebarState } from "@/features/assistant";
 import { buildCharacterMentionTag } from "@/features/assistant/lib/mention-text";
+import { moveProjectFolderItem } from "@/features/project-folders/lib/project-folder-api";
+import { ProjectNavShell } from "@/features/project-navigation/components/project-nav-shell";
 import { fetchProjects } from "@/features/projects/lib/project-api";
 import { usePersistedPanelLayout } from "@/hooks/use-persisted-panel-layout";
 import type { Character, CharacterListItem, CharacterListResponse } from "@/lib/character.types";
@@ -40,8 +42,8 @@ import "./characters-page.css";
 
 const LAST_PROJECT_KEY = "characters.lastProjectId";
 const LAST_CHARACTER_KEY = "characters.lastCharacterId";
-const PANEL_LAYOUT_KEY = "panel-layout.characters";
-const PANEL_IDS = ["characters-list", "characters-editor", "characters-right"];
+const PANEL_LAYOUT_KEY = "panel-layout.project-editor";
+const PANEL_IDS = ["editor", "right-sidebar"];
 const MotionBox = motion.create(Box);
 const MOBILE_SIDEBAR_WIDTH = 320;
 
@@ -49,6 +51,7 @@ function toCharacterListItem(character: Character): CharacterListItem {
   return {
     id: character.id,
     projectId: character.projectId,
+    folderId: character.folderId,
     name: character.name,
     imageUrl: character.imageUrl,
     tokenCount: countTokens(character.description),
@@ -246,10 +249,16 @@ export function CharactersPage() {
   );
 
   const createMutation = useMutation({
-    mutationFn: () =>
-      createCharacter(currentProjectId!, {
+    mutationFn: async (folderId?: string) => {
+      const character = await createCharacter(currentProjectId!, {
         name: t("characters.untitledCharacter"),
-      }),
+      });
+      if (folderId) {
+        await moveProjectFolderItem(currentProjectId!, "character", character.id, folderId);
+        character.folderId = folderId;
+      }
+      return character;
+    },
     onSuccess: (character) => {
       upsertCharacterCache(toCharacterListItem(character));
       queryClient.setQueryData(
@@ -267,10 +276,10 @@ export function CharactersPage() {
     },
   });
 
-  const handleCreateCharacter = () => {
+  const handleCreateCharacter = (folderId?: string) => {
     if (isCreatingCharacterRef.current) return;
     isCreatingCharacterRef.current = true;
-    createMutation.mutate();
+    createMutation.mutate(folderId);
   };
 
   const updateMutation = useMutation({
@@ -457,67 +466,63 @@ export function CharactersPage() {
       className="characters-page"
       direction="column"
     >
-      {currentProjectId && !isMobile && panelLayout.isLoaded ? (
-        <Group
-          orientation="horizontal"
-          className="characters-page-body"
-          defaultLayout={panelLayout.defaultLayout}
-          onLayoutChanged={panelLayout.onLayoutChanged}
-        >
-          <Panel
-            id="characters-list"
-            defaultSize={300}
-            minSize={250}
-            maxSize={400}
-            collapsible={false}
-          >
-            <Box className="characters-panel characters-page-list-panel">{list}</Box>
-          </Panel>
+      {currentProjectId && !isMobile ? (
+        <Flex style={{ height: "100%", minWidth: 0 }}>
+          <ProjectNavShell>{list}</ProjectNavShell>
+          {panelLayout.isLoaded ? (
+            <Group
+              style={{ flex: 1, minWidth: 0 }}
+              orientation="horizontal"
+              className="characters-page-body"
+              defaultLayout={panelLayout.defaultLayout}
+              onLayoutChanged={panelLayout.onLayoutChanged}
+            >
+              <Panel
+                id="editor"
+                minSize={30}
+              >
+                <Box className="characters-panel characters-editor-shell">{editorContent}</Box>
+              </Panel>
 
-          <Separator className="resize-handle characters-page-separator" />
+              <Separator className="resize-handle characters-page-separator" />
 
-          <Panel
-            id="characters-editor"
-            minSize={30}
-          >
-            <Box className="characters-panel characters-editor-shell">{editorContent}</Box>
-          </Panel>
-
-          <Separator className="resize-handle characters-page-separator" />
-
-          <Panel
-            id="characters-right"
-            defaultSize={500}
-            minSize={300}
-            maxSize={600}
-            collapsible={false}
-          >
-            <Box className="characters-panel">
-              {selectedCharacter ? (
-                <AssistantSidebarHost
-                  projectId={currentProjectId}
-                  preferredAgentKey="discuss"
-                  initialComposerMarkup={buildCharacterMentionTag({
-                    characterId: selectedCharacter.id,
-                    label: selectedCharacter.name,
-                  })}
-                  replaceComposerWithInitialMarkup
-                  onStateChange={setAssistantState}
-                  isMobileOverlay={false}
-                />
-              ) : (
-                <Flex
-                  height="100%"
-                  align="center"
-                  justify="center"
-                  p="4"
-                >
-                  <Text color="gray">{t("characters.selectCharacterToDiscuss")}</Text>
-                </Flex>
-              )}
-            </Box>
-          </Panel>
-        </Group>
+              <Panel
+                id="right-sidebar"
+                defaultSize={500}
+                minSize={300}
+                maxSize={600}
+                collapsible={false}
+              >
+                <Box className="characters-panel">
+                  {selectedCharacter ? (
+                    <AssistantSidebarHost
+                      projectId={currentProjectId}
+                      preferredAgentKey="discuss"
+                      initialComposerMarkup={buildCharacterMentionTag({
+                        characterId: selectedCharacter.id,
+                        label: selectedCharacter.name,
+                      })}
+                      replaceComposerWithInitialMarkup
+                      onStateChange={setAssistantState}
+                      isMobileOverlay={false}
+                    />
+                  ) : (
+                    <Flex
+                      height="100%"
+                      align="center"
+                      justify="center"
+                      p="4"
+                    >
+                      <Text color="gray">{t("characters.selectCharacterToDiscuss")}</Text>
+                    </Flex>
+                  )}
+                </Box>
+              </Panel>
+            </Group>
+          ) : (
+            <PanelLayoutLoading />
+          )}
+        </Flex>
       ) : currentProjectId && isMobile ? (
         <Box className="characters-page-body characters-page-body--mobile">
           <Box className="characters-panel characters-editor-shell characters-editor-shell--mobile">

@@ -48,7 +48,7 @@ async def test_project_creation_creates_default_volume(client: AsyncClient) -> N
 
 
 @pytest.mark.asyncio
-async def test_create_chapter_requires_volume_id(client: AsyncClient) -> None:
+async def test_create_chapter_allows_root(client: AsyncClient) -> None:
     project_id = await _create_project(client)
 
     response = await client.post(
@@ -56,7 +56,8 @@ async def test_create_chapter_requires_volume_id(client: AsyncClient) -> None:
         json={"title": "第一章"},
     )
 
-    assert response.status_code == 422
+    assert response.status_code == 201
+    assert response.json()["volume_id"] is None
 
 
 @pytest.mark.asyncio
@@ -96,7 +97,7 @@ async def test_chapter_tree_groups_chapters_by_volume(client: AsyncClient) -> No
 
 
 @pytest.mark.asyncio
-async def test_delete_non_empty_volume_requires_cascade(client: AsyncClient) -> None:
+async def test_delete_non_empty_volume_returns_chapters_to_root(client: AsyncClient) -> None:
     project_id = await _create_project(client)
     volume = await _default_volume(client, project_id)
     chapter_response = await client.post(
@@ -107,11 +108,11 @@ async def test_delete_non_empty_volume_requires_cascade(client: AsyncClient) -> 
 
     response = await client.delete(f"/api/v1/volumes/{volume['id']}")
 
-    assert response.status_code == 409
+    assert response.status_code == 204
 
 
 @pytest.mark.asyncio
-async def test_delete_volume_with_cascade_deletes_chapters(client: AsyncClient) -> None:
+async def test_legacy_cascade_flag_keeps_chapters(client: AsyncClient) -> None:
     project_id = await _create_project(client)
     volume = await _default_volume(client, project_id)
     second_response = await client.post(
@@ -128,7 +129,9 @@ async def test_delete_volume_with_cascade_deletes_chapters(client: AsyncClient) 
     response = await client.delete(f"/api/v1/volumes/{volume['id']}?cascade=true")
 
     assert response.status_code == 204
-    assert (await client.get(f"/api/v1/chapters/{chapter_id}")).status_code == 404
+    chapter = (await client.get(f"/api/v1/chapters/{chapter_id}")).json()
+    assert chapter["volume_id"] is None
+    assert chapter["title"] == "第一章"
 
 
 @pytest.mark.asyncio
@@ -163,14 +166,14 @@ async def test_delete_volume_with_cascade_does_not_delete_chapters_one_by_one(
 
 
 @pytest.mark.asyncio
-async def test_delete_last_volume_is_rejected(client: AsyncClient) -> None:
+async def test_delete_last_volume_is_allowed(client: AsyncClient) -> None:
     project_id = await _create_project(client)
     volume = await _default_volume(client, project_id)
 
     response = await client.delete(f"/api/v1/volumes/{volume['id']}?cascade=true")
 
-    assert response.status_code == 409
-    assert "至少需要保留一个卷" in response.json()["detail"]
+    assert response.status_code == 204
+    assert (await client.get(f"/api/v1/projects/{project_id}/volumes")).json() == []
 
 
 @pytest.mark.asyncio

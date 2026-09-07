@@ -37,10 +37,10 @@ from app.socket.handlers import agent_session_room, agent_subagents_room
 from app.storage.models.chapter import Chapter
 from app.storage.models.commit import Commit
 from app.storage.models.project import Project
+from app.storage.models.project_folder import ProjectFolder as Volume
 from app.storage.models.revision import Revision
 from app.storage.models.revision_chapter_snapshot import RevisionChapterSnapshot
 from app.storage.models.task import Task
-from app.storage.models.volume import Volume
 from app.storage.repos import revision_repo
 from app.storage.services import task_service
 
@@ -3942,11 +3942,12 @@ class TestAgentAPI:
         session.add(Project(id="proj-rollback", title="回滚项目"))
         session.add(
             Volume(
+                scope="writing",
                 id="vol-rollback",
                 project_id="proj-rollback",
                 title="第一卷",
                 order=1,
-                chapter_count=1,
+                item_count=1,
             )
         )
         session.add(
@@ -4156,11 +4157,12 @@ class TestAgentAPI:
         session.add(Project(id="proj-rollback-created", title="回滚新建章节项目"))
         session.add(
             Volume(
+                scope="writing",
                 id="vol-rollback-created",
                 project_id="proj-rollback-created",
                 title="第一卷",
                 order=1,
-                chapter_count=2,
+                item_count=2,
             )
         )
         session.add(
@@ -4272,7 +4274,7 @@ class TestAgentAPI:
         volume = await session.get(Volume, "vol-rollback-created")
         assert volume is not None
         await session.refresh(volume)
-        assert volume.chapter_count == 1
+        assert volume.item_count == 1
 
     async def test_rollback_rejects_checkpoint_id_request_body(
         self,
@@ -4293,11 +4295,12 @@ class TestAgentAPI:
         session.add(Project(id="proj-fork", title="分叉项目"))
         session.add(
             Volume(
+                scope="writing",
                 id="vol-fork",
                 project_id="proj-fork",
                 title="第一卷",
                 order=1,
-                chapter_count=1,
+                item_count=1,
             )
         )
         session.add(

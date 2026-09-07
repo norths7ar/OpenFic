@@ -19,8 +19,8 @@ from app.retrieval.chapter_index import (
 )
 from app.storage.models.chapter import Chapter
 from app.storage.models.project import Project
+from app.storage.models.project_folder import ProjectFolder as Volume
 from app.storage.models.retrieval_chapter_index_state import RetrievalChapterIndexState
-from app.storage.models.volume import Volume
 
 
 class RecordingRetrievalService:
@@ -80,7 +80,7 @@ async def test_chapter_document_contains_stable_ids_and_metadata() -> None:
 @pytest.mark.asyncio
 async def test_mark_chapter_stale_if_content_hash_changed(session: AsyncSession) -> None:
     project = Project(id="project-1", title="项目", description="")
-    volume = Volume(id="volume-1", project_id=project.id, title="第一卷", order=1)
+    volume = Volume(scope="writing", id="volume-1", project_id=project.id, title="第一卷", order=1)
     chapter = _chapter(project.id)
     session.add(project)
     session.add(volume)

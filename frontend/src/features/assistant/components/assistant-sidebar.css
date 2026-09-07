@@ -265,10 +265,11 @@
 
 .ai-sidebar-user-message {
   max-width: 100%;
-  padding: 10px 10px;
-  border: 1px solid var(--gray-6);
-  border-radius: 8px;
-  background: white;
+  padding: 10px 12px;
+  border: 0;
+  border-left: 3px solid var(--accent-8);
+  border-radius: 0;
+  background: transparent;
   color: var(--gray-12);
   font-size: var(--font-size-base);
   line-height: 1.4;
@@ -277,9 +278,17 @@
 
 .dark .ai-sidebar-user-message,
 [data-theme="dark"] .ai-sidebar-user-message {
-  border-color: var(--gray-6);
-  background: var(--gray-2);
+  background: transparent;
   color: var(--gray-12);
+}
+
+.agent-user-message-author {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--accent-11);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  line-height: 1.2;
 }
 
 .ai-sidebar-input-area {
@@ -901,6 +910,10 @@
 
 .agent-clarification-custom-input {
   margin-top: 8px;
+  min-height: 144px;
+  padding: 10px 12px;
+  line-height: 1.6;
+  resize: vertical;
 }
 
 .ai-sidebar-input-container {
@@ -999,28 +1012,6 @@
 
 .ai-sidebar-shell[data-discussion-workspace="true"] {
   box-sizing: border-box;
-  padding-left: 292px;
-}
-
-.ai-sidebar-discussion-history {
-  position: absolute;
-  inset: 0 auto 0 0;
-  z-index: 12;
-  width: 292px;
-  min-width: 240px;
-  max-width: 360px;
-  overflow: hidden;
-  border-right: 1px solid var(--gray-a5);
-}
-
-@media (max-width: 900px) {
-  .ai-sidebar-shell[data-discussion-workspace="true"] {
-    padding-left: 240px;
-  }
-
-  .ai-sidebar-discussion-history {
-    width: 240px;
-  }
 }
 
 .ai-sidebar-mobile-toolbar {
@@ -1191,27 +1182,6 @@
   100% {
     background-position: -200% 0;
   }
-}
-
-.task-list-item {
-  margin-bottom: 8px;
-  padding: 12px;
-  border: 1px solid var(--gray-a4);
-  border-radius: 8px;
-  background: var(--color-surface);
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.task-list-item:hover {
-  border-color: var(--gray-a6);
-  background: var(--gray-a2);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-}
-
-.task-list-item[data-active="true"] {
-  border-color: var(--jade-a7);
-  background: var(--jade-a3);
 }
 
 .task-running-dot {

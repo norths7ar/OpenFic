@@ -18,10 +18,6 @@
   border-radius: 0;
 }
 
-.pending-project-changes-panel--page .pending-project-changes-list-column {
-  width: 300px;
-}
-
 .pending-project-changes-page-mobile-trigger {
   position: absolute;
   z-index: 2;
@@ -32,9 +28,5 @@
 @media (max-width: 640px) {
   .pending-project-changes-panel--page .pending-project-changes-layout {
     height: 100%;
-  }
-
-  .pending-project-changes-panel--page .pending-project-changes-list-header {
-    padding-left: var(--space-7);
   }
 }

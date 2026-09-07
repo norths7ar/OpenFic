@@ -33,6 +33,8 @@ import {
   replaceAutomaticMentionMarkup,
 } from "@/features/assistant/lib/mention-text";
 import { PendingProjectChangesDialog } from "@/features/pending-project-changes/components/pending-project-changes-dialog";
+import { moveProjectFolderItem } from "@/features/project-folders/lib/project-folder-api";
+import { ProjectNavShell } from "@/features/project-navigation/components/project-nav-shell";
 import { fetchAgentDefinitions } from "@/features/settings/lib/agent-definitions-api";
 import { fetchSettings, updateSettings } from "@/features/settings/lib/settings-api";
 import { useSummaryPanel } from "@/features/writing/hooks/use-summaries";
@@ -389,8 +391,16 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
       );
     }, [currentModel?.reasoning, effectiveModelId]);
 
+    const newTaskFolderRef = useRef<string | null>(null);
     const handleAgentTaskTitleUpdated = useCallback(
       (taskId: string, title: string, updatedAt?: string) => {
+        const folderId = newTaskFolderRef.current;
+        if (folderId) {
+          newTaskFolderRef.current = null;
+          void moveProjectFolderItem(projectId, "discussion", taskId, folderId)
+            .then(() => queryClient.invalidateQueries({ queryKey: ["tasks", projectId] }))
+            .catch(() => toast.error(t("projectNavigation.moveFailed")));
+        }
         setCurrentTaskId(taskId);
         setCurrentTaskTitle(title);
         queryClient.setQueriesData({ queryKey: ["tasks", projectId], exact: false }, (current) => {
@@ -414,7 +424,7 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
           };
         });
       },
-      [projectId, queryClient],
+      [projectId, queryClient, t],
     );
 
     const handleAgentForkCreated = useCallback(
@@ -425,6 +435,7 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
           const forkTask: TaskListItem = {
             id: fullTask.id,
             projectId: fullTask.projectId,
+            folderId: fullTask.folderId,
             title: fullTask.title,
             contextMode: fullTask.contextMode,
             tokenInput: fullTask.tokenInput,
@@ -828,6 +839,7 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
           showSuccessToast?: boolean;
         } = {},
       ): Promise<boolean> => {
+        newTaskFolderRef.current = null;
         setView("tasks");
         setIsLoadingTask(true);
         setActiveSubagents([]);
@@ -851,6 +863,7 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
           const taskSnapshot = options.initialTask ?? {
             id: fullTask.id,
             projectId: fullTask.projectId,
+            folderId: fullTask.folderId,
             title: fullTask.title,
             contextMode: fullTask.contextMode,
             tokenInput: fullTask.tokenInput,
@@ -1005,6 +1018,7 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
     );
 
     const backToTaskList = useCallback(() => {
+      newTaskFolderRef.current = null;
       setSessionTotalUsage(createSessionTotalUsageState());
       setConversationUsageBySession({});
 
@@ -1370,14 +1384,9 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
     const handleHeaderBack = isViewingSubagent ? handleReturnToPrimary : backToTaskList;
 
     return (
-      <Flex
-        direction="column"
-        height="100%"
-        className="ai-sidebar-shell"
-        data-discussion-workspace={discussionWorkspace}
-      >
-        {discussionWorkspace ? (
-          <Box className="ai-sidebar-discussion-history">
+      <Flex style={{ height: "100%", minWidth: 0 }}>
+        {discussionWorkspace && (
+          <ProjectNavShell>
             <AllTasksPage
               projectId={projectId}
               onBack={() => undefined}
@@ -1385,495 +1394,506 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
               activeTaskId={currentTaskId}
               showBack={false}
               title={t("assistant.discussionHistory")}
-              onNew={backToTaskList}
+              onNew={(folderId) => {
+                backToTaskList();
+                newTaskFolderRef.current = folderId ?? null;
+              }}
               newLabel={t("assistant.newDiscussion")}
               searchPlaceholder={t("assistant.searchDiscussions")}
               emptyLabel={t("assistant.noDiscussions")}
             />
-          </Box>
-        ) : null}
-        {shouldShowMobileToolbar && (
-          <Flex
-            align="center"
-            gap="2"
-            className="ai-sidebar-mobile-toolbar"
-          >
-            <IconButton
-              variant="ghost"
-              size="2"
-              onClick={onClose}
-              aria-label={t("common.close")}
-            >
-              <ArrowLeft size={18} />
-            </IconButton>
-            <Text
-              size="2"
-              weight="medium"
-            >
-              {t("assistant.mobileTitle")}
-            </Text>
-          </Flex>
+          </ProjectNavShell>
         )}
-
-        {view !== "allTasks" && (
-          <Flex
-            align="center"
-            gap="2"
-            className="ai-sidebar-project-actions"
-          >
-            {!discussionWorkspace ? <PendingProjectChangesDialog projectId={projectId} /> : null}
-            {hasDiscussionAgent ? (
-              <DropdownMenu.Root>
-                <DropdownMenu.Trigger>
-                  <Button
-                    size="1"
-                    variant="soft"
-                    color="purple"
-                  >
-                    <MessageCircle size={14} />
-                    {contextMode === "global"
-                      ? t("assistant.globalDiscussionStatus")
-                      : t("assistant.localDiscussionStatus")}
-                    <ChevronDown size={13} />
-                  </Button>
-                </DropdownMenu.Trigger>
-                <DropdownMenu.Content align="end">
-                  <DropdownMenu.Item onClick={() => handleStartDiscussion("global")}>
-                    {t("assistant.globalDiscussion")}
-                  </DropdownMenu.Item>
-                  <DropdownMenu.Item onClick={() => handleStartDiscussion("local")}>
-                    {t("assistant.localDiscussion")}
-                  </DropdownMenu.Item>
-                </DropdownMenu.Content>
-              </DropdownMenu.Root>
-            ) : null}
-          </Flex>
-        )}
-
-        {view !== "allTasks" && hasActiveTask && (
-          <Box className="ai-sidebar-header">
+        <Flex
+          direction="column"
+          height="100%"
+          className="ai-sidebar-shell"
+          data-discussion-workspace={discussionWorkspace}
+          style={{ flex: 1, minWidth: 0 }}
+        >
+          {shouldShowMobileToolbar && (
             <Flex
               align="center"
-              justify="between"
               gap="2"
-              className="ai-sidebar-task-header-row"
+              className="ai-sidebar-mobile-toolbar"
             >
+              <IconButton
+                variant="ghost"
+                size="2"
+                onClick={onClose}
+                aria-label={t("common.close")}
+              >
+                <ArrowLeft size={18} />
+              </IconButton>
+              <Text
+                size="2"
+                weight="medium"
+              >
+                {t("assistant.mobileTitle")}
+              </Text>
+            </Flex>
+          )}
+
+          {view !== "allTasks" && (
+            <Flex
+              align="center"
+              gap="2"
+              className="ai-sidebar-project-actions"
+            >
+              {!discussionWorkspace ? <PendingProjectChangesDialog projectId={projectId} /> : null}
+              {hasDiscussionAgent ? (
+                <DropdownMenu.Root>
+                  <DropdownMenu.Trigger>
+                    <Button
+                      size="1"
+                      variant="soft"
+                      color="purple"
+                    >
+                      <MessageCircle size={14} />
+                      {contextMode === "global"
+                        ? t("assistant.globalDiscussionStatus")
+                        : t("assistant.localDiscussionStatus")}
+                      <ChevronDown size={13} />
+                    </Button>
+                  </DropdownMenu.Trigger>
+                  <DropdownMenu.Content align="end">
+                    <DropdownMenu.Item onClick={() => handleStartDiscussion("global")}>
+                      {t("assistant.globalDiscussion")}
+                    </DropdownMenu.Item>
+                    <DropdownMenu.Item onClick={() => handleStartDiscussion("local")}>
+                      {t("assistant.localDiscussion")}
+                    </DropdownMenu.Item>
+                  </DropdownMenu.Content>
+                </DropdownMenu.Root>
+              ) : null}
+            </Flex>
+          )}
+
+          {view !== "allTasks" && hasActiveTask && (
+            <Box className="ai-sidebar-header">
               <Flex
                 align="center"
+                justify="between"
                 gap="2"
-                className="ai-sidebar-task-title-wrap"
+                className="ai-sidebar-task-header-row"
               >
-                <IconButton
-                  variant="ghost"
-                  size="1"
-                  onClick={handleHeaderBack}
-                  aria-label={headerBackLabel}
+                <Flex
+                  align="center"
+                  gap="2"
+                  className="ai-sidebar-task-title-wrap"
                 >
-                  <ArrowLeft size={16} />
-                </IconButton>
-                {isViewingSubagent ? (
-                  <Flex
-                    align="center"
-                    gap="2"
-                    className="ai-sidebar-task-title-stack"
+                  <IconButton
+                    variant="ghost"
+                    size="1"
+                    onClick={handleHeaderBack}
+                    aria-label={headerBackLabel}
                   >
-                    <Text
-                      size="2"
-                      weight="medium"
-                      title={subagentHeaderLabel || t("assistant.subagentFallbackTitle")}
-                      className="ai-sidebar-task-title"
+                    <ArrowLeft size={16} />
+                  </IconButton>
+                  {isViewingSubagent ? (
+                    <Flex
+                      align="center"
+                      gap="2"
+                      className="ai-sidebar-task-title-stack"
                     >
-                      {subagentHeaderLabel || t("assistant.subagentFallbackTitle")}
-                    </Text>
-                    <Text
-                      size="1"
-                      color="gray"
-                      className="ai-sidebar-task-subtitle"
-                    >
-                      {subagentStatusLabel}
-                    </Text>
-                  </Flex>
-                ) : (
-                  <Flex
-                    direction="column"
-                    className="ai-sidebar-task-title-stack"
-                  >
-                    <Text
-                      size="2"
-                      weight="medium"
-                      title={currentTaskTitle || t("assistant.taskFallbackTitle")}
-                      className="ai-sidebar-task-title"
-                    >
-                      {currentTaskTitle || t("assistant.taskFallbackTitle")}
-                    </Text>
-                    {effectiveAgentKey === "discuss" ? (
+                      <Text
+                        size="2"
+                        weight="medium"
+                        title={subagentHeaderLabel || t("assistant.subagentFallbackTitle")}
+                        className="ai-sidebar-task-title"
+                      >
+                        {subagentHeaderLabel || t("assistant.subagentFallbackTitle")}
+                      </Text>
                       <Text
                         size="1"
                         color="gray"
                         className="ai-sidebar-task-subtitle"
                       >
-                        {contextMode === "global"
-                          ? t("assistant.globalContextLocked")
-                          : t("assistant.localContextLocked")}
+                        {subagentStatusLabel}
                       </Text>
-                    ) : null}
-                  </Flex>
-                )}
-              </Flex>
+                    </Flex>
+                  ) : (
+                    <Flex
+                      direction="column"
+                      className="ai-sidebar-task-title-stack"
+                    >
+                      <Text
+                        size="2"
+                        weight="medium"
+                        title={currentTaskTitle || t("assistant.taskFallbackTitle")}
+                        className="ai-sidebar-task-title"
+                      >
+                        {currentTaskTitle || t("assistant.taskFallbackTitle")}
+                      </Text>
+                      {effectiveAgentKey === "discuss" ? (
+                        <Text
+                          size="1"
+                          color="gray"
+                          className="ai-sidebar-task-subtitle"
+                        >
+                          {contextMode === "global"
+                            ? t("assistant.globalContextLocked")
+                            : t("assistant.localContextLocked")}
+                        </Text>
+                      ) : null}
+                    </Flex>
+                  )}
+                </Flex>
 
+                <Flex
+                  align="center"
+                  gap="1"
+                  className="ai-sidebar-task-actions"
+                >
+                  <Tooltip content={compactionTooltip}>
+                    <IconButton
+                      variant="ghost"
+                      color="gray"
+                      size="1"
+                      onClick={handleCompactSession}
+                      disabled={!canCompactAgentSession}
+                      aria-label={t("assistant.compactContext")}
+                      aria-busy={agentSidebar.isCompacting || undefined}
+                    >
+                      {agentSidebar.isCompacting ? (
+                        <Spinner size={18} />
+                      ) : (
+                        <ListChevronsDownUp size={16} />
+                      )}
+                    </IconButton>
+                  </Tooltip>
+                  {!discussionWorkspace ? (
+                    <IconButton
+                      variant="ghost"
+                      color="gray"
+                      size="1"
+                      onClick={openAllTasks}
+                      aria-label={t("assistant.history")}
+                    >
+                      <History size={16} />
+                    </IconButton>
+                  ) : null}
+                  <IconButton
+                    variant="ghost"
+                    color="gray"
+                    size="1"
+                    onClick={backToTaskList}
+                    aria-label={t("assistant.newTask")}
+                  >
+                    <SquarePen size={16} />
+                  </IconButton>
+                </Flex>
+              </Flex>
               <Flex
                 align="center"
-                gap="1"
-                className="ai-sidebar-task-actions"
+                justify="between"
+                gap="3"
+                className="ai-sidebar-token-row"
               >
-                <Tooltip content={compactionTooltip}>
-                  <IconButton
-                    variant="ghost"
-                    color="gray"
+                <Flex
+                  align="center"
+                  gap="2"
+                  className="ai-sidebar-token-metrics"
+                >
+                  <Text
                     size="1"
-                    onClick={handleCompactSession}
-                    disabled={!canCompactAgentSession}
-                    aria-label={t("assistant.compactContext")}
-                    aria-busy={agentSidebar.isCompacting || undefined}
-                  >
-                    {agentSidebar.isCompacting ? (
-                      <Spinner size={18} />
-                    ) : (
-                      <ListChevronsDownUp size={16} />
-                    )}
-                  </IconButton>
-                </Tooltip>
-                {!discussionWorkspace ? (
-                  <IconButton
-                    variant="ghost"
+                    weight="medium"
                     color="gray"
-                    size="1"
-                    onClick={openAllTasks}
-                    aria-label={t("assistant.history")}
                   >
-                    <History size={16} />
-                  </IconButton>
+                    {t("assistant.tokens")}
+                  </Text>
+                  <Tooltip
+                    content={t("assistant.totalOutputTokens", {
+                      count: sessionTotalDisplay.tokenOutput,
+                    })}
+                  >
+                    <Flex
+                      align="center"
+                      gap="1"
+                      className="ai-sidebar-token-metric"
+                    >
+                      <ArrowBigUp size={13} />
+                      <Text
+                        as="span"
+                        size="1"
+                      >
+                        <AnimatedTokenCount value={sessionTotalDisplay.tokenOutput} />
+                      </Text>
+                    </Flex>
+                  </Tooltip>
+                  <Tooltip
+                    content={t("assistant.totalInputTokens", {
+                      count: sessionTotalDisplay.tokenInput,
+                    })}
+                  >
+                    <Flex
+                      align="center"
+                      gap="1"
+                      className="ai-sidebar-token-metric"
+                    >
+                      <ArrowBigDown size={13} />
+                      <Text
+                        as="span"
+                        size="1"
+                      >
+                        <AnimatedTokenCount value={sessionTotalDisplay.tokenInput} />
+                      </Text>
+                    </Flex>
+                  </Tooltip>
+                  <Tooltip
+                    content={t("assistant.cachedTokens", { count: sessionTotalDisplay.tokenCache })}
+                  >
+                    <Flex
+                      align="center"
+                      gap="1"
+                      className="ai-sidebar-token-metric"
+                    >
+                      <Layers2 size={13} />
+                      <Text
+                        as="span"
+                        size="1"
+                      >
+                        <AnimatedTokenCount value={sessionTotalDisplay.tokenCache} />
+                      </Text>
+                    </Flex>
+                  </Tooltip>
+                </Flex>
+                {sessionTotalDisplay.cost > 0 ? (
+                  <Tooltip
+                    content={t("assistant.totalCost", {
+                      cost: formatDetailedCost(sessionTotalDisplay.cost),
+                    })}
+                  >
+                    <Flex
+                      align="center"
+                      className="ai-sidebar-cost ai-sidebar-token-metric"
+                    >
+                      <Text
+                        as="span"
+                        size="1"
+                        className="ai-sidebar-token-number"
+                      >
+                        $ {formatCost(sessionTotalDisplay.cost)}
+                      </Text>
+                    </Flex>
+                  </Tooltip>
                 ) : null}
-                <IconButton
-                  variant="ghost"
-                  color="gray"
-                  size="1"
-                  onClick={backToTaskList}
-                  aria-label={t("assistant.newTask")}
-                >
-                  <SquarePen size={16} />
-                </IconButton>
-              </Flex>
-            </Flex>
-            <Flex
-              align="center"
-              justify="between"
-              gap="3"
-              className="ai-sidebar-token-row"
-            >
-              <Flex
-                align="center"
-                gap="2"
-                className="ai-sidebar-token-metrics"
-              >
-                <Text
-                  size="1"
-                  weight="medium"
-                  color="gray"
-                >
-                  {t("assistant.tokens")}
-                </Text>
-                <Tooltip
-                  content={t("assistant.totalOutputTokens", {
-                    count: sessionTotalDisplay.tokenOutput,
-                  })}
-                >
-                  <Flex
-                    align="center"
-                    gap="1"
-                    className="ai-sidebar-token-metric"
-                  >
-                    <ArrowBigUp size={13} />
-                    <Text
-                      as="span"
-                      size="1"
-                    >
-                      <AnimatedTokenCount value={sessionTotalDisplay.tokenOutput} />
-                    </Text>
-                  </Flex>
-                </Tooltip>
-                <Tooltip
-                  content={t("assistant.totalInputTokens", {
-                    count: sessionTotalDisplay.tokenInput,
-                  })}
-                >
-                  <Flex
-                    align="center"
-                    gap="1"
-                    className="ai-sidebar-token-metric"
-                  >
-                    <ArrowBigDown size={13} />
-                    <Text
-                      as="span"
-                      size="1"
-                    >
-                      <AnimatedTokenCount value={sessionTotalDisplay.tokenInput} />
-                    </Text>
-                  </Flex>
-                </Tooltip>
-                <Tooltip
-                  content={t("assistant.cachedTokens", { count: sessionTotalDisplay.tokenCache })}
-                >
-                  <Flex
-                    align="center"
-                    gap="1"
-                    className="ai-sidebar-token-metric"
-                  >
-                    <Layers2 size={13} />
-                    <Text
-                      as="span"
-                      size="1"
-                    >
-                      <AnimatedTokenCount value={sessionTotalDisplay.tokenCache} />
-                    </Text>
-                  </Flex>
-                </Tooltip>
-              </Flex>
-              {sessionTotalDisplay.cost > 0 ? (
-                <Tooltip
-                  content={t("assistant.totalCost", {
-                    cost: formatDetailedCost(sessionTotalDisplay.cost),
-                  })}
-                >
-                  <Flex
-                    align="center"
-                    className="ai-sidebar-cost ai-sidebar-token-metric"
-                  >
-                    <Text
-                      as="span"
-                      size="1"
-                      className="ai-sidebar-token-number"
-                    >
-                      $ {formatCost(sessionTotalDisplay.cost)}
-                    </Text>
-                  </Flex>
-                </Tooltip>
-              ) : null}
-              <Flex
-                align="center"
-                className="ai-sidebar-context-wrap"
-              >
-                <Tooltip content={contextUsageTooltip}>
-                  <Box
-                    asChild
-                    className="ai-sidebar-context-indicator-hitbox"
-                  >
-                    <CircularProgress
-                      value={currentConversationUsage.contextInputTokens}
-                      max={currentConversationUsage.contextLength}
-                      size={16}
-                      strokeWidth={1.75}
-                      ariaLabel={t("assistant.contextUsage")}
-                    />
-                  </Box>
-                </Tooltip>
-              </Flex>
-            </Flex>
-          </Box>
-        )}
-
-        {shouldShowParentSubagentStrip ? (
-          <Box className="ai-sidebar-subagent-strip-wrap">
-            <ActiveSubagentList
-              items={activeSubagents}
-              title={t("writing.aiSidebar.activeSubagents")}
-              onOpen={handleOpenSubagent}
-            />
-          </Box>
-        ) : null}
-
-        {view === "allTasks" && !discussionWorkspace ? (
-          <AllTasksPage
-            projectId={projectId}
-            onBack={() => {
-              setView("tasks");
-              void refetchRecentTasks();
-            }}
-            onTaskClick={loadTask}
-          />
-        ) : (
-          <>
-            <Box className="ai-sidebar-messages ai-sidebar-messages--frame">
-              {agentSidebar.isRollbacking ? (
-                <Flex
-                  className="ai-sidebar-rollback-overlay"
-                  direction="column"
-                  align="center"
-                  justify="center"
-                  role="status"
-                  aria-live="polite"
-                >
-                  <Spinner size={18} />
-                  <Text
-                    size="2"
-                    className="ai-sidebar-rollback-text"
-                  >
-                    {t("assistant.rollbacking")}
-                  </Text>
-                </Flex>
-              ) : null}
-              {isLoadingTask ? (
-                <Flex
-                  direction="column"
-                  align="center"
-                  justify="center"
-                  className="ai-sidebar-loading-state"
-                >
-                  <Spinner size={18} />
-                  <Text
-                    size="2"
-                    color="gray"
-                  >
-                    {t("assistant.loadingTask")}
-                  </Text>
-                </Flex>
-              ) : shouldShowSubagentConversation ? (
-                <AgentMessages
-                  messages={subagentSession.messages}
-                  isRunning={subagentSession.isRunning}
-                  isRollbacking={false}
-                  status={subagentSession.status}
-                  currentStage={subagentSession.currentStage}
-                  scrollToBottomKey={
-                    currentConversation?.kind === "subagent"
-                      ? currentConversation.childRunId
-                      : undefined
-                  }
-                  onRollback={async () => null}
-                  onAbortRetry={subagentSession.cancelSession}
-                  onAtBottomChange={setIsMessagesAtBottom}
-                  scrollToBottomFnRef={scrollToBottomFnRef}
-                />
-              ) : !hasActiveTask && discussionWorkspace ? (
                 <Flex
                   align="center"
-                  justify="center"
-                  height="100%"
-                  px="5"
+                  className="ai-sidebar-context-wrap"
                 >
-                  <Text
-                    size="2"
-                    color="gray"
-                    align="center"
-                  >
-                    {t("assistant.discussionEmptyHint")}
-                  </Text>
+                  <Tooltip content={contextUsageTooltip}>
+                    <Box
+                      asChild
+                      className="ai-sidebar-context-indicator-hitbox"
+                    >
+                      <CircularProgress
+                        value={currentConversationUsage.contextInputTokens}
+                        max={currentConversationUsage.contextLength}
+                        size={16}
+                        strokeWidth={1.75}
+                        ariaLabel={t("assistant.contextUsage")}
+                      />
+                    </Box>
+                  </Tooltip>
                 </Flex>
-              ) : !hasActiveTask ? (
-                <RecentTasksCard
-                  tasks={recentTasks}
-                  hasRecentTasks={hasRecentTasks}
-                  onTaskClick={loadTask}
-                  onToggleFavorite={handleToggleFavorite}
-                  onRenameTask={handleRenameTask}
-                  onViewAll={openAllTasks}
-                />
-              ) : (
-                agentSidebar.MessagesComponent
-              )}
+              </Flex>
             </Box>
+          )}
 
-            <div
-              className="ai-sidebar-scroll-to-bottom"
-              data-visible={!isLoadingTask && hasActiveTask && !isMessagesAtBottom}
-            >
-              <IconButton
-                size="2"
-                variant="solid"
-                color="gray"
-                onClick={() => scrollToBottomFnRef.current?.()}
-                aria-label={t("assistant.scrollToBottom")}
-              >
-                <ArrowDown size={16} />
-              </IconButton>
-            </div>
+          {shouldShowParentSubagentStrip ? (
+            <Box className="ai-sidebar-subagent-strip-wrap">
+              <ActiveSubagentList
+                items={activeSubagents}
+                title={t("writing.aiSidebar.activeSubagents")}
+                onOpen={handleOpenSubagent}
+              />
+            </Box>
+          ) : null}
 
-            <AgentInput
-              specialPanels={
-                isViewingSubagent ? (
-                  <AgentSpecialPanels
-                    panels={subagentSpecialPanels}
-                    embedded
-                    onApproveTool={subagentSession.handleToolApproval}
-                    readOnly
+          {view === "allTasks" && !discussionWorkspace ? (
+            <AllTasksPage
+              projectId={projectId}
+              onBack={() => {
+                setView("tasks");
+                void refetchRecentTasks();
+              }}
+              onTaskClick={loadTask}
+            />
+          ) : (
+            <>
+              <Box className="ai-sidebar-messages ai-sidebar-messages--frame">
+                {agentSidebar.isRollbacking ? (
+                  <Flex
+                    className="ai-sidebar-rollback-overlay"
+                    direction="column"
+                    align="center"
+                    justify="center"
+                    role="status"
+                    aria-live="polite"
+                  >
+                    <Spinner size={18} />
+                    <Text
+                      size="2"
+                      className="ai-sidebar-rollback-text"
+                    >
+                      {t("assistant.rollbacking")}
+                    </Text>
+                  </Flex>
+                ) : null}
+                {isLoadingTask ? (
+                  <Flex
+                    direction="column"
+                    align="center"
+                    justify="center"
+                    className="ai-sidebar-loading-state"
+                  >
+                    <Spinner size={18} />
+                    <Text
+                      size="2"
+                      color="gray"
+                    >
+                      {t("assistant.loadingTask")}
+                    </Text>
+                  </Flex>
+                ) : shouldShowSubagentConversation ? (
+                  <AgentMessages
+                    messages={subagentSession.messages}
+                    isRunning={subagentSession.isRunning}
+                    isRollbacking={false}
+                    status={subagentSession.status}
+                    currentStage={subagentSession.currentStage}
+                    scrollToBottomKey={
+                      currentConversation?.kind === "subagent"
+                        ? currentConversation.childRunId
+                        : undefined
+                    }
+                    onRollback={async () => null}
+                    onAbortRetry={subagentSession.cancelSession}
+                    onAtBottomChange={setIsMessagesAtBottom}
+                    scrollToBottomFnRef={scrollToBottomFnRef}
+                  />
+                ) : !hasActiveTask && discussionWorkspace ? (
+                  <Flex
+                    align="center"
+                    justify="center"
+                    height="100%"
+                    px="5"
+                  >
+                    <Text
+                      size="2"
+                      color="gray"
+                      align="center"
+                    >
+                      {t("assistant.discussionEmptyHint")}
+                    </Text>
+                  </Flex>
+                ) : !hasActiveTask ? (
+                  <RecentTasksCard
+                    tasks={recentTasks}
+                    hasRecentTasks={hasRecentTasks}
+                    onTaskClick={loadTask}
+                    onToggleFavorite={handleToggleFavorite}
+                    onRenameTask={handleRenameTask}
+                    onViewAll={openAllTasks}
                   />
                 ) : (
-                  agentSidebar.SpecialPanelsComponent
-                )
-              }
-              value={inputValue}
-              automaticComposerMarkup={automaticComposerMarkupRef.current}
-              restorePersistedDraft={!replaceComposerWithInitialMarkup}
-              attachments={pendingAttachments}
-              projectId={projectId}
-              modelId={effectiveModelId}
-              models={llmModelOptions}
-              reasoningEffort={reasoningEffort}
-              isSending={isSendingMessage}
-              disabled={isViewingSubagent || isLoadingTask}
-              pendingMessage={isViewingSubagent ? null : agentSidebar.pendingMessage}
-              isModelsLoading={isModelsLoading}
-              modelsError={!!modelsError}
-              onChange={setInputValue}
-              onAttachmentsChange={setPendingAttachments}
-              onUploadAttachments={async (files) => {
-                setPendingAttachments((current) => [
-                  ...current,
-                  ...files.map((file) => ({
-                    id: crypto.randomUUID(),
-                    file,
-                    previewUrl: URL.createObjectURL(file),
-                  })),
-                ]);
-              }}
-              onSend={isViewingSubagent ? () => undefined : handleSend}
-              onAbort={isViewingSubagent ? () => undefined : handleAbort}
-              onCancelPendingMessage={
-                isViewingSubagent ? undefined : agentSidebar.onCancelPendingMessage
-              }
-              onOpenMentionChapter={onOpenMentionChapter}
-              onModelChange={handleModelChange}
-              onReasoningEffortChange={handleReasoningEffortChange}
-              agentKey={effectiveAgentKey}
-              agentOptions={agentSelectorOptions}
-              agentChangeDisabled={
-                isSendingMessage ||
-                Boolean(agentSidebar.pendingMessage) ||
-                (hasActiveSession && contextMode === "global") ||
-                effectiveAgentKey === "draft"
-              }
-              onAgentChange={handleAgentChange}
-              onGoToSettings={handleGoToSettings}
-              agentStatus={isViewingSubagent ? subagentSession.status : agentSidebar.status}
-              toolApprovalBypassEnabled={isToolApprovalBypassEnabled}
-              toolApprovalBypassDisabled={!settings || isTogglingToolApprovalBypass}
-              onToggleToolApprovalBypass={handleToggleToolApprovalBypass}
-              forceSpecialPanels={!isViewingSubagent && projectedSubagentSpecialPanels.length > 0}
-              readOnly={isViewingSubagent}
-              readOnlyMessage={subagentReadOnlyMessage}
-            />
-            <ConfirmDialog
-              open={summaryWarningOpen}
-              onOpenChange={handleSummaryWarningOpenChange}
-              onConfirm={handleConfirmSummaryWarning}
-              title={t("assistant.summaryWarningTitle")}
-              description={t("assistant.summaryWarningDescription")}
-              confirmText={t("assistant.summaryWarningConfirm")}
-              cancelText={t("common.cancel")}
-              confirmColor="blue"
-            />
-          </>
-        )}
+                  agentSidebar.MessagesComponent
+                )}
+              </Box>
+
+              <div
+                className="ai-sidebar-scroll-to-bottom"
+                data-visible={!isLoadingTask && hasActiveTask && !isMessagesAtBottom}
+              >
+                <IconButton
+                  size="2"
+                  variant="solid"
+                  color="gray"
+                  onClick={() => scrollToBottomFnRef.current?.()}
+                  aria-label={t("assistant.scrollToBottom")}
+                >
+                  <ArrowDown size={16} />
+                </IconButton>
+              </div>
+
+              <AgentInput
+                specialPanels={
+                  isViewingSubagent ? (
+                    <AgentSpecialPanels
+                      panels={subagentSpecialPanels}
+                      embedded
+                      onApproveTool={subagentSession.handleToolApproval}
+                      readOnly
+                    />
+                  ) : (
+                    agentSidebar.SpecialPanelsComponent
+                  )
+                }
+                value={inputValue}
+                automaticComposerMarkup={automaticComposerMarkupRef.current}
+                restorePersistedDraft={!replaceComposerWithInitialMarkup}
+                attachments={pendingAttachments}
+                projectId={projectId}
+                modelId={effectiveModelId}
+                models={llmModelOptions}
+                reasoningEffort={reasoningEffort}
+                isSending={isSendingMessage}
+                disabled={isViewingSubagent || isLoadingTask}
+                pendingMessage={isViewingSubagent ? null : agentSidebar.pendingMessage}
+                isModelsLoading={isModelsLoading}
+                modelsError={!!modelsError}
+                onChange={setInputValue}
+                onAttachmentsChange={setPendingAttachments}
+                onUploadAttachments={async (files) => {
+                  setPendingAttachments((current) => [
+                    ...current,
+                    ...files.map((file) => ({
+                      id: crypto.randomUUID(),
+                      file,
+                      previewUrl: URL.createObjectURL(file),
+                    })),
+                  ]);
+                }}
+                onSend={isViewingSubagent ? () => undefined : handleSend}
+                onAbort={isViewingSubagent ? () => undefined : handleAbort}
+                onCancelPendingMessage={
+                  isViewingSubagent ? undefined : agentSidebar.onCancelPendingMessage
+                }
+                onOpenMentionChapter={onOpenMentionChapter}
+                onModelChange={handleModelChange}
+                onReasoningEffortChange={handleReasoningEffortChange}
+                agentKey={effectiveAgentKey}
+                agentOptions={agentSelectorOptions}
+                agentChangeDisabled={
+                  isSendingMessage ||
+                  Boolean(agentSidebar.pendingMessage) ||
+                  (hasActiveSession && contextMode === "global") ||
+                  effectiveAgentKey === "draft"
+                }
+                onAgentChange={handleAgentChange}
+                onGoToSettings={handleGoToSettings}
+                agentStatus={isViewingSubagent ? subagentSession.status : agentSidebar.status}
+                toolApprovalBypassEnabled={isToolApprovalBypassEnabled}
+                toolApprovalBypassDisabled={!settings || isTogglingToolApprovalBypass}
+                onToggleToolApprovalBypass={handleToggleToolApprovalBypass}
+                forceSpecialPanels={!isViewingSubagent && projectedSubagentSpecialPanels.length > 0}
+                readOnly={isViewingSubagent}
+                readOnlyMessage={subagentReadOnlyMessage}
+              />
+              <ConfirmDialog
+                open={summaryWarningOpen}
+                onOpenChange={handleSummaryWarningOpenChange}
+                onConfirm={handleConfirmSummaryWarning}
+                title={t("assistant.summaryWarningTitle")}
+                description={t("assistant.summaryWarningDescription")}
+                confirmText={t("assistant.summaryWarningConfirm")}
+                cancelText={t("common.cancel")}
+                confirmColor="blue"
+              />
+            </>
+          )}
+        </Flex>
       </Flex>
     );
   },

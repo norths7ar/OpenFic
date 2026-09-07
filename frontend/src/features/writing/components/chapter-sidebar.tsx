@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { useShallow } from "zustand/react/shallow";
 
 import { ConfirmDialog, toast } from "@/components";
+import { PROJECT_NAV_ROOT_ID } from "@/features/project-navigation/lib/project-nav-groups";
 import type { ChapterListItem, VolumeWithChapters } from "@/lib/chapter.types";
 import { createToastThrottler } from "@/lib/ui-utils";
 
@@ -242,17 +243,8 @@ export function ChapterSidebar({
   );
 
   const handleCreateChapter = useCallback(async () => {
-    const targetVolume = volumes[volumes.length - 1];
-    if (targetVolume) {
-      await createChapterInVolume(targetVolume.id);
-      return;
-    }
-
-    const volume = await createVolumeMutation.mutateAsync({
-      title: t("writing.firstVolumeDefaultTitle"),
-    });
-    await createChapterInVolume(volume.id);
-  }, [createChapterInVolume, createVolumeMutation, t, volumes]);
+    await createChapterInVolume(PROJECT_NAV_ROOT_ID);
+  }, [createChapterInVolume]);
 
   const handleCreateVolume = useCallback(async () => {
     if (isAgentLocked) {
@@ -396,7 +388,7 @@ export function ChapterSidebar({
       try {
         await deleteVolumeMutation.mutateAsync({
           volumeId: deletingVolume.id,
-          cascade: deletingVolume.chapterCount > 0,
+          cascade: false,
         });
         toast.success(t("writing.deleteVolumeSuccess"));
         handleDeleteDialogChange(false);
@@ -505,10 +497,15 @@ export function ChapterSidebar({
       }
       await moveVolumeMutation.mutateAsync({
         volumeId: volume.id,
-        newOrder: volume.order + direction,
+        newOrder:
+          volumes
+            .filter((folder) => !folder.isRoot)
+            .findIndex((folder) => folder.id === volume.id) +
+          1 +
+          direction,
       });
     },
-    [isAgentLocked, moveVolumeMutation, showLockedToast],
+    [isAgentLocked, moveVolumeMutation, showLockedToast, volumes],
   );
 
   const handleOpenMoveChapter = useCallback(
@@ -598,7 +595,7 @@ export function ChapterSidebar({
         description={
           deletingVolume
             ? deletingVolume.chapterCount > 0
-              ? t("volume.deleteCascadeConfirm")
+              ? t("projectNavigation.deleteFolderKeepsItems")
               : t("volume.deleteConfirm")
             : (deletingChapter?.title ?? "")
         }
@@ -652,10 +649,7 @@ export function ChapterSidebar({
       >
         <Dialog.Content maxWidth="420px">
           <Dialog.Title>{t("volume.menu.editDescription")}</Dialog.Title>
-          <Dialog.Description
-            size="2"
-            color="gray"
-          >
+          <Dialog.Description size="2" color="gray">
             {editingVolume?.title ?? t("volume.untitled")}
           </Dialog.Description>
           <TextArea
@@ -665,16 +659,9 @@ export function ChapterSidebar({
             resize="vertical"
             style={{ minHeight: 120 }}
           />
-          <Flex
-            justify="end"
-            gap="3"
-            mt="4"
-          >
+          <Flex justify="end" gap="3" mt="4">
             <Dialog.Close>
-              <Button
-                variant="soft"
-                color="gray"
-              >
+              <Button variant="soft" color="gray">
                 {t("common.cancel")}
               </Button>
             </Dialog.Close>

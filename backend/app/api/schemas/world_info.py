@@ -88,6 +88,7 @@ class WorldInfoEntryResponse(BaseModel):
 
     id: str = Field(description="条目 ID")
     world_info_id: str = Field(description="所属世界书 ID")
+    folder_id: str | None = Field(default=None, description="所属文件夹 ID")
     uid: int = Field(description="用户可见序列号")
     name: str = Field(description="条目名称")
     section: str = Field(default="", description="条目分区")
@@ -106,6 +107,7 @@ class WorldInfoEntryBriefResponse(BaseModel):
 
     id: str = Field(description="条目 ID")
     world_info_id: str = Field(description="所属世界书 ID")
+    folder_id: str | None = Field(default=None, description="所属文件夹 ID")
     uid: int = Field(description="用户可见序列号")
     name: str = Field(description="条目名称")
     section: str = Field(default="", description="条目分区")

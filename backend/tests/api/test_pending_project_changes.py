@@ -5,8 +5,9 @@ from httpx import AsyncClient
 from sqlalchemy import select
 
 from app.storage.models.character import Character
-from app.storage.models.note import Note, NoteCategory
+from app.storage.models.note import Note
 from app.storage.models.pending_project_change import PendingProjectChange
+from app.storage.models.project_folder import ProjectFolder as NoteCategory
 from app.storage.models.world_info_entry import WorldInfoEntry
 from app.storage.repos import pending_project_change_repo
 from app.storage.services import (

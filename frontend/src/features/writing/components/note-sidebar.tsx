@@ -1,4 +1,13 @@
-import { Box, Flex, IconButton, Tooltip } from "@radix-ui/themes";
+import {
+  Box,
+  Button,
+  Dialog,
+  DropdownMenu,
+  Flex,
+  IconButton,
+  TextArea,
+  Tooltip,
+} from "@radix-ui/themes";
 import {
   FilePlus,
   FolderPlus,
@@ -8,12 +17,12 @@ import {
   Pencil,
   Lock,
   Unlock,
-  EyeOff,
-  Eye,
   Trash2,
   Search,
   ArrowUp,
   ArrowDown,
+  ArrowUpDown,
+  MoreHorizontal,
 } from "lucide-react";
 import { motion } from "motion/react";
 import { useState, useCallback, useMemo, useEffect, useRef } from "react";
@@ -25,12 +34,8 @@ import {
   buildNoteCategoryMentionTag,
   buildNoteMentionTag,
 } from "@/features/assistant/lib/mention-text";
-import type {
-  DocumentType,
-  NoteCategoryItem,
-  NoteListItem,
-  NoteTreeResponse,
-} from "@/lib/note.types";
+import { ProjectNavToolbar } from "@/features/project-navigation/components/project-nav-toolbar";
+import type { DocumentType, NoteTreeResponse } from "@/lib/note.types";
 import { createToastThrottler } from "@/lib/ui-utils";
 
 import {
@@ -44,11 +49,11 @@ import {
   useMoveNoteItem,
   useReorderMixedNoteItems,
   useToggleNoteLock,
-  useToggleNoteHidden,
   useDuplicateNote,
 } from "../hooks/use-notes";
+import { NoteFolderList, type NoteSortMode } from "./note-folder-list";
+import type { NoteAgentVisibility } from "./note-folder-list";
 import { NoteSearchPopover } from "./note-search-popover";
-import { NoteTree } from "./note-tree";
 
 interface NoteSidebarProps {
   projectId: string;
@@ -67,6 +72,8 @@ export function NoteSidebar({
   documentType = "note",
 }: NoteSidebarProps) {
   const { t } = useTranslation();
+  const [descriptionTarget, setDescriptionTarget] = useState<string | null>(null);
+  const [folderDescription, setFolderDescription] = useState("");
   const isOutline = documentType === "outline";
   const untitledDocumentLabel = t(isOutline ? "writing.untitledOutline" : "writing.untitledNote");
   const { data } = useNoteTree(projectId, documentType);
@@ -79,7 +86,6 @@ export function NoteSidebar({
   const moveMutation = useMoveNoteItem(projectId);
   const reorderMutation = useReorderMixedNoteItems(projectId, documentType);
   const toggleLockMutation = useToggleNoteLock(projectId);
-  const toggleHiddenMutation = useToggleNoteHidden(projectId);
   const duplicateNoteMutation = useDuplicateNote(projectId);
 
   const [contextMenuPos, setContextMenuPos] = useState<{ x: number; y: number } | null>(null);
@@ -101,6 +107,7 @@ export function NoteSidebar({
   const [contentSearchOpen, setContentSearchOpen] = useState(false);
   const [contentSearchExpanded, setContentSearchExpanded] = useState(false);
   const [contentSearchQuery, setContentSearchQuery] = useState("");
+  const [sortMode, setSortMode] = useState<NoteSortMode>("manual");
   const searchContainerRef = useRef<HTMLDivElement | null>(null);
 
   const showLockedToast = useMemo(
@@ -155,28 +162,22 @@ export function NoteSidebar({
     }
   }, [deleteTarget, deleteNoteMutation, deleteCategoryMutation]);
 
-  const handleNewNote = useCallback(async () => {
-    if (isAgentLocked) {
-      showLockedToast();
-      return;
-    }
-    const targetCategoryId = resolveNewNoteCategoryId(data, selectedCategoryId);
-    const note = await createNoteMutation.mutateAsync({
-      title: untitledDocumentLabel,
-      categoryId: targetCategoryId,
-    });
-    setSelectedCategoryId(null);
-    setCurrentNoteId(note.id);
-    onNoteSelect(note.id, note.title);
-  }, [
-    createNoteMutation,
-    isAgentLocked,
-    onNoteSelect,
-    showLockedToast,
-    untitledDocumentLabel,
-    data,
-    selectedCategoryId,
-  ]);
+  const handleNewNote = useCallback(
+    async (categoryId?: string) => {
+      if (isAgentLocked) {
+        showLockedToast();
+        return;
+      }
+      const note = await createNoteMutation.mutateAsync({
+        title: untitledDocumentLabel,
+        categoryId,
+      });
+      setSelectedCategoryId(null);
+      setCurrentNoteId(note.id);
+      onNoteSelect(note.id, note.title);
+    },
+    [createNoteMutation, isAgentLocked, onNoteSelect, showLockedToast, untitledDocumentLabel],
+  );
 
   const handleNewCategory = useCallback(async () => {
     if (isAgentLocked) {
@@ -259,45 +260,8 @@ export function NoteSidebar({
     await toggleLockMutation.mutateAsync({ noteId: note.id, isLocked: !note.isLocked });
   }, [contextMenuTarget, data, handleCloseContextMenu, toggleLockMutation]);
 
-  const handleToggleHidden = useCallback(async () => {
-    if (!contextMenuTarget || contextMenuTarget.type !== "note") return;
-    const note = findNoteInTree(data, contextMenuTarget.id);
-    if (!note) {
-      handleCloseContextMenu();
-      return;
-    }
-    handleCloseContextMenu();
-    await toggleHiddenMutation.mutateAsync({ noteId: note.id, isHidden: !note.isHidden });
-  }, [contextMenuTarget, data, handleCloseContextMenu, toggleHiddenMutation]);
-
-  const handleToggleWritingVisibility = useCallback(async () => {
-    if (!contextMenuTarget || contextMenuTarget.type !== "note") return;
-    if (isAgentLocked) {
-      showLockedToast();
-      handleCloseContextMenu();
-      return;
-    }
-    const note = findNoteInTree(data, contextMenuTarget.id);
-    if (!note) {
-      handleCloseContextMenu();
-      return;
-    }
-    handleCloseContextMenu();
-    await updateNoteMutation.mutateAsync({
-      noteId: note.id,
-      data: { isWritingVisible: !note.isWritingVisible },
-    });
-  }, [
-    contextMenuTarget,
-    data,
-    handleCloseContextMenu,
-    isAgentLocked,
-    showLockedToast,
-    updateNoteMutation,
-  ]);
-
-  const handleTreeToggleWritingVisibility = useCallback(
-    (noteId: string) => {
+  const handleSetAgentVisibility = useCallback(
+    (noteId: string, visibility: NoteAgentVisibility) => {
       if (isAgentLocked) {
         showLockedToast();
         return;
@@ -306,7 +270,10 @@ export function NoteSidebar({
       if (!note || note.isLocked) return;
       void updateNoteMutation.mutateAsync({
         noteId,
-        data: { isWritingVisible: !note.isWritingVisible },
+        data: {
+          isWritingVisible: visibility === "all",
+          isHidden: visibility === "none",
+        },
       });
     },
     [data, isAgentLocked, showLockedToast, updateNoteMutation],
@@ -318,6 +285,7 @@ export function NoteSidebar({
         showLockedToast();
         return;
       }
+      if (kind === "category" && targetCategoryId !== null) return;
       try {
         await moveMutation.mutateAsync({ kind, itemId, targetCategoryId });
       } catch {
@@ -365,7 +333,11 @@ export function NoteSidebar({
   const contextMenuItems = useMemo<ContextMenuItem[]>(() => {
     if (!contextMenuTarget) return [];
     const items: ContextMenuItem[] = [];
-    const siblingOrder = data ? resolveSiblingOrder(data, contextMenuTarget) : null;
+    const siblingOrder =
+      sortMode === "manual" && data ? resolveSiblingOrder(data, contextMenuTarget) : null;
+    const targetNote =
+      contextMenuTarget.type === "note" ? findNoteInTree(data, contextMenuTarget.id) : undefined;
+    const targetIsLocked = targetNote?.isLocked === true;
 
     if (contextMenuTarget.type === "note") {
       items.push({
@@ -381,17 +353,58 @@ export function NoteSidebar({
         id: "moveUp",
         label: t("chapterMenu.moveUp"),
         icon: ArrowUp,
-        disabled: !siblingOrder || siblingOrder.index <= 0,
+        disabled: targetIsLocked || !siblingOrder || siblingOrder.index <= 0,
         onClick: () => void handleManualMove(-1),
       },
       {
         id: "moveDown",
         label: t("chapterMenu.moveDown"),
         icon: ArrowDown,
-        disabled: !siblingOrder || siblingOrder.index >= siblingOrder.orderedItems.length - 1,
+        disabled:
+          targetIsLocked ||
+          !siblingOrder ||
+          siblingOrder.index >= siblingOrder.orderedItems.length - 1,
         onClick: () => void handleManualMove(1),
       },
     );
+
+    if (contextMenuTarget.type === "category")
+      items.push({
+        id: "create",
+        label: t(isOutline ? "writing.newOutline" : "writing.newNote"),
+        icon: FilePlus,
+        onClick: () => {
+          void handleNewNote(contextMenuTarget.id);
+          handleCloseContextMenu();
+        },
+      });
+    if (contextMenuTarget.type === "note") {
+      for (const folder of [null, ...(data?.categories ?? [])])
+        items.push({
+          id: `move:${folder?.id ?? "root"}`,
+          label: folder
+            ? t("projectNavigation.moveToFolder", { name: folder.title })
+            : t("projectNavigation.moveToRoot"),
+          disabled: targetIsLocked || (targetNote?.categoryId ?? null) === (folder?.id ?? null),
+          onClick: () => {
+            void handleMove(contextMenuTarget.id, "note", folder?.id ?? null);
+            handleCloseContextMenu();
+          },
+        });
+    }
+    if (contextMenuTarget.type === "category")
+      items.push({
+        id: "description",
+        label: t("volume.menu.editDescription"),
+        icon: Pencil,
+        onClick: () => {
+          setDescriptionTarget(contextMenuTarget.id);
+          setFolderDescription(
+            data?.categories.find((folder) => folder.id === contextMenuTarget.id)?.description ??
+              "",
+          );
+        },
+      });
 
     items.push({
       id: "addToConversation",
@@ -414,31 +427,18 @@ export function NoteSidebar({
       id: "rename",
       label: t("chapterMenu.rename"),
       icon: Pencil,
+      disabled: targetIsLocked,
       onClick: handleRename,
     });
 
     if (contextMenuTarget.type === "note") {
-      const note = findNoteInTree(data, contextMenuTarget.id);
+      const note = targetNote;
       if (note) {
         items.push({
           id: "toggleLock",
           label: note.isLocked ? t("writing.noteUnlock") : t("writing.noteLock"),
           icon: note.isLocked ? Unlock : Lock,
           onClick: () => void handleToggleLock(),
-        });
-        items.push({
-          id: "toggleHidden",
-          label: note.isHidden ? t("writing.noteShow") : t("writing.noteHide"),
-          icon: note.isHidden ? Eye : EyeOff,
-          onClick: () => void handleToggleHidden(),
-        });
-        items.push({
-          id: "toggleWritingVisibility",
-          label: note.isWritingVisible
-            ? t("writing.noteHideFromWritingAgent")
-            : t("writing.noteShowToWritingAgent"),
-          icon: EyeOff,
-          onClick: () => void handleToggleWritingVisibility(),
         });
       }
     }
@@ -448,6 +448,7 @@ export function NoteSidebar({
       label: t("chapterMenu.delete"),
       icon: Trash2,
       danger: true,
+      disabled: targetIsLocked,
       onClick: () => {
         setDeleteTarget(contextMenuTarget);
         setDeleteDialogOpen(true);
@@ -460,15 +461,17 @@ export function NoteSidebar({
     contextMenuTarget,
     data,
     handleAddToConversation,
+    handleNewNote,
+    handleMove,
+    isOutline,
     handleCloseContextMenu,
     handleDuplicate,
     handleOpenInNewTab,
     handleManualMove,
     handleRename,
-    handleToggleHidden,
     handleToggleLock,
-    handleToggleWritingVisibility,
     onAddToConversation,
+    sortMode,
     t,
   ]);
 
@@ -536,18 +539,8 @@ export function NoteSidebar({
         flexDirection: "column",
       }}
     >
-      <Box
-        px="3"
-        py="2"
-        style={{
-          borderBottom: "1px solid var(--gray-a4)",
-        }}
-      >
-        <Flex
-          gap="0"
-          align="center"
-          justify={contentSearchExpanded ? "start" : "between"}
-        >
+      <ProjectNavToolbar
+        search={
           <Box
             ref={searchContainerRef}
             style={{
@@ -627,36 +620,70 @@ export function NoteSidebar({
               )}
             </motion.div>
           </Box>
-
-          {!contentSearchExpanded && (
-            <Flex
-              gap="0"
-              align="center"
-            >
-              <Tooltip content={t(isOutline ? "writing.newOutline" : "writing.newNote")}>
+        }
+        sort={
+          contentSearchExpanded ? null : (
+            <DropdownMenu.Root>
+              <DropdownMenu.Trigger>
                 <IconButton
                   variant="ghost"
                   size="2"
-                  onClick={() => void handleNewNote()}
+                  aria-label={t("writing.sort")}
                 >
-                  <FilePlus size={16} />
+                  <ArrowUpDown size={16} />
                 </IconButton>
-              </Tooltip>
-              <Tooltip content={t("writing.newCategory")}>
+              </DropdownMenu.Trigger>
+              <DropdownMenu.Content align="end">
+                <DropdownMenu.Item onClick={() => setSortMode("manual")}>
+                  {t("writing.sortManual")}
+                </DropdownMenu.Item>
+                <DropdownMenu.Item onClick={() => setSortMode("title")}>
+                  {t("writing.sortTitle")}
+                </DropdownMenu.Item>
+                <DropdownMenu.Item onClick={() => setSortMode("updated")}>
+                  {t("writing.sortUpdated")}
+                </DropdownMenu.Item>
+              </DropdownMenu.Content>
+            </DropdownMenu.Root>
+          )
+        }
+        create={
+          contentSearchExpanded ? null : (
+            <Tooltip content={t(isOutline ? "writing.newOutline" : "writing.newNote")}>
+              <IconButton
+                variant="ghost"
+                size="2"
+                onClick={() => void handleNewNote()}
+              >
+                <FilePlus size={16} />
+              </IconButton>
+            </Tooltip>
+          )
+        }
+        more={
+          contentSearchExpanded ? null : (
+            <DropdownMenu.Root>
+              <DropdownMenu.Trigger>
                 <IconButton
                   variant="ghost"
                   size="2"
-                  onClick={() => void handleNewCategory()}
+                  aria-label={t("common.more")}
                 >
+                  <MoreHorizontal size={16} />
+                </IconButton>
+              </DropdownMenu.Trigger>
+              <DropdownMenu.Content align="end">
+                <DropdownMenu.Item onClick={() => void handleNewCategory()}>
                   <FolderPlus size={16} />
-                </IconButton>
-              </Tooltip>
-            </Flex>
-          )}
-        </Flex>
-      </Box>
+                  {t("writing.newCategory")}
+                </DropdownMenu.Item>
+              </DropdownMenu.Content>
+            </DropdownMenu.Root>
+          )
+        }
+      />
 
-      <NoteTree
+      <NoteFolderList
         data={data}
         emptyLabel={t(isOutline ? "writing.emptyOutlines" : "writing.emptyNotes")}
         onNoteSelect={handleNoteSelect}
@@ -675,9 +702,47 @@ export function NoteSidebar({
           }
           await reorderMutation.mutateAsync({ parentId, orderedItems });
         }}
-        onToggleWritingVisibility={handleTreeToggleWritingVisibility}
+        onSetAgentVisibility={handleSetAgentVisibility}
         isWritingVisibilityLocked={isAgentLocked}
+        sortMode={sortMode}
       />
+
+      <Dialog.Root
+        open={descriptionTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setDescriptionTarget(null);
+        }}
+      >
+        <Dialog.Content style={{ maxWidth: 400 }}>
+          <Dialog.Title>{t("volume.menu.editDescription")}</Dialog.Title>
+          <TextArea
+            value={folderDescription}
+            onChange={(e) => setFolderDescription(e.target.value)}
+          />
+          <Flex
+            justify="end"
+            gap="3"
+            mt="4"
+          >
+            <Dialog.Close>
+              <Button variant="soft">{t("common.cancel")}</Button>
+            </Dialog.Close>
+            <Button
+              disabled={isAgentLocked || updateCategoryMutation.isPending}
+              onClick={async () => {
+                if (!descriptionTarget) return;
+                await updateCategoryMutation.mutateAsync({
+                  categoryId: descriptionTarget,
+                  data: { description: folderDescription || null },
+                });
+                setDescriptionTarget(null);
+              }}
+            >
+              {t("common.confirm")}
+            </Button>
+          </Flex>
+        </Dialog.Content>
+      </Dialog.Root>
 
       <ContextMenu
         position={contextMenuPos}
@@ -694,7 +759,7 @@ export function NoteSidebar({
         title={t("chapterMenu.delete")}
         description={
           deleteTarget?.type === "category"
-            ? t("writing.deleteCategoryConfirm")
+            ? t("projectNavigation.deleteFolderConfirm")
             : (deleteTarget?.title ?? "")
         }
         onConfirm={() => void handleDeleteConfirm()}
@@ -710,25 +775,20 @@ function findNoteInTree(
 ):
   | {
       id: string;
+      categoryId: string | null;
       isLocked: boolean;
       isHidden: boolean;
       isWritingVisible: boolean;
     }
   | undefined {
   if (!data) return undefined;
-  const walk = (categories: NoteCategoryItem[]): NoteListItem | undefined => {
-    for (const cat of categories) {
-      const found = cat.notes.find((n) => n.id === noteId);
-      if (found) return found;
-      const nested = walk(cat.categories);
-      if (nested) return nested;
-    }
-    return undefined;
-  };
-  const note = walk(data.categories) ?? data.rootNotes.find((n) => n.id === noteId);
+  const note = [...data.rootNotes, ...data.categories.flatMap((folder) => folder.notes)].find(
+    (note) => note.id === noteId,
+  );
   if (!note) return undefined;
   return {
     id: note.id,
+    categoryId: note.categoryId,
     isLocked: note.isLocked,
     isHidden: note.isHidden,
     isWritingVisible: note.isWritingVisible,
@@ -743,87 +803,36 @@ function resolveSiblingOrder(
   orderedItems: Array<{ id: string; kind: "category" | "note" }>;
   index: number;
 } | null {
-  const findParent = (
-    categories: NoteCategoryItem[],
-    parentId: string | null,
-  ): string | null | undefined => {
-    for (const category of categories) {
-      if (
-        (target.type === "category" && category.id === target.id) ||
-        (target.type === "note" && category.notes.some((note) => note.id === target.id))
-      ) {
-        return parentId;
-      }
-      const found = findParent(category.categories, category.id);
-      if (found !== undefined) return found;
-    }
-    return undefined;
-  };
-  const parentId =
-    findParent(data.categories, null) ??
-    (target.type === "note" && data.rootNotes.some((note) => note.id === target.id)
-      ? null
-      : undefined);
-  if (parentId === undefined) return null;
-  const parent = parentId === null ? undefined : findCategoryById(data.categories, parentId);
-  const items = [
-    ...(parent ? parent.categories : data.categories),
-    ...(parent ? parent.notes : data.rootNotes),
-  ]
+  const note =
+    target.type === "note"
+      ? [...data.rootNotes, ...data.categories.flatMap((folder) => folder.notes)].find(
+          (note) => note.id === target.id,
+        )
+      : undefined;
+  const parentId = note?.categoryId ?? null;
+  const folder =
+    parentId === null ? undefined : data.categories.find((folder) => folder.id === parentId);
+  const siblings = target.type === "category" ? data.categories : (folder?.notes ?? data.rootNotes);
+  const items = [...siblings]
     .sort((left, right) => left.order - right.order)
-    .map<{ id: string; kind: "category" | "note" }>((item) => ({
-      id: item.id,
-      kind: "categories" in item ? "category" : "note",
-    }));
+    .map((item) => ({ id: item.id, kind: target.type }));
+  // The old reorder endpoint expects every root record; keep that shape only at this boundary.
+  if (parentId === null)
+    items.push(
+      ...(target.type === "category" ? data.rootNotes : data.categories).map((item) => ({
+        id: item.id,
+        kind: target.type === "category" ? ("note" as const) : ("category" as const),
+      })),
+    );
   const index = items.findIndex((item) => item.id === target.id && item.kind === target.type);
   return index < 0 ? null : { parentId, orderedItems: items, index };
 }
 
-function findCategoryById(
-  categories: NoteCategoryItem[],
-  categoryId: string,
-): NoteCategoryItem | undefined {
-  for (const category of categories) {
-    if (category.id === categoryId) return category;
-    const found = findCategoryById(category.categories, categoryId);
-    if (found) return found;
-  }
-  return undefined;
-}
-
 function findNoteTitleInTree(data: NoteTreeResponse | undefined, noteId: string): string {
   if (!data) return "";
-  const walk = (categories: NoteCategoryItem[]): string | undefined => {
-    for (const cat of categories) {
-      const found = cat.notes.find((n) => n.id === noteId);
-      if (found) return found.title;
-      const nested = walk(cat.categories);
-      if (nested) return nested;
-    }
-    return undefined;
-  };
-  return walk(data.categories) ?? data.rootNotes.find((n) => n.id === noteId)?.title ?? "";
-}
-
-function findCategoryDepth(
-  categories: NoteCategoryItem[],
-  categoryId: string,
-  depth = 0,
-): number | null {
-  for (const cat of categories) {
-    if (cat.id === categoryId) return depth;
-    const nested = findCategoryDepth(cat.categories, categoryId, depth + 1);
-    if (nested !== null) return nested;
-  }
-  return null;
-}
-
-function resolveNewNoteCategoryId(
-  data: NoteTreeResponse | undefined,
-  selectedCategoryId: string | null,
-): string | undefined {
-  if (!selectedCategoryId || !data) return undefined;
-  const depth = findCategoryDepth(data.categories, selectedCategoryId);
-  if (depth === null || depth >= 2) return undefined;
-  return selectedCategoryId;
+  return (
+    [...data.rootNotes, ...data.categories.flatMap((folder) => folder.notes)].find(
+      (note) => note.id === noteId,
+    )?.title ?? ""
+  );
 }

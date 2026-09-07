@@ -8,8 +8,8 @@ from app.background.jobs.models import BackgroundJob
 from app.background.jobs.session_title_jobs import enqueue_session_title_job
 from app.storage.models.chapter import Chapter
 from app.storage.models.project import Project
+from app.storage.models.project_folder import ProjectFolder as Volume
 from app.storage.models.task import Task
-from app.storage.models.volume import Volume
 
 pytestmark = pytest.mark.asyncio
 
@@ -18,11 +18,12 @@ pytestmark = pytest.mark.asyncio
 async def test_enqueue_session_title_job_keeps_raw_seed_message(session):
     project = Project(id="proj_title_mentions", title="标题提及项目")
     volume = Volume(
+        scope="writing",
         id="vol_title_mentions",
         project_id=project.id,
         title="现卷标题",
         order=1,
-        chapter_count=1,
+        item_count=1,
     )
     chapter = Chapter(
         id="chap_title_mentions",

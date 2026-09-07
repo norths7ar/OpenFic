@@ -14,6 +14,7 @@ class Character(SQLModel, table=True):
 
     id: str = Field(default_factory=generate_id, primary_key=True)
     project_id: str = Field(index=True, foreign_key="projects.id")
+    folder_id: str | None = Field(default=None, index=True, foreign_key="project_folders.id")
     name: str = Field(max_length=200)
     description: str = Field(default="")
     image_path: str | None = Field(default=None)

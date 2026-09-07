@@ -44,6 +44,7 @@ class TaskResponse(BaseModel):
 
     id: str = Field(description="任务 ID")
     project_id: str = Field(description="项目 ID")
+    folder_id: str | None = Field(default=None, description="所属文件夹 ID")
     title: str = Field(description="任务标题")
     mode: AgentMode = Field(description="固定为单一 Agent runtime")
     context_mode: Literal["global", "local"] = Field(default="local")
@@ -70,6 +71,7 @@ class TaskListItem(BaseModel):
 
     id: str = Field(description="任务 ID")
     project_id: str = Field(description="项目 ID")
+    folder_id: str | None = Field(default=None, description="所属文件夹 ID")
     title: str = Field(description="任务标题")
     mode: AgentMode = Field(description="固定为单一 Agent runtime")
     context_mode: Literal["global", "local"] = Field(default="local")

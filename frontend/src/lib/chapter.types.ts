@@ -64,6 +64,7 @@ export interface Volume {
 }
 
 export interface VolumeWithChapters extends Volume {
+  isRoot?: boolean;
   chapters: ChapterListItem[];
 }
 

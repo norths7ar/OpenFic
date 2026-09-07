@@ -7,6 +7,7 @@ import { useParams } from "react-router";
 import { AssistantSidebarHost } from "@/features/app-shell/components/assistant-sidebar-host";
 import type { AssistantSidebarState } from "@/features/assistant";
 import { buildNoteMentionTag } from "@/features/assistant/lib/mention-text";
+import { ProjectNavShell } from "@/features/project-navigation/components/project-nav-shell";
 import type { DocumentType } from "@/lib/note.types";
 
 import { NoteEditor } from "../components/note-editor";
@@ -41,10 +42,7 @@ export function DocumentWorkspacePage({ documentType }: DocumentWorkspacePagePro
       className="writing-page-root"
       style={{ minWidth: 0 }}
     >
-      <Box
-        className="writing-page-sidebar writing-page-sidebar--left"
-        style={{ width: 300, minWidth: 260, borderRight: "1px solid var(--gray-a5)" }}
-      >
+      <ProjectNavShell>
         <NoteSidebar
           projectId={projectId}
           documentType={documentType}
@@ -53,7 +51,7 @@ export function DocumentWorkspacePage({ documentType }: DocumentWorkspacePagePro
             setSelectedTitle(title);
           }}
         />
-      </Box>
+      </ProjectNavShell>
       <Flex
         direction="column"
         flexGrow="1"

@@ -23,8 +23,8 @@ from app.retrieval.chapter_index import (
 from app.retrieval.types import ChunkIndexResult
 from app.storage.models.chapter import Chapter
 from app.storage.models.project import Project
+from app.storage.models.project_folder import ProjectFolder as Volume
 from app.storage.models.retrieval_chapter_index_state import RetrievalChapterIndexState
-from app.storage.models.volume import Volume
 from app.storage.repos import setting_repo
 
 
@@ -264,7 +264,7 @@ async def _seed_job(session: AsyncSession, *, fail: bool = False):
     model = await _create_embedding_model(session)
     await setting_repo.upsert(session, "default_embedding_model", model.id)
     project = Project(id="project-1", title="项目", description="")
-    volume = Volume(id="volume-1", project_id=project.id, title="第一卷", order=1)
+    volume = Volume(scope="writing", id="volume-1", project_id=project.id, title="第一卷", order=1)
     chapter = Chapter(
         id="chapter-1",
         project_id=project.id,
@@ -417,7 +417,9 @@ async def test_retrieval_chapter_index_batch_rejects_stale_embedding_model_metad
     new_model = await _create_embedding_model(session, "new-embedding")
     await setting_repo.upsert(session, "default_embedding_model", new_model.id)
     project = Project(id="project-stale", title="项目", description="")
-    volume = Volume(id="volume-stale", project_id=project.id, title="第一卷", order=1)
+    volume = Volume(
+        scope="writing", id="volume-stale", project_id=project.id, title="第一卷", order=1
+    )
     chapter = Chapter(
         id="chapter-stale",
         project_id=project.id,
@@ -785,7 +787,7 @@ async def _seed_multi_chapter_job(session: AsyncSession, *, chapter_count: int):
     model = await _create_embedding_model(session)
     await setting_repo.upsert(session, "default_embedding_model", model.id)
     project = Project(id="project-multi", title="多章项目", description="")
-    volume = Volume(id="volume-multi", project_id=project.id, title="卷", order=1)
+    volume = Volume(scope="writing", id="volume-multi", project_id=project.id, title="卷", order=1)
     session.add(project)
     session.add(volume)
 

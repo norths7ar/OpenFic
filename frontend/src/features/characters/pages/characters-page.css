@@ -82,7 +82,6 @@
 
 .characters-list-header {
   flex-shrink: 0;
-  border-bottom: 1px solid var(--gray-a5);
 }
 
 .characters-list-project-select {

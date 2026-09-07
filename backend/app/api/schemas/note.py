@@ -34,6 +34,10 @@ class NoteUpdate(BaseModel):
         default=None,
         description="是否对写作 Agent 可见",
     )
+    is_hidden: bool | None = Field(
+        default=None,
+        description="是否对所有 Agent 隐藏",
+    )
 
 
 class NoteLockToggle(BaseModel):
@@ -86,7 +90,7 @@ class NoteResponse(BaseModel):
     created_at: datetime = Field(description="创建时间")
     updated_at: datetime = Field(description="上次修改时间")
 
-    model_config = {"from_attributes": True}
+    model_config = {"from_attributes": True, "populate_by_name": True}
 
 
 class NoteListItem(BaseModel):
@@ -102,35 +106,37 @@ class NoteListItem(BaseModel):
     created_at: datetime = Field(description="创建时间")
     updated_at: datetime = Field(description="上次修改时间")
 
-    model_config = {"from_attributes": True}
+    model_config = {"from_attributes": True, "populate_by_name": True}
 
 
 class NoteCategoryResponse(BaseModel):
+    description: str | None = None
     id: str = Field(description="分类 ID")
     project_id: str = Field(description="所属项目 ID")
-    parent_id: str | None = Field(description="父分类 ID")
+    parent_id: None = None
     title: str = Field(description="分类标题")
-    document_type: DocumentType = Field(description="文档类型")
+    document_type: DocumentType = Field(validation_alias="scope", description="文档类型")
     order: int = Field(description="同级手动排序")
     created_at: datetime = Field(description="创建时间")
     updated_at: datetime = Field(description="上次修改时间")
 
-    model_config = {"from_attributes": True}
+    model_config = {"from_attributes": True, "populate_by_name": True}
 
 
 class NoteCategoryItem(BaseModel):
+    description: str | None = None
     id: str = Field(description="分类 ID")
     project_id: str = Field(description="所属项目 ID")
-    parent_id: str | None = Field(description="父分类 ID")
+    parent_id: None = None
     title: str = Field(description="分类标题")
-    document_type: DocumentType = Field(description="文档类型")
+    document_type: DocumentType = Field(validation_alias="scope", description="文档类型")
     order: int = Field(description="同级手动排序")
     created_at: datetime = Field(description="创建时间")
     updated_at: datetime = Field(description="上次修改时间")
     categories: list["NoteCategoryItem"] = Field(description="子分类列表")
     notes: list[NoteListItem] = Field(description="分类下笔记列表")
 
-    model_config = {"from_attributes": True}
+    model_config = {"from_attributes": True, "populate_by_name": True}
 
 
 class NoteTreeResponse(BaseModel):

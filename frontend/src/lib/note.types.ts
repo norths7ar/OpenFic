@@ -30,6 +30,7 @@ export interface NoteListItem {
 }
 
 export interface NoteCategory {
+  description?: string | null;
   id: string;
   projectId: string;
   parentId: string | null;
@@ -62,6 +63,7 @@ export interface NoteUpdate {
   title?: string;
   content?: string;
   isWritingVisible?: boolean;
+  isHidden?: boolean;
 }
 
 export interface NoteCategoryCreate {
@@ -71,6 +73,7 @@ export interface NoteCategoryCreate {
 }
 
 export interface NoteCategoryUpdate {
+  description?: string | null;
   title?: string;
 }
 

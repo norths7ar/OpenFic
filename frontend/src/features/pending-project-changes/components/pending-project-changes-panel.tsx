@@ -1,10 +1,23 @@
-import { Badge, Box, Button, Flex, ScrollArea, Text } from "@radix-ui/themes";
+import {
+  Badge,
+  Box,
+  Button,
+  DropdownMenu,
+  Flex,
+  IconButton,
+  ScrollArea,
+  Text,
+  TextField,
+} from "@radix-ui/themes";
 import axios from "axios";
-import { CheckCircle2, FileClock, XCircle } from "lucide-react";
+import { ArrowUpDown, CheckCircle2, FileClock, Search, XCircle } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { ConfirmDialog, Spinner, StreamingMarkdown, toast } from "@/components";
+import { ProjectNavItemRow } from "@/features/project-navigation/components/project-nav-item-row";
+import { ProjectNavShell } from "@/features/project-navigation/components/project-nav-shell";
+import { ProjectNavToolbar } from "@/features/project-navigation/components/project-nav-toolbar";
 
 import {
   useApplyPendingProjectChange,
@@ -259,23 +272,46 @@ export function PendingProjectChangesPanel({
   const [selectedChangeId, setSelectedChangeId] = useState<string | null>(null);
   const [changeToReject, setChangeToReject] = useState<PendingProjectChange | null>(null);
   const [changeToApply, setChangeToApply] = useState<PendingProjectChange | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortDirection, setSortDirection] = useState<"newest" | "oldest">("newest");
   const changesQuery = usePendingProjectChanges(projectId, "pending");
   const countQuery = usePendingProjectChangeCount(projectId);
   const rejectMutation = useRejectPendingProjectChange(projectId);
   const applyMutation = useApplyPendingProjectChange(projectId);
   const changes = changesQuery.data ?? EMPTY_PENDING_PROJECT_CHANGES;
+  const displayedChanges = useMemo(() => {
+    const normalizedQuery = searchQuery.trim().toLocaleLowerCase(i18n.language);
+    return changes
+      .filter((change) => {
+        if (!normalizedQuery) return true;
+        const title = getChangeTitle(change) ?? "";
+        const material = t(`pendingProjectChanges.materialTypes.${getMaterialKind(change)}`);
+        const operation = t(`pendingProjectChanges.operations.${change.operation}`);
+        return `${title} ${material} ${operation}`
+          .toLocaleLowerCase(i18n.language)
+          .includes(normalizedQuery);
+      })
+      .sort((left, right) =>
+        sortDirection === "newest"
+          ? right.created_at.localeCompare(left.created_at)
+          : left.created_at.localeCompare(right.created_at),
+      );
+  }, [changes, i18n.language, searchQuery, sortDirection, t]);
   const selectedChange = useMemo(
-    () => changes.find((change) => change.id === selectedChangeId) ?? changes[0] ?? null,
-    [changes, selectedChangeId],
+    () =>
+      displayedChanges.find((change) => change.id === selectedChangeId) ??
+      displayedChanges[0] ??
+      null,
+    [displayedChanges, selectedChangeId],
   );
 
   useEffect(() => {
-    if (!changes.length) {
+    if (!displayedChanges.length) {
       setSelectedChangeId(null);
-    } else if (!changes.some((change) => change.id === selectedChangeId)) {
-      setSelectedChangeId(changes[0].id);
+    } else if (!displayedChanges.some((change) => change.id === selectedChangeId)) {
+      setSelectedChangeId(displayedChanges[0].id);
     }
-  }, [changes, selectedChangeId]);
+  }, [displayedChanges, selectedChangeId]);
 
   const handleReject = () => {
     if (!changeToReject) return;
@@ -351,139 +387,155 @@ export function PendingProjectChangesPanel({
   return (
     <>
       <div className={panelClassName}>
-        {changesQuery.isLoading ? (
-          <Flex
-            className="pending-project-changes-state"
-            direction="column"
-            align="center"
-            justify="center"
-            gap="2"
-          >
-            <Spinner size={18} />
-            <Text
-              size="2"
-              color="gray"
-            >
-              {t("pendingProjectChanges.loading")}
-            </Text>
-          </Flex>
-        ) : changesQuery.isError ? (
-          <Flex
-            className="pending-project-changes-state"
-            direction="column"
-            align="center"
-            justify="center"
-            gap="3"
-          >
-            <Text
-              size="2"
-              color="red"
-            >
-              {t("pendingProjectChanges.loadFailed", {
-                error:
-                  getErrorMessage(changesQuery.error) || t("pendingProjectChanges.unknownError"),
-              })}
-            </Text>
-            <Button
-              size="2"
-              variant="soft"
-              onClick={() => void changesQuery.refetch()}
-            >
-              {t("pendingProjectChanges.retry")}
-            </Button>
-          </Flex>
-        ) : !changes.length ? (
-          <Flex
-            className="pending-project-changes-state"
-            direction="column"
-            align="center"
-            justify="center"
-            gap="2"
-          >
-            <FileClock
-              size={22}
-              aria-hidden="true"
-            />
-            <Text
-              size="2"
-              color="gray"
-            >
-              {t("pendingProjectChanges.empty")}
-            </Text>
-          </Flex>
-        ) : (
+        {
           <div className="pending-project-changes-layout">
-            <div className="pending-project-changes-list-column">
-              <Flex
-                className="pending-project-changes-list-header"
-                direction="column"
-                gap="1"
-              >
-                <Flex
-                  align="center"
-                  justify="between"
-                  gap="2"
-                >
-                  <Text
-                    size="3"
-                    weight="medium"
+            <ProjectNavShell>
+              <ProjectNavToolbar
+                search={
+                  <Flex
+                    align="center"
+                    gap="2"
                   >
-                    {t("pendingProjectChanges.title")}
-                  </Text>
-                  <Badge
-                    color="amber"
-                    variant="soft"
-                  >
-                    {pendingCount}
-                  </Badge>
-                </Flex>
-                <Text
-                  size="1"
-                  color="gray"
-                >
-                  {t("pendingProjectChanges.description", { count: pendingCount })}
-                </Text>
-              </Flex>
+                    <TextField.Root
+                      size="2"
+                      value={searchQuery}
+                      onChange={(event) => setSearchQuery(event.target.value)}
+                      placeholder={t("pendingProjectChanges.searchPlaceholder")}
+                      style={{ flex: 1 }}
+                    >
+                      <TextField.Slot>
+                        <Search size={16} />
+                      </TextField.Slot>
+                    </TextField.Root>
+                    <Badge
+                      color="amber"
+                      variant="soft"
+                    >
+                      {pendingCount}
+                    </Badge>
+                  </Flex>
+                }
+                sort={
+                  <DropdownMenu.Root>
+                    <DropdownMenu.Trigger>
+                      <IconButton
+                        variant="ghost"
+                        size="2"
+                        aria-label={t("pendingProjectChanges.sort")}
+                      >
+                        <ArrowUpDown size={16} />
+                      </IconButton>
+                    </DropdownMenu.Trigger>
+                    <DropdownMenu.Content align="end">
+                      <DropdownMenu.Item onClick={() => setSortDirection("newest")}>
+                        {t("pendingProjectChanges.sortNewest")}
+                      </DropdownMenu.Item>
+                      <DropdownMenu.Item onClick={() => setSortDirection("oldest")}>
+                        {t("pendingProjectChanges.sortOldest")}
+                      </DropdownMenu.Item>
+                    </DropdownMenu.Content>
+                  </DropdownMenu.Root>
+                }
+              />
               <ScrollArea className="pending-project-changes-list-scroll">
                 <div className="pending-project-changes-list">
-                  {changes.map((change) => (
-                    <button
-                      type="button"
-                      className="pending-project-changes-list-item"
-                      data-selected={change.id === selectedChange?.id}
-                      key={change.id}
-                      onClick={() => setSelectedChangeId(change.id)}
+                  {changesQuery.isLoading ? (
+                    <Flex
+                      className="pending-project-changes-state"
+                      direction="column"
+                      align="center"
+                      justify="center"
+                      gap="2"
+                    >
+                      <Spinner size={18} />
+                      <Text
+                        size="2"
+                        color="gray"
+                      >
+                        {t("pendingProjectChanges.loading")}
+                      </Text>
+                    </Flex>
+                  ) : changesQuery.isError ? (
+                    <Flex
+                      className="pending-project-changes-state"
+                      direction="column"
+                      align="center"
+                      justify="center"
+                      gap="3"
                     >
                       <Text
                         size="2"
-                        weight="medium"
+                        color="red"
                       >
-                        {getChangeTitle(change)
-                          ? t("pendingProjectChanges.changeHeading", {
-                              operation: t(`pendingProjectChanges.operations.${change.operation}`),
-                              material: t(
-                                `pendingProjectChanges.materialTypes.${getMaterialKind(change)}`,
-                              ),
-                              title: getChangeTitle(change),
-                            })
-                          : t("pendingProjectChanges.changeHeadingWithoutTitle", {
-                              operation: t(`pendingProjectChanges.operations.${change.operation}`),
-                              material: t(
-                                `pendingProjectChanges.materialTypes.${getMaterialKind(change)}`,
-                              ),
-                            })}
+                        {t("pendingProjectChanges.loadFailed", {
+                          error:
+                            getErrorMessage(changesQuery.error) ||
+                            t("pendingProjectChanges.unknownError"),
+                        })}
                       </Text>
-                      <Text
-                        size="1"
-                        color="gray"
+                      <Button
+                        size="2"
+                        variant="soft"
+                        onClick={() => void changesQuery.refetch()}
                       >
-                        {formatCreatedAt(change.created_at, i18n.language)}
-                      </Text>
-                    </button>
-                  ))}
+                        {t("pendingProjectChanges.retry")}
+                      </Button>
+                    </Flex>
+                  ) : displayedChanges.length === 0 ? (
+                    <Text
+                      size="2"
+                      color="gray"
+                      align="center"
+                      as="div"
+                      style={{ padding: "var(--space-4)" }}
+                    >
+                      {t(
+                        changes.length
+                          ? "pendingProjectChanges.noSearchResults"
+                          : "pendingProjectChanges.empty",
+                      )}
+                    </Text>
+                  ) : (
+                    displayedChanges.map((change) => (
+                      <ProjectNavItemRow
+                        key={change.id}
+                        role="button"
+                        tabIndex={0}
+                        selected={change.id === selectedChange?.id}
+                        onClick={() => setSelectedChangeId(change.id)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            setSelectedChangeId(change.id);
+                          }
+                        }}
+                        title={
+                          getChangeTitle(change)
+                            ? t("pendingProjectChanges.changeHeading", {
+                                operation: t(
+                                  `pendingProjectChanges.operations.${change.operation}`,
+                                ),
+                                material: t(
+                                  `pendingProjectChanges.materialTypes.${getMaterialKind(change)}`,
+                                ),
+                                title: getChangeTitle(change),
+                              })
+                            : t("pendingProjectChanges.changeHeadingWithoutTitle", {
+                                operation: t(
+                                  `pendingProjectChanges.operations.${change.operation}`,
+                                ),
+                                material: t(
+                                  `pendingProjectChanges.materialTypes.${getMaterialKind(change)}`,
+                                ),
+                              })
+                        }
+                        metadata={formatCreatedAt(change.created_at, i18n.language)}
+                      />
+                    ))
+                  )}
                 </div>
               </ScrollArea>
-            </div>
+            </ProjectNavShell>
             {selectedChange ? (
               <div className="pending-project-changes-detail-scroll">
                 <div className="pending-project-changes-detail">
@@ -650,9 +702,32 @@ export function PendingProjectChangesPanel({
                   </details>
                 </div>
               </div>
-            ) : null}
+            ) : (
+              <Flex
+                className="pending-project-changes-state"
+                direction="column"
+                align="center"
+                justify="center"
+                gap="2"
+              >
+                <FileClock
+                  size={22}
+                  aria-hidden="true"
+                />
+                <Text
+                  size="2"
+                  color="gray"
+                >
+                  {t(
+                    changes.length
+                      ? "pendingProjectChanges.noSearchResults"
+                      : "pendingProjectChanges.empty",
+                  )}
+                </Text>
+              </Flex>
+            )}
           </div>
-        )}
+        }
       </div>
       <ConfirmDialog
         open={Boolean(changeToApply)}

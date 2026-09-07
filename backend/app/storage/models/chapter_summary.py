@@ -18,7 +18,7 @@ class ChapterSummary(SQLModel, table=True):
     status: str = Field(default="not_generated", max_length=30, index=True)
 
     chapter_id: str | None = Field(default=None, index=True, foreign_key="chapters.id")
-    volume_id: str | None = Field(default=None, index=True, foreign_key="volumes.id")
+    volume_id: str | None = Field(default=None, index=True, foreign_key="project_folders.id")
     chapter_order: int | None = Field(default=None, index=True)
     start_order: int | None = Field(default=None, index=True)
     end_order: int | None = Field(default=None, index=True)

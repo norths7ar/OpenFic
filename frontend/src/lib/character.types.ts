@@ -3,6 +3,7 @@
 export interface Character {
   id: string;
   projectId: string;
+  folderId: string | null;
   name: string;
   description: string;
   imageUrl: string | null;
@@ -16,6 +17,7 @@ export interface Character {
 export interface CharacterListItem {
   id: string;
   projectId: string;
+  folderId: string | null;
   name: string;
   imageUrl: string | null;
   tokenCount: number;

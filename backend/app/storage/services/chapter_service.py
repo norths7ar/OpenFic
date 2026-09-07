@@ -13,7 +13,7 @@ from app.core.editor_content_limits import validate_editor_content
 from app.core.errors import NotFoundError
 from app.memory.chapter.sequence import global_order_index
 from app.storage.models.chapter import Chapter
-from app.storage.models.volume import Volume
+from app.storage.models.project_folder import ProjectFolder
 from app.storage.repos import (
     chapter_repo,
     chapter_summary_repo,
@@ -27,7 +27,7 @@ from app.storage.services import writing_activity_service
 class VolumeChapterGroup:
     """卷与其章节列表。"""
 
-    volume: Volume
+    volume: ProjectFolder
     chapters: list[Chapter]
 
 
@@ -37,6 +37,7 @@ class VolumeTreeResult:
 
     volumes: list[VolumeChapterGroup]
     total_chapters: int
+    root_chapters: list[Chapter]
 
 
 @dataclass(frozen=True)
@@ -77,7 +78,9 @@ def _count_words(text: str) -> int:
     return chinese_count + english_count
 
 
-def _display_volume_title(volume: Volume) -> str:
+def _display_volume_title(volume: ProjectFolder | None) -> str:
+    if volume is None:
+        return "根目录"
     title = volume.title.strip()
     return title or "未命名卷"
 
@@ -124,12 +127,12 @@ async def _update_project_stats(session: AsyncSession, project_id: str) -> None:
     await project_repo.update(session, project)
 
 
-async def _update_volume_stats(session: AsyncSession, volume_id: str) -> None:
+async def _update_volume_stats(session: AsyncSession, volume_id: str | None) -> None:
     """更新卷的章节数缓存。"""
     volume = await volume_repo.get_by_id(session, volume_id)
     if volume is None:
         return
-    volume.chapter_count = await chapter_repo.count_by_volume(session, volume_id)
+    volume.item_count = await chapter_repo.count_by_volume(session, volume_id)
     volume.updated_at = datetime.now(UTC)
     await volume_repo.update_volume(session, volume)
 
@@ -137,7 +140,7 @@ async def _update_volume_stats(session: AsyncSession, volume_id: str) -> None:
 async def create_chapter(
     session: AsyncSession,
     project_id: str,
-    volume_id: str,
+    volume_id: str | None,
     title: str,
     content: str = "",
     word_count: int | None = None,
@@ -166,11 +169,11 @@ async def create_chapter(
     if project is None:
         raise NotFoundError(f"项目不存在: {project_id}")
     volume = await volume_repo.get_by_id(session, volume_id)
-    if volume is None or volume.project_id != project_id:
+    if volume_id is not None and (volume is None or volume.project_id != project_id):
         raise NotFoundError(f"卷不存在: {volume_id}")
 
     # 获取最大排序序号
-    max_order = await chapter_repo.get_max_order(session, volume_id)
+    max_order = await chapter_repo.get_max_order(session, volume_id, project_id=project_id)
 
     # 使用前端传递的字数，或后端计算
     final_word_count = word_count if word_count is not None else _count_words(content)
@@ -270,7 +273,9 @@ async def list_chapters(
         )
         for volume in volumes
     ]
-    return VolumeTreeResult(volumes=groups, total_chapters=len(chapters))
+    return VolumeTreeResult(
+        volumes=groups, total_chapters=len(chapters), root_chapters=chapters_by_volume.get(None, [])
+    )
 
 
 async def search_mention_candidates(
@@ -579,10 +584,12 @@ async def delete_chapter(
         )
 
     # 调整后续章节的顺序
-    max_order = await chapter_repo.get_max_order(session, volume_id)
+    max_order = await chapter_repo.get_max_order(session, volume_id, project_id=project_id)
     if deleted_volume_order <= max_order:
         # 将所有 order > deleted_volume_order 的章节 order 减 1
-        await chapter_repo.shift_orders(session, volume_id, deleted_volume_order + 1, max_order, -1)
+        await chapter_repo.shift_orders(
+            session, volume_id, deleted_volume_order + 1, max_order, -1, project_id=project_id
+        )
 
     # 更新项目统计
     await _update_volume_stats(session, volume_id)
@@ -645,7 +652,7 @@ async def delete_chapters_in_volume(session: AsyncSession, volume_id: str) -> No
 
 async def reorder_chapters(
     session: AsyncSession,
-    volume_id: str,
+    volume_id: str | None,
     chapter_ids: list[str],
 ) -> list[Chapter]:
     """
@@ -664,6 +671,8 @@ async def reorder_chapters(
         ValueError: 章节数量不匹配。
     """
     chapters = await chapter_repo.get_by_ids(session, chapter_ids)
+    if len({chapter.project_id for chapter in chapters}) > 1:
+        raise ValueError("重排章节必须属于同一项目")
     chapter_map = {c.id: c for c in chapters}
 
     if len(chapters) != len(chapter_ids):
@@ -689,7 +698,7 @@ async def reorder_chapters(
 async def move_chapter_to_volume(
     session: AsyncSession,
     chapter_id: str,
-    volume_id: str,
+    volume_id: str | None,
     *,
     record_activity: bool = True,
     activity_source: writing_activity_service.WritingActivitySource = "user",
@@ -704,20 +713,31 @@ async def move_chapter_to_volume(
         return chapter
 
     target_volume = await volume_repo.get_by_id(session, volume_id)
-    if target_volume is None or target_volume.project_id != chapter.project_id:
+    if volume_id is not None and (
+        target_volume is None or target_volume.project_id != chapter.project_id
+    ):
         raise NotFoundError(f"卷不存在: {volume_id}")
 
     old_order = chapter.order
     chapter.order = 0
     await chapter_repo.update_chapter(session, chapter)
 
-    source_max_order = await chapter_repo.get_max_order(session, source_volume_id)
+    source_max_order = await chapter_repo.get_max_order(
+        session, source_volume_id, project_id=chapter.project_id
+    )
     if old_order <= source_max_order:
         await chapter_repo.shift_orders(
-            session, source_volume_id, old_order + 1, source_max_order, -1
+            session,
+            source_volume_id,
+            old_order + 1,
+            source_max_order,
+            -1,
+            project_id=chapter.project_id,
         )
 
-    target_max_order = await chapter_repo.get_max_order(session, volume_id)
+    target_max_order = await chapter_repo.get_max_order(
+        session, volume_id, project_id=chapter.project_id
+    )
     chapter.volume_id = volume_id
     chapter.order = target_max_order + 1
     chapter.updated_at = datetime.now(UTC)

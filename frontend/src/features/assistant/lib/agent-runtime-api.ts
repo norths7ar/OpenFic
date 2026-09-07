@@ -71,6 +71,7 @@ function transformTask(raw: Record<string, unknown>): Task {
   return {
     id: raw.id as string,
     projectId: raw.project_id as string,
+    folderId: (raw.folder_id as string | null | undefined) ?? null,
     title: raw.title as string,
     contextMode: (raw.context_mode ?? "local") as "global" | "local",
     messages: ((raw.messages as Record<string, unknown>[] | undefined) ?? []).map(
@@ -95,6 +96,7 @@ function transformTaskListItem(raw: Record<string, unknown>): TaskListItem {
   return {
     id: raw.id as string,
     projectId: raw.project_id as string,
+    folderId: (raw.folder_id as string | null | undefined) ?? null,
     title: raw.title as string,
     contextMode: (raw.context_mode ?? "local") as "global" | "local",
     tokenInput: Number(raw.token_input ?? raw.tokenInput ?? 0),

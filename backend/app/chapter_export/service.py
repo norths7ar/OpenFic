@@ -39,7 +39,7 @@ class ExportChapter:
     """任务中固化的章节元数据，不包含正文。"""
 
     id: str
-    volume_id: str
+    volume_id: str | None
     title: str
     word_count: int
 

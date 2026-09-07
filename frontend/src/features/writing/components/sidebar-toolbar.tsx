@@ -1,10 +1,20 @@
-import { Box, Flex, IconButton, Tooltip, Badge } from "@radix-ui/themes";
-import { BookPlus, Download, FilePlus, GripVertical, Check, X, Search } from "lucide-react";
+import { Badge, Box, DropdownMenu, IconButton, Tooltip } from "@radix-ui/themes";
+import {
+  BookPlus,
+  Check,
+  Download,
+  FilePlus,
+  GripVertical,
+  MoreHorizontal,
+  Search,
+  X,
+} from "lucide-react";
 import { motion } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useShallow } from "zustand/react/shallow";
 
+import { ProjectNavToolbar } from "@/features/project-navigation/components/project-nav-toolbar";
 import type { ChapterListItem } from "@/lib/chapter.types";
 
 import { useWritingStore } from "../store/use-writing-store";
@@ -145,192 +155,171 @@ export function SidebarToolbar({
   );
 
   return (
-    <Box
-      px="3"
-      py="2"
-      style={{
-        borderBottom: "1px solid var(--gray-a4)",
-      }}
-    >
-      <Flex
-        gap="0"
-        align="center"
-        justify={contentSearchExpanded ? "start" : "between"}
-      >
-        <Flex
-          gap="0"
-          align="center"
-          style={contentSearchExpanded ? { flex: 1 } : undefined}
-        >
-          {!isDragMode && (
-            <Box
-              ref={searchContainerRef}
+    <ProjectNavToolbar
+      search={
+        isDragMode ? (
+          <Badge
+            color="blue"
+            variant="soft"
+          >
+            {t("writing.dragModeOn")}
+          </Badge>
+        ) : (
+          <Box
+            ref={searchContainerRef}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 0,
+              height: "var(--space-6)",
+              paddingRight: contentSearchExpanded ? "var(--space-2)" : 0,
+              border: "1px solid transparent",
+              borderColor: contentSearchExpanded ? "var(--gray-a7)" : "transparent",
+              borderRadius: "max(var(--radius-2), var(--radius-full))",
+              background: contentSearchExpanded ? "var(--color-surface)" : "transparent",
+              flex: contentSearchExpanded ? 1 : undefined,
+              minWidth: 0,
+              position: "relative",
+              transition:
+                "border-color 0.15s ease, background 0.15s ease, padding-right 0.15s ease",
+            }}
+          >
+            <ChapterSearchPopover
+              projectId={projectId}
+              query={contentSearchQuery}
+              open={contentSearchOpen}
+              onOpenChange={handlePopoverOpenChange}
+              onNavigateToChapter={handleNavigateToChapter}
+            >
+              <Box
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  pointerEvents: "none",
+                }}
+              />
+            </ChapterSearchPopover>
+            <IconButton
+              variant="ghost"
+              size="2"
+              onClick={contentSearchExpanded ? undefined : handleContentSearchToggle}
               style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 0,
-                height: "var(--space-6)",
-                paddingRight: contentSearchExpanded ? "var(--space-2)" : 0,
-                border: "1px solid transparent",
-                borderColor: contentSearchExpanded ? "var(--gray-a7)" : "transparent",
-                borderRadius: "max(var(--radius-2), var(--radius-full))",
-                background: contentSearchExpanded ? "var(--color-surface)" : "transparent",
-                flex: contentSearchExpanded ? 1 : undefined,
-                minWidth: 0,
-                position: "relative",
-                transition:
-                  "border-color 0.15s ease, background 0.15s ease, padding-right 0.15s ease",
+                flexShrink: 0,
+                opacity: contentSearchExpanded ? 0.5 : 1,
+                transition: "opacity 0.15s ease",
+                cursor: contentSearchExpanded ? "default" : undefined,
               }}
             >
-              <ChapterSearchPopover
-                projectId={projectId}
-                query={contentSearchQuery}
-                open={contentSearchOpen}
-                onOpenChange={handlePopoverOpenChange}
-                onNavigateToChapter={handleNavigateToChapter}
-              >
-                <Box
+              <Search size={16} />
+            </IconButton>
+            <motion.div
+              initial={{ width: 0, opacity: 0 }}
+              animate={{
+                width: contentSearchExpanded ? "100%" : 0,
+                opacity: contentSearchExpanded ? 1 : 0,
+              }}
+              transition={{ duration: 0.15, ease: "easeOut" }}
+              style={{ overflow: "hidden" }}
+            >
+              {contentSearchExpanded && (
+                <input
+                  type="text"
+                  placeholder={t("writing.contentSearchPlaceholder")}
+                  value={contentSearchQuery}
+                  onChange={handleContentSearchChange}
+                  onFocus={handleContentSearchFocus}
+                  onBlur={handleContentSearchBlur}
                   style={{
-                    position: "absolute",
-                    inset: 0,
-                    pointerEvents: "none",
+                    width: "100%",
+                    border: "none",
+                    outline: "none",
+                    background: "transparent",
+                    fontSize: "var(--font-size-base)",
+                    lineHeight: "var(--line-height-2)",
+                    color: "var(--gray-12)",
+                    padding: 0,
                   }}
                 />
-              </ChapterSearchPopover>
+              )}
+            </motion.div>
+          </Box>
+        )
+      }
+      sort={
+        contentSearchExpanded ? null : isDragMode ? (
+          <>
+            <Tooltip content={t("writing.cancelOrder")}>
               <IconButton
                 variant="ghost"
                 size="2"
-                onClick={contentSearchExpanded ? undefined : handleContentSearchToggle}
-                style={{
-                  flexShrink: 0,
-                  opacity: contentSearchExpanded ? 0.5 : 1,
-                  transition: "opacity 0.15s ease",
-                  cursor: contentSearchExpanded ? "default" : undefined,
-                }}
+                color="gray"
+                onClick={handleCancelDragMode}
+                disabled={isSavingOrder}
               >
-                <Search size={16} />
+                <X size={16} />
               </IconButton>
-              <motion.div
-                initial={{ width: 0, opacity: 0 }}
-                animate={{
-                  width: contentSearchExpanded ? "100%" : 0,
-                  opacity: contentSearchExpanded ? 1 : 0,
-                }}
-                transition={{ duration: 0.15, ease: "easeOut" }}
-                style={{ overflow: "hidden" }}
+            </Tooltip>
+            <Tooltip content={t("writing.saveOrder")}>
+              <IconButton
+                variant="solid"
+                size="2"
+                onClick={handleSaveCurrentOrder}
+                disabled={!hasUnsavedDragChanges || isSavingOrder}
               >
-                {contentSearchExpanded && (
-                  <input
-                    type="text"
-                    placeholder={t("writing.contentSearchPlaceholder")}
-                    value={contentSearchQuery}
-                    onChange={handleContentSearchChange}
-                    onFocus={handleContentSearchFocus}
-                    onBlur={handleContentSearchBlur}
-                    style={{
-                      width: "100%",
-                      border: "none",
-                      outline: "none",
-                      background: "transparent",
-                      fontSize: "var(--font-size-base)",
-                      lineHeight: "var(--line-height-2)",
-                      color: "var(--gray-12)",
-                      padding: 0,
-                    }}
-                  />
-                )}
-              </motion.div>
-            </Box>
-          )}
-
-          {!contentSearchExpanded && (
-            <>
-              {!isDragMode ? (
-                <Tooltip content={t("writing.dragModeOn")}>
-                  <IconButton
-                    variant="ghost"
-                    size="2"
-                    onClick={handleEnterDragMode}
-                  >
-                    <GripVertical size={16} />
-                  </IconButton>
-                </Tooltip>
-              ) : (
-                <Badge
-                  color="blue"
-                  variant="soft"
-                >
-                  {t("writing.dragModeOn")}
-                </Badge>
-              )}
-            </>
-          )}
-        </Flex>
-
-        {!contentSearchExpanded && (
-          <Flex
-            gap="0"
-            align="center"
-          >
-            {isDragMode ? (
-              <>
-                <Tooltip content={t("writing.cancelOrder")}>
-                  <IconButton
-                    variant="ghost"
-                    size="2"
-                    color="gray"
-                    onClick={handleCancelDragMode}
-                    disabled={isSavingOrder}
-                  >
-                    <X size={16} />
-                  </IconButton>
-                </Tooltip>
-
-                <Tooltip content={t("writing.saveOrder")}>
-                  <IconButton
-                    variant="solid"
-                    size="2"
-                    onClick={handleSaveCurrentOrder}
-                    disabled={!hasUnsavedDragChanges || isSavingOrder}
-                  >
-                    <Check size={16} />
-                  </IconButton>
-                </Tooltip>
-              </>
-            ) : (
-              <>
-                <Tooltip content={t("writing.newChapter")}>
-                  <IconButton
-                    variant="ghost"
-                    size="2"
-                    onClick={handleCreate}
-                  >
-                    <FilePlus size={16} />
-                  </IconButton>
-                </Tooltip>
-                <Tooltip content={t("writing.newVolume")}>
-                  <IconButton
-                    variant="ghost"
-                    size="2"
-                    onClick={handleCreateVolume}
-                  >
-                    <BookPlus size={16} />
-                  </IconButton>
-                </Tooltip>
-                <Tooltip content={t("writing.chapterExport.open")}>
-                  <IconButton
-                    variant="ghost"
-                    size="2"
-                    onClick={onExport}
-                  >
-                    <Download size={16} />
-                  </IconButton>
-                </Tooltip>
-              </>
-            )}
-          </Flex>
-        )}
-      </Flex>
-    </Box>
+                <Check size={16} />
+              </IconButton>
+            </Tooltip>
+          </>
+        ) : (
+          <Tooltip content={t("writing.dragModeOn")}>
+            <IconButton
+              variant="ghost"
+              size="2"
+              onClick={handleEnterDragMode}
+            >
+              <GripVertical size={16} />
+            </IconButton>
+          </Tooltip>
+        )
+      }
+      create={
+        !isDragMode && !contentSearchExpanded ? (
+          <Tooltip content={t("writing.newChapter")}>
+            <IconButton
+              variant="ghost"
+              size="2"
+              onClick={handleCreate}
+            >
+              <FilePlus size={16} />
+            </IconButton>
+          </Tooltip>
+        ) : null
+      }
+      more={
+        !isDragMode && !contentSearchExpanded ? (
+          <DropdownMenu.Root>
+            <DropdownMenu.Trigger>
+              <IconButton
+                variant="ghost"
+                size="2"
+                aria-label={t("common.more")}
+              >
+                <MoreHorizontal size={16} />
+              </IconButton>
+            </DropdownMenu.Trigger>
+            <DropdownMenu.Content align="end">
+              <DropdownMenu.Item onClick={handleCreateVolume}>
+                <BookPlus size={16} />
+                {t("writing.newVolume")}
+              </DropdownMenu.Item>
+              <DropdownMenu.Item onClick={onExport}>
+                <Download size={16} />
+                {t("writing.chapterExport.open")}
+              </DropdownMenu.Item>
+            </DropdownMenu.Content>
+          </DropdownMenu.Root>
+        ) : null
+      }
+    />
   );
 }

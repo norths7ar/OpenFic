@@ -7,7 +7,8 @@ from collections.abc import Sequence
 from pydantic import BaseModel, Field
 
 from app.agent_runtime.tools.errors import ToolExecutionError
-from app.storage.models.note import Note, NoteCategory
+from app.storage.models.note import Note
+from app.storage.models.project_folder import ProjectFolder
 
 
 class NoteRef(BaseModel):
@@ -23,29 +24,25 @@ class CategoryRef(BaseModel):
 
 
 def _resolve_category_by_path(
-    categories: Sequence[NoteCategory],
+    categories: Sequence[ProjectFolder],
     path: str,
-) -> NoteCategory | None:
+) -> ProjectFolder | None:
     segments = [s for s in path.strip("/").split("/") if s]
     if not segments:
         return None
-    current_parent_id: str | None = None
-    for segment in segments:
-        match = next(
-            (c for c in categories if c.parent_id == current_parent_id and c.title == segment),
-            None,
-        )
-        if match is None:
-            return None
-        current_parent_id = match.id
-    return match
+    if len(segments) != 1:
+        return None
+    matches = [c for c in categories if c.title == segments[0]]
+    if len(matches) > 1:
+        raise ToolExecutionError("文件夹名称不唯一，请使用 ID 定位")
+    return matches[0] if matches else None
 
 
 def resolve_note_from_list(
     notes: Sequence[Note],
     ref: NoteRef,
     *,
-    categories: Sequence[NoteCategory] | None = None,
+    categories: Sequence[ProjectFolder] | None = None,
 ) -> Note:
     if ref.id is not None:
         match = next((n for n in notes if n.id == ref.id), None)
@@ -77,18 +74,22 @@ def resolve_note_from_list(
 
 
 def resolve_category_from_list(
-    categories: Sequence[NoteCategory], ref: CategoryRef
-) -> NoteCategory:
+    categories: Sequence[ProjectFolder], ref: CategoryRef
+) -> ProjectFolder:
     if ref.id is not None:
         match = next((c for c in categories if c.id == ref.id), None)
         if match is not None:
             return match
+        raise ToolExecutionError(f"未找到文件夹 ID: {ref.id}")
     if ref.path is not None:
         match = _resolve_category_by_path(categories, ref.path)
         if match is not None:
             return match
     if ref.title is not None:
-        match = next((c for c in categories if c.title == ref.title), None)
+        matches = [c for c in categories if c.title == ref.title]
+        if len(matches) > 1:
+            raise ToolExecutionError("文件夹名称不唯一，请使用 ID 定位")
+        match = matches[0] if matches else None
         if match is not None:
             return match
     raise ToolExecutionError(f"未找到分类: id={ref.id}, title={ref.title}, path={ref.path}")

@@ -41,7 +41,7 @@ def _make_volume(
     volume.order = order
     volume.title = title
     volume.description = description
-    volume.chapter_count = chapter_count
+    volume.item_count = chapter_count
     return volume
 
 
@@ -804,39 +804,10 @@ async def test_edit_volume_builds_approval_preview() -> None:
     }
 
 
-async def test_delete_volume_requires_cascade_for_non_empty_volume() -> None:
-    from app.agent_runtime.tools.impls.chapter.delete_volume import DeleteVolumeTool
-
-    volume = _make_volume(chapter_count=1)
-    tool = DeleteVolumeTool(_state=_make_state())
-
-    with patch("app.agent_runtime.tools.impls.chapter.delete_volume.create_session") as mock_cs:
-        mock_session = AsyncMock()
-        mock_cs.return_value = mock_session
-        with (
-            patch(
-                "app.agent_runtime.tools.impls.chapter.delete_volume.volume_repo.list_by_project",
-                AsyncMock(return_value=[volume]),
-            ),
-            patch(
-                "app.agent_runtime.tools.impls.chapter.delete_volume.chapter_repo.count_by_volume",
-                AsyncMock(return_value=1),
-            ),
-        ):
-            result = await tool.ainvoke(
-                {"volume_ref": {"type": "order", "value": 1}, "cascade": False}
-            )
-
-    data = json.loads(result)
-    assert data["type"] == "fail"
-    assert "cascade=true" in data["message"]
-    mock_session.rollback.assert_called_once()
-
-
 async def test_delete_volume_returns_success_only() -> None:
     from app.agent_runtime.tools.impls.chapter.delete_volume import DeleteVolumeTool
 
-    volume = _make_volume(chapter_count=0)
+    volume = _make_volume(chapter_count=2)
     tool = DeleteVolumeTool(_state=_make_state())
 
     with patch("app.agent_runtime.tools.impls.chapter.delete_volume.create_session") as mock_cs:
@@ -846,10 +817,6 @@ async def test_delete_volume_returns_success_only() -> None:
             patch(
                 "app.agent_runtime.tools.impls.chapter.delete_volume.volume_repo.list_by_project",
                 AsyncMock(return_value=[volume]),
-            ),
-            patch(
-                "app.agent_runtime.tools.impls.chapter.delete_volume.chapter_repo.count_by_volume",
-                AsyncMock(return_value=0),
             ),
             patch(
                 "app.agent_runtime.tools.impls.chapter.delete_volume.volume_service.delete_volume",

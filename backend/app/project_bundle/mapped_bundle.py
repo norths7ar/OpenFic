@@ -28,6 +28,7 @@ from app.storage.models.world_info_entry import WorldInfoEntry
 _HASH = re.compile(r"^sha256:[0-9a-f]{64}$")
 _TARGET_ID = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 _CATEGORY_RULE_ID = "__mapped_categories__"
+_FOLDER_RULE_ID = "__mapped_folders__"
 
 
 @dataclass(frozen=True)
@@ -69,6 +70,7 @@ def _generated_id(target_kind: str, binding_key: str) -> str:
         "character": "map-ch",
         "note": "map-no",
         "note_category": "map-nc",
+        "project_folder": "map-pf",
     }
     return f"{prefixes[target_kind]}-{binding_key[:24]}"
 
@@ -119,10 +121,12 @@ class _Builder:
         self.files: dict[str, str | bytes] = {}
         self.documents: list[dict[str, Any]] = []
         self.categories: list[dict[str, Any]] = []
+        self.folders: list[dict[str, Any]] = []
         self.specs: dict[str, MappedBindingSpec] = {}
         self.target_owners: dict[tuple[str, str], str] = {}
         self.category_ids: dict[tuple[str, tuple[str, ...]], str] = {}
         self.category_sibling_orders: dict[tuple[str, tuple[str, ...]], int] = {}
+        self.folder_ids: dict[tuple[str, str], str] = {}
 
     def world_uid_for(self, item: MappedSourceItem) -> int:
         _, target_id, _ = self.resolve(
@@ -202,6 +206,23 @@ class _Builder:
         self.specs[key] = spec
         return spec
 
+    def folder_anchor(
+        self, rule_id: str, scope: str, title: str, target_id_hint: str | None
+    ) -> str:
+        if target_id_hint:
+            # Keep established source identities when accepting old exported mappings.
+            bindings = [
+                binding
+                for binding in self.existing.values()
+                if binding.rule_id == rule_id and binding.target_id == target_id_hint
+            ]
+            if len(bindings) > 1:
+                raise BundleFormatError("folder ID has multiple source bindings")
+            if bindings:
+                return bindings[0].source_anchor
+            return f"{scope}/@{target_id_hint}"
+        return f"{scope}/{title}"
+
     def add_category_path(
         self,
         path: list[str],
@@ -213,15 +234,20 @@ class _Builder:
             raise BundleFormatError("category target hints do not match category path")
         if order_hints and len(order_hints) != len(path):
             raise BundleFormatError("category order hints do not match category path")
+        if len(path) > 1:
+            raise BundleFormatError("folder path cannot exceed one level")
         parent_id: str | None = None
         for depth in range(1, len(path) + 1):
             current_path = tuple(path[:depth])
-            category_key = (document_type, current_path)
+            target_hint = target_id_hints[depth - 1] if target_id_hints else None
+            category_key = (document_type, (target_hint,) if target_hint else current_path)
             existing_id = self.category_ids.get(category_key)
             if existing_id is not None:
                 parent_id = existing_id
                 continue
-            anchor = f"{document_type}/" + "/".join(current_path)
+            anchor = self.folder_anchor(
+                _CATEGORY_RULE_ID, document_type, current_path[-1], target_hint
+            )
             key, category_id, binding = self.resolve(
                 rule_id=_CATEGORY_RULE_ID,
                 source_path="",
@@ -266,6 +292,54 @@ class _Builder:
             self.category_ids[category_key] = category_id
             parent_id = category_id
         return parent_id
+
+    def add_project_folder(
+        self,
+        path: list[str],
+        scope: str,
+        target_id_hints: list[str] | None = None,
+        order_hints: list[int] | None = None,
+    ) -> str | None:
+        if not path:
+            return None
+        if len(path) != 1:
+            raise BundleFormatError("folder path cannot exceed one level")
+        title = path[0]
+        target_id_hint = target_id_hints[0] if target_id_hints else None
+        folder_key = (scope, target_id_hint or title)
+        if folder_key in self.folder_ids:
+            return self.folder_ids[folder_key]
+        target_id_hint = target_id_hints[0] if target_id_hints else None
+        order = order_hints[0] if order_hints else sum(key[0] == scope for key in self.folder_ids)
+        anchor = self.folder_anchor(_FOLDER_RULE_ID, scope, title, target_id_hint)
+        key, folder_id, binding = self.resolve(
+            rule_id=_FOLDER_RULE_ID,
+            source_path="",
+            source_anchor=anchor,
+            target_kind="project_folder",
+            target_id_hint=target_id_hint,
+        )
+        fields = {
+            "kind": "project_folder",
+            "id": folder_id,
+            "project_id": self.project.id,
+            "scope": scope,
+            "title": title,
+            "order": order,
+        }
+        incoming_hash = semantic_hash(fields)
+        self.folders.append({**fields, "base_hash": _base_hash(binding, incoming_hash)})
+        self.record(
+            key=key,
+            rule_id=_FOLDER_RULE_ID,
+            source_path="",
+            source_anchor=anchor,
+            target_kind="project_folder",
+            target_id=folder_id,
+            incoming_hash=incoming_hash,
+        )
+        self.folder_ids[folder_key] = folder_id
+        return folder_id
 
     def add_document(
         self,
@@ -337,6 +411,7 @@ class _Builder:
             },
             "documents": sorted(self.documents, key=lambda item: item["path"]),
             "note_categories": self.categories,
+            "project_folders": self.folders,
         }
         self.files["openfic.yaml"] = _yaml(manifest)
         return MappedProjectBundle(build_zip(self.files), source_items, list(self.specs.values()))
@@ -388,6 +463,12 @@ async def build_mapped_project_bundle(
     for item in source_items:
         slug = slugify_filename(item.title, item.rule_id)
         if item.target == "worldbook":
+            folder_id = builder.add_project_folder(
+                item.category_path,
+                "world",
+                item.category_target_ids,
+                item.category_orders,
+            )
             builder.add_document(
                 item=item,
                 target_kind="world_entry",
@@ -397,12 +478,19 @@ async def build_mapped_project_bundle(
                     "section": item.section or "",
                     "order": item.order,
                     "writing_visible": item.writing_visible,
+                    "folder_id": folder_id,
                 },
                 title=item.title,
                 body=item.body,
                 path=f"worldbook/{item.order:06d}-{slug}--{{id}}.md",
             )
         elif item.target == "characters":
+            folder_id = builder.add_project_folder(
+                item.category_path,
+                "character",
+                item.category_target_ids,
+                item.category_orders,
+            )
             builder.add_document(
                 item=item,
                 target_kind="character",
@@ -410,6 +498,7 @@ async def build_mapped_project_bundle(
                     "order": item.order,
                     "writing_visible": item.writing_visible,
                     "is_favorited": False,
+                    "folder_id": folder_id,
                 },
                 title=item.title,
                 body=item.body,

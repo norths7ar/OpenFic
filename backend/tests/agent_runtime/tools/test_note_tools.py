@@ -628,7 +628,7 @@ async def test_move_note_returns_success_and_metadata() -> None:
 async def test_create_note_category_returns_success_and_metadata() -> None:
     from app.agent_runtime.tools.impls.note.create_note_category import CreateNoteCategoryTool
 
-    created = _make_category(category_id="cat-new", title="新分类", parent_id="cat-1")
+    created = _make_category(category_id="cat-new", title="新分类")
     tool = CreateNoteCategoryTool(_state=_make_state())
 
     with patch("app.agent_runtime.tools.impls.note.create_note_category.create_session") as mock_cs:
@@ -653,11 +653,11 @@ async def test_create_note_category_returns_success_and_metadata() -> None:
             ),
             patch("app.background.jobs.service.commit_and_notify", AsyncMock()),
         ):
-            result = await tool.ainvoke({"title": "新分类", "parent_ref": {"id": "cat-1"}})
+            result = await tool.ainvoke({"title": "新分类"})
 
     assert json.loads(result) == {
         "success": True,
-        "metadata": {"category": {"id": "cat-new", "title": "新分类", "parent_id": "cat-1"}},
+        "metadata": {"category": {"id": "cat-new", "title": "新分类", "parent_id": None}},
     }
 
 
@@ -917,7 +917,7 @@ async def test_delete_note_category_cascades_and_records_revisions() -> None:
     }
 
 
-async def test_delete_note_category_builds_cascade_approval_preview() -> None:
+async def test_delete_note_category_previews_only_direct_notes_returned_to_root() -> None:
     from app.agent_runtime.tools.impls.note.delete_note_category import (
         DeleteNoteCategoryTool,
     )
@@ -961,8 +961,8 @@ async def test_delete_note_category_builds_cascade_approval_preview() -> None:
                 "id": "cat-1",
                 "title": "待删除",
             },
-            "affected_category_count": 2,
-            "affected_note_count": 2,
+            "affected_category_count": 1,
+            "affected_note_count": 1,
         },
     }
 

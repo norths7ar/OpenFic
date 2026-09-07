@@ -12,7 +12,7 @@ from app.core.storage import save_cover_file
 from app.core.txt_parser import ParsedVolume
 from app.storage.models.chapter import Chapter
 from app.storage.models.project import Project
-from app.storage.models.volume import Volume
+from app.storage.models.project_folder import ProjectFolder
 from app.storage.repos import project_repo
 from app.storage.services import writing_activity_service
 
@@ -65,12 +65,13 @@ async def confirm_import(
     project = await project_repo.create(session, project)
 
     volume_objects = [
-        Volume(
+        ProjectFolder(
+            scope="writing",
             project_id=project.id,
             title=parsed_volume.title,
             description=None,
             order=order,
-            chapter_count=len(parsed_volume.chapters),
+            item_count=len(parsed_volume.chapters),
         )
         for order, parsed_volume in enumerate(volumes, start=1)
     ]

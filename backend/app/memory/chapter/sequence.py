@@ -6,11 +6,11 @@
 """
 
 from app.storage.models.chapter import Chapter
-from app.storage.models.volume import Volume
+from app.storage.models.project_folder import ProjectFolder
 
 
 def global_reading_sequence(
-    chapters: list[Chapter], volumes: list[Volume]
+    chapters: list[Chapter], volumes: list[ProjectFolder]
 ) -> list[tuple[int, Chapter]]:
     """
     返回按全局阅读序排序的 [(global_order, chapter), ...]，从 1 开始。
@@ -23,18 +23,24 @@ def global_reading_sequence(
     sorted_chapters = sorted(
         chapters,
         key=lambda ch: (
-            volume_map[ch.volume_id].order if ch.volume_id in volume_map else float("inf"),
+            -1
+            if ch.volume_id is None
+            else volume_map[ch.volume_id].order
+            if ch.volume_id in volume_map
+            else float("inf"),
             ch.order,
         ),
     )
     return [(i, ch) for i, ch in enumerate(sorted_chapters, 1)]
 
 
-def global_order_index(chapters: list[Chapter], volumes: list[Volume]) -> dict[str, int]:
+def global_order_index(chapters: list[Chapter], volumes: list[ProjectFolder]) -> dict[str, int]:
     """返回 {chapter_id: global_order}。"""
     return {ch.id: ord_num for ord_num, ch in global_reading_sequence(chapters, volumes)}
 
 
-def chapter_by_global_order(chapters: list[Chapter], volumes: list[Volume]) -> dict[int, Chapter]:
+def chapter_by_global_order(
+    chapters: list[Chapter], volumes: list[ProjectFolder]
+) -> dict[int, Chapter]:
     """返回 {global_order: chapter}。"""
     return {ord_num: ch for ord_num, ch in global_reading_sequence(chapters, volumes)}

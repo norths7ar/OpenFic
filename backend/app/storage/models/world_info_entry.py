@@ -30,6 +30,7 @@ class WorldInfoEntry(SQLModel, table=True):
 
     id: str = Field(default_factory=generate_id, primary_key=True)
     world_info_id: str = Field(index=True, foreign_key="world_info.id")
+    folder_id: str | None = Field(default=None, index=True, foreign_key="project_folders.id")
     uid: int = Field(index=True)
     name: str = Field(max_length=200)
     section: str = Field(default="", max_length=500)

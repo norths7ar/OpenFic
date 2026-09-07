@@ -115,7 +115,7 @@ async def test_source_preview_reports_create_actions(client: AsyncClient, sessio
     body = response.json()
     assert body["mode"] == "merge"
     assert body["summary"] == {
-        "create": 7,
+        "create": 8,
         "update": 0,
         "unchanged": 0,
         "conflict": 0,
@@ -135,7 +135,7 @@ async def test_source_apply_succeeds_and_repeated_source_is_unchanged(
     )
     assert applied.status_code == 200
     assert applied.json()["summary"] == {
-        "create": 7,
+        "create": 8,
         "update": 0,
         "unchanged": 0,
         "conflict": 0,
@@ -149,7 +149,7 @@ async def test_source_apply_succeeds_and_repeated_source_is_unchanged(
     assert repeated.json()["summary"] == {
         "create": 0,
         "update": 0,
-        "unchanged": 7,
+        "unchanged": 8,
         "conflict": 0,
     }
 
@@ -186,7 +186,7 @@ async def test_source_apply_updates_changed_source(client: AsyncClient, session)
     assert changed.json()["summary"] == {
         "create": 0,
         "update": 2,
-        "unchanged": 5,
+        "unchanged": 6,
         "conflict": 0,
     }
     notes = (
@@ -209,7 +209,7 @@ async def test_source_apply_updates_visibility_without_recreating_target(
         files=_upload(_visibility_bundle(project.id, disabled=False)),
     )
     assert first.status_code == 200
-    assert first.json()["summary"]["create"] == 1
+    assert first.json()["summary"]["create"] == 2
 
     before = (
         await session.execute(select(WorldInfoEntry).where(WorldInfoEntry.name == "灵气"))
@@ -225,7 +225,7 @@ async def test_source_apply_updates_visibility_without_recreating_target(
     assert second.json()["summary"] == {
         "create": 0,
         "update": 1,
-        "unchanged": 0,
+        "unchanged": 1,
         "conflict": 0,
     }
 

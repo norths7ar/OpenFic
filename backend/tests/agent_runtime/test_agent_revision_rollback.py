@@ -10,11 +10,12 @@ from app.agent_runtime.persistence import repo as message_repo
 from app.agent_runtime.persistence.model import AgentAttachment
 from app.storage.models.chapter import Chapter
 from app.storage.models.character import Character
-from app.storage.models.note import Note, NoteCategory
+from app.storage.models.note import Note
 from app.storage.models.project import Project
+from app.storage.models.project_folder import ProjectFolder as NoteCategory
+from app.storage.models.project_folder import ProjectFolder as Volume
 from app.storage.models.revision_chapter_snapshot import RevisionChapterSnapshot
 from app.storage.models.task import Task
-from app.storage.models.volume import Volume
 from app.storage.models.world_info import WorldInfo
 from app.storage.models.world_info_entry import WorldInfoEntry
 from tests.model_registry import register_sqlmodel_models
@@ -33,11 +34,12 @@ async def revision_db(monkeypatch):
         session.add(Project(id="proj-1", title="测试项目"))
         session.add(
             Volume(
+                scope="writing",
                 id="vol-1",
                 project_id="proj-1",
                 title="第一卷",
                 order=1,
-                chapter_count=2,
+                item_count=2,
             )
         )
         session.add(
@@ -101,6 +103,7 @@ async def revision_db(monkeypatch):
         )
         session.add(
             NoteCategory(
+                scope="note",
                 id="cat-1",
                 project_id="proj-1",
                 title="设定",
@@ -849,6 +852,7 @@ async def test_rollback_revision_restores_moved_note(revision_db):
     async with revision_db() as session:
         session.add(
             NoteCategory(
+                scope="note",
                 id="cat-2",
                 project_id="proj-1",
                 title="角色",
@@ -948,7 +952,7 @@ async def test_create_note_category_records_revision_snapshot(revision_db):
             "current_revision_id": revision.id,
         }
     )
-    result = json.loads(await tool.ainvoke({"title": "新分类", "parent_ref": {"id": "cat-1"}}))
+    result = json.loads(await tool.ainvoke({"title": "新分类"}))
     assert result["success"] is True
     created_id = result["metadata"]["category"]["id"]
 
@@ -1004,9 +1008,7 @@ async def test_rollback_revision_restores_note_categories(revision_db):
     }
 
     create_tool = CreateNoteCategoryTool(_state=state)
-    create_result = json.loads(
-        await create_tool.ainvoke({"title": "临时分类", "parent_ref": {"id": "cat-1"}})
-    )
+    create_result = json.loads(await create_tool.ainvoke({"title": "临时分类"}))
     assert create_result["success"] is True
     created_id = create_result["metadata"]["category"]["id"]
 
@@ -1029,7 +1031,7 @@ async def test_rollback_revision_restores_note_categories(revision_db):
 
 
 @pytest.mark.asyncio
-async def test_rollback_restores_nested_category_before_note(revision_db):
+async def test_rollback_restores_flat_folders_before_notes(revision_db):
     from app.agent_runtime.revisions import (
         begin_user_revision,
         rollback_revision_for_session,
@@ -1076,9 +1078,7 @@ async def test_rollback_restores_nested_category_before_note(revision_db):
     new_cat_id = cat_result["metadata"]["category"]["id"]
 
     sub_cat_tool = CreateNoteCategoryTool(_state=state)
-    sub_cat_result = json.loads(
-        await sub_cat_tool.ainvoke({"title": "子分类", "parent_ref": {"id": new_cat_id}})
-    )
+    sub_cat_result = json.loads(await sub_cat_tool.ainvoke({"title": "子分类"}))
     assert sub_cat_result["success"] is True
     sub_cat_id = sub_cat_result["metadata"]["category"]["id"]
 

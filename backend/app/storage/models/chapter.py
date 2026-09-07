@@ -30,7 +30,7 @@ class Chapter(SQLModel, table=True):
 
     id: str = Field(default_factory=generate_id, primary_key=True)
     project_id: str = Field(index=True, foreign_key="projects.id")
-    volume_id: str = Field(index=True, foreign_key="volumes.id")
+    volume_id: str | None = Field(default=None, index=True, foreign_key="project_folders.id")
     title: str = Field(max_length=200)
     content: str = Field(default="")
     word_count: int = Field(default=0)

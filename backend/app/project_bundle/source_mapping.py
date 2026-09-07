@@ -47,12 +47,17 @@ _RULE_KEYS = {
     "section_level",
     "category_levels",
     "category_path",
+    "folder_level",
+    "folder_path",
+    "folder_target_id",
+    "folder_order",
     "writing_visible",
     "disabled_title_suffix",
     "required",
     "target_id",
     "category_target_ids",
     "order",
+    "order_step",
     "category_orders",
 }
 _SPLIT_KEYS = {"type", "item_levels"}
@@ -139,8 +144,18 @@ def _validate_rule(rule: Any) -> dict[str, Any]:
             _fail("item_levels must be unique, ascending, and between 2 and 6")
     elif "item_levels" in split:
         _fail("file split cannot have item_levels")
-    if split_type == "file" and any(key in rule for key in ("section_level", "category_levels")):
-        _fail("section_level and category_levels require headings split")
+    if split_type == "file" and any(
+        key in rule for key in ("section_level", "category_levels", "folder_level")
+    ):
+        _fail("folder_level requires headings split")
+    if "folder_level" in rule and any(key in rule for key in ("section_level", "category_levels")):
+        _fail("folder_level cannot be combined with legacy hierarchy fields")
+    if "folder_path" in rule and "category_path" in rule:
+        _fail("folder_path cannot be combined with legacy category_path")
+    if "folder_level" in rule:
+        folder_level = _int(rule["folder_level"], "folder_level")
+        if folder_level < 1 or folder_level >= min(levels):
+            _fail("folder_level must be below all item levels")
     if "section_level" in rule:
         if target != "worldbook":
             _fail("section_level is only valid for worldbook")
@@ -155,15 +170,21 @@ def _validate_rule(rule: Any) -> dict[str, Any]:
             category_levels != sorted(set(category_levels))
             or any(level < 2 or level > 6 for level in category_levels)
             or any(level >= max(levels) for level in category_levels)
-            or len(category_levels) > 2
+            or len(category_levels) > 1
         ):
-            _fail("category_levels must be ascending, at most two, and ancestors")
+            _fail("category_levels must contain at most one ancestor level")
     if "category_path" in rule and (
         target not in {"notes", "outlines"}
         or not isinstance(rule["category_path"], list)
         or any(not isinstance(value, str) or not value for value in rule["category_path"])
     ):
         _fail("category_path must be a list of non-empty strings for notes or outlines")
+    if "folder_path" in rule and (
+        not isinstance(rule["folder_path"], list)
+        or len(rule["folder_path"]) > 1
+        or any(not isinstance(value, str) or not value for value in rule["folder_path"])
+    ):
+        _fail("folder_path must contain at most one non-empty string")
     if "writing_visible" in rule and (
         target not in {"worldbook", "characters", "notes", "outlines"}
         or not isinstance(rule["writing_visible"], bool)
@@ -186,10 +207,14 @@ def _validate_rule(rule: Any) -> dict[str, Any]:
         or _TARGET_ID.fullmatch(rule["target_id"]) is None
     ):
         _fail("target_id is only valid for one file-split source")
-    if "order" in rule and (
-        split_type != "file" or not has_source or _int(rule["order"], "order") < 0
+    if "order" in rule and (not has_source or _int(rule["order"], "order") < 0):
+        _fail("order is only valid as a non-negative single-source rule integer")
+    if "order_step" in rule and (
+        split_type != "headings"
+        or "order" not in rule
+        or _int(rule["order_step"], "order_step") <= 0
     ):
-        _fail("order is only valid as a non-negative file rule integer")
+        _fail("order_step is only valid as a positive heading-rule integer with order")
     if "category_target_ids" in rule:
         category_ids = rule["category_target_ids"]
         category_path = rule.get("category_path")
@@ -219,6 +244,21 @@ def _validate_rule(rule: Any) -> dict[str, Any]:
             or any(_int(value, "category order") < 0 for value in category_orders)
         ):
             _fail("category_orders must match a file rule category_path")
+    if "folder_target_id" in rule and (
+        split_type != "file"
+        or not has_source
+        or not isinstance(rule["folder_target_id"], str)
+        or _TARGET_ID.fullmatch(rule["folder_target_id"]) is None
+        or not rule.get("folder_path")
+    ):
+        _fail("folder_target_id requires a file rule with folder_path")
+    if "folder_order" in rule and (
+        split_type != "file"
+        or not has_source
+        or _int(rule["folder_order"], "folder_order") < 0
+        or not rule.get("folder_path")
+    ):
+        _fail("folder_order requires a file rule with folder_path")
     return rule
 
 
@@ -238,8 +278,27 @@ def _mapped_items(path: str, text: str, rule: dict[str, Any]) -> list[MappedSour
             _fail("disabled title suffix must not consume the whole title")
         return clean_title, False
 
+    def file_folder_metadata() -> tuple[list[str], list[str], list[int]]:
+        folder_path = list(rule.get("folder_path", rule.get("category_path", [])))
+        target_ids = (
+            [rule["folder_target_id"]]
+            if "folder_target_id" in rule
+            else list(rule.get("category_target_ids", []))
+        )
+        orders = (
+            [rule["folder_order"]]
+            if "folder_order" in rule
+            else list(rule.get("category_orders", []))
+        )
+        if len(folder_path) <= 1:
+            return folder_path, target_ids, orders
+        # Legacy maps could describe a category chain. Preserve its readable
+        # identity while importing it as the single folder supported now.
+        return [" / ".join(folder_path)], target_ids[-1:], orders[-1:]
+
     if rule["split"]["type"] == "file":
         title, item_visible = item_title_and_visibility(h1.title)
+        folder_path, folder_target_ids, folder_orders = file_folder_metadata()
         return [
             MappedSourceItem(
                 path,
@@ -249,12 +308,12 @@ def _mapped_items(path: str, text: str, rule: dict[str, Any]) -> list[MappedSour
                 title,
                 "\n".join(lines[h1.line + 1 :]).strip("\n"),
                 None,
-                list(rule.get("category_path", [])),
+                folder_path,
                 item_visible,
                 rule.get("order", -1),
                 rule.get("target_id"),
-                list(rule.get("category_target_ids", [])),
-                list(rule.get("category_orders", [])),
+                folder_target_ids,
+                folder_orders,
             )
         ]
     item_levels = set(rule["split"]["item_levels"])
@@ -262,9 +321,12 @@ def _mapped_items(path: str, text: str, rule: dict[str, Any]) -> list[MappedSour
     if not selected:
         _fail("headings split produced no items")
     results: list[MappedSourceItem] = []
+    folder_level = rule.get("folder_level")
     section_level = rule.get("section_level")
     category_levels = set(rule.get("category_levels", []))
-    for heading in selected:
+    configured_order = rule.get("order")
+    order_step = rule.get("order_step", 1)
+    for index, heading in enumerate(selected):
         title, item_visible = item_title_and_visibility(heading.title)
         end = len(lines)
         for candidate in headings:
@@ -278,10 +340,19 @@ def _mapped_items(path: str, text: str, rule: dict[str, Any]) -> list[MappedSour
             (item.title for item in reversed(ancestors) if item.level == section_level),
             None,
         )
-        categories = list(rule.get("category_path", []))
-        categories.extend(item.title for item in ancestors if item.level in category_levels)
-        if len(categories) > 2:
-            _fail("category path cannot exceed two levels")
+        categories = list(rule.get("folder_path", rule.get("category_path", [])))
+        if folder_level is not None:
+            dynamic_folders = [item.title for item in ancestors if item.level == folder_level]
+            if dynamic_folders:
+                categories = [dynamic_folders[-1]]
+        elif target == "worldbook" and section is not None:
+            categories = [section]
+        else:
+            dynamic_folders = [item.title for item in ancestors if item.level in category_levels]
+            if dynamic_folders:
+                categories = [dynamic_folders[-1]]
+        if len(categories) > 1:
+            categories = [" / ".join(categories)]
         anchor = "/".join(
             [
                 *(f"H{item.level}:{item.title}" for item in ancestors),
@@ -299,7 +370,7 @@ def _mapped_items(path: str, text: str, rule: dict[str, Any]) -> list[MappedSour
                 section,
                 categories,
                 item_visible,
-                rule.get("order", -1),
+                configured_order + index * order_step if configured_order is not None else -1,
                 rule.get("target_id"),
                 list(rule.get("category_target_ids", [])),
                 list(rule.get("category_orders", [])),

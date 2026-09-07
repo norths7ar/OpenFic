@@ -34,24 +34,3 @@
 .grouped-volume-list-scrollbar-thumb.is-scrollable.is-visible:hover {
   background: var(--gray-a8);
 }
-
-.chapter-list-item-row::after {
-  content: "";
-  position: absolute;
-  right: 12px;
-  bottom: 0;
-  left: 12px;
-  height: 1px;
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    color-mix(in srgb, var(--gray-a5) 22%, transparent) 16%,
-    color-mix(in srgb, var(--gray-a5) 58%, transparent) 34%,
-    var(--gray-a5) 43%,
-    var(--gray-a5) 57%,
-    color-mix(in srgb, var(--gray-a5) 58%, transparent) 66%,
-    color-mix(in srgb, var(--gray-a5) 22%, transparent) 84%,
-    transparent 100%
-  );
-  pointer-events: none;
-}

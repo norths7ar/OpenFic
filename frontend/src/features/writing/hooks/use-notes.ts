@@ -34,148 +34,73 @@ import {
   reorderNoteItems,
 } from "../lib/note-api";
 
-function cloneCategoryItem(cat: NoteCategoryItem): NoteCategoryItem {
-  return {
-    ...cat,
-    categories: cat.categories.map(cloneCategoryItem),
-    notes: cat.notes.map((n) => ({ ...n })),
-  };
-}
-
+// The legacy response envelope is flat; folder IDs are the only association authority.
 function cloneTree(tree: NoteTreeResponse): NoteTreeResponse {
   return {
     ...tree,
-    categories: tree.categories.map(cloneCategoryItem),
-    rootNotes: tree.rootNotes.map((n) => ({ ...n })),
+    rootNotes: tree.rootNotes.map((note) => ({ ...note })),
+    categories: tree.categories.map((folder) => ({
+      ...folder,
+      categories: [],
+      notes: folder.notes.map((note) => ({ ...note })),
+    })),
   };
 }
-
 type NoteMutator = (note: NoteListItem) => NoteListItem;
-
 function applyToNote(
   tree: NoteTreeResponse,
   noteId: string,
   mutator: NoteMutator,
 ): NoteTreeResponse {
   const next = cloneTree(tree);
-
-  const walkCategories = (cats: NoteCategoryItem[]): boolean => {
-    for (const cat of cats) {
-      const idx = cat.notes.findIndex((n) => n.id === noteId);
-      if (idx !== -1) {
-        cat.notes[idx] = mutator(cat.notes[idx]!);
-        return true;
-      }
-      if (walkCategories(cat.categories)) return true;
-    }
-    return false;
-  };
-
-  if (walkCategories(next.categories)) return next;
-
-  const rootIdx = next.rootNotes.findIndex((n) => n.id === noteId);
-  if (rootIdx !== -1) {
-    next.rootNotes[rootIdx] = mutator(next.rootNotes[rootIdx]!);
-    return next;
+  for (const notes of [next.rootNotes, ...next.categories.map((folder) => folder.notes)]) {
+    const index = notes.findIndex((note) => note.id === noteId);
+    if (index >= 0) notes[index] = mutator(notes[index]!);
   }
-
   return next;
 }
-
 type CategoryMutator = (category: NoteCategoryItem) => NoteCategoryItem;
-
 function applyToCategory(
   tree: NoteTreeResponse,
   categoryId: string,
   mutator: CategoryMutator,
 ): NoteTreeResponse {
-  const next = cloneTree(tree);
-
-  const walk = (cats: NoteCategoryItem[]): boolean => {
-    for (const cat of cats) {
-      if (cat.id === categoryId) {
-        const idx = cats.indexOf(cat);
-        cats[idx] = mutator(cat);
-        return true;
-      }
-      if (walk(cat.categories)) return true;
-    }
-    return false;
+  return {
+    ...tree,
+    categories: tree.categories.map((folder) =>
+      folder.id === categoryId ? mutator(folder) : folder,
+    ),
   };
-
-  walk(next.categories);
-  return next;
 }
-
 function removeNoteFromTree(tree: NoteTreeResponse, noteId: string): NoteTreeResponse {
   const next = cloneTree(tree);
-
-  const walkCategories = (cats: NoteCategoryItem[]): boolean => {
-    for (const cat of cats) {
-      const idx = cat.notes.findIndex((n) => n.id === noteId);
-      if (idx !== -1) {
-        cat.notes.splice(idx, 1);
-        return true;
-      }
-      if (walkCategories(cat.categories)) return true;
-    }
-    return false;
-  };
-
-  if (walkCategories(next.categories)) return next;
-
-  const rootIdx = next.rootNotes.findIndex((n) => n.id === noteId);
-  if (rootIdx !== -1) {
-    next.rootNotes.splice(rootIdx, 1);
-    next.totalNotes = Math.max(0, next.totalNotes - 1);
-  }
+  next.rootNotes = next.rootNotes.filter((note) => note.id !== noteId);
+  next.categories = next.categories.map((folder) => ({
+    ...folder,
+    notes: folder.notes.filter((note) => note.id !== noteId),
+  }));
+  next.totalNotes = next.rootNotes.length + countCategoryNotes(next.categories);
   return next;
 }
-
 function removeCategoryFromTree(tree: NoteTreeResponse, categoryId: string): NoteTreeResponse {
   const next = cloneTree(tree);
-
-  const walk = (cats: NoteCategoryItem[]): boolean => {
-    const idx = cats.findIndex((c) => c.id === categoryId);
-    if (idx !== -1) {
-      cats.splice(idx, 1);
-      return true;
-    }
-    return cats.some((cat) => walk(cat.categories));
-  };
-
-  walk(next.categories);
+  const folder = next.categories.find((folder) => folder.id === categoryId);
+  next.categories = next.categories.filter((folder) => folder.id !== categoryId);
+  const start = Math.max(0, ...next.rootNotes.map((note) => note.order)) + 1;
+  next.rootNotes.push(
+    ...(folder?.notes ?? []).map((note, index) => ({
+      ...note,
+      categoryId: null,
+      order: start + index,
+    })),
+  );
   return next;
 }
-
 function findNoteInTree(tree: NoteTreeResponse, noteId: string): NoteListItem | undefined {
-  const walk = (cats: NoteCategoryItem[]): NoteListItem | undefined => {
-    for (const cat of cats) {
-      const found = cat.notes.find((n) => n.id === noteId);
-      if (found) return found;
-      const nested = walk(cat.categories);
-      if (nested) return nested;
-    }
-    return undefined;
-  };
-  return walk(tree.categories) ?? tree.rootNotes.find((n) => n.id === noteId);
+  return [...tree.rootNotes, ...tree.categories.flatMap((folder) => folder.notes)].find(
+    (note) => note.id === noteId,
+  );
 }
-
-function findCategoryInTree(
-  tree: NoteTreeResponse,
-  categoryId: string,
-): NoteCategoryItem | undefined {
-  const walk = (cats: NoteCategoryItem[]): NoteCategoryItem | undefined => {
-    for (const cat of cats) {
-      if (cat.id === categoryId) return cat;
-      const nested = walk(cat.categories);
-      if (nested) return nested;
-    }
-    return undefined;
-  };
-  return walk(tree.categories);
-}
-
 function moveNoteInTree(
   tree: NoteTreeResponse,
   noteId: string,
@@ -183,63 +108,30 @@ function moveNoteInTree(
 ): NoteTreeResponse {
   const source = findNoteInTree(tree, noteId);
   if (!source) return tree;
-
-  let next = removeNoteFromTree(tree, noteId);
-  next = cloneTree(next);
-  const movedNote: NoteListItem = { ...source, categoryId: targetCategoryId };
-
-  if (targetCategoryId === null) {
-    next.rootNotes.push(movedNote);
-    next.totalNotes = next.rootNotes.length + countCategoryNotes(next.categories);
-    return next;
-  }
-
-  const insertInto = (cats: NoteCategoryItem[]): boolean => {
-    for (const cat of cats) {
-      if (cat.id === targetCategoryId) {
-        cat.notes.push(movedNote);
-        return true;
-      }
-      if (insertInto(cat.categories)) return true;
-    }
-    return false;
-  };
-  insertInto(next.categories);
+  const next = removeNoteFromTree(tree, noteId);
+  const target =
+    targetCategoryId === null
+      ? next.rootNotes
+      : next.categories.find((folder) => folder.id === targetCategoryId)?.notes;
+  if (!target) return tree;
+  target.push({
+    ...source,
+    categoryId: targetCategoryId,
+    order: Math.max(0, ...target.map((note) => note.order)) + 1,
+  });
+  next.totalNotes = tree.totalNotes;
   return next;
 }
-
 function moveCategoryInTree(
   tree: NoteTreeResponse,
-  categoryId: string,
-  targetCategoryId: string | null,
+  _categoryId: string,
+  _targetCategoryId: string | null,
 ): NoteTreeResponse {
-  const source = findCategoryInTree(tree, categoryId);
-  if (!source) return tree;
-
-  const next = removeCategoryFromTree(tree, categoryId);
-  const moved: NoteCategoryItem = cloneCategoryItem({ ...source, parentId: targetCategoryId });
-
-  if (targetCategoryId === null) {
-    next.categories.push(moved);
-    return next;
-  }
-
-  const insertInto = (cats: NoteCategoryItem[]): boolean => {
-    for (const cat of cats) {
-      if (cat.id === targetCategoryId) {
-        cat.categories.push(moved);
-        return true;
-      }
-      if (insertInto(cat.categories)) return true;
-    }
-    return false;
-  };
-  insertInto(next.categories);
-  return next;
+  // Folders have no parent. The compatibility API rejects non-root targets.
+  return tree;
 }
-
-function countCategoryNotes(cats: NoteCategoryItem[]): number {
-  return cats.reduce((sum, cat) => sum + cat.notes.length + countCategoryNotes(cat.categories), 0);
+function countCategoryNotes(folders: NoteCategoryItem[]): number {
+  return folders.reduce((sum, folder) => sum + folder.notes.length, 0);
 }
 
 export function useNoteTree(projectId: string, documentType: DocumentType = "note") {
@@ -290,12 +182,24 @@ export function useUpdateNote(projectId: string) {
       const previous = queryClient.getQueryData<NoteTreeResponse>(
         projectDataQueryKeys.notes.tree(projectId),
       );
-      if (previous && data.title !== undefined) {
+      if (
+        previous &&
+        (data.title !== undefined ||
+          data.isWritingVisible !== undefined ||
+          data.isHidden !== undefined)
+      ) {
         queryClient.setQueryData<NoteTreeResponse>(
           projectDataQueryKeys.notes.tree(projectId),
           (tree) => {
             if (!tree) return tree;
-            return applyToNote(tree, noteId, (note) => ({ ...note, title: data.title! }));
+            return applyToNote(tree, noteId, (note) => ({
+              ...note,
+              ...(data.title !== undefined ? { title: data.title } : {}),
+              ...(data.isWritingVisible !== undefined
+                ? { isWritingVisible: data.isWritingVisible }
+                : {}),
+              ...(data.isHidden !== undefined ? { isHidden: data.isHidden } : {}),
+            }));
           },
         );
       }

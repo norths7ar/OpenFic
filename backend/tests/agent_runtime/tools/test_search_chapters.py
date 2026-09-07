@@ -20,11 +20,11 @@ from app.retrieval.types import ChunkSearchResult
 from app.settings import settings
 from app.storage.models.chapter import Chapter
 from app.storage.models.project import Project
+from app.storage.models.project_folder import ProjectFolder as Volume
 from app.storage.models.retrieval_chapter_index_state import (
     RetrievalChapterIndexState,
 )
 from app.storage.models.retrieval_index import RetrievalIndex
-from app.storage.models.volume import Volume
 from app.storage.repos import setting_repo
 
 
@@ -136,7 +136,9 @@ async def _create_project_with_chapters(
     project_id: str = "project-search",
 ) -> tuple[Chapter, Chapter]:
     project = Project(id=project_id, title="检索项目")
-    volume = Volume(id="volume-main", project_id=project.id, title="第一卷", order=1)
+    volume = Volume(
+        scope="writing", id="volume-main", project_id=project.id, title="第一卷", order=1
+    )
     ready_chapter = Chapter(
         id="chapter-ready",
         project_id=project.id,
@@ -539,6 +541,7 @@ async def test_search_chapters_skips_chunks_for_other_project_chapters(
     await _create_project_with_chapters(session)
     other_project = Project(id="project-other", title="其它项目")
     other_volume = Volume(
+        scope="writing",
         id="volume-other",
         project_id=other_project.id,
         title="其它卷",

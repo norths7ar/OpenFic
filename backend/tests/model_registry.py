@@ -26,9 +26,10 @@ def register_sqlmodel_models() -> None:
     from app.storage.models.character import Character
     from app.storage.models.commit import Commit
     from app.storage.models.llm_audit_log import LLMAuditLog
-    from app.storage.models.note import Note, NoteCategory
+    from app.storage.models.note import Note
     from app.storage.models.pending_project_change import PendingProjectChange
     from app.storage.models.project import Project
+    from app.storage.models.project_folder import ProjectFolder
     from app.storage.models.project_import_profile import ProjectImportProfile
     from app.storage.models.prompt_chain_version import PromptChainVersion
     from app.storage.models.prompt_entry import PromptEntry
@@ -48,7 +49,6 @@ def register_sqlmodel_models() -> None:
     from app.storage.models.skill_reference_doc import SkillReferenceDoc
     from app.storage.models.task import Task
     from app.storage.models.task_message import TaskMessage
-    from app.storage.models.volume import Volume
     from app.storage.models.world_info import WorldInfo
     from app.storage.models.world_info_entry import WorldInfoEntry
     from app.storage.models.writing_activity_event import WritingActivityEvent
@@ -69,8 +69,8 @@ def register_sqlmodel_models() -> None:
         Model,
         ModelProvider,
         Note,
-        NoteCategory,
         Project,
+        ProjectFolder,
         ProjectImportProfile,
         PendingProjectChange,
         PromptChainVersion,
@@ -87,7 +87,6 @@ def register_sqlmodel_models() -> None:
         SkillReferenceDoc,
         Task,
         TaskMessage,
-        Volume,
         WorldInfo,
         WorldInfoEntry,
         WritingActivityEvent,

@@ -27,6 +27,7 @@ export interface TaskMessage {
 export interface TaskListItem {
   id: string;
   projectId: string;
+  folderId: string | null;
   title: string;
   contextMode: "global" | "local";
   tokenInput: number;
@@ -44,6 +45,7 @@ export interface TaskListItem {
 export interface Task {
   id: string;
   projectId: string;
+  folderId: string | null;
   title: string;
   contextMode: "global" | "local";
   messages: TaskMessage[];

@@ -49,6 +49,7 @@ def _entry_to_response(entry) -> WorldInfoEntryResponse:
     return WorldInfoEntryResponse(
         id=entry.id,
         world_info_id=entry.world_info_id,
+        folder_id=entry.folder_id,
         uid=entry.uid,
         name=entry.name,
         section=entry.section,
@@ -79,6 +80,7 @@ def _entry_to_brief_response(entry) -> WorldInfoEntryBriefResponse:
     return WorldInfoEntryBriefResponse(
         id=entry.id,
         world_info_id=entry.world_info_id,
+        folder_id=entry.folder_id,
         uid=entry.uid,
         name=entry.name,
         section=entry.section,

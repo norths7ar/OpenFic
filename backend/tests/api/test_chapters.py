@@ -118,7 +118,8 @@ async def test_create_chapter_validation_errors(client: AsyncClient) -> None:
     )
 
     assert empty_title.status_code == 422
-    assert missing_volume.status_code == 422
+    assert missing_volume.status_code == 201
+    assert missing_volume.json()["volume_id"] is None
 
 
 @pytest.mark.asyncio

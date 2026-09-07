@@ -23,8 +23,8 @@ from app.agent_runtime.persistence.model import AgentContextCompaction, AgentRun
 from app.agent_runtime.runner.session_runner import SessionRunner
 from app.storage.models.chapter import Chapter
 from app.storage.models.project import Project
+from app.storage.models.project_folder import ProjectFolder as Volume
 from app.storage.models.task import Task
-from app.storage.models.volume import Volume
 
 
 def _ai_message(
@@ -64,11 +64,12 @@ async def db_session() -> AsyncGenerator[AsyncSession, None]:
     async with factory() as session:
         project = Project(id="proj_test", title="测试项目")
         volume = Volume(
+            scope="writing",
             id="vol_test",
             project_id="proj_test",
             title="第一卷",
             order=1,
-            chapter_count=1,
+            item_count=1,
         )
         chapter = Chapter(
             id="chap_test",

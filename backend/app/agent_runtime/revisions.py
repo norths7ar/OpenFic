@@ -19,7 +19,8 @@ from app.core.errors import NotFoundError
 from app.storage.models.chapter import Chapter
 from app.storage.models.character import Character
 from app.storage.models.commit import Commit
-from app.storage.models.note import Note, NoteCategory
+from app.storage.models.note import Note
+from app.storage.models.project_folder import ProjectFolder
 from app.storage.models.revision import Revision
 from app.storage.models.revision_chapter_snapshot import RevisionChapterSnapshot
 from app.storage.models.revision_character_snapshot import RevisionCharacterSnapshot
@@ -73,6 +74,7 @@ class NoteImage:
     is_hidden: bool
     order: int
     is_writing_visible: bool
+    document_type: str = "note"
 
 
 @dataclass(frozen=True)
@@ -82,6 +84,9 @@ class NoteCategoryImage:
     parent_id: str | None
     title: str
     order: int
+
+    scope: str = "note"
+    description: str | None = None
 
 
 @dataclass(frozen=True)
@@ -373,6 +378,7 @@ def _image_from_note(note: Note) -> NoteImage:
         id=note.id,
         project_id=note.project_id,
         category_id=note.category_id,
+        document_type=note.document_type,
         title=note.title,
         content=note.content,
         is_locked=note.is_locked,
@@ -389,6 +395,7 @@ def _image_from_note_snapshot(snapshot: RevisionNoteSnapshot) -> NoteImage | Non
         id=snapshot.note_id,
         project_id=snapshot.project_id,
         category_id=snapshot.category_id,
+        document_type=snapshot.document_type,
         title=snapshot.title or "",
         content=snapshot.content or "",
         is_locked=snapshot.is_locked or False,
@@ -421,6 +428,7 @@ async def _snapshot_from_note_image(
         project_id=image.project_id,
         exists=True,
         category_id=image.category_id,
+        document_type=image.document_type,
         title=image.title,
         content=content,
         content_blob_id=content_blob_id,
@@ -438,6 +446,7 @@ def _note_has_changed(before: NoteImage | None, after: NoteImage | None) -> bool
         before.title != after.title
         or before.content != after.content
         or before.category_id != after.category_id
+        or before.document_type != after.document_type
         or before.is_locked != after.is_locked
         or before.is_hidden != after.is_hidden
         or before.order != after.order
@@ -475,11 +484,13 @@ async def record_note_diffs(
     return affected
 
 
-def _image_from_note_category(category: NoteCategory) -> NoteCategoryImage:
+def _image_from_note_category(category: ProjectFolder) -> NoteCategoryImage:
     return NoteCategoryImage(
         id=category.id,
         project_id=category.project_id,
-        parent_id=category.parent_id,
+        parent_id=None,
+        scope=category.scope,
+        description=category.description,
         title=category.title,
         order=getattr(category, "order", 0),
     )
@@ -494,6 +505,8 @@ def _image_from_note_category_snapshot(
         id=snapshot.category_id,
         project_id=snapshot.project_id,
         parent_id=snapshot.parent_id,
+        scope=snapshot.scope,
+        description=snapshot.description,
         title=snapshot.title or "",
         order=snapshot.category_order or 0,
     )
@@ -518,6 +531,8 @@ def _snapshot_from_note_category_image(
         project_id=image.project_id,
         exists=True,
         parent_id=image.parent_id,
+        scope=image.scope,
+        description=image.description,
         title=image.title,
         category_order=image.order,
     )
@@ -530,13 +545,15 @@ def _note_category_has_changed(
         return before is not after
     return (
         before.title != after.title
+        or before.scope != after.scope
+        or before.description != after.description
         or before.parent_id != after.parent_id
         or before.order != after.order
     )
 
 
 def note_category_images_by_id(
-    categories: list[NoteCategory],
+    categories: list[ProjectFolder],
 ) -> dict[str, NoteCategoryImage]:
     return {cat.id: _image_from_note_category(cat) for cat in categories}
 
@@ -1062,16 +1079,18 @@ async def rollback_revision_for_session(
         elif current_cat is None:
             await note_category_repo.create(
                 session,
-                NoteCategory(
+                ProjectFolder(
                     id=after_cat_image.id,
                     project_id=after_cat_image.project_id,
-                    parent_id=after_cat_image.parent_id,
+                    scope=after_cat_image.scope,
+                    description=after_cat_image.description,
                     title=after_cat_image.title,
                     order=after_cat_image.order,
                 ),
             )
         else:
-            current_cat.parent_id = after_cat_image.parent_id
+            current_cat.scope = after_cat_image.scope
+            current_cat.description = after_cat_image.description
             current_cat.title = after_cat_image.title
             current_cat.order = after_cat_image.order
             current_cat.updated_at = datetime.now(UTC)
@@ -1097,6 +1116,7 @@ async def rollback_revision_for_session(
                     id=after_note_image.id,
                     project_id=after_note_image.project_id,
                     category_id=category_id,
+                    document_type=after_note_image.document_type,
                     title=after_note_image.title,
                     content=after_note_image.content,
                     order=after_note_image.order,
@@ -1110,6 +1130,7 @@ async def rollback_revision_for_session(
                 session, after_note_image.project_id, after_note_image.category_id
             )
             current_note.category_id = category_id
+            current_note.document_type = after_note_image.document_type
             current_note.title = after_note_image.title
             current_note.content = after_note_image.content
             current_note.order = after_note_image.order

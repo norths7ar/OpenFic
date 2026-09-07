@@ -45,9 +45,10 @@ def _build_category_item(node) -> NoteCategoryItem:
     return NoteCategoryItem(
         id=node.category.id,
         project_id=node.category.project_id,
-        parent_id=node.category.parent_id,
+        parent_id=None,
         title=node.category.title,
-        document_type=node.category.document_type,
+        description=node.category.description,
+        document_type=node.category.scope,
         order=node.category.order,
         created_at=node.category.created_at,
         updated_at=node.category.updated_at,
@@ -251,6 +252,7 @@ async def update_note(
         title=data.title,
         content=data.content,
         is_writing_visible=data.is_writing_visible,
+        is_hidden=data.is_hidden,
     )
     await background_service.commit_and_notify(session)
     return NoteResponse.model_validate(note)

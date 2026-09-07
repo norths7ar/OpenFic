@@ -112,17 +112,18 @@ async def isolated_db(monkeypatch):
     async with factory() as session:
         from app.storage.models.chapter import Chapter
         from app.storage.models.project import Project
+        from app.storage.models.project_folder import ProjectFolder as Volume
         from app.storage.models.task import Task
-        from app.storage.models.volume import Volume
 
         session.add(Project(id="proj_x", title="t"))
         session.add(
             Volume(
+                scope="writing",
                 id="vol_x",
                 project_id="proj_x",
                 title="第一卷",
                 order=1,
-                chapter_count=1,
+                item_count=1,
             )
         )
         session.add(

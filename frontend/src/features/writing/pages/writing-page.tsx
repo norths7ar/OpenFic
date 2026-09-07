@@ -6,14 +6,17 @@ import { useTranslation } from "react-i18next";
 import { Panel, Group, Separator } from "react-resizable-panels";
 import { useParams } from "react-router";
 
+import { useAppShell } from "@/app/app-shell-context";
+
 import "./writing-page.css";
 
-import { useAppShell } from "@/app/app-shell-context";
 import { PanelLayoutLoading } from "@/components";
 import { AssistantSidebarHost } from "@/features/app-shell/components/assistant-sidebar-host";
 import { MobileAppSidebarTrigger } from "@/features/app-shell/components/mobile-app-sidebar-trigger";
 import type { AssistantSidebarState } from "@/features/assistant";
 import type { SceneDraftApplyRequest } from "@/features/assistant";
+import { ProjectNavShell } from "@/features/project-navigation/components/project-nav-shell";
+import { PROJECT_NAV_ROOT_ID } from "@/features/project-navigation/lib/project-nav-groups";
 import { usePersistedPanelLayout } from "@/hooks/use-persisted-panel-layout";
 import { getLastChapterId, setLastChapterId } from "@/lib/local-db";
 
@@ -24,15 +27,15 @@ import { PageLoadingOverlay } from "../components/page-loading-overlay";
 import { WritingSidebar } from "../components/writing-sidebar";
 import { useCreateChapter } from "../hooks/use-chapters";
 import { useNoteTree } from "../hooks/use-notes";
-import { useCreateVolume, useVolumeTree } from "../hooks/use-volumes";
+import { useVolumeTree } from "../hooks/use-volumes";
 import { isEmptyTab } from "../lib/tab.types";
 import { useTabsStore, useActiveTabId, useTabs, useTabsLoaded } from "../store/use-tabs-store";
 import { useWritingStore } from "../store/use-writing-store";
 
 const MotionBox = motion.create(Box);
 const MOBILE_SIDEBAR_WIDTH = 320;
-const PANEL_LAYOUT_KEY = "panel-layout.writing";
-const PANEL_IDS = ["left-sidebar", "editor", "right-sidebar"];
+const PANEL_LAYOUT_KEY = "panel-layout.project-editor";
+const PANEL_IDS = ["editor", "right-sidebar"];
 const SummaryPanel = lazy(() =>
   import("../components/summary-panel").then((module) => ({ default: module.SummaryPanel })),
 );
@@ -81,7 +84,6 @@ export function WritingPage({ workspaceView = "write" }: WritingPageProps) {
   const activeEditorScrollTop = activeTab?.scrollTop ?? 0;
 
   const createMutation = useCreateChapter(projectId ?? "");
-  const createVolumeMutation = useCreateVolume(projectId ?? "");
 
   const { data: chaptersData, isLoading: isChaptersLoading } = useVolumeTree(projectId ?? "");
 
@@ -326,15 +328,8 @@ export function WritingPage({ workspaceView = "write" }: WritingPageProps) {
 
   const handleCreateNewChapter = useCallback(async () => {
     try {
-      let targetVolumeId = chaptersData?.volumes.at(-1)?.id;
-      if (!targetVolumeId) {
-        const volume = await createVolumeMutation.mutateAsync({
-          title: t("writing.firstVolumeDefaultTitle"),
-        });
-        targetVolumeId = volume.id;
-      }
       const newChapter = await createMutation.mutateAsync({
-        volumeId: targetVolumeId,
+        volumeId: PROJECT_NAV_ROOT_ID,
         title: t("writing.untitledChapter"),
       });
       if (isMobile) {
@@ -345,15 +340,7 @@ export function WritingPage({ workspaceView = "write" }: WritingPageProps) {
     } catch {
       // 错误处理由 mutation 处理
     }
-  }, [
-    chaptersData?.volumes,
-    createMutation,
-    createVolumeMutation,
-    isMobile,
-    t,
-    openSingleTab,
-    openTab,
-  ]);
+  }, [createMutation, isMobile, t, openSingleTab, openTab]);
 
   const handleCloseAllTabs = useCallback(() => {
     closeAllTabs();
@@ -398,103 +385,94 @@ export function WritingPage({ workspaceView = "write" }: WritingPageProps) {
       isAgentLocked={isAgentLocked}
       onAddToConversation={isViewingSubagent ? undefined : handleAddToConversation}
       initialCurrentChapterNavigationKey={initialCurrentChapterNavigationKey}
-      onOpenSummary={handleOpenSummary}
       showNotes={false}
+      onOpenSummary={handleOpenSummary}
     />
   );
 
   return (
     <Box className="writing-page-root">
-      <PageLoadingOverlay isLoading={isPageLoading} />
+      <PageLoadingOverlay isLoading={isMobile && isPageLoading} />
 
       <Box className="writing-page-shell">
-        {!isMobile && panelLayout.isLoaded ? (
-          <Group
-            orientation="horizontal"
-            className="writing-page-group"
-            defaultLayout={panelLayout.defaultLayout}
-            onLayoutChanged={panelLayout.onLayoutChanged}
-          >
-            <Panel
-              id="left-sidebar"
-              defaultSize={300}
-              minSize={250}
-              maxSize={400}
-              collapsible={false}
-            >
-              <Box className="writing-page-sidebar writing-page-sidebar--left">
-                {sidebarContent}
-              </Box>
-            </Panel>
-
-            <Separator className="resize-handle writing-page-separator" />
-
-            <Panel
-              id="editor"
-              minSize={30}
-            >
-              <div className="writing-page-editor-shell">
-                <EditorTabs
-                  onAddTab={handleShowEmptyTab}
-                  onAddToConversation={isViewingSubagent ? undefined : handleAddToConversation}
-                />
-
-                <Box className="writing-page-content-fill">
-                  {activeTabId && !isEmptyTab(activeTabId) ? (
-                    activeType === "note" ? (
-                      <NoteEditor
-                        noteId={activeRefId}
-                        scrollTop={activeEditorScrollTop}
-                        projectId={projectId}
-                        isAgentLocked={isAgentLocked}
-                        onScrollPositionChange={handleNoteScrollPositionChange}
-                      />
-                    ) : (
-                      <ChapterEditor
-                        chapterId={activeRefId}
-                        scrollTop={activeEditorScrollTop}
-                        projectId={projectId}
-                        isAgentLocked={isAgentLocked}
-                        onScrollPositionChange={handleChapterScrollPositionChange}
-                        onAddToConversation={
-                          isViewingSubagent ? undefined : handleAddToConversation
-                        }
-                        onOpenSummary={handleOpenSummary}
-                        onPrepareSceneDraft={prepareSceneDraft}
-                        applySceneDraftRef={applySceneDraftRef}
-                      />
-                    )
-                  ) : (
-                    <EmptyTabContent
-                      onCreateNew={handleCreateNewChapter}
-                      onClose={handleCloseAllTabs}
+        {!isMobile ? (
+          <Flex style={{ height: "100%", minWidth: 0 }}>
+            <ProjectNavShell>{sidebarContent}</ProjectNavShell>
+            {panelLayout.isLoaded ? (
+              <Group
+                style={{ flex: 1, minWidth: 0 }}
+                orientation="horizontal"
+                className="writing-page-group"
+                defaultLayout={panelLayout.defaultLayout}
+                onLayoutChanged={panelLayout.onLayoutChanged}
+              >
+                <Panel id="editor" minSize={30}>
+                  <div className="writing-page-editor-shell">
+                    <EditorTabs
+                      onAddTab={handleShowEmptyTab}
+                      onAddToConversation={isViewingSubagent ? undefined : handleAddToConversation}
                     />
-                  )}
-                </Box>
-              </div>
-            </Panel>
 
-            <Separator className="resize-handle writing-page-separator" />
+                    <Box className="writing-page-content-fill">
+                      {activeTabId && !isEmptyTab(activeTabId) ? (
+                        activeType === "note" ? (
+                          <NoteEditor
+                            noteId={activeRefId}
+                            scrollTop={activeEditorScrollTop}
+                            projectId={projectId}
+                            isAgentLocked={isAgentLocked}
+                            onScrollPositionChange={handleNoteScrollPositionChange}
+                          />
+                        ) : (
+                          <ChapterEditor
+                            chapterId={activeRefId}
+                            scrollTop={activeEditorScrollTop}
+                            projectId={projectId}
+                            isAgentLocked={isAgentLocked}
+                            onScrollPositionChange={handleChapterScrollPositionChange}
+                            onAddToConversation={
+                              isViewingSubagent ? undefined : handleAddToConversation
+                            }
+                            onPrepareSceneDraft={prepareSceneDraft}
+                            applySceneDraftRef={applySceneDraftRef}
+                            onOpenSummary={handleOpenSummary}
+                          />
+                        )
+                      ) : (
+                        <EmptyTabContent
+                          onCreateNew={handleCreateNewChapter}
+                          onClose={handleCloseAllTabs}
+                        />
+                      )}
+                    </Box>
+                  </div>
+                </Panel>
 
-            <Panel
-              id="right-sidebar"
-              defaultSize={500}
-              minSize={300}
-              maxSize={600}
-              collapsible={false}
-            >
-              <Box className="writing-page-sidebar writing-page-sidebar--right">
-                <AssistantSidebarHost
-                  projectId={projectId}
-                  preferredAgentKey={workspaceView === "discuss" ? "discuss" : undefined}
-                  onStateChange={setAssistantState}
-                  onOpenMentionChapter={handleChapterSelect}
-                  onApplySceneDraft={handleApplySceneDraft}
-                  isMobileOverlay={false}
-                />
-              </Box>
-            </Panel>
-          </Group>
+                <Separator className="resize-handle writing-page-separator" />
+
+                <Panel
+                  id="right-sidebar"
+                  defaultSize={500}
+                  minSize={300}
+                  maxSize={600}
+                  collapsible={false}
+                >
+                  <Box className="writing-page-sidebar writing-page-sidebar--right">
+                    <AssistantSidebarHost
+                      projectId={projectId}
+                      preferredAgentKey={workspaceView === "discuss" ? "discuss" : undefined}
+                      onStateChange={setAssistantState}
+                      onOpenMentionChapter={handleChapterSelect}
+                      onApplySceneDraft={handleApplySceneDraft}
+                      isMobileOverlay={false}
+                    />
+                  </Box>
+                </Panel>
+              </Group>
+            ) : (
+              <PanelLayoutLoading />
+            )}
+          </Flex>
         ) : isMobile ? (
           <Flex className="writing-page-mobile-layout">
             <div className="writing-page-editor-shell writing-page-editor-shell--mobile">
@@ -505,10 +483,7 @@ export function WritingPage({ workspaceView = "write" }: WritingPageProps) {
                 py="2"
                 className="writing-page-mobile-topbar"
               >
-                <Flex
-                  align="center"
-                  gap="1"
-                >
+                <Flex align="center" gap="1">
                   <MobileAppSidebarTrigger />
                   <Tooltip content={t("writing.chapters")}>
                     <IconButton
@@ -522,10 +497,7 @@ export function WritingPage({ workspaceView = "write" }: WritingPageProps) {
                   </Tooltip>
                 </Flex>
 
-                <Flex
-                  align="center"
-                  gap="1"
-                >
+                <Flex align="center" gap="1">
                   {!isViewingSubagent && hasEditorSelection && (
                     <Tooltip content={t("editor.addSelectedToConversation")}>
                       <IconButton
@@ -568,12 +540,12 @@ export function WritingPage({ workspaceView = "write" }: WritingPageProps) {
                       projectId={projectId}
                       isAgentLocked={isAgentLocked}
                       onScrollPositionChange={handleChapterScrollPositionChange}
-                      onOpenSummary={handleOpenSummary}
                       onAddToConversation={isViewingSubagent ? undefined : handleAddToConversation}
                       onSelectionChange={setHasEditorSelection}
                       addSelectionToConversationRef={addSelectionToConversationRef}
                       onPrepareSceneDraft={prepareSceneDraft}
                       applySceneDraftRef={applySceneDraftRef}
+                      onOpenSummary={handleOpenSummary}
                     />
                   )
                 ) : (
@@ -614,8 +586,8 @@ export function WritingPage({ workspaceView = "write" }: WritingPageProps) {
                   onAddToConversation={isViewingSubagent ? undefined : handleAddToConversation}
                   compact
                   initialCurrentChapterNavigationKey={initialCurrentChapterNavigationKey}
-                  onOpenSummary={handleOpenSummary}
                   showNotes={false}
+                  onOpenSummary={handleOpenSummary}
                 />
               </MotionBox>
             </div>
@@ -635,7 +607,6 @@ export function WritingPage({ workspaceView = "write" }: WritingPageProps) {
           isMobileOverlay
         />
       )}
-
       {hasOpenedSummary && (
         <Suspense fallback={null}>
           <SummaryPanel

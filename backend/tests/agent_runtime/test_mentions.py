@@ -9,7 +9,7 @@ from app.storage.models.chapter import Chapter
 from app.storage.models.character import Character
 from app.storage.models.note import Note
 from app.storage.models.project import Project
-from app.storage.models.volume import Volume
+from app.storage.models.project_folder import ProjectFolder as Volume
 from app.storage.models.world_info import WorldInfo
 from app.storage.models.world_info_entry import WorldInfoEntry
 
@@ -17,11 +17,12 @@ from app.storage.models.world_info_entry import WorldInfoEntry
 async def _seed_story_graph(session) -> tuple[Volume, Chapter]:
     project = Project(id="proj_mentions", title="提及测试项目")
     volume = Volume(
+        scope="writing",
         id="vol_mentions",
         project_id=project.id,
         title="修订后第一卷",
         order=1,
-        chapter_count=1,
+        item_count=1,
     )
     chapter = Chapter(
         id="chap_mentions",

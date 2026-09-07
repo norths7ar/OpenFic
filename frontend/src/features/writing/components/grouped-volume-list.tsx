@@ -382,7 +382,7 @@ export function GroupedVolumeList({
   onLockedAction,
 }: GroupedVolumeListProps) {
   const { t } = useTranslation();
-  const canDeleteVolume = volumes.length > 1;
+  const canDeleteVolume = true;
   const { currentChapterId, isDragMode, dragOrderMap, reorderChapters } = useWritingStore(
     useShallow((state) => ({
       currentChapterId: state.currentChapterId,
@@ -1013,9 +1013,9 @@ export function GroupedVolumeList({
       return (
         <VolumeHeader
           volume={volume}
-          isExpanded={expandedVolumeIds.has(volume.id)}
+          isExpanded={volume.isRoot || expandedVolumeIds.has(volume.id)}
           isRenaming={renamingVolumeId === volume.id}
-          isFirst={groupIndex === 0}
+          isFirst={volumes.find((folder) => !folder.isRoot)?.id === volume.id}
           isLast={groupIndex === volumes.length - 1}
           canDelete={canDeleteVolume}
           isAgentLocked={isAgentLocked}
@@ -1071,7 +1071,7 @@ export function GroupedVolumeList({
       >
         <Box style={{ minHeight: "100%" }}>
           {volumes.map((volume, groupIndex) => {
-            const isExpanded = expandedVolumeIds.has(volume.id);
+            const isExpanded = volume.isRoot || expandedVolumeIds.has(volume.id);
             const sortedChapters = getSortedVolumeChapters(volume.chapters, dragOrderMap);
             const chapterIds = sortedChapters.map((chapter) => chapter.id);
 
@@ -1091,7 +1091,7 @@ export function GroupedVolumeList({
                     volume={volume}
                     isExpanded={isExpanded}
                     isRenaming={renamingVolumeId === volume.id}
-                    isFirst={groupIndex === 0}
+                    isFirst={volumes.find((folder) => !folder.isRoot)?.id === volume.id}
                     isLast={groupIndex === volumes.length - 1}
                     canDelete={canDeleteVolume}
                     isAgentLocked={isAgentLocked}

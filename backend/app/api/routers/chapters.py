@@ -87,11 +87,13 @@ async def list_chapters(
         volumes=[
             VolumeTreeItem(
                 **group.volume.model_dump(),
+                chapter_count=len(group.chapters),
                 chapters=[ChapterListItem.model_validate(chapter) for chapter in group.chapters],
             )
             for group in result.volumes
         ],
         total_chapters=result.total_chapters,
+        root_chapters=[ChapterListItem.model_validate(chapter) for chapter in result.root_chapters],
     )
 
 

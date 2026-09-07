@@ -4,8 +4,9 @@ import yaml
 from httpx import AsyncClient
 
 from app.project_bundle.archive import build_zip, read_zip
-from app.storage.models.note import Note, NoteCategory
+from app.storage.models.note import Note
 from app.storage.models.project import Project
+from app.storage.models.project_folder import ProjectFolder as NoteCategory
 
 
 async def _create_project(session) -> Project:
@@ -13,6 +14,40 @@ async def _create_project(session) -> Project:
     session.add(project)
     await session.flush()
     return project
+
+
+async def test_source_round_trip_preserves_same_named_folder_ids(client, session):
+    project = await _create_project(session)
+    for index in range(2):
+        folder = NoteCategory(
+            id=f"same-folder-{index}",
+            project_id=project.id,
+            scope="note",
+            title="同名",
+            order=index,
+        )
+        note = Note(
+            id=f"same-folder-note-{index}",
+            project_id=project.id,
+            category_id=folder.id,
+            title=f"条目{index}",
+            content=f"内容{index}",
+            order=index,
+        )
+        session.add_all([folder, note])
+    await session.flush()
+    exported = await client.get(f"/api/v1/projects/{project.id}/bundle/source/export")
+    assert exported.status_code == 200
+    preview = await client.post(
+        f"/api/v1/projects/{project.id}/bundle/source/preview", files=_upload(exported.content)
+    )
+    assert preview.status_code == 200, preview.text
+    assert preview.json()["summary"]["conflict"] == 0
+    config = yaml.safe_load(read_zip(exported.content)["openfic-import.yaml"])
+    assert {rule["folder_target_id"] for rule in config["rules"] if "folder_target_id" in rule} == {
+        "same-folder-0",
+        "same-folder-1",
+    }
 
 
 def _source_bundle(project_id: str) -> bytes:
@@ -72,7 +107,7 @@ async def test_source_export_uses_saved_mapping_and_falls_back_by_semantic_type(
         id="new-outline-category",
         project_id=project.id,
         title="新增提纲",
-        document_type="outline",
+        scope="outline",
         order=0,
     )
     note = Note(
@@ -100,7 +135,7 @@ async def test_source_export_uses_saved_mapping_and_falls_back_by_semantic_type(
         rule for rule in config["rules"] if rule["id"] == "openfic-note-new-outline"
     )
     assert fallback_rule["target"] == "outlines"
-    assert fallback_rule["category_path"] == ["新增提纲"]
+    assert fallback_rule["folder_path"] == ["新增提纲"]
 
     preview = await client.post(
         f"/api/v1/projects/{project.id}/bundle/source/preview",

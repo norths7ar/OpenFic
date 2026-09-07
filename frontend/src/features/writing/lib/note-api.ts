@@ -22,7 +22,7 @@ function transformNote(raw: Record<string, unknown>): Note {
     projectId: raw.project_id as string,
     categoryId: (raw.category_id as string | null | undefined) ?? null,
     title: raw.title as string,
-    documentType: raw.document_type as DocumentType,
+    documentType: (raw.scope ?? raw.document_type) as DocumentType,
     content: raw.content as string,
     order: raw.order as number,
     isLocked: raw.is_locked as boolean,
@@ -39,7 +39,7 @@ function transformNoteListItem(raw: Record<string, unknown>): NoteListItem {
     projectId: raw.project_id as string,
     categoryId: (raw.category_id as string | null | undefined) ?? null,
     title: raw.title as string,
-    documentType: raw.document_type as DocumentType,
+    documentType: (raw.scope ?? raw.document_type) as DocumentType,
     order: raw.order as number,
     isLocked: raw.is_locked as boolean,
     isHidden: raw.is_hidden as boolean,
@@ -53,9 +53,10 @@ function transformNoteCategory(raw: Record<string, unknown>): NoteCategory {
   return {
     id: raw.id as string,
     projectId: raw.project_id as string,
+    description: (raw.description as string | null) ?? null,
     parentId: (raw.parent_id as string | null | undefined) ?? null,
     title: raw.title as string,
-    documentType: raw.document_type as DocumentType,
+    documentType: (raw.scope ?? raw.document_type) as DocumentType,
     order: raw.order as number,
     createdAt: raw.created_at as string,
     updatedAt: raw.updated_at as string,
@@ -144,6 +145,7 @@ export async function updateNote(noteId: string, data: NoteUpdate): Promise<Note
     title: data.title,
     content: data.content,
     is_writing_visible: data.isWritingVisible,
+    is_hidden: data.isHidden,
   });
   return transformNote(response.data);
 }
@@ -170,10 +172,9 @@ export async function createNoteCategory(
   projectId: string,
   data: NoteCategoryCreate,
 ): Promise<NoteCategory> {
-  const response = await apiClient.post(`/projects/${projectId}/note-categories`, {
-    parent_id: data.parentId,
+  const response = await apiClient.post(`/projects/${projectId}/folders`, {
     title: data.title,
-    document_type: data.documentType ?? "note",
+    scope: data.documentType ?? "note",
   });
   return transformNoteCategory(response.data);
 }
@@ -182,14 +183,15 @@ export async function updateNoteCategory(
   categoryId: string,
   data: NoteCategoryUpdate,
 ): Promise<NoteCategory> {
-  const response = await apiClient.patch(`/note-categories/${categoryId}`, {
+  const response = await apiClient.patch(`/folders/${categoryId}`, {
     title: data.title,
+    description: data.description,
   });
   return transformNoteCategory(response.data);
 }
 
 export async function deleteNoteCategory(categoryId: string): Promise<void> {
-  await apiClient.delete(`/note-categories/${categoryId}`);
+  await apiClient.delete(`/folders/${categoryId}`);
 }
 
 export async function moveNoteItem(data: NoteItemMove): Promise<NoteMoveResult> {

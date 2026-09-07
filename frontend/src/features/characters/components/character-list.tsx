@@ -21,6 +21,7 @@ import {
   Switch,
   Text,
   Tooltip,
+  TextField,
 } from "@radix-ui/themes";
 import {
   ArrowDown,
@@ -35,12 +36,26 @@ import {
   GripVertical,
   Trash2,
   UserRound,
+  FolderInput,
+  FolderPlus,
+  MoreHorizontal,
 } from "lucide-react";
 import { motion } from "motion/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { ContextMenu, type ContextMenuItem } from "@/components/context-menu";
+import {
+  useProjectFolderMutations,
+  useProjectFolders,
+} from "@/features/project-folders/hooks/use-project-folders";
+import type { ProjectFolder } from "@/features/project-folders/lib/project-folder-api";
+import { ProjectFolderGroups } from "@/features/project-navigation/components/project-folder-groups";
+import { ProjectNavItemRow } from "@/features/project-navigation/components/project-nav-item-row";
+import { ProjectNavToolbar } from "@/features/project-navigation/components/project-nav-toolbar";
+
+import "@/features/project-navigation/components/project-nav.css";
 import type { CharacterListItem } from "@/lib/character.types";
 import { formatRelativeTime } from "@/lib/time-utils";
 
@@ -76,8 +91,6 @@ function CharacterListRow({
   return (
     <Box
       ref={setNodeRef}
-      className="characters-list-item"
-      data-state={isSelected ? "selected" : "idle"}
       role="button"
       tabIndex={0}
       onClick={isMultiSelect ? onCheck : onSelect}
@@ -93,73 +106,47 @@ function CharacterListRow({
         opacity: isDragging ? 0.4 : 1,
       }}
     >
-      <Flex
-        className="characters-list-item-row"
-        align="center"
-        gap="2"
-        justify="between"
-      >
-        {isMultiSelect ? (
-          <Flex
-            className="characters-list-leading"
-            align="center"
-            justify="center"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <Checkbox
-              checked={isChecked}
-              onCheckedChange={onCheck}
-              size="1"
-            />
-          </Flex>
-        ) : showDragHandle ? (
-          <Flex
-            {...attributes}
-            {...listeners}
-            className="characters-list-leading characters-list-drag-handle"
-            align="center"
-            justify="center"
-            onClick={(e) => e.stopPropagation()}
-            aria-label={t("characters.reorderHandle")}
-          >
-            <GripVertical size={16} />
-          </Flex>
-        ) : (
-          <Box className="characters-list-leading" />
-        )}
-        <Flex
-          className="characters-list-item-main"
-          align="center"
-          gap="2"
-          justify="between"
-        >
-          <Flex
-            direction="column"
-            gap="1"
-            style={{ flex: 1, minWidth: 0, overflow: "hidden" }}
-          >
-            <Text
-              size="2"
-              weight="medium"
-              className="characters-list-item-title"
+      <ProjectNavItemRow
+        selected={isSelected}
+        dragging={isDragging}
+        title={character.name}
+        metadata={
+          <>
+            <span>
+              {character.tokenCount} {t("characters.tokenCount")}
+            </span>
+            <span>· {formatRelativeTime(character.updatedAt)}</span>
+          </>
+        }
+        leading={
+          isMultiSelect ? (
+            <Flex
+              className="characters-list-leading"
+              align="center"
+              justify="center"
+              onClick={(e) => e.stopPropagation()}
             >
-              {character.name}
-            </Text>
-            <Flex gap="2">
-              <Text
+              <Checkbox
+                checked={isChecked}
+                onCheckedChange={onCheck}
                 size="1"
-                color="gray"
-              >
-                {character.tokenCount} {t("characters.tokenCount")}
-              </Text>
-              <Text
-                size="1"
-                color="gray"
-              >
-                · {formatRelativeTime(character.updatedAt)}
-              </Text>
+              />
             </Flex>
-          </Flex>
+          ) : showDragHandle ? (
+            <Flex
+              {...attributes}
+              {...listeners}
+              className="characters-list-leading characters-list-drag-handle"
+              align="center"
+              justify="center"
+              onClick={(e) => e.stopPropagation()}
+              aria-label={t("characters.reorderHandle")}
+            >
+              <GripVertical size={16} />
+            </Flex>
+          ) : null
+        }
+        actions={
           <Tooltip
             content={
               character.isWritingVisible
@@ -181,8 +168,8 @@ function CharacterListRow({
               />
             </span>
           </Tooltip>
-        </Flex>
-      </Flex>
+        }
+      />
     </Box>
   );
 }
@@ -193,7 +180,7 @@ interface CharacterListProps {
   selectedCharacterId: string | null;
   isLoading?: boolean;
   isCreating?: boolean;
-  onCreateCharacter: () => void;
+  onCreateCharacter: (folderId?: string) => void;
   onSelectCharacter: (characterId: string) => void;
   onEditProfile: (character: CharacterListItem) => void;
   onDeleteCharacter: (character: CharacterListItem) => void;
@@ -238,7 +225,17 @@ export function CharacterList({
   const [activeCharacterId, setActiveCharacterId] = useState<string | null>(null);
   const searchContainerRef = useRef<HTMLDivElement | null>(null);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
-  const shouldShowDragHandle = !isMultiSelect && sortField === "order" && sortDirection === "asc";
+  const { data: folders = [] } = useProjectFolders(projectId, "character");
+  const shouldShowDragHandle =
+    folders.length === 0 && !isMultiSelect && sortField === "order" && sortDirection === "asc";
+  const folderMutations = useProjectFolderMutations(projectId, "character");
+  const [folderDialog, setFolderDialog] = useState<{
+    mode: "create" | "rename";
+    folder?: ProjectFolder;
+  } | null>(null);
+  const [folderTitle, setFolderTitle] = useState("");
+  const [deletingFolderId, setDeletingFolderId] = useState<string | null>(null);
+  const [folderDescription, setFolderDescription] = useState("");
 
   const sortedCharacters = useMemo(() => {
     return [...characters].sort((a, b) => {
@@ -453,6 +450,26 @@ export function CharacterList({
     }
     items.push(
       {
+        id: "move-root",
+        label: t("projectNavigation.moveToRoot"),
+        icon: FolderInput,
+        disabled: menuCharacter.folderId === null,
+        onClick: () => {
+          handleCloseContextMenu();
+          folderMutations.moveItem.mutate({ itemId: menuCharacter.id, folderId: null });
+        },
+      },
+      ...folders.map((folder) => ({
+        id: `move-folder-${folder.id}`,
+        label: t("projectNavigation.moveToFolder", { name: folder.title }),
+        icon: FolderInput,
+        disabled: menuCharacter.folderId === folder.id,
+        onClick: () => {
+          handleCloseContextMenu();
+          folderMutations.moveItem.mutate({ itemId: menuCharacter.id, folderId: folder.id });
+        },
+      })),
+      {
         id: "writing-visibility",
         label: menuCharacter.isWritingVisible
           ? t("characters.hideFromWritingAgent")
@@ -478,6 +495,8 @@ export function CharacterList({
   }, [
     handleCloseContextMenu,
     handleManualMove,
+    folderMutations.moveItem,
+    folders,
     isMultiSelect,
     menuCharacter,
     onDeleteCharacter,
@@ -494,227 +513,224 @@ export function CharacterList({
         className="characters-list"
         direction="column"
       >
-        <Box
-          p="3"
-          className="characters-list-header"
-        >
+        <Box className="characters-list-header">
           <Flex
             direction="column"
-            gap="2"
+            gap="0"
           >
-            <Flex
-              gap="2"
-              align="center"
-            >
-              <Box
-                ref={searchContainerRef}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 0,
-                  height: "var(--space-6)",
-                  paddingRight: searchExpanded ? "var(--space-2)" : 0,
-                  border: "1px solid transparent",
-                  borderColor: searchExpanded ? "var(--gray-a7)" : "transparent",
-                  borderRadius: "max(var(--radius-2), var(--radius-full))",
-                  background: searchExpanded ? "var(--color-surface)" : "transparent",
-                  flex: searchExpanded ? 1 : undefined,
-                  minWidth: 0,
-                  position: "relative",
-                  transition:
-                    "border-color 0.15s ease, background 0.15s ease, padding-right 0.15s ease",
-                }}
-              >
-                <CharacterSearchPopover
-                  projectId={projectId}
-                  query={searchQuery}
-                  open={searchOpen}
-                  onOpenChange={handlePopoverOpenChange}
-                  onNavigateToMatch={onSelectCharacter}
-                >
-                  <Box
-                    style={{
-                      position: "absolute",
-                      inset: 0,
-                      pointerEvents: "none",
-                    }}
-                  />
-                </CharacterSearchPopover>
-                <IconButton
-                  variant="ghost"
-                  size="2"
-                  aria-label={t("characters.search")}
-                  onClick={searchExpanded ? undefined : handleSearchToggle}
+            <ProjectNavToolbar
+              search={
+                <Box
+                  ref={searchContainerRef}
                   style={{
-                    flexShrink: 0,
-                    opacity: searchExpanded ? 0.5 : 1,
-                    transition: "opacity 0.15s ease",
-                    cursor: searchExpanded ? "default" : undefined,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 0,
+                    height: "var(--space-6)",
+                    paddingRight: searchExpanded ? "var(--space-2)" : 0,
+                    border: "1px solid transparent",
+                    borderColor: searchExpanded ? "var(--gray-a7)" : "transparent",
+                    borderRadius: "max(var(--radius-2), var(--radius-full))",
+                    background: searchExpanded ? "var(--color-surface)" : "transparent",
+                    flex: searchExpanded ? 1 : undefined,
+                    minWidth: 0,
+                    position: "relative",
+                    transition:
+                      "border-color 0.15s ease, background 0.15s ease, padding-right 0.15s ease",
                   }}
                 >
-                  <Search size={16} />
-                </IconButton>
-                <motion.div
-                  animate={{ width: searchExpanded ? 200 : 0, opacity: searchExpanded ? 1 : 0 }}
-                  transition={{ duration: 0.15, ease: "easeOut" }}
-                  style={{ overflow: "hidden" }}
-                >
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    placeholder={t("characters.searchPlaceholder")}
-                    onChange={handleSearchChange}
-                    onFocus={() => {
-                      if (searchQuery.trim()) setSearchOpen(true);
-                    }}
-                    onBlur={handleSearchBlur}
+                  <CharacterSearchPopover
+                    projectId={projectId}
+                    query={searchQuery}
+                    open={searchOpen}
+                    onOpenChange={handlePopoverOpenChange}
+                    onNavigateToMatch={onSelectCharacter}
+                  >
+                    <Box
+                      style={{
+                        position: "absolute",
+                        inset: 0,
+                        pointerEvents: "none",
+                      }}
+                    />
+                  </CharacterSearchPopover>
+                  <IconButton
+                    variant="ghost"
+                    size="2"
+                    aria-label={t("characters.search")}
+                    onClick={searchExpanded ? undefined : handleSearchToggle}
                     style={{
-                      width: 200,
-                      border: "none",
-                      outline: "none",
-                      background: "transparent",
-                      fontSize: "var(--font-size-base)",
-                      lineHeight: "var(--line-height-2)",
-                      color: "var(--gray-12)",
-                      padding: 0,
+                      flexShrink: 0,
+                      opacity: searchExpanded ? 0.5 : 1,
+                      transition: "opacity 0.15s ease",
+                      cursor: searchExpanded ? "default" : undefined,
                     }}
-                  />
-                </motion.div>
-              </Box>
-
-              {!searchExpanded && (
-                <>
-                  <Box style={{ flex: 1 }} />
-
-                  {isMultiSelect ? (
-                    <Tooltip
-                      content={
-                        selectedIds.size > 0
-                          ? t("characters.deselectAll")
-                          : t("characters.selectAll")
-                      }
-                    >
-                      <IconButton
-                        variant="ghost"
-                        size="2"
-                        onClick={selectedIds.size > 0 ? handleDeselectAll : handleSelectAll}
-                      >
-                        <CheckSquare size={16} />
-                      </IconButton>
-                    </Tooltip>
-                  ) : (
-                    <DropdownMenu.Root>
-                      <DropdownMenu.Trigger>
-                        <IconButton
-                          variant="ghost"
-                          size="2"
-                          aria-label={t("characters.sort")}
-                        >
-                          <ArrowUpDown size={16} />
-                        </IconButton>
-                      </DropdownMenu.Trigger>
-                      <DropdownMenu.Content align="end">
-                        <DropdownMenu.Item onClick={() => handleSortChange("order")}>
-                          <Flex
-                            align="center"
-                            justify="between"
-                            width="100%"
-                          >
-                            <Text>{t("characters.sortByOrder")}</Text>
-                            {getSortIcon("order")}
-                          </Flex>
-                        </DropdownMenu.Item>
-                        <DropdownMenu.Item onClick={() => handleSortChange("updatedAt")}>
-                          <Flex
-                            align="center"
-                            justify="between"
-                            width="100%"
-                          >
-                            <Text>{t("characters.sortByUpdated")}</Text>
-                            {getSortIcon("updatedAt")}
-                          </Flex>
-                        </DropdownMenu.Item>
-                        <DropdownMenu.Item onClick={() => handleSortChange("tokenCount")}>
-                          <Flex
-                            align="center"
-                            justify="between"
-                            width="100%"
-                          >
-                            <Text>{t("characters.sortByTokens")}</Text>
-                            {getSortIcon("tokenCount")}
-                          </Flex>
-                        </DropdownMenu.Item>
-                        <DropdownMenu.Item onClick={() => handleSortChange("name")}>
-                          <Flex
-                            align="center"
-                            justify="between"
-                            width="100%"
-                          >
-                            <Text>{t("characters.sortByName")}</Text>
-                            {getSortIcon("name")}
-                          </Flex>
-                        </DropdownMenu.Item>
-                      </DropdownMenu.Content>
-                    </DropdownMenu.Root>
-                  )}
-
+                  >
+                    <Search size={16} />
+                  </IconButton>
+                  <motion.div
+                    animate={{ width: searchExpanded ? 200 : 0, opacity: searchExpanded ? 1 : 0 }}
+                    transition={{ duration: 0.15, ease: "easeOut" }}
+                    style={{ overflow: "hidden" }}
+                  >
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      placeholder={t("characters.searchPlaceholder")}
+                      onChange={handleSearchChange}
+                      onFocus={() => {
+                        if (searchQuery.trim()) setSearchOpen(true);
+                      }}
+                      onBlur={handleSearchBlur}
+                      style={{
+                        width: 200,
+                        border: "none",
+                        outline: "none",
+                        background: "transparent",
+                        fontSize: "var(--font-size-base)",
+                        lineHeight: "var(--line-height-2)",
+                        color: "var(--gray-12)",
+                        padding: 0,
+                      }}
+                    />
+                  </motion.div>
+                </Box>
+              }
+              sort={
+                isMultiSelect ? (
                   <Tooltip
                     content={
-                      isMultiSelect
-                        ? t("characters.multiselectExit")
-                        : t("characters.multiselectEnter")
+                      selectedIds.size > 0 ? t("characters.deselectAll") : t("characters.selectAll")
                     }
                   >
                     <IconButton
-                      variant={isMultiSelect ? "solid" : "ghost"}
+                      variant="ghost"
                       size="2"
-                      onClick={handleToggleMultiSelect}
+                      onClick={selectedIds.size > 0 ? handleDeselectAll : handleSelectAll}
                     >
-                      <ListChecks size={16} />
+                      <CheckSquare size={16} />
                     </IconButton>
                   </Tooltip>
+                ) : (
+                  <DropdownMenu.Root>
+                    <DropdownMenu.Trigger>
+                      <IconButton
+                        variant="ghost"
+                        size="2"
+                        aria-label={t("characters.sort")}
+                      >
+                        <ArrowUpDown size={16} />
+                      </IconButton>
+                    </DropdownMenu.Trigger>
+                    <DropdownMenu.Content align="end">
+                      <DropdownMenu.Item onClick={() => handleSortChange("order")}>
+                        <Flex
+                          align="center"
+                          justify="between"
+                          width="100%"
+                        >
+                          <Text>{t("characters.sortByOrder")}</Text>
+                          {getSortIcon("order")}
+                        </Flex>
+                      </DropdownMenu.Item>
+                      <DropdownMenu.Item onClick={() => handleSortChange("updatedAt")}>
+                        <Flex
+                          align="center"
+                          justify="between"
+                          width="100%"
+                        >
+                          <Text>{t("characters.sortByUpdated")}</Text>
+                          {getSortIcon("updatedAt")}
+                        </Flex>
+                      </DropdownMenu.Item>
+                      <DropdownMenu.Item onClick={() => handleSortChange("tokenCount")}>
+                        <Flex
+                          align="center"
+                          justify="between"
+                          width="100%"
+                        >
+                          <Text>{t("characters.sortByTokens")}</Text>
+                          {getSortIcon("tokenCount")}
+                        </Flex>
+                      </DropdownMenu.Item>
+                      <DropdownMenu.Item onClick={() => handleSortChange("name")}>
+                        <Flex
+                          align="center"
+                          justify="between"
+                          width="100%"
+                        >
+                          <Text>{t("characters.sortByName")}</Text>
+                          {getSortIcon("name")}
+                        </Flex>
+                      </DropdownMenu.Item>
+                    </DropdownMenu.Content>
+                  </DropdownMenu.Root>
+                )
+              }
+              create={
+                <>
+                  {isMultiSelect ? (
+                    <Tooltip content={t("characters.deleteSelectedTooltip")}>
+                      <IconButton
+                        variant="ghost"
+                        color="red"
+                        size="2"
+                        disabled={selectedIds.size === 0}
+                        onClick={() => setBatchDeleteDialogOpen(true)}
+                      >
+                        <Trash2 size={16} />
+                      </IconButton>
+                    </Tooltip>
+                  ) : (
+                    <Tooltip content={t("characters.newCharacter")}>
+                      <IconButton
+                        variant="ghost"
+                        size="2"
+                        disabled={isCreating}
+                        onClick={() => onCreateCharacter()}
+                      >
+                        <Plus size={16} />
+                      </IconButton>
+                    </Tooltip>
+                  )}
                 </>
-              )}
-            </Flex>
-
-            {isMultiSelect ? (
-              <Tooltip content={t("characters.deleteSelectedTooltip")}>
-                <IconButton
-                  size="2"
-                  variant="solid"
-                  color="red"
-                  disabled={selectedIds.size === 0}
-                  onClick={() => setBatchDeleteDialogOpen(true)}
-                  style={{ width: "100%" }}
-                >
-                  <Trash2 size={16} />
-                  <Text
-                    size="2"
-                    ml="1"
-                  >
-                    {t("characters.deleteSelected")}
-                  </Text>
-                </IconButton>
-              </Tooltip>
-            ) : (
-              <Tooltip content={t("characters.newCharacter")}>
-                <IconButton
-                  size="2"
-                  variant="soft"
-                  disabled={isCreating}
-                  onClick={onCreateCharacter}
-                  style={{ width: "100%" }}
-                >
-                  <Plus size={16} />
-                  <Text
-                    size="2"
-                    ml="1"
-                  >
-                    {t("characters.newCharacter")}
-                  </Text>
-                </IconButton>
-              </Tooltip>
-            )}
+              }
+              more={
+                <DropdownMenu.Root>
+                  <DropdownMenu.Trigger>
+                    <IconButton
+                      variant="ghost"
+                      size="2"
+                      aria-label={t("common.more")}
+                    >
+                      <MoreHorizontal size={16} />
+                    </IconButton>
+                  </DropdownMenu.Trigger>
+                  <DropdownMenu.Content align="end">
+                    {!isMultiSelect ? (
+                      <DropdownMenu.Item
+                        onClick={() => {
+                          setFolderTitle("");
+                          setFolderDescription("");
+                          setFolderDialog({ mode: "create" });
+                        }}
+                      >
+                        <FolderPlus size={16} />
+                        {t("projectNavigation.newFolder")}
+                      </DropdownMenu.Item>
+                    ) : null}
+                    <DropdownMenu.Item onClick={handleToggleMultiSelect}>
+                      <ListChecks size={16} />
+                      {t(
+                        isMultiSelect
+                          ? "characters.multiselectExit"
+                          : "characters.multiselectEnter",
+                      )}
+                    </DropdownMenu.Item>
+                  </DropdownMenu.Content>
+                </DropdownMenu.Root>
+              }
+            />
           </Flex>
         </Box>
 
@@ -763,7 +779,7 @@ export function CharacterList({
                 </Box>
               ))}
             </Flex>
-          ) : characters.length === 0 ? (
+          ) : characters.length === 0 && folders.length === 0 ? (
             <Flex
               className="characters-empty"
               direction="column"
@@ -783,7 +799,7 @@ export function CharacterList({
                 size="2"
                 variant="soft"
                 disabled={isCreating}
-                onClick={onCreateCharacter}
+                onClick={() => onCreateCharacter()}
               >
                 {t("characters.newCharacter")}
               </Button>
@@ -805,27 +821,64 @@ export function CharacterList({
                   items={sortedCharacters.map((character) => character.id)}
                   strategy={verticalListSortingStrategy}
                 >
-                  {sortedCharacters.map((character) => {
-                    const isSelected = character.id === selectedCharacterId;
-                    const isChecked = selectedIds.has(character.id);
-                    return (
-                      <CharacterListRow
-                        key={character.id}
-                        character={character}
-                        isSelected={isSelected}
-                        isChecked={isChecked}
-                        isMultiSelect={isMultiSelect}
-                        showDragHandle={shouldShowDragHandle}
-                        onSelect={() => onSelectCharacter(character.id)}
-                        onCheck={() => handleCheckCharacter(character.id)}
-                        onToggleWritingVisibility={() =>
-                          onToggleWritingVisibility(character, !character.isWritingVisible)
-                        }
-                        onContextMenu={(event) => handleContextMenu(event, character)}
-                        t={t}
-                      />
-                    );
-                  })}
+                  <ProjectFolderGroups
+                    folders={folders}
+                    items={sortedCharacters}
+                    renderFolderMenu={(folder) => (
+                      <DropdownMenu.Root>
+                        <DropdownMenu.Trigger>
+                          <IconButton
+                            variant="ghost"
+                            size="1"
+                            aria-label={t("common.more")}
+                          >
+                            <MoreHorizontal size={14} />
+                          </IconButton>
+                        </DropdownMenu.Trigger>
+                        <DropdownMenu.Content align="end">
+                          <DropdownMenu.Item onClick={() => onCreateCharacter(folder.id)}>
+                            {t("characters.newCharacter")}
+                          </DropdownMenu.Item>
+                          <DropdownMenu.Item
+                            onClick={() => {
+                              setFolderTitle(folder.title);
+                              setFolderDescription(folder.description ?? "");
+                              setFolderDialog({ mode: "rename", folder });
+                            }}
+                          >
+                            {t("common.rename")}
+                          </DropdownMenu.Item>
+                          <DropdownMenu.Item
+                            color="red"
+                            onClick={() => setDeletingFolderId(folder.id)}
+                          >
+                            {t("common.delete")}
+                          </DropdownMenu.Item>
+                        </DropdownMenu.Content>
+                      </DropdownMenu.Root>
+                    )}
+                    renderItem={(character) => {
+                      const isSelected = character.id === selectedCharacterId;
+                      const isChecked = selectedIds.has(character.id);
+                      return (
+                        <CharacterListRow
+                          key={character.id}
+                          character={character}
+                          isSelected={isSelected}
+                          isChecked={isChecked}
+                          isMultiSelect={isMultiSelect}
+                          showDragHandle={shouldShowDragHandle}
+                          onSelect={() => onSelectCharacter(character.id)}
+                          onCheck={() => handleCheckCharacter(character.id)}
+                          onToggleWritingVisibility={() =>
+                            onToggleWritingVisibility(character, !character.isWritingVisible)
+                          }
+                          onContextMenu={(event) => handleContextMenu(event, character)}
+                          t={t}
+                        />
+                      );
+                    }}
+                  />
                 </SortableContext>
                 <DragOverlay>
                   {activeCharacterId ? (
@@ -878,6 +931,88 @@ export function CharacterList({
               onClick={handleBatchDeleteConfirm}
             >
               {t("common.delete")}
+            </Button>
+          </Flex>
+        </Dialog.Content>
+      </Dialog.Root>
+
+      <ConfirmDialog
+        open={deletingFolderId !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeletingFolderId(null);
+        }}
+        title={t("common.delete")}
+        description={t("projectNavigation.deleteFolderConfirm")}
+        onConfirm={() => {
+          if (deletingFolderId) folderMutations.remove.mutate(deletingFolderId);
+          setDeletingFolderId(null);
+        }}
+      />
+      <Dialog.Root
+        open={folderDialog !== null}
+        onOpenChange={(open) => {
+          if (!open) setFolderDialog(null);
+        }}
+      >
+        <Dialog.Content style={{ maxWidth: 400 }}>
+          <Dialog.Title>
+            {t(
+              folderDialog?.mode === "rename"
+                ? "projectNavigation.renameFolder"
+                : "projectNavigation.newFolder",
+            )}
+          </Dialog.Title>
+          <TextField.Root
+            value={folderTitle}
+            onChange={(event) => setFolderTitle(event.target.value)}
+            autoFocus
+          />
+          <textarea
+            aria-label={t("volume.menu.editDescription")}
+            placeholder={t("volume.menu.editDescription")}
+            value={folderDescription}
+            onChange={(event) => setFolderDescription(event.target.value)}
+            style={{
+              width: "100%",
+              boxSizing: "border-box",
+              marginTop: 12,
+              minHeight: 70,
+              background: "var(--color-background)",
+              color: "var(--gray-12)",
+            }}
+          />
+          <Flex
+            gap="3"
+            justify="end"
+            mt="4"
+          >
+            <Dialog.Close>
+              <Button
+                variant="soft"
+                color="gray"
+              >
+                {t("common.cancel")}
+              </Button>
+            </Dialog.Close>
+            <Button
+              onClick={() => {
+                const title = folderTitle.trim();
+                if (!title || !folderDialog) return;
+                if (folderDialog.mode === "rename" && folderDialog.folder) {
+                  folderMutations.rename.mutate({
+                    folderId: folderDialog.folder.id,
+                    title,
+                    description: folderDescription || null,
+                  });
+                } else {
+                  folderMutations.create.mutate({ title, description: folderDescription || null });
+                }
+                setFolderDialog(null);
+                setFolderTitle("");
+                setFolderDescription("");
+              }}
+            >
+              {t("common.confirm")}
             </Button>
           </Flex>
         </Dialog.Content>

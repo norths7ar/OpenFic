@@ -1,10 +1,9 @@
-﻿/**
+import { Box, Flex, Text, Dialog, Button, Skeleton, IconButton, Tooltip } from "@radix-ui/themes";
+/**
  * World Info Page
  *
  * 世界书主页面，按项目展示对应世界书条目与编辑器。
  */
-
-import { Box, Flex, Text, Dialog, Button, Skeleton, IconButton, Tooltip } from "@radix-ui/themes";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Bot, List } from "lucide-react";
 import { motion } from "motion/react";
@@ -13,15 +12,18 @@ import { useTranslation } from "react-i18next";
 import { Panel, Group, Separator } from "react-resizable-panels";
 import { useParams, useSearchParams } from "react-router";
 
+import { useAppShell } from "@/app/app-shell-context";
+
 import "./world-info-page.css";
 
-import { useAppShell } from "@/app/app-shell-context";
 import { PanelLayoutLoading } from "@/components";
 import { toast } from "@/components/toast";
 import { AssistantSidebarHost } from "@/features/app-shell/components/assistant-sidebar-host";
 import { MobileAppSidebarTrigger } from "@/features/app-shell/components/mobile-app-sidebar-trigger";
 import type { AssistantSidebarState } from "@/features/assistant";
 import { buildWorldInfoEntryMentionTag } from "@/features/assistant/lib/mention-text";
+import { moveProjectFolderItem } from "@/features/project-folders/lib/project-folder-api";
+import { ProjectNavShell } from "@/features/project-navigation/components/project-nav-shell";
 import { fetchProjects } from "@/features/projects/lib/project-api";
 import { usePersistedPanelLayout } from "@/hooks/use-persisted-panel-layout";
 import { getPreference, setPreference } from "@/lib/local-db";
@@ -55,8 +57,8 @@ import {
 
 const LAST_PROJECT_KEY = "worldInfo.lastProjectId";
 const LAST_ENTRY_KEY = "worldInfo.lastEntryId";
-const PANEL_LAYOUT_KEY = "panel-layout.world-info";
-const PANEL_IDS = ["left-sidebar", "editor", "right-sidebar"];
+const PANEL_LAYOUT_KEY = "panel-layout.project-editor";
+const PANEL_IDS = ["editor", "right-sidebar"];
 const MotionBox = motion.create(Box);
 const MOBILE_SIDEBAR_WIDTH = 320;
 
@@ -235,6 +237,7 @@ export function WorldInfoPage() {
     (entry: WorldInfoEntry): WorldInfoEntryBrief => ({
       id: entry.id,
       worldInfoId: entry.worldInfoId,
+      folderId: entry.folderId,
       uid: entry.uid,
       name: entry.name,
       section: entry.section,
@@ -287,10 +290,14 @@ export function WorldInfoPage() {
 
   // 创建条目
   const createEntryMutation = useMutation({
-    mutationFn: (name: string) =>
-      createWorldInfoEntry(currentWorldInfoId!, {
-        name,
-      }),
+    mutationFn: async ({ name, folderId }: { name: string; folderId?: string }) => {
+      const entry = await createWorldInfoEntry(currentWorldInfoId!, { name });
+      if (folderId) {
+        await moveProjectFolderItem(currentProjectId!, "world", entry.id, folderId);
+        entry.folderId = folderId;
+      }
+      return entry;
+    },
     onSuccess: (newEntry) => {
       const brief = extractBrief(newEntry);
       queryClient.setQueryData(
@@ -388,14 +395,17 @@ export function WorldInfoPage() {
   });
 
   /** 处理创建条目 */
-  const handleCreateEntry = useCallback(() => {
-    if (currentWorldInfoId) {
-      const name = generateUniqueEntryName(t("worldInfo.newEntry"), entries);
-      setCurrentEntry(null);
-      setIsCreatingEntry(true);
-      createEntryMutation.mutate(name);
-    }
-  }, [currentWorldInfoId, createEntryMutation, entries, setCurrentEntry, t]);
+  const handleCreateEntry = useCallback(
+    (folderId?: string) => {
+      if (currentWorldInfoId) {
+        const name = generateUniqueEntryName(t("worldInfo.newEntry"), entries);
+        setCurrentEntry(null);
+        setIsCreatingEntry(true);
+        createEntryMutation.mutate({ name, folderId });
+      }
+    },
+    [currentWorldInfoId, createEntryMutation, entries, setCurrentEntry, t],
+  );
 
   /** 处理选择条目 */
   const handleSelectEntry = useCallback(
@@ -584,6 +594,7 @@ export function WorldInfoPage() {
   // 侧边栏内容
   const sidebarContent = currentProjectId ? (
     <EntryList
+      projectId={currentProjectId}
       onImport={() => setImportDialogOpen(true)}
       entries={entries}
       onCreateEntry={handleCreateEntry}
@@ -766,53 +777,47 @@ export function WorldInfoPage() {
           direction="column"
           style={{ height: "100%", minHeight: 0 }}
         >
-          {!isMobile && currentProjectId && panelLayout.isLoaded ? (
-            <Group
-              orientation="horizontal"
-              className="world-info-page-group"
-              defaultLayout={panelLayout.defaultLayout}
-              onLayoutChanged={panelLayout.onLayoutChanged}
-            >
-              <Panel
-                id="left-sidebar"
-                defaultSize={300}
-                minSize={250}
-                maxSize={400}
-                collapsible={false}
-              >
-                <Box className="world-info-page-sidebar world-info-page-sidebar--left">
-                  {sidebarContent}
-                </Box>
-              </Panel>
-
-              <Separator className="resize-handle world-info-page-separator" />
-
-              <Panel
-                id="editor"
-                minSize={30}
-              >
-                <Box
-                  data-scroll-container
-                  className="world-info-page-editor-shell"
+          {!isMobile && currentProjectId ? (
+            <Flex style={{ height: "100%", minWidth: 0 }}>
+              <ProjectNavShell>{sidebarContent}</ProjectNavShell>
+              {panelLayout.isLoaded ? (
+                <Group
+                  style={{ flex: 1, minWidth: 0 }}
+                  orientation="horizontal"
+                  className="world-info-page-group"
+                  defaultLayout={panelLayout.defaultLayout}
+                  onLayoutChanged={panelLayout.onLayoutChanged}
                 >
-                  {editorContent}
-                </Box>
-              </Panel>
+                  <Panel
+                    id="editor"
+                    minSize={30}
+                  >
+                    <Box
+                      data-scroll-container
+                      className="world-info-page-editor-shell"
+                    >
+                      {editorContent}
+                    </Box>
+                  </Panel>
 
-              <Separator className="resize-handle world-info-page-separator" />
+                  <Separator className="resize-handle world-info-page-separator" />
 
-              <Panel
-                id="right-sidebar"
-                defaultSize={500}
-                minSize={300}
-                maxSize={600}
-                collapsible={false}
-              >
-                <Box className="world-info-page-sidebar world-info-page-sidebar--right">
-                  {agentSidebarContent}
-                </Box>
-              </Panel>
-            </Group>
+                  <Panel
+                    id="right-sidebar"
+                    defaultSize={500}
+                    minSize={300}
+                    maxSize={600}
+                    collapsible={false}
+                  >
+                    <Box className="world-info-page-sidebar world-info-page-sidebar--right">
+                      {agentSidebarContent}
+                    </Box>
+                  </Panel>
+                </Group>
+              ) : (
+                <PanelLayoutLoading />
+              )}
+            </Flex>
           ) : currentProjectId && isMobile ? (
             <Flex className="world-info-page-mobile-layout">
               <Box className="world-info-page-editor-shell world-info-page-editor-shell--mobile">

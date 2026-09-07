@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import fnmatch
 import re
 from dataclasses import dataclass, field
 from pathlib import PurePosixPath
@@ -15,8 +16,9 @@ from sqlmodel import col
 from app.project_bundle.archive import BundleFormatError, build_zip
 from app.project_bundle.names import slugify_filename
 from app.storage.models.character import Character
-from app.storage.models.note import Note, NoteCategory
+from app.storage.models.note import Note
 from app.storage.models.project import Project
+from app.storage.models.project_folder import ProjectFolder
 from app.storage.models.project_import_binding import ProjectImportBinding
 from app.storage.models.project_import_profile import ProjectImportProfile
 from app.storage.models.world_info import WorldInfo
@@ -94,42 +96,41 @@ def _yaml(value: dict[str, Any]) -> str:
     return rendered.rstrip("\n") + "\n"
 
 
+def _canonical_rule(rule: dict[str, Any]) -> dict[str, Any]:
+    """Emit the one-level folder vocabulary while accepting older profiles."""
+
+    result = dict(rule)
+    if "folder_level" not in result:
+        legacy_levels = result.pop("category_levels", None)
+        legacy_section = result.pop("section_level", None)
+        if isinstance(legacy_levels, list) and legacy_levels:
+            result["folder_level"] = legacy_levels[0]
+        elif legacy_section is not None:
+            result["folder_level"] = legacy_section
+    else:
+        result.pop("category_levels", None)
+        result.pop("section_level", None)
+    if "folder_path" not in result and "category_path" in result:
+        result["folder_path"] = result.pop("category_path")
+    else:
+        result.pop("category_path", None)
+    legacy_ids = result.pop("category_target_ids", None)
+    if "folder_target_id" not in result and isinstance(legacy_ids, list) and legacy_ids:
+        result["folder_target_id"] = legacy_ids[0]
+    legacy_orders = result.pop("category_orders", None)
+    if "folder_order" not in result and isinstance(legacy_orders, list) and legacy_orders:
+        result["folder_order"] = legacy_orders[0]
+    return result
+
+
 def _category_paths(
-    categories: list[NoteCategory],
-) -> tuple[
-    dict[str, tuple[str, ...]],
-    dict[str, tuple[str, ...]],
-    dict[str, tuple[int, ...]],
-]:
-    by_id = {item.id: item for item in categories}
-    title_paths: dict[str, tuple[str, ...]] = {}
-    id_paths: dict[str, tuple[str, ...]] = {}
-    order_paths: dict[str, tuple[int, ...]] = {}
-
-    def build(category_id: str, stack: tuple[str, ...] = ()) -> tuple[str, ...]:
-        if category_id in title_paths:
-            return title_paths[category_id]
-        if category_id in stack:
-            raise BundleFormatError("note category hierarchy contains a cycle")
-        category = by_id.get(category_id)
-        if category is None:
-            raise BundleFormatError("note category is missing or cross-project")
-        if category.parent_id is None:
-            parent_titles: tuple[str, ...] = ()
-            parent_ids: tuple[str, ...] = ()
-            parent_orders: tuple[int, ...] = ()
-        else:
-            parent_titles = build(category.parent_id, (*stack, category_id))
-            parent_ids = id_paths[category.parent_id]
-            parent_orders = order_paths[category.parent_id]
-        title_paths[category_id] = (*parent_titles, category.title)
-        id_paths[category_id] = (*parent_ids, category.id)
-        order_paths[category_id] = (*parent_orders, category.order)
-        return title_paths[category_id]
-
-    for category_id in by_id:
-        build(category_id)
-    return title_paths, id_paths, order_paths
+    categories: list[ProjectFolder],
+) -> tuple[dict[str, tuple[str, ...]], dict[str, tuple[str, ...]], dict[str, tuple[int, ...]]]:
+    return (
+        {folder.id: (folder.title,) for folder in categories},
+        {folder.id: (folder.id,) for folder in categories},
+        {folder.id: (folder.order,) for folder in categories},
+    )
 
 
 async def _load_documents(
@@ -167,11 +168,22 @@ async def _load_documents(
     categories = list(
         (
             await session.execute(
-                select(NoteCategory).where(col(NoteCategory.project_id) == project_id)
+                select(ProjectFolder).where(
+                    col(ProjectFolder.project_id) == project_id,
+                    col(ProjectFolder.scope).in_(["note", "outline"]),
+                )
             )
         ).scalars()
     )
     category_paths, category_id_paths, category_order_paths = _category_paths(categories)
+    folders = {
+        folder.id: folder
+        for folder in (
+            await session.execute(
+                select(ProjectFolder).where(col(ProjectFolder.project_id) == project_id)
+            )
+        ).scalars()
+    }
     notes = list(
         (
             await session.execute(
@@ -184,6 +196,7 @@ async def _load_documents(
 
     documents: dict[tuple[str, str], _SourceDocument] = {}
     for item in entries:
+        folder = folders.get(item.folder_id) if item.folder_id else None
         documents[("world_entry", item.id)] = _SourceDocument(
             "world_entry",
             item.id,
@@ -192,8 +205,12 @@ async def _load_documents(
             item.is_enabled,
             item.order,
             section=item.section,
+            category_path=(folder.title,) if folder else (),
+            category_target_ids=(folder.id,) if folder else (),
+            category_orders=(folder.order,) if folder else (),
         )
     for item in characters:
+        folder = folders.get(item.folder_id) if item.folder_id else None
         documents[("character", item.id)] = _SourceDocument(
             "character",
             item.id,
@@ -201,6 +218,9 @@ async def _load_documents(
             item.description,
             item.is_writing_visible,
             item.order,
+            category_path=(folder.title,) if folder else (),
+            category_target_ids=(folder.id,) if folder else (),
+            category_orders=(folder.order,) if folder else (),
         )
     for item in notes:
         if item.category_id is not None and item.category_id not in category_paths:
@@ -249,14 +269,16 @@ def _render_heading_source(
     rule: dict[str, Any],
 ) -> str:
     roots: dict[str, _HeadingNode] = {}
+    folder_level = rule.get("folder_level")
     category_levels = list(rule.get("category_levels", []))
     section_level = rule.get("section_level")
     for binding, document in sorted(records, key=lambda value: value[1].order):
         parts = _anchor_parts(binding.source_anchor)
+        effective_levels = [folder_level] if folder_level is not None else category_levels
         dynamic_categories = (
-            document.category_path[-len(category_levels) :] if category_levels else ()
+            document.category_path[-len(effective_levels) :] if effective_levels else ()
         )
-        category_titles = dict(zip(category_levels, dynamic_categories, strict=False))
+        category_titles = dict(zip(effective_levels, dynamic_categories, strict=False))
         parent: _HeadingNode | None = None
         for index, (level, anchor_title) in enumerate(parts):
             title = anchor_title
@@ -307,9 +329,8 @@ def _fallback_path(document: _SourceDocument, document_type: str | None) -> str:
     }
     semantic_type = document_type or document.target_kind
     path = PurePosixPath(roots[semantic_type])
-    if semantic_type in {"outline", "note"}:
-        for category in document.category_path:
-            path /= slugify_filename(category, "未分类")
+    for category in document.category_path:
+        path /= slugify_filename(category, "未分类")
     filename = (
         f"{document.order:06d}-"
         f"{slugify_filename(document.title, document.target_id)}"
@@ -334,10 +355,10 @@ def _fallback_rule(
         "target_id": document.target_id,
         "order": document.order,
     }
-    if document.target_kind == "note" and document.category_path:
-        rule["category_path"] = list(document.category_path)
-        rule["category_target_ids"] = list(document.category_target_ids)
-        rule["category_orders"] = list(document.category_orders)
+    if document.category_path:
+        rule["folder_path"] = list(document.category_path)
+        rule["folder_target_id"] = document.category_target_ids[0]
+        rule["folder_order"] = document.category_orders[0]
     return rule
 
 
@@ -356,7 +377,7 @@ async def export_markdown_source_bundle(session: AsyncSession, project_id: str) 
         if not isinstance(config, dict) or not isinstance(config.get("rules"), list):
             raise BundleFormatError("stored import profile is invalid")
         config = dict(config)
-        config["rules"] = [dict(rule) for rule in config["rules"]]
+        config["rules"] = [_canonical_rule(rule) for rule in config["rules"]]
 
     rules_by_id = {
         rule.get("id"): rule
@@ -413,5 +434,13 @@ async def export_markdown_source_bundle(session: AsyncSession, project_id: str) 
         files[source_path] = _render_file_source(document, {})
         config["rules"].append(_fallback_rule(document, source_path, document_type))
 
+    # A dormant template glob must not also import the explicit fallback documents.
+    config["rules"] = [
+        rule
+        for rule in config["rules"]
+        if rule.get("id") in rules_with_files
+        or "glob" not in rule
+        or not any(fnmatch.fnmatchcase(path, rule["glob"]) for path in files)
+    ]
     files["openfic-import.yaml"] = _yaml(config)
     return build_zip(files)

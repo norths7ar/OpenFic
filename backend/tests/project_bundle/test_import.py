@@ -9,8 +9,9 @@ from app.project_bundle.markdown import (
     parse_markdown_document,
     render_markdown_document,
 )
-from app.storage.models.note import Note, NoteCategory
+from app.storage.models.note import Note
 from app.storage.models.project import Project
+from app.storage.models.project_folder import ProjectFolder as NoteCategory
 from app.storage.models.task import Task
 from app.storage.models.world_info import WorldInfo
 from app.storage.models.world_info_entry import WorldInfoEntry
@@ -105,7 +106,9 @@ async def test_preview_modes_and_concurrent_change_rules(session) -> None:
 async def test_category_edit_and_cross_project_id_are_previewed(session) -> None:
     target = Project(id="category-target", title="目标")
     other = Project(id="category-other", title="其他")
-    category = NoteCategory(id="category-edit", project_id=target.id, title="旧分类", order=1)
+    category = NoteCategory(
+        scope="note", id="category-edit", project_id=target.id, title="旧分类", order=1
+    )
     note = Note(
         id="cross-note",
         project_id=target.id,
@@ -298,10 +301,10 @@ async def test_parser_and_preview_reject_internal_and_world_book_collisions(
         order=1,
     )
     first_category = NoteCategory(
-        id="bundle-category-a", project_id=target.id, title="分类甲", order=1
+        scope="note", id="bundle-category-a", project_id=target.id, title="分类甲", order=1
     )
     second_category = NoteCategory(
-        id="bundle-category-b", project_id=target.id, title="分类乙", order=2
+        scope="note", id="bundle-category-b", project_id=target.id, title="分类乙", order=2
     )
     session.add_all(
         [
@@ -321,8 +324,8 @@ async def test_parser_and_preview_reject_internal_and_world_book_collisions(
         bundle,
         lambda manifest: manifest["note_categories"][1].update(title="分类甲"),
     )
-    with pytest.raises(BundleFormatError, match="duplicated among siblings"):
-        parse_project_bundle(duplicate_categories, target.id)
+    parsed = parse_project_bundle(duplicate_categories, target.id)
+    assert len({category.id for category in parsed.note_categories}) == 2
 
     files = read_zip(bundle)
     manifest = yaml.safe_load(files["openfic.yaml"])

@@ -5,7 +5,7 @@ from sqlalchemy import inspect
 
 from app.storage.models.chapter import Chapter
 from app.storage.models.project import Project
-from app.storage.models.volume import Volume
+from app.storage.models.project_folder import ProjectFolder as Volume
 from app.storage.repos import chapter_repo
 
 
@@ -15,7 +15,7 @@ async def test_get_by_project_and_order_returns_chapter(session):
     session.add(project)
     await session.flush()
 
-    volume = Volume(project_id=project.id, title="第一卷", order=1, chapter_count=1)
+    volume = Volume(scope="writing", project_id=project.id, title="第一卷", order=1, item_count=1)
     session.add(volume)
     await session.flush()
 
@@ -51,16 +51,18 @@ async def test_get_by_project_and_order_uses_volume_ordered_flat_index(session):
     await session.flush()
 
     first_volume = Volume(
+        scope="writing",
         project_id=project.id,
         title="第一卷",
         order=1,
-        chapter_count=1,
+        item_count=1,
     )
     second_volume = Volume(
+        scope="writing",
         project_id=project.id,
         title="第二卷",
         order=2,
-        chapter_count=1,
+        item_count=1,
     )
     session.add(first_volume)
     session.add(second_volume)
@@ -93,7 +95,7 @@ async def test_get_by_project_and_order_uses_volume_ordered_flat_index(session):
 @pytest.mark.asyncio
 async def test_list_metadata_by_volume_does_not_load_content(session):
     project = Project(title="P", description="")
-    volume = Volume(project_id=project.id, title="第一卷", order=1)
+    volume = Volume(scope="writing", project_id=project.id, title="第一卷", order=1)
     chapter = Chapter(
         project_id=project.id,
         volume_id=volume.id,
@@ -118,7 +120,7 @@ async def test_list_metadata_by_volume_does_not_load_content(session):
 @pytest.mark.asyncio
 async def test_get_by_volume_ref_returns_first_title_match(session):
     project = Project(title="P", description="")
-    volume = Volume(project_id=project.id, title="第一卷", order=1)
+    volume = Volume(scope="writing", project_id=project.id, title="第一卷", order=1)
     first = Chapter(
         project_id=project.id,
         volume_id=volume.id,

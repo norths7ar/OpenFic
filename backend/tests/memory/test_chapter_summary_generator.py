@@ -11,7 +11,7 @@ from app.memory.chapter.summary_generator import (
 from app.storage.models.chapter import Chapter
 from app.storage.models.chapter_summary import ChapterSummary
 from app.storage.models.project import Project
-from app.storage.models.volume import Volume
+from app.storage.models.project_folder import ProjectFolder as Volume
 
 
 @pytest.mark.asyncio
@@ -21,7 +21,7 @@ async def test_build_chapter_summary_prompt_includes_previous_chapter_and_target
     project = Project(title="项目", description="")
     session.add(project)
     await session.flush()
-    volume = Volume(project_id=project.id, title="第一卷", order=1, chapter_count=2)
+    volume = Volume(scope="writing", project_id=project.id, title="第一卷", order=1, item_count=2)
     session.add(volume)
     await session.flush()
     previous_chapter = Chapter(
@@ -87,8 +87,12 @@ async def test_build_chapter_summary_prompt_omits_previous_chapter_part_for_firs
     project = Project(title="项目", description="")
     session.add(project)
     await session.flush()
-    previous_volume = Volume(project_id=project.id, title="第一卷", order=1, chapter_count=1)
-    target_volume = Volume(project_id=project.id, title="第二卷", order=2, chapter_count=1)
+    previous_volume = Volume(
+        scope="writing", project_id=project.id, title="第一卷", order=1, item_count=1
+    )
+    target_volume = Volume(
+        scope="writing", project_id=project.id, title="第二卷", order=2, item_count=1
+    )
     session.add_all([previous_volume, target_volume])
     await session.flush()
     session.add(
@@ -127,7 +131,7 @@ async def test_build_long_term_summary_prompt_omits_default_context(session: Asy
     project = Project(title="项目", description="")
     session.add(project)
     await session.flush()
-    volume = Volume(project_id=project.id, title="第一卷", order=1, chapter_count=1)
+    volume = Volume(scope="writing", project_id=project.id, title="第一卷", order=1, item_count=1)
     session.add(volume)
     await session.flush()
     chapter = Chapter(
@@ -172,7 +176,7 @@ async def test_build_chapter_summary_prompt_merges_system_messages_when_enabled(
     project = Project(title="项目", description="")
     session.add(project)
     await session.flush()
-    volume = Volume(project_id=project.id, title="第一卷", order=1, chapter_count=2)
+    volume = Volume(scope="writing", project_id=project.id, title="第一卷", order=1, item_count=2)
     session.add(volume)
     await session.flush()
     previous_chapter = Chapter(
@@ -210,7 +214,7 @@ async def test_build_long_term_summary_prompt_merges_system_messages_when_enable
     project = Project(title="项目", description="")
     session.add(project)
     await session.flush()
-    volume = Volume(project_id=project.id, title="第一卷", order=1, chapter_count=1)
+    volume = Volume(scope="writing", project_id=project.id, title="第一卷", order=1, item_count=1)
     session.add(volume)
     await session.flush()
     chapter = Chapter(

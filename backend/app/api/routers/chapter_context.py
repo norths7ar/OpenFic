@@ -55,7 +55,7 @@ from app.memory.chapter.summary_service import (
 )
 from app.storage.database import get_session
 from app.storage.models.chapter import Chapter
-from app.storage.models.volume import Volume
+from app.storage.models.project_folder import ProjectFolder
 from app.storage.repos import chapter_repo, chapter_summary_repo, volume_repo
 
 SUMMARY_ITEM_STAGE_TOTAL = 3
@@ -147,7 +147,7 @@ def _volume_brief(volume):
 
 
 def _long_term_endpoint_details(
-    chapter_by_order: dict[int, Chapter], volumes_by_id: dict[str, Volume], order: int
+    chapter_by_order: dict[int, Chapter], volumes_by_id: dict[str, ProjectFolder], order: int
 ) -> tuple[str | None, str]:
     chapter = chapter_by_order.get(order)
     if chapter is None:
@@ -161,7 +161,7 @@ def _long_term_summary_list_item(
     start_order: int,
     end_order: int,
     chapter_by_order: dict[int, Chapter],
-    volumes_by_id: dict[str, Volume],
+    volumes_by_id: dict[str, ProjectFolder],
     *,
     is_stale: bool = False,
 ) -> LongTermSummaryListItemResponse:

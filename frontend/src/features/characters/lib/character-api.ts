@@ -12,6 +12,7 @@ function transformCharacter(raw: Record<string, unknown>): Character {
   return {
     id: raw.id as string,
     projectId: raw.project_id as string,
+    folderId: (raw.folder_id as string | null | undefined) ?? null,
     name: raw.name as string,
     description: (raw.description as string) || "",
     imageUrl: resolveBackendUrl(raw.image_url as string | null | undefined),
@@ -27,6 +28,7 @@ function transformCharacterListItem(raw: Record<string, unknown>): CharacterList
   return {
     id: raw.id as string,
     projectId: raw.project_id as string,
+    folderId: (raw.folder_id as string | null | undefined) ?? null,
     name: raw.name as string,
     imageUrl: resolveBackendUrl(raw.image_url as string | null | undefined),
     tokenCount: raw.token_count as number,

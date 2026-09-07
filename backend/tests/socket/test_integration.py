@@ -21,8 +21,8 @@ from app.storage import database
 from app.storage.models.chapter import Chapter
 from app.storage.models.chapter_summary import ChapterSummary
 from app.storage.models.project import Project
+from app.storage.models.project_folder import ProjectFolder as Volume
 from app.storage.models.task import Task
-from app.storage.models.volume import Volume
 from tests.model_registry import register_sqlmodel_models
 
 
@@ -93,11 +93,12 @@ async def _seed_project(
     async with socket_db_factory() as session:
         project = Project(id=project_id, title=f"项目 {project_id}", description="")
         volume = Volume(
+            scope="writing",
             id=f"{project_id}-volume-1",
             project_id=project_id,
             title="第一卷",
             order=1,
-            chapter_count=1,
+            item_count=1,
         )
         chapter = Chapter(
             id=chapter_id,

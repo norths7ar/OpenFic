@@ -1,0 +1,130 @@
+.project-nav-toolbar {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  height: 48px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--gray-a4);
+  background: var(--color-background);
+  flex: 0 0 48px;
+}
+
+.project-nav-toolbar-search {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.project-nav-shell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  min-height: 0;
+  overflow: visible;
+  background: var(--color-background);
+}
+
+.project-nav-shell-content {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.project-nav-separator {
+  position: absolute;
+  top: 0;
+  right: -4px;
+  bottom: 0;
+  width: 8px;
+  z-index: 20;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.project-nav-separator::after {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 3px;
+  width: 1px;
+  background: var(--gray-a6);
+}
+
+.project-nav-separator:hover::after,
+.project-nav-separator:focus-visible::after,
+.project-nav-separator[data-resizing]::after {
+  width: 3px;
+  left: 2px;
+  background: var(--accent-8);
+}
+
+.project-nav-item-row {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  width: 100%;
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--gray-a4);
+  cursor: pointer;
+  color: var(--gray-12);
+}
+
+.project-nav-item-row:hover {
+  background: var(--gray-a3);
+}
+.project-nav-item-row[data-selected] {
+  background: var(--gray-a5);
+}
+.project-nav-item-row[aria-disabled="true"] {
+  opacity: 0.5;
+  cursor: default;
+}
+.project-nav-item-row[data-dragging] {
+  opacity: 0.4;
+}
+.project-nav-item-text {
+  flex: 1;
+  min-width: 0;
+}
+.project-nav-item-heading {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+.project-nav-item-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--font-size-base);
+  line-height: 20px;
+}
+.project-nav-item-metadata {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-top: 4px;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--gray-11);
+}
+.project-nav-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.project-nav-toolbar button {
+  min-width: 28px;
+  height: 28px;
+}
+.project-nav-toolbar button svg {
+  width: 16px;
+  height: 16px;
+}

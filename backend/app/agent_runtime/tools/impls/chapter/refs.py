@@ -23,8 +23,8 @@ class ChapterRef(BaseModel):
 
 
 class VolumeRef(BaseModel):
-    type: Literal["order", "title"] = Field(
-        description="卷定位方式：order 表示卷序号，title 表示卷标题",
+    type: Literal["id", "order", "title"] = Field(
+        description="卷定位方式：id 表示文件夹 ID，order 表示卷序号，title 表示唯一卷标题",
     )
     value: int | str = Field(
         description="与 type 对应的卷定位值；type 为 order 时传入整数序号，type 为 title 时传入精确的卷标题",
@@ -39,6 +39,7 @@ class VolumeRef(BaseModel):
 
 
 class _OrderedTitled(Protocol):
+    id: str
     order: int
     title: str
 
@@ -47,13 +48,12 @@ def resolve_volume_from_list[TOrderedTitled: _OrderedTitled](
     volumes: Sequence[TOrderedTitled],
     ref: VolumeRef,
 ) -> TOrderedTitled:
-    if ref.type == "order":
-        match = next((volume for volume in volumes if volume.order == ref.value), None)
-    else:
-        match = next((volume for volume in volumes if volume.title == ref.value), None)
-    if match is None:
+    matches = [volume for volume in volumes if getattr(volume, ref.type) == ref.value]
+    if not matches:
         raise ToolExecutionError(f"未找到卷: {ref.type}={ref.value}")
-    return match
+    if len(matches) > 1:
+        raise ToolExecutionError("卷名称或顺序不唯一，请使用文件夹 ID 定位")
+    return matches[0]
 
 
 def resolve_chapter_from_list[TOrderedTitled: _OrderedTitled](

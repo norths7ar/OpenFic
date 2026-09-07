@@ -15,28 +15,23 @@ from app.agent_runtime.revisions import (
 from app.agent_runtime.tools.base import AgentTool
 from app.agent_runtime.tools.errors import ToolExecutionError
 from app.agent_runtime.tools.impls._locks import keyed_lock
-from app.agent_runtime.tools.impls.note.refs import (
-    CategoryRef,
-    generate_unique_title,
-    resolve_category_from_list,
-)
 from app.agent_runtime.tools.registry import ToolRegistry
 from app.storage.database import create_session
-from app.storage.models.note import NoteCategory
+from app.storage.models.project_folder import ProjectFolder
 from app.storage.repos import note_category_repo
 
 
 class CreateNoteCategoryInput(BaseModel):
     title: str = Field(description="分类标题")
     parent_ref: dict | None = Field(
-        default=None, description="可选的父分类引用；省略则创建在根层级"
+        default=None, description="兼容字段，单层文件夹不允许指定父分类"
     )
 
 
 @ToolRegistry.register
 class CreateNoteCategoryTool(AgentTool):
     name: str = "create_note_category"
-    description: str = "在指定父分类下创建新分类"
+    description: str = "创建单层笔记文件夹，同名通过 ID 区分"
     access_level: str = "write"
     args_schema: type[BaseModel] = CreateNoteCategoryInput
 
@@ -50,30 +45,14 @@ class CreateNoteCategoryTool(AgentTool):
             or (parent_ref is not None and not isinstance(parent_ref, dict))
         ):
             return None
-        parent_id: str | None = None
         if parent_ref is not None:
-            ref = CategoryRef.model_validate(parent_ref)
-            if ref.id is not None:
-                parent = await note_category_repo.get_by_id(session, ref.id)
-                if parent is None or parent.project_id != self.project_id:
-                    return None
-            else:
-                categories = await note_category_repo.list_by_project(session, self.project_id)
-                try:
-                    parent = resolve_category_from_list(categories, ref)
-                except ToolExecutionError:
-                    return None
-            parent_id = parent.id
-        categories = await note_category_repo.list_by_project(session, self.project_id)
-        unique_title = generate_unique_title(
-            title,
-            {category.title for category in categories if category.parent_id == parent_id},
-        )
+            return None
+        parent_id = None
         return {
             "type": "preview",
             "success": True,
             "reason": "approval_preview",
-            "metadata": {"category": {"title": unique_title, "parent_id": parent_id}},
+            "metadata": {"category": {"title": title, "parent_id": parent_id}},
         }
 
     async def _execute(
@@ -86,42 +65,26 @@ class CreateNoteCategoryTool(AgentTool):
             raise ToolExecutionError("缺少当前 revision，无法执行分类创建")
         session = await create_session()
         try:
-            parent_id: str | None = None
             if parent_ref is not None:
-                ref = CategoryRef.model_validate(parent_ref)
-                if ref.id is not None:
-                    parent = await note_category_repo.get_by_id(session, ref.id)
-                    if parent is None:
-                        raise ToolExecutionError(f"分类不存在: {ref.id}")
-                else:
-                    cats = await note_category_repo.list_by_project(session, self.project_id)
-                    parent = resolve_category_from_list(cats, ref)
-                if parent.project_id != self.project_id:
-                    raise ToolExecutionError("父分类不属于当前项目")
-                parent_id = parent.id
+                raise ToolExecutionError("文件夹只能存在一层，不能指定父文件夹")
+            parent_id = None
 
             async with await keyed_lock((self.project_id, parent_id)):
                 before = note_category_images_by_id(
                     await note_category_repo.list_by_project(session, self.project_id)
                 )
-                sibling_titles = {c.title for c in before.values() if c.parent_id == parent_id}
-                unique_title = generate_unique_title(title, sibling_titles)
                 next_order = (
                     max(
-                        (
-                            category.order
-                            for category in before.values()
-                            if category.parent_id == parent_id
-                        ),
+                        (category.order for category in before.values()),
                         default=0,
                     )
                     + 1
                 )
 
-                category = NoteCategory(
+                category = ProjectFolder(
                     project_id=self.project_id,
-                    parent_id=parent_id,
-                    title=unique_title,
+                    scope="note",
+                    title=title,
                     order=next_order,
                 )
                 category = await note_category_repo.create(session, category)
@@ -146,7 +109,7 @@ class CreateNoteCategoryTool(AgentTool):
                             "category": {
                                 "id": category.id,
                                 "title": category.title,
-                                "parent_id": category.parent_id,
+                                "parent_id": None,
                             }
                         },
                     },

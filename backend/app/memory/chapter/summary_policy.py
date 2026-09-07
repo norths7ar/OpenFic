@@ -9,7 +9,7 @@ from difflib import SequenceMatcher
 from app.memory.chapter.sequence import global_order_index
 from app.storage.models.chapter import Chapter
 from app.storage.models.chapter_summary import ChapterSummary
-from app.storage.models.volume import Volume
+from app.storage.models.project_folder import ProjectFolder
 from app.storage.repos.chapter_summary_repo import SUMMARY_STATUS_READY
 
 LONG_TERM_SUMMARY_INTERVAL = 10
@@ -113,7 +113,7 @@ def is_long_term_summary_stale(
     summary: ChapterSummary | None,
     chapters: list[Chapter],
     chapter_summaries: list[ChapterSummary],
-    volumes: list[Volume],
+    volumes: list[ProjectFolder],
 ) -> bool:
     if summary is None or summary.status != SUMMARY_STATUS_READY:
         return False
@@ -136,7 +136,7 @@ def is_long_term_summary_stale(
 
 def _fixed_summary_windows(
     chapters: list[Chapter],
-    volumes: list[Volume],
+    volumes: list[ProjectFolder],
     size: int,
 ) -> list[list[Chapter]]:
     order_map = global_order_index(chapters, volumes)
@@ -175,7 +175,7 @@ def _build_long_term_window_from_group(
 
 def build_long_term_summary_window(
     chapters: list[Chapter],
-    volumes: list[Volume],
+    volumes: list[ProjectFolder],
     chapter_summaries: list[ChapterSummary],
     start_order: int,
     end_order: int,
@@ -192,7 +192,7 @@ def build_long_term_summary_window(
 
 def list_eligible_long_term_ranges(
     chapters: list[Chapter],
-    volumes: list[Volume],
+    volumes: list[ProjectFolder],
     chapter_summaries: list[ChapterSummary],
 ) -> list[tuple[int, int]]:
     summary_by_chapter_id = {summary.chapter_id: summary for summary in chapter_summaries}
@@ -208,7 +208,7 @@ def list_eligible_long_term_ranges(
 
 def list_ready_unaggregated_long_term_windows(
     chapters: list[Chapter],
-    volumes: list[Volume],
+    volumes: list[ProjectFolder],
     chapter_summaries: list[ChapterSummary],
     long_term_summaries: list[ChapterSummary],
 ) -> list[LongTermSummaryWindow]:

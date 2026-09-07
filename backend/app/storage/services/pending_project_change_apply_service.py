@@ -13,8 +13,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.errors import ConflictError, NotFoundError, ValidationError
 from app.project_bundle.export import semantic_hash
 from app.storage.models.character import Character
-from app.storage.models.note import Note, NoteCategory
+from app.storage.models.note import Note
 from app.storage.models.pending_project_change import PendingProjectChange
+from app.storage.models.project_folder import ProjectFolder
 from app.storage.models.world_info_entry import WorldInfoEntry
 from app.storage.repos import (
     character_repo,
@@ -114,13 +115,13 @@ def _note_snapshot(note: Note) -> dict[str, Any]:
     }
 
 
-def _note_category_snapshot(category: NoteCategory) -> dict[str, Any]:
+def _note_category_snapshot(category: ProjectFolder) -> dict[str, Any]:
     return {
         "kind": "note_category",
         "id": category.id,
         "project_id": category.project_id,
-        "parent_id": category.parent_id,
-        "document_type": category.document_type,
+        "parent_id": None,
+        "document_type": category.scope,
         "title": category.title,
         "order": category.order,
     }
@@ -370,9 +371,6 @@ async def _assert_create_name_available(
                 raise PendingChangeConflictError("笔记分类不存在或不属于当前项目")
         return
     if target_type == "note_category":
-        categories = await note_category_repo.list_by_project(session, project_id)
-        if any(category.parent_id is None and category.title == title for category in categories):
-            raise PendingChangeConflictError("顶层笔记分类标题已存在")
         return
     if target_type == "character":
         if await character_repo.name_exists(session, project_id, title):
@@ -467,7 +465,7 @@ async def _apply_update(
         return _note_snapshot(updated)
     if target_type == "note_category":
         category = target
-        if not isinstance(category, NoteCategory):
+        if not isinstance(category, ProjectFolder):
             raise ValidationError("待审变更目标类型错误")
         updated = await note_service.update_category(
             session,

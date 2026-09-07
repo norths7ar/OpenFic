@@ -14,7 +14,7 @@ from app.agent_runtime.tools.impls.chapter.refs import (
 )
 from app.agent_runtime.tools.text_match import fuzzy_replace
 from app.storage.models.chapter import Chapter
-from app.storage.models.volume import Volume
+from app.storage.models.project_folder import ProjectFolder
 from app.storage.repos import chapter_repo, volume_repo
 
 
@@ -281,7 +281,7 @@ async def _resolve_volume(
     session: AsyncSession,
     project_id: str,
     volume_ref: dict,
-) -> Volume:
+) -> ProjectFolder:
     volumes = await volume_repo.list_by_project(session, project_id)
     return resolve_volume_from_list(volumes, VolumeRef.model_validate(volume_ref))
 

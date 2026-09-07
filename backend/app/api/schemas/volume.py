@@ -35,7 +35,7 @@ class VolumeResponse(BaseModel):
     title: str = Field(description="卷名")
     description: str | None = Field(description="卷说明")
     order: int = Field(description="项目内排序序号")
-    chapter_count: int = Field(description="章节数")
+    chapter_count: int = Field(validation_alias="item_count", description="章节数")
     created_at: datetime = Field(description="创建时间")
     updated_at: datetime = Field(description="上次修改时间")
 
