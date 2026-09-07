@@ -1753,6 +1753,7 @@
   },
   "assistant": {
     "mobileTitle": "Agent",
+    "userMessageLabel": "You",
     "openDocumentAssistant": "Discuss current document",
     "closeDocumentAssistant": "Close document discussion",
     "subagentFallbackTitle": "Sub Agent",
@@ -1947,10 +1948,11 @@
       "next": "Next",
       "submit": "Submit answers",
       "ignore": "Ignore",
-      "customInput": "Type your own answer",
-      "customInputDescription": "Enter a custom answer",
-      "customInputPlaceholder": "Enter a custom answer...",
-      "customAnswerAriaLabel": "Custom answer for {{title}}"
+      "customInput": "Write my own response",
+      "customInputDescription": "Reply in full paragraphs without being limited to the options",
+      "customInputPlaceholder": "Write out your thoughts here...",
+      "customAnswerAriaLabel": "Custom answer for {{title}}",
+      "answerTo": "In response to: {{question}}"
     },
     "specialPanels": {
       "clarificationTitle": "More information needed",

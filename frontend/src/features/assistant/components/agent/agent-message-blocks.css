@@ -108,102 +108,18 @@
 }
 
 .agent-user-message-shell {
-  width: min(100%, 85vw);
+  width: 100%;
 }
 
 .agent-message-user-shell-row[data-width="100%"] .agent-user-message-shell {
   width: 100%;
 }
 
-.agent-user-message-preview {
-  position: relative;
-  overflow: hidden;
-  padding: 9px 10px;
-  font-size: var(--font-size-md);
-  line-height: 1.35;
-}
-
-.agent-user-message-preview--clamped {
-  cursor: pointer;
-}
-
-.agent-user-message-preview--expanded {
-  cursor: pointer;
-}
-
-.agent-user-message-preview-text {
+.agent-user-message-text {
   display: block;
   font-size: inherit;
+  line-height: 1.6;
   white-space: pre-wrap;
-}
-
-.agent-user-message-content-viewport {
-  overflow: hidden;
-}
-
-.agent-user-message-expand-overlay {
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 40px;
-  border-radius: 0 0 7px 7px;
-  background: linear-gradient(to top, var(--color-background, var(--gray-1)) 10%, transparent);
-  pointer-events: none;
-}
-
-.agent-user-message-chevron-motion {
-  display: inline-flex;
-}
-
-.agent-user-message-expand-icon {
-  color: var(--gray-11);
-}
-
-.agent-user-message-collapse-indicator {
-  display: flex;
-  overflow: hidden;
-  align-items: center;
-  justify-content: center;
-  color: var(--gray-11);
-}
-
-.agent-user-message-expand-button {
-  border-radius: 6px;
-  color: var(--gray-11);
-  cursor: pointer;
-  transition:
-    color 120ms ease,
-    background 120ms ease;
-}
-
-.agent-user-message-expand-button:hover {
-  color: var(--gray-12);
-  background: var(--gray-a3);
-}
-
-.agent-user-message-collapse-button {
-  margin-top: 4px;
-  width: 24px;
-  height: 24px;
-  border-radius: 6px;
-  color: var(--gray-11);
-  cursor: pointer;
-  transition:
-    color 120ms ease,
-    background 120ms ease;
-}
-
-.agent-user-message-collapse-button:hover {
-  color: var(--gray-12);
-  background: var(--gray-a3);
-}
-
-.agent-user-message-collapse-button svg {
-  transform: rotate(180deg);
 }
 
 .agent-node-divider {

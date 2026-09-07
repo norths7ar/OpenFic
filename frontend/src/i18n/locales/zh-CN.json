@@ -1884,6 +1884,7 @@
   },
   "assistant": {
     "mobileTitle": "Agent",
+    "userMessageLabel": "你",
     "openDocumentAssistant": "打开当前文档讨论",
     "closeDocumentAssistant": "收起当前文档讨论",
     "subagentFallbackTitle": "子智能体",
@@ -2078,10 +2079,11 @@
       "next": "下一步",
       "submit": "提交回答",
       "ignore": "忽略",
-      "customInput": "自行输入",
-      "customInputDescription": "输入自定义回答",
-      "customInputPlaceholder": "输入自定义回答...",
-      "customAnswerAriaLabel": "{{title}}的自定义回答"
+      "customInput": "我想自己写",
+      "customInputDescription": "用完整段落回答，不受选项限制",
+      "customInputPlaceholder": "在这里完整写下你的想法...",
+      "customAnswerAriaLabel": "{{title}}的自定义回答",
+      "answerTo": "回应：{{question}}"
     },
     "specialPanels": {
       "clarificationTitle": "需要补充信息",

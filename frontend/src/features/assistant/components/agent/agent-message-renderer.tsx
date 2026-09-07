@@ -11,6 +11,8 @@ import { RetryMessage } from "./message-blocks/blocks/status/retry-message";
 import { AgentOutputMessage } from "./message-blocks/messages/special/agent-output-message";
 import { ToolMessage } from "./message-blocks/messages/tool/tool-message";
 import { UserRequestMessage } from "./message-blocks/messages/user/user-request-message";
+import { AskUserToolMessage } from "./message-blocks/tools/ask-user/ask-user-tool-message";
+import { getAskUserQuestionAnswerPairs } from "./message-blocks/tools/shared/tool-message-utils";
 
 interface AgentMessageRendererProps {
   message: RenderableDisplayMessage;
@@ -89,6 +91,13 @@ function AgentMessageRendererView({
   }
 
   if (message.type === "tool") {
+    if (
+      message.toolName === "ask_user" &&
+      message.status === "completed" &&
+      getAskUserQuestionAnswerPairs(message).length > 0
+    ) {
+      return <AskUserToolMessage message={message} />;
+    }
     return <ToolMessage message={message} />;
   }
 

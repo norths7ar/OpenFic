@@ -244,7 +244,7 @@ function ClarificationQuestionItem({
           className="ai-sidebar-textarea agent-clarification-custom-input"
           value={customValue}
           onChange={(event) => onCustomChange(index, event.target.value)}
-          rows={2}
+          rows={6}
           placeholder={t("assistant.clarification.customInputPlaceholder")}
           aria-label={t("assistant.clarification.customAnswerAriaLabel", { title: question.title })}
         />

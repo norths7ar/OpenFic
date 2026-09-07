@@ -249,7 +249,7 @@ export function UserMessageShell({ children, className }: UserMessageShellProps)
 
   return (
     <Flex
-      justify="end"
+      justify="start"
       className={joinClassNames("agent-message-user-shell-row", className)}
       data-width={isMobile ? "100%" : undefined}
     >
