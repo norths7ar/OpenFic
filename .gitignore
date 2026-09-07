@@ -13,6 +13,8 @@
 .playwright-mcp
 .playwright-cli
 .playwright
+/output/
+/.pnpm-store/
 .serena/
 .orchestra-skills.json
 .env
