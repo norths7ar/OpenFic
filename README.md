@@ -24,30 +24,48 @@
 - [backend/README.md](./backend/README.md) 只提供后端子包的最小开发入口，不重复产品和部署说明。
 - [docs/openfic-import.example.yaml](./docs/openfic-import.example.yaml) 只提供 Markdown 源包映射的机器可读示例；实际格式以解析器和测试为准。
 
-## 本地运行
+## Windows 本地运行
 
-当前主要使用 Docker 运行。
+正式服务直接运行在 Windows，访问 <http://127.0.0.1:18081/>，不依赖 Docker 或前端开发服务器。Python 后端同时提供构建后的网页和 API；健康检查为 <http://127.0.0.1:18081/api/v1/health>。
 
-### 构建镜像
+### 准备环境与构建网页
 
-```powershell
-docker build -t openfic:local .
-```
-
-### 新建容器
+使用 PowerShell 7、项目支持的 Python 3.12/3.13、uv 和 pnpm。首次安装在仓库根目录执行：
 
 ```powershell
-docker run -d --name openfic --restart unless-stopped -p 127.0.0.1:8000:8000 -v openfic-data:/data openfic:local
+cd backend
+uv sync --frozen
+cd ../frontend
+pnpm install --frozen-lockfile
+pnpm build
+cd ..
 ```
 
-打开 <http://127.0.0.1:8000/>，健康检查为 <http://127.0.0.1:8000/api/v1/health>。
+日常写作不需要重新构建。修改前端代码后运行 `pnpm build`；更新后端代码或依赖后重启服务。正式前端使用当前网页地址访问 API，不要在构建环境中设置指向测试服务的 `VITE_BACKEND_URL`。
 
-> [!IMPORTANT]
-> 重建现有容器前，先用 `docker inspect openfic` 确认当前挂载的数据卷。不要为了复制示例命令而替换正在使用的 `/data` 数据卷。
+### 管理服务
+
+在仓库根目录执行：
+
+```powershell
+./scripts/openfic-service.ps1 start
+./scripts/openfic-service.ps1 status
+./scripts/openfic-service.ps1 logs
+./scripts/openfic-service.ps1 restart
+./scripts/openfic-service.ps1 stop
+```
+
+启动脚本后台运行服务，重复 start 不会启动第二份；端口被其他进程占用时会报错，不会杀掉占用者。stop 使用带令牌的关停接口，并等待服务退出。日志位于 `data/logs`，管理状态位于 `data/runtime/openfic.json`，均不纳入 Git。
+
+本机统一入口 `~/.local/scripts/local-services.ps1` 已接入 OpenFic：运行 `local-services.ps1 start all` 会与其他本地服务一起启动；也可以使用 `local-services.ps1 status openfic` 或 `local-services.ps1 restart openfic` 单独管理。
+
+需要实时预览前端修改时，可单独使用前端 dev 服务。它与正式的静态网页运行方式不同；测试后端应指定独立的数据目录。
 
 ## 数据与资料交换
 
-OpenFic 运行数据保存在容器的 `/data` 目录，通过 Docker 数据卷持久化。代码仓库不包含小说正式数据、提供商密钥或会话记录。
+管理脚本将 `OPENFIC_DATA_DIR` 固定为仓库根目录的 `data`（本机为 `E:\GitHub-Repos\OpenFic\data`），不使用 `backend/data` 的测试副本。数据目录不纳入 Git，包含小说正式数据、提供商配置和会话记录。
+
+备份应覆盖整个数据目录：`openfic.db`、`checkpoints.db`、`.key`、附件、图片及索引等。数据库运行时可能存在 WAL 文件，完整文件备份应先停止服务，复制完毕后再启动；`.key` 用于解密已保存的提供商密钥，不应重新生成或遗漏。代码更新与数据备份是两件事。
 
 书架中每个项目提供两类资料包：
 

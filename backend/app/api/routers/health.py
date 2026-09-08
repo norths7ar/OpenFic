@@ -37,7 +37,7 @@ async def request_shutdown(
     request: Request,
     shutdown_token: str | None = Header(default=None, alias="X-OpenFic-Shutdown-Token"),
 ) -> None:
-    """Request a graceful shutdown from the desktop process that owns this server."""
+    """Request a graceful shutdown from the local process manager that owns this server."""
     expected_token = getenv("OPENFIC_SHUTDOWN_TOKEN")
     if (
         not expected_token

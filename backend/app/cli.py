@@ -15,7 +15,7 @@ from pathlib import Path
 from app.logging import configure_standard_logging
 
 _DEFAULT_HOST = "127.0.0.1"
-_DEFAULT_PORT = 8000
+_DEFAULT_PORT = 18081
 
 
 def _windows_selector_loop_factory() -> asyncio.AbstractEventLoop:
