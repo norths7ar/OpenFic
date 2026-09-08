@@ -79,7 +79,7 @@ export function NoteSidebar({
   const { data } = useNoteTree(projectId, documentType);
   const createNoteMutation = useCreateNote(projectId, documentType);
   const createCategoryMutation = useCreateNoteCategory(projectId, documentType);
-  const updateNoteMutation = useUpdateNote(projectId);
+  const updateNoteMutation = useUpdateNote(projectId, documentType);
   const updateCategoryMutation = useUpdateNoteCategory(projectId);
   const deleteNoteMutation = useDeleteNote(projectId);
   const deleteCategoryMutation = useDeleteNoteCategory(projectId);

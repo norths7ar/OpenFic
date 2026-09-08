@@ -32,6 +32,7 @@ import {
   reorderMixedNoteItems,
   reorderNoteItems,
 } from "../lib/note-api";
+import { applyToNote } from "../lib/note-cache-update";
 
 // The legacy response envelope is flat; folder IDs are the only association authority.
 function cloneTree(tree: NoteTreeResponse): NoteTreeResponse {
@@ -44,19 +45,6 @@ function cloneTree(tree: NoteTreeResponse): NoteTreeResponse {
       notes: folder.notes.map((note) => ({ ...note })),
     })),
   };
-}
-type NoteMutator = (note: NoteListItem) => NoteListItem;
-function applyToNote(
-  tree: NoteTreeResponse,
-  noteId: string,
-  mutator: NoteMutator,
-): NoteTreeResponse {
-  const next = cloneTree(tree);
-  for (const notes of [next.rootNotes, ...next.categories.map((folder) => folder.notes)]) {
-    const index = notes.findIndex((note) => note.id === noteId);
-    if (index >= 0) notes[index] = mutator(notes[index]!);
-  }
-  return next;
 }
 type CategoryMutator = (category: NoteCategoryItem) => NoteCategoryItem;
 function applyToCategory(
@@ -169,7 +157,7 @@ export function useCreateNote(projectId: string, documentType: DocumentType = "n
   });
 }
 
-export function useUpdateNote(projectId: string) {
+export function useUpdateNote(projectId: string, documentType: DocumentType = "note") {
   const queryClient = useQueryClient();
   const { t } = useTranslation();
 
@@ -178,14 +166,14 @@ export function useUpdateNote(projectId: string) {
       updateNote(noteId, data),
     onMutate: async ({ noteId, data }) => {
       await queryClient.cancelQueries({
-        queryKey: projectDataQueryKeys.notes.tree(projectId),
+        queryKey: projectDataQueryKeys.notes.typedTree(projectId, documentType),
       });
       const previous = queryClient.getQueryData<NoteTreeResponse>(
-        projectDataQueryKeys.notes.tree(projectId),
+        projectDataQueryKeys.notes.typedTree(projectId, documentType),
       );
       if (previous && (data.title !== undefined || data.agentVisibility !== undefined)) {
         queryClient.setQueryData<NoteTreeResponse>(
-          projectDataQueryKeys.notes.tree(projectId),
+          projectDataQueryKeys.notes.typedTree(projectId, documentType),
           (tree) => {
             if (!tree) return tree;
             return applyToNote(tree, noteId, (note) => ({
@@ -203,7 +191,7 @@ export function useUpdateNote(projectId: string) {
     onError: (_err, _vars, context) => {
       if (context?.previous) {
         queryClient.setQueryData(
-          projectDataQueryKeys.notes.tree(projectId),
+          projectDataQueryKeys.notes.typedTree(projectId, documentType),
           context.previous,
         );
       }

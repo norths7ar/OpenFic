@@ -61,7 +61,7 @@ function NoteEditorContent({
   onScrollPositionChange,
 }: NoteEditorContentProps) {
   const { t } = useTranslation();
-  const updateMutation = useUpdateNote(note.projectId);
+  const updateMutation = useUpdateNote(note.projectId, note.documentType);
   const { updateTabTitle } = useTabsStore();
   const { clearWorkingCopy, persistWorkingCopy } = workingCopy;
 
