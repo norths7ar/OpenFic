@@ -4,12 +4,13 @@ Note 数据模型。
 
 from datetime import UTC, datetime
 
-from sqlmodel import Field, SQLModel
+from sqlmodel import Field
 
 from app.core.ids import generate_id
+from app.storage.models.agent_visibility import AgentVisibilityModel
 
 
-class Note(SQLModel, table=True):
+class Note(AgentVisibilityModel, table=True):
     __tablename__ = "notes"
 
     id: str = Field(default_factory=generate_id, primary_key=True)
@@ -24,7 +25,5 @@ class Note(SQLModel, table=True):
     order: int = Field(default=0, index=True)
     content: str = Field(default="")
     is_locked: bool = Field(default=False)
-    is_hidden: bool = Field(default=False)
-    is_writing_visible: bool = Field(default=True, index=True)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))

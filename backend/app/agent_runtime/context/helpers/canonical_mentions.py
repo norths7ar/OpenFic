@@ -3,7 +3,6 @@ from __future__ import annotations
 import html
 import re
 from dataclasses import dataclass
-from typing import Literal
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -15,6 +14,7 @@ from app.agent_runtime.context.knowledge_visibility import (
     note_is_visible,
     world_entry_is_visible,
 )
+from app.core.knowledge_scope import KnowledgeScope
 from app.storage.repos.chapter_repo import get_by_id as get_chapter_by_id
 from app.storage.repos.character_repo import get_by_id as get_character_by_id
 from app.storage.repos.note_category_repo import (
@@ -104,11 +104,11 @@ class _MentionResolver:
         session: AsyncSession | None,
         project_id: str | None,
         *,
-        include_all_knowledge: bool = False,
+        scope: KnowledgeScope = KnowledgeScope.LOCAL,
     ) -> None:
         self._session = session
         self._project_id = project_id.strip() if project_id and project_id.strip() else None
-        self._include_all_knowledge = include_all_knowledge
+        self._scope = scope
         self._volume_cache: dict[str, str | None] = {}
         self._chapter_path_cache: dict[str, str | None] = {}
         self._note_cache: dict[str, str | None] = {}
@@ -132,7 +132,7 @@ class _MentionResolver:
                 and self._is_current_project(note.project_id)
                 and note_is_visible(
                     note,
-                    include_all=self._include_all_knowledge,
+                    scope=self._scope,
                 )
             )
         if mention.kind == "world_info_entry":
@@ -142,7 +142,7 @@ class _MentionResolver:
             entry = await get_world_info_entry_by_id(session, entry_id)
             if entry is None or not world_entry_is_visible(
                 entry,
-                include_all=self._include_all_knowledge,
+                scope=self._scope,
             ):
                 return False
             world_info = await get_world_info_by_id(session, entry.world_info_id)
@@ -157,7 +157,7 @@ class _MentionResolver:
                 and self._is_current_project(character.project_id)
                 and character_is_visible(
                     character,
-                    include_all=self._include_all_knowledge,
+                    scope=self._scope,
                 )
             )
         return True
@@ -251,7 +251,7 @@ class _MentionResolver:
                 and note.title
                 and note_is_visible(
                     note,
-                    include_all=self._include_all_knowledge,
+                    scope=self._scope,
                 )
                 and self._is_current_project(note.project_id)
             )
@@ -287,7 +287,7 @@ class _MentionResolver:
             or not entry.name
             or not world_entry_is_visible(
                 entry,
-                include_all=self._include_all_knowledge,
+                scope=self._scope,
             )
         ):
             self._world_info_entry_cache[entry_id] = None
@@ -315,7 +315,7 @@ class _MentionResolver:
                 and character.name
                 and character_is_visible(
                     character,
-                    include_all=self._include_all_knowledge,
+                    scope=self._scope,
                 )
                 and self._is_current_project(character.project_id)
             )
@@ -330,8 +330,9 @@ async def compile_canonical_mentions(
     session: AsyncSession | None = None,
     project_id: str | None = None,
     *,
-    context_mode: Literal["global", "local"] = "local",
+    context_mode: KnowledgeScope | str = KnowledgeScope.LOCAL,
 ) -> str:
+    scope = KnowledgeScope(context_mode)
     parts = parse_canonical_mentions(text)
     if len(parts) == 1 and parts[0] == text:
         return compile_canonical_commands(text)
@@ -339,7 +340,7 @@ async def compile_canonical_mentions(
     resolver = _MentionResolver(
         session,
         project_id,
-        include_all_knowledge=context_mode == "global",
+        scope=scope,
     )
     compiled: list[str] = []
 

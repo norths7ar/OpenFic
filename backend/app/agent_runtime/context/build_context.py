@@ -48,7 +48,7 @@ async def build_context_parts(
     parts: list[ContextMessage] = []
     if prompt_messages := await build_system_prompt(state, agent_name, db_session):
         parts.extend(prompt_messages)
-    if agent_name == "discuss":
+    if agent_name in {"discuss", "plan"}:
         parts.append(build_discussion_scope(state.get("context_mode", "local")))
     if agent_name == "draft":
         parts.append(build_writing_scope(state.get("context_mode", "local")))

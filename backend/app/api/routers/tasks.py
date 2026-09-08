@@ -1,6 +1,6 @@
 """Task Router - 任务API路由。"""
 
-from typing import Literal, cast
+from typing import cast
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from loguru import logger
@@ -23,6 +23,7 @@ from app.api.schemas.task import (
     TaskUpdateRequest,
 )
 from app.core.errors import NotFoundError
+from app.core.knowledge_scope import KnowledgeScope
 from app.storage.database import get_session
 from app.storage.models.revision import Revision
 from app.storage.services import task_service
@@ -110,7 +111,7 @@ async def get_task(
             folder_id=task.folder_id,
             title=task.title,
             mode=_require_agent_mode(task.mode),
-            context_mode=cast(Literal["global", "local"], task.context_mode),
+            context_mode=KnowledgeScope(task.context_mode),
             messages=task_messages,
             token_input=task.token_input,
             token_output=task.token_output,
@@ -182,7 +183,7 @@ async def list_tasks(
                 folder_id=task.folder_id,
                 title=task.title,
                 mode=_require_agent_mode(task.mode),
-                context_mode=cast(Literal["global", "local"], task.context_mode),
+                context_mode=KnowledgeScope(task.context_mode),
                 token_input=task.token_input,
                 token_output=task.token_output,
                 token_cache=task.token_cache,
@@ -236,7 +237,7 @@ async def update_task(
             folder_id=task.folder_id,
             title=task.title,
             mode=_require_agent_mode(task.mode),
-            context_mode=cast(Literal["global", "local"], task.context_mode),
+            context_mode=KnowledgeScope(task.context_mode),
             messages=task_messages,
             token_input=task.token_input,
             token_output=task.token_output,

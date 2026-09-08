@@ -15,14 +15,15 @@ from app.project_bundle.markdown import (
 from app.project_bundle.names import slugify_filename
 
 
-def test_markdown_round_trip_and_normalizes_newlines() -> None:
+def test_markdown_round_trip_preserves_original_newlines() -> None:
     text = render_markdown_document(
         {"kind": "note", "tags": ["中文"]}, "标题", "\r\n## 小节\r\n正文"
     )
     parsed = parse_markdown_document(text)
-    assert parsed.frontmatter == {"kind": "note", "tags": ["中文"]}
+    assert parsed.frontmatter["kind"] == "note"
+    assert parsed.frontmatter["tags"] == ["中文"]
     assert parsed.title == "标题"
-    assert parsed.body == "## 小节\n正文"
+    assert parsed.body == "\r\n## 小节\r\n正文"
 
 
 def test_markdown_ignores_fenced_h1_but_rejects_second_real_h1() -> None:

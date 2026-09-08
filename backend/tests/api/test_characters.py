@@ -62,7 +62,7 @@ async def test_create_character_with_image_returns_image_url(client: AsyncClient
     assert character["image_url"].startswith("/character-images/")
     assert character["is_favorited"] is False
     assert character["order"] == 1
-    assert character["is_writing_visible"] is True
+    assert character["agent_visibility"] == "all"
     assert "created_at" in character
     assert "updated_at" in character
 
@@ -202,11 +202,11 @@ async def test_update_character_writing_visibility(client: AsyncClient) -> None:
 
     response = await client.patch(
         f"/api/v1/characters/{character['id']}",
-        data={"is_writing_visible": "false"},
+        data={"agent_visibility": "global"},
     )
 
     assert response.status_code == 200
-    assert response.json()["is_writing_visible"] is False
+    assert response.json()["agent_visibility"] == "global"
 
 
 @pytest.mark.asyncio
@@ -389,3 +389,13 @@ async def test_missing_character_returns_404(client: AsyncClient) -> None:
     response = await client.get("/api/v1/characters/missing-character")
 
     assert response.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_character_visibility_rejects_unknown_state(client: AsyncClient) -> None:
+    project_id = await create_project(client, "Visibility validation")
+    character = await create_character(client, project_id, "Character")
+    response = await client.patch(
+        f"/api/v1/characters/{character['id']}", data={"agent_visibility": "invalid"}
+    )
+    assert response.status_code == 422

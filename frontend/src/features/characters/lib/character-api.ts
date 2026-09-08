@@ -18,7 +18,7 @@ function transformCharacter(raw: Record<string, unknown>): Character {
     imageUrl: resolveBackendUrl(raw.image_url as string | null | undefined),
     isFavorited: raw.is_favorited as boolean,
     order: raw.order as number,
-    isWritingVisible: raw.is_writing_visible as boolean,
+    agentVisibility: raw.agent_visibility as string,
     createdAt: raw.created_at as string,
     updatedAt: raw.updated_at as string,
   };
@@ -34,7 +34,7 @@ function transformCharacterListItem(raw: Record<string, unknown>): CharacterList
     tokenCount: raw.token_count as number,
     isFavorited: raw.is_favorited as boolean,
     order: raw.order as number,
-    isWritingVisible: raw.is_writing_visible as boolean,
+    agentVisibility: raw.agent_visibility as string,
     createdAt: raw.created_at as string,
     updatedAt: raw.updated_at as string,
   };
@@ -81,8 +81,8 @@ export async function updateCharacter(
   if (data.isFavorited !== undefined) {
     formData.append("is_favorited", String(data.isFavorited));
   }
-  if (data.isWritingVisible !== undefined) {
-    formData.append("is_writing_visible", String(data.isWritingVisible));
+  if (data.agentVisibility !== undefined) {
+    formData.append("agent_visibility", String(data.agentVisibility));
   }
   if (data.image) formData.append("image", data.image);
 

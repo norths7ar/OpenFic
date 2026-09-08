@@ -7,6 +7,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col
 
+from app.core.agent_visibility import AgentVisibility
 from app.storage.models.note import Note
 
 
@@ -53,7 +54,7 @@ async def list_by_project(
         .order_by(col(Note.order).asc(), col(Note.title).asc(), col(Note.id).asc())
     )
     if not include_hidden:
-        stmt = stmt.where(col(Note.is_hidden) == False)  # noqa: E712
+        stmt = stmt.where(col(Note.agent_visibility) != AgentVisibility.NONE)
     if document_type is not None:
         stmt = stmt.where(col(Note.document_type) == document_type)
     result = await session.execute(stmt)
@@ -90,7 +91,7 @@ async def search_mention_candidates(
         .limit(limit)
     )
     if not include_hidden:
-        stmt = stmt.where(col(Note.is_hidden) == False)  # noqa: E712
+        stmt = stmt.where(col(Note.agent_visibility) != AgentVisibility.NONE)
     result = await session.execute(stmt)
     return list(result.scalars().all())
 

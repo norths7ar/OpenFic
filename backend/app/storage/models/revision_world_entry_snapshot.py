@@ -3,12 +3,13 @@
 from datetime import UTC, datetime
 
 from sqlalchemy import UniqueConstraint
-from sqlmodel import Field, SQLModel
+from sqlmodel import Field
 
 from app.core.ids import generate_id
+from app.storage.models.agent_visibility import AgentVisibilitySnapshotModel
 
 
-class RevisionWorldEntrySnapshot(SQLModel, table=True):
+class RevisionWorldEntrySnapshot(AgentVisibilitySnapshotModel, table=True):
     """World entry state before a revision's change, used for rollback."""
 
     __tablename__ = "revision_world_entry_snapshots"
@@ -32,6 +33,5 @@ class RevisionWorldEntrySnapshot(SQLModel, table=True):
         description="正文的内容寻址 blob id(长文本时使用)",
     )
     token_count: int | None = Field(default=None)
-    is_enabled: bool | None = Field(default=None)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC), index=True)
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))

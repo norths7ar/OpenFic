@@ -31,7 +31,7 @@ export interface WorldInfoEntry {
   order: number;
   content: string;
   tokenCount: number;
-  isEnabled: boolean;
+  agentVisibility: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -46,7 +46,7 @@ export interface WorldInfoEntryBrief {
   section: string;
   order: number;
   tokenCount: number;
-  isEnabled: boolean;
+  agentVisibility: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -57,7 +57,7 @@ export interface WorldInfoEntryCreate {
   section?: string;
   content?: string;
   tokenCount?: number;
-  isEnabled?: boolean;
+  agentVisibility?: string;
 }
 
 /** 更新条目请求 */
@@ -66,7 +66,7 @@ export interface WorldInfoEntryUpdate {
   section?: string;
   content?: string;
   tokenCount?: number;
-  isEnabled?: boolean;
+  agentVisibility?: string;
 }
 
 /** 条目轻量列表响应 */
@@ -80,7 +80,7 @@ export interface WorldInfoImportPreviewEntry {
   name: string;
   section: string;
   contentPreview: string;
-  isEnabled: boolean;
+  agentVisibility: string;
 }
 
 export interface WorldInfoImportPreviewResponse {

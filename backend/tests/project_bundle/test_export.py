@@ -177,7 +177,7 @@ async def test_export_structure_is_deterministic_and_filters_internal_messages(
     )
     assert character_doc.title == "角色"
     assert character_doc.body == "描述"
-    assert character_doc.frontmatter["writing_visible"] is True
+    assert character_doc.frontmatter["agent_visibility"] == "all"
     assert "image_path" not in character_doc.frontmatter
     world_doc = parse_markdown_document(
         files[next(path for path in files if path.startswith("worldbook/"))].decode()
@@ -185,7 +185,7 @@ async def test_export_structure_is_deterministic_and_filters_internal_messages(
     assert world_doc.title == "规则"
     assert world_doc.body == "内容"
     assert world_doc.frontmatter["section"] == "核心"
-    assert world_doc.frontmatter["writing_visible"] is True
+    assert world_doc.frontmatter["agent_visibility"] == "all"
     note_doc = parse_markdown_document(
         files[next(path for path in files if path.startswith("notes/"))].decode()
     )

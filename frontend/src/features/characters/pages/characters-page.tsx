@@ -57,7 +57,7 @@ function toCharacterListItem(character: Character): CharacterListItem {
     tokenCount: countTokens(character.description),
     isFavorited: character.isFavorited,
     order: character.order,
-    isWritingVisible: character.isWritingVisible,
+    agentVisibility: character.agentVisibility,
     createdAt: character.createdAt,
     updatedAt: character.updatedAt,
   };
@@ -307,18 +307,18 @@ export function CharactersPage() {
     },
   });
 
-  const writingVisibilityMutation = useMutation({
+  const agentVisibilityMutation = useMutation({
     mutationFn: ({
       character,
-      isWritingVisible,
+      agentVisibility,
     }: {
       character: CharacterListItem;
-      isWritingVisible: boolean;
-    }) => updateCharacter(character.id, { isWritingVisible }),
-    onMutate: ({ character, isWritingVisible }) => {
+      agentVisibility: string;
+    }) => updateCharacter(character.id, { agentVisibility }),
+    onMutate: ({ character, agentVisibility }) => {
       upsertCharacterCache({
         ...character,
-        isWritingVisible,
+        agentVisibility,
         updatedAt: new Date().toISOString(),
       });
     },
@@ -327,11 +327,6 @@ export function CharactersPage() {
       queryClient.invalidateQueries({
         queryKey: projectDataQueryKeys.characters.list(character.projectId),
       });
-      toast.success(
-        character.isWritingVisible
-          ? t("characters.writingVisibilityOn")
-          : t("characters.writingVisibilityOff"),
-      );
     },
     onError: (_error, { character }) => {
       upsertCharacterCache(character);
@@ -439,8 +434,8 @@ export function CharactersPage() {
       onSelectCharacter={handleSelectCharacter}
       onEditProfile={setProfileCharacter}
       onDeleteCharacter={setDeleteCharacterTarget}
-      onToggleWritingVisibility={(character, isWritingVisible) => {
-        writingVisibilityMutation.mutate({ character, isWritingVisible });
+      onSetAgentVisibility={(character, agentVisibility) => {
+        agentVisibilityMutation.mutate({ character, agentVisibility });
       }}
       onBatchDelete={(characterIds) => batchDeleteMutation.mutate(characterIds)}
       onReorderCharacters={(orderedIds) => reorderMutation.mutate(orderedIds)}

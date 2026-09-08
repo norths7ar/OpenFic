@@ -18,7 +18,6 @@ import {
   Flex,
   IconButton,
   Skeleton,
-  Switch,
   Text,
   Tooltip,
   TextField,
@@ -27,7 +26,6 @@ import {
   ArrowDown,
   ArrowUp,
   ArrowUpDown,
-  BotOff,
   CheckSquare,
   ListChecks,
   Pencil,
@@ -44,6 +42,7 @@ import { motion } from "motion/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { AgentVisibilityButton } from "@/components/agent-visibility-button";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { ContextMenu, type ContextMenuItem } from "@/components/context-menu";
 import {
@@ -69,7 +68,7 @@ function CharacterListRow({
   showDragHandle,
   onSelect,
   onCheck,
-  onToggleWritingVisibility,
+  onSetAgentVisibility,
   onContextMenu,
   t,
 }: {
@@ -80,7 +79,7 @@ function CharacterListRow({
   showDragHandle: boolean;
   onSelect: () => void;
   onCheck: () => void;
-  onToggleWritingVisibility: () => void;
+  onSetAgentVisibility: (value: string) => void;
   onContextMenu: (event: React.MouseEvent) => void;
   t: (key: string) => string;
 }) {
@@ -147,27 +146,10 @@ function CharacterListRow({
           ) : null
         }
         actions={
-          <Tooltip
-            content={
-              character.isWritingVisible
-                ? t("characters.visibleToWritingAgent")
-                : t("characters.notVisibleToWritingAgent")
-            }
-          >
-            <span onClick={(e) => e.stopPropagation()}>
-              <Switch
-                size="1"
-                color="green"
-                checked={character.isWritingVisible}
-                aria-label={
-                  character.isWritingVisible
-                    ? t("characters.visibleToWritingAgent")
-                    : t("characters.notVisibleToWritingAgent")
-                }
-                onCheckedChange={onToggleWritingVisibility}
-              />
-            </span>
-          </Tooltip>
+          <AgentVisibilityButton
+            value={character.agentVisibility}
+            onChange={onSetAgentVisibility}
+          />
         }
       />
     </Box>
@@ -184,7 +166,7 @@ interface CharacterListProps {
   onSelectCharacter: (characterId: string) => void;
   onEditProfile: (character: CharacterListItem) => void;
   onDeleteCharacter: (character: CharacterListItem) => void;
-  onToggleWritingVisibility: (character: CharacterListItem, isWritingVisible: boolean) => void;
+  onSetAgentVisibility: (character: CharacterListItem, agentVisibility: string) => void;
   onBatchDelete: (characterIds: string[]) => void;
   onReorderCharacters: (orderedIds: string[]) => void;
 }
@@ -207,7 +189,7 @@ export function CharacterList({
   onSelectCharacter,
   onEditProfile,
   onDeleteCharacter,
-  onToggleWritingVisibility,
+  onSetAgentVisibility,
   onBatchDelete,
   onReorderCharacters,
 }: CharacterListProps) {
@@ -470,17 +452,6 @@ export function CharacterList({
         },
       })),
       {
-        id: "writing-visibility",
-        label: menuCharacter.isWritingVisible
-          ? t("characters.hideFromWritingAgent")
-          : t("characters.showToWritingAgent"),
-        icon: BotOff,
-        onClick: () => {
-          handleCloseContextMenu();
-          onToggleWritingVisibility(menuCharacter, !menuCharacter.isWritingVisible);
-        },
-      },
-      {
         id: "delete",
         label: t("characters.deleteCharacter"),
         icon: Trash2,
@@ -501,7 +472,6 @@ export function CharacterList({
     menuCharacter,
     onDeleteCharacter,
     onEditProfile,
-    onToggleWritingVisibility,
     sortField,
     sortedCharacters,
     t,
@@ -870,9 +840,7 @@ export function CharacterList({
                           showDragHandle={shouldShowDragHandle}
                           onSelect={() => onSelectCharacter(character.id)}
                           onCheck={() => handleCheckCharacter(character.id)}
-                          onToggleWritingVisibility={() =>
-                            onToggleWritingVisibility(character, !character.isWritingVisible)
-                          }
+                          onSetAgentVisibility={(value) => onSetAgentVisibility(character, value)}
                           onContextMenu={(event) => handleContextMenu(event, character)}
                           t={t}
                         />

@@ -43,6 +43,7 @@ from app.agent_runtime.streaming.replay_buffer import get_agent_event_replay_buf
 from app.agent_runtime.types import DEFAULT_AGENT_RECURSION_LIMIT
 from app.audit import AuditContext
 from app.core.ids import generate_id
+from app.core.knowledge_scope import KnowledgeScope
 from app.socket import emit
 from app.socket.handlers import agent_session_room
 from app.storage.database import _get_session_factory, create_session
@@ -118,7 +119,7 @@ class SessionRunner:
         model_config: dict,
         project_id: str = "",
         agent_key: str = "build",
-        context_mode: Literal["global", "local"] = "local",
+        context_mode: KnowledgeScope | str = KnowledgeScope.LOCAL,
     ):
         self._validate_model_config(model_config)
         self.session_id = session_id
@@ -126,7 +127,7 @@ class SessionRunner:
         self.model_config = dict(model_config)
         self.project_id = project_id
         self.agent_key = agent_key
-        self.context_mode = context_mode
+        self.context_mode = KnowledgeScope(context_mode)
         self._graph: CompiledStateGraph | None = None
         self._inject_queue: asyncio.Queue[tuple[str | None, str, str]] = asyncio.Queue()
         self._queued_user_messages: dict[str, tuple[str, datetime]] = {}
@@ -501,6 +502,7 @@ class SessionRunner:
             "configurable": {
                 "thread_id": self.session_id,
                 "db_session": runtime_session,
+                "context_mode": self.context_mode,
                 "runtime_context": runtime_context,
                 "audit_context": audit_context,
                 "node_event_sink": node_event_sink,

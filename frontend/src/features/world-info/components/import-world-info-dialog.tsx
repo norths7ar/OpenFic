@@ -15,6 +15,7 @@ import { useCallback, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { Spinner } from "@/components";
+import { useAgentVisibilityCatalog } from "@/hooks/use-agent-visibility-catalog";
 
 import "./import-world-info-dialog.css";
 
@@ -38,6 +39,7 @@ export function ImportWorldInfoDialog({
   onSuccess,
 }: ImportWorldInfoDialogProps) {
   const { t } = useTranslation();
+  const { data: visibilityCatalog } = useAgentVisibilityCatalog();
   const [step, setStep] = useState<Step>("select");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -339,9 +341,11 @@ export function ImportWorldInfoDialog({
                           </Text>
                           <Badge
                             size="1"
-                            color={entry.isEnabled ? "green" : "gray"}
+                            color={entry.agentVisibility === "all" ? "green" : "gray"}
                           >
-                            {entry.isEnabled ? t("worldInfo.enabled") : t("worldInfo.disabled")}
+                            {visibilityCatalog?.states.find(
+                              (state) => state.value === entry.agentVisibility,
+                            )?.label ?? entry.agentVisibility}
                           </Badge>
                         </Flex>
                         <Text

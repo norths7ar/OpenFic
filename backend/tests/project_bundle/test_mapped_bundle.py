@@ -34,7 +34,7 @@ def _source_bundle(
                 "source": "world.md",
                 "split": {"type": "headings", "item_levels": [3]},
                 "section_level": 2,
-                "writing_visible": False,
+                "agent_visibility": "global",
             },
             {
                 "id": "character",

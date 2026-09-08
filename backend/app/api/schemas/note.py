@@ -7,6 +7,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from app.core.agent_visibility import AgentVisibility
+
 DocumentType = Literal["note", "outline"]
 
 
@@ -30,22 +32,14 @@ class NoteCreate(BaseModel):
 class NoteUpdate(BaseModel):
     title: str | None = Field(default=None, min_length=1, max_length=200, description="笔记标题")
     content: str | None = Field(default=None, description="笔记内容")
-    is_writing_visible: bool | None = Field(
+    agent_visibility: AgentVisibility | None = Field(
         default=None,
-        description="是否对写作 Agent 可见",
-    )
-    is_hidden: bool | None = Field(
-        default=None,
-        description="是否对所有 Agent 隐藏",
+        description="Agent 可见范围",
     )
 
 
 class NoteLockToggle(BaseModel):
     is_locked: bool = Field(description="是否锁定")
-
-
-class NoteHiddenToggle(BaseModel):
-    is_hidden: bool = Field(description="是否隐藏")
 
 
 class NoteItemMove(BaseModel):
@@ -85,8 +79,7 @@ class NoteResponse(BaseModel):
     document_type: DocumentType = Field(description="文档类型")
     content: str = Field(description="笔记内容")
     is_locked: bool = Field(description="是否锁定")
-    is_hidden: bool = Field(description="是否隐藏")
-    is_writing_visible: bool = Field(description="是否对写作 Agent 可见")
+    agent_visibility: AgentVisibility = Field(description="Agent 可见范围")
     created_at: datetime = Field(description="创建时间")
     updated_at: datetime = Field(description="上次修改时间")
 
@@ -101,8 +94,7 @@ class NoteListItem(BaseModel):
     title: str = Field(description="笔记标题")
     document_type: DocumentType = Field(description="文档类型")
     is_locked: bool = Field(description="是否锁定")
-    is_hidden: bool = Field(description="是否隐藏")
-    is_writing_visible: bool = Field(description="是否对写作 Agent 可见")
+    agent_visibility: AgentVisibility = Field(description="Agent 可见范围")
     created_at: datetime = Field(description="创建时间")
     updated_at: datetime = Field(description="上次修改时间")
 

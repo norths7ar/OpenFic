@@ -56,6 +56,7 @@ from app.agent_runtime.usage_cost import (
 )
 from app.audit import AuditContext
 from app.core.encryption import EncryptionService
+from app.core.knowledge_scope import KnowledgeScope
 from app.models.clients.model_factory import ModelConfig, create_chat_model
 from app.models.repos import model_provider_repo, model_repo
 from app.models.services.model_provider_service import ModelProviderService
@@ -371,6 +372,7 @@ class SubagentRunner:
             "task_id": row.parent_task_id,
             "project_id": self.project_id,
             "model_config": self.model_config,
+            "context_mode": KnowledgeScope(task.context_mode),
             "active_agent": row.agent_key,
             "is_completed": False,
             "error": None,

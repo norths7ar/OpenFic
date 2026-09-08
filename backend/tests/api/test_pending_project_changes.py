@@ -198,7 +198,7 @@ async def test_pending_change_status_is_strict_enum(client: AsyncClient) -> None
             {
                 "title": "候审笔记",
                 "body": "笔记正文",
-                "writing_visible": False,
+                "agent_visibility": "global",
             },
         ),
         ("note_category", {"title": "候审分类"}),
@@ -207,7 +207,7 @@ async def test_pending_change_status_is_strict_enum(client: AsyncClient) -> None
             {
                 "title": "候审角色",
                 "body": "角色描述",
-                "writing_visible": False,
+                "agent_visibility": "global",
             },
         ),
         (
@@ -216,7 +216,7 @@ async def test_pending_change_status_is_strict_enum(client: AsyncClient) -> None
                 "title": "候审设定",
                 "body": "设定正文",
                 "section": "地理",
-                "writing_visible": False,
+                "agent_visibility": "global",
             },
         ),
     ],
@@ -254,14 +254,14 @@ async def test_apply_create_supported_targets(
     assert stored is not None
     if target_type == "note":
         assert stored.content == "笔记正文"
-        assert stored.is_writing_visible is False
+        assert stored.agent_visibility == "global"
     elif target_type == "character":
         assert stored.description == "角色描述"
-        assert stored.is_writing_visible is False
+        assert stored.agent_visibility == "global"
     elif target_type == "world_entry":
         assert stored.content == "设定正文"
         assert stored.section == "地理"
-        assert stored.is_enabled is False
+        assert stored.agent_visibility == "global"
         assert stored.token_count > 0
 
 

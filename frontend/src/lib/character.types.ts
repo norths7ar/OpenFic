@@ -9,7 +9,7 @@ export interface Character {
   imageUrl: string | null;
   isFavorited: boolean;
   order: number;
-  isWritingVisible: boolean;
+  agentVisibility: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -23,7 +23,7 @@ export interface CharacterListItem {
   tokenCount: number;
   isFavorited: boolean;
   order: number;
-  isWritingVisible: boolean;
+  agentVisibility: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -39,7 +39,7 @@ export interface CharacterUpdate {
   description?: string;
   image?: File | null;
   isFavorited?: boolean;
-  isWritingVisible?: boolean;
+  agentVisibility?: string;
 }
 
 export interface CharacterListResponse {

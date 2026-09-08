@@ -98,7 +98,7 @@ DEFAULT_AGENT_DEFINITIONS: Mapping[str, AgentDefinition] = MappingProxyType(
                 "character_read",
             ),
             enabled_skills=(),
-            metadata=MappingProxyType({}),
+            metadata=MappingProxyType({"supports_global_context": True}),
             color="green",
             icon="list-checks",
             delegatable_agents=(
@@ -278,6 +278,10 @@ def get_default_agent_definition(key: str) -> AgentDefinition:
 
 
 def supports_global_context(definition: AgentDefinition) -> bool:
+    if definition.key == "build":
+        return False
+    if definition.key in {"plan", "discuss"}:
+        return True
     return bool(definition.metadata.get("supports_global_context"))
 
 
@@ -291,7 +295,16 @@ def agent_definition_from_record(record: AgentDefinitionRecord) -> AgentDefiniti
         model_id=record.model_id,
         enabled_tool_categories=tuple(record.enabled_tool_categories or ()),
         enabled_skills=tuple(record.enabled_skills or ()),
-        metadata=MappingProxyType(dict(record.metadata_json or {})),
+        metadata=MappingProxyType(
+            {
+                **dict(record.metadata_json or {}),
+                **(
+                    {"supports_global_context": record.key != "build"}
+                    if record.key in {"build", "plan", "discuss"}
+                    else {}
+                ),
+            }
+        ),
         enabled=record.enabled,
         source=cast(Literal["builtin", "custom"], record.source),
         color=record.color,

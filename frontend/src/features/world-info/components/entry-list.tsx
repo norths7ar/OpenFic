@@ -37,7 +37,6 @@ import {
   Trash2,
   ListChecks,
   CheckSquare,
-  ToggleLeft,
   ToggleRight,
   FolderInput,
   FolderPlus,
@@ -57,6 +56,7 @@ import {
 import type { ProjectFolder } from "@/features/project-folders/lib/project-folder-api";
 import { ProjectFolderGroups } from "@/features/project-navigation/components/project-folder-groups";
 import { ProjectNavToolbar } from "@/features/project-navigation/components/project-nav-toolbar";
+import { useAgentVisibilityCatalog } from "@/hooks/use-agent-visibility-catalog";
 
 import "@/features/project-navigation/components/project-nav.css";
 import type { WorldInfoEntryBrief } from "@/lib/world-info.types";
@@ -87,7 +87,7 @@ interface EntryListProps {
   /** 选择条目回调 */
   onSelectEntry: (entryId: string) => void;
   /** 切换条目启用状态回调 */
-  onToggleEntry: (entryId: string) => void;
+  onToggleEntry: (entryId: string, visibility: string) => void;
   /** 删除条目回调 */
   onDeleteEntry: (entry: WorldInfoEntryBrief) => void;
   /** 置顶条目回调 */
@@ -107,7 +107,7 @@ interface EntryListProps {
   /** 批次删除回调 */
   onBatchDelete: (entryIds: string[]) => void;
   /** 批次切换开关回调 */
-  onBatchToggle: (entryIds: string[], isEnabled: boolean) => void;
+  onBatchToggle: (entryIds: string[], agentVisibility: string) => void;
   /** 从搜索面板导航到匹配行 */
   onNavigateToMatch: (entryId: string, lineNumber: number) => void;
 }
@@ -137,6 +137,7 @@ export function EntryList({
   onNavigateToMatch,
 }: EntryListProps) {
   const { t } = useTranslation();
+  const { data: visibilityCatalog } = useAgentVisibilityCatalog();
   const { currentEntryId, searchQuery, setSearchQuery, currentWorldInfoId } = useWorldInfoStore();
   const [contextMenuPos, setContextMenuPos] = useState<ContextMenuPosition | null>(null);
   const [contextMenuEntryId, setContextMenuEntryId] = useState<string | null>(null);
@@ -340,14 +341,6 @@ export function EntryList({
     setBatchDeleteDialogOpen(false);
   }, [selectedIds, onBatchDelete]);
 
-  const handleBatchEnable = useCallback(() => {
-    onBatchToggle(Array.from(selectedIds), true);
-  }, [selectedIds, onBatchToggle]);
-
-  const handleBatchDisable = useCallback(() => {
-    onBatchToggle(Array.from(selectedIds), false);
-  }, [selectedIds, onBatchToggle]);
-
   const contextMenuEntry = useMemo(
     () => entries.find((entry) => entry.id === contextMenuEntryId) ?? null,
     [entries, contextMenuEntryId],
@@ -356,18 +349,12 @@ export function EntryList({
   const menuItems = useMemo<ContextMenuItem[]>(() => {
     if (isMultiSelect) {
       return [
-        {
-          id: "enable",
-          label: t("worldInfo.batchEnableSelected"),
+        ...(visibilityCatalog?.states ?? []).map((state) => ({
+          id: `visibility-${state.value}`,
+          label: `设为${state.label}`,
           icon: ToggleRight,
-          onClick: handleBatchEnable,
-        },
-        {
-          id: "disable",
-          label: t("worldInfo.batchDisableSelected"),
-          icon: ToggleLeft,
-          onClick: handleBatchDisable,
-        },
+          onClick: () => onBatchToggle(Array.from(selectedIds), state.value),
+        })),
         {
           id: "delete",
           label: t("worldInfo.batchDeleteSelected"),
@@ -421,8 +408,9 @@ export function EntryList({
     onDeleteEntry,
     onPinEntry,
     t,
-    handleBatchEnable,
-    handleBatchDisable,
+    visibilityCatalog,
+    onBatchToggle,
+    selectedIds,
     handleBatchDeleteClick,
     folderMutations.moveItem,
     folders,

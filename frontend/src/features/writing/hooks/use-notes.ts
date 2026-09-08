@@ -25,7 +25,6 @@ import {
   updateNote,
   deleteNote,
   toggleNoteLock,
-  toggleNoteHidden,
   createNoteCategory,
   updateNoteCategory,
   deleteNoteCategory,
@@ -178,16 +177,13 @@ export function useUpdateNote(projectId: string) {
     mutationFn: ({ noteId, data }: { noteId: string; data: NoteUpdate }) =>
       updateNote(noteId, data),
     onMutate: async ({ noteId, data }) => {
-      await queryClient.cancelQueries({ queryKey: projectDataQueryKeys.notes.tree(projectId) });
+      await queryClient.cancelQueries({
+        queryKey: projectDataQueryKeys.notes.tree(projectId),
+      });
       const previous = queryClient.getQueryData<NoteTreeResponse>(
         projectDataQueryKeys.notes.tree(projectId),
       );
-      if (
-        previous &&
-        (data.title !== undefined ||
-          data.isWritingVisible !== undefined ||
-          data.isHidden !== undefined)
-      ) {
+      if (previous && (data.title !== undefined || data.agentVisibility !== undefined)) {
         queryClient.setQueryData<NoteTreeResponse>(
           projectDataQueryKeys.notes.tree(projectId),
           (tree) => {
@@ -195,10 +191,9 @@ export function useUpdateNote(projectId: string) {
             return applyToNote(tree, noteId, (note) => ({
               ...note,
               ...(data.title !== undefined ? { title: data.title } : {}),
-              ...(data.isWritingVisible !== undefined
-                ? { isWritingVisible: data.isWritingVisible }
+              ...(data.agentVisibility !== undefined
+                ? { agentVisibility: data.agentVisibility }
                 : {}),
-              ...(data.isHidden !== undefined ? { isHidden: data.isHidden } : {}),
             }));
           },
         );
@@ -207,7 +202,10 @@ export function useUpdateNote(projectId: string) {
     },
     onError: (_err, _vars, context) => {
       if (context?.previous) {
-        queryClient.setQueryData(projectDataQueryKeys.notes.tree(projectId), context.previous);
+        queryClient.setQueryData(
+          projectDataQueryKeys.notes.tree(projectId),
+          context.previous,
+        );
       }
       toast.error(t("writing.noteRenameFailed"));
     },
@@ -292,45 +290,6 @@ export function useToggleNoteLock(projectId: string) {
       toast.success(
         updatedNote.isLocked ? t("writing.noteLockedToast") : t("writing.noteUnlockedToast"),
       );
-    },
-  });
-}
-
-export function useToggleNoteHidden(projectId: string) {
-  const queryClient = useQueryClient();
-  const { t } = useTranslation();
-
-  return useMutation({
-    mutationFn: ({ noteId, isHidden }: { noteId: string; isHidden: boolean }) =>
-      toggleNoteHidden(noteId, isHidden),
-    onMutate: async ({ noteId, isHidden }) => {
-      await queryClient.cancelQueries({ queryKey: projectDataQueryKeys.notes.tree(projectId) });
-      const previous = queryClient.getQueryData<NoteTreeResponse>(
-        projectDataQueryKeys.notes.tree(projectId),
-      );
-      if (previous) {
-        queryClient.setQueryData<NoteTreeResponse>(
-          projectDataQueryKeys.notes.tree(projectId),
-          (tree) => {
-            if (!tree) return tree;
-            return applyToNote(tree, noteId, (note) => ({ ...note, isHidden }));
-          },
-        );
-      }
-      return { previous };
-    },
-    onError: (_err, _vars, context) => {
-      if (context?.previous) {
-        queryClient.setQueryData(projectDataQueryKeys.notes.tree(projectId), context.previous);
-      }
-      toast.error(t("writing.noteHiddenToggleFailed"));
-    },
-    onSuccess: (updatedNote) => {
-      queryClient.setQueryData(projectDataQueryKeys.notes.detail(updatedNote.id), updatedNote);
-      queryClient.invalidateQueries({
-        queryKey: projectDataQueryKeys.notes.tree(updatedNote.projectId),
-      });
-      toast.success(updatedNote.isHidden ? t("writing.noteHiddenOn") : t("writing.noteHiddenOff"));
     },
   });
 }

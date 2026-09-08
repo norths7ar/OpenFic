@@ -32,7 +32,7 @@ async def test_create_entry(client: AsyncClient, world_info_id: str) -> None:
             "name": "测试条目",
             "content": "条目内容",
             "token_count": 10,
-            "is_enabled": True,
+            "agent_visibility": "all",
         },
     )
     assert response.status_code == 201
@@ -40,7 +40,7 @@ async def test_create_entry(client: AsyncClient, world_info_id: str) -> None:
     assert data["name"] == "测试条目"
     assert data["content"] == "条目内容"
     assert data["token_count"] == 10
-    assert data["is_enabled"] is True
+    assert data["agent_visibility"] == "all"
     assert data["uid"] == 1
     assert data["order"] == 1
 
@@ -260,16 +260,16 @@ async def test_toggle_entry(client: AsyncClient, world_info_id: str) -> None:
     """测试切换条目开关状态。"""
     create_resp = await client.post(
         f"/api/v1/world-info/{world_info_id}/entries",
-        json={"name": "测试条目", "is_enabled": True},
+        json={"name": "测试条目", "agent_visibility": "all"},
     )
     entry_id = create_resp.json()["id"]
 
-    response = await client.post(f"/api/v1/world-info-entries/{entry_id}/toggle")
-    assert response.status_code == 200
-    assert response.json()["is_enabled"] is False
-
-    response = await client.post(f"/api/v1/world-info-entries/{entry_id}/toggle")
-    assert response.json()["is_enabled"] is True
+    for visibility in ("global", "none", "all"):
+        response = await client.patch(
+            f"/api/v1/world-info-entries/{entry_id}", json={"agent_visibility": visibility}
+        )
+        assert response.status_code == 200
+        assert response.json()["agent_visibility"] == visibility
 
 
 @pytest.mark.asyncio
@@ -297,7 +297,7 @@ async def test_import_world_info_entries_stream_append_overwrites_same_name(
     """追加导入时按名称覆盖已有条目。"""
     await client.post(
         f"/api/v1/world-info/{world_info_id}/entries",
-        json={"name": "人物", "content": "旧内容", "is_enabled": False},
+        json={"name": "人物", "content": "旧内容", "agent_visibility": "global"},
     )
     content = '{"entries":{"0":{"uid":0,"comment":"人物","content":"新内容","disable":false,"order":100},"1":{"uid":1,"comment":"背景","content":"世界观","disable":true,"order":101}}}'.encode()
 
@@ -315,7 +315,7 @@ async def test_import_world_info_entries_stream_append_overwrites_same_name(
     detail = detail_response.json()
     assert detail["name"] == "人物"
     assert detail["content"] == "新内容"
-    assert detail["is_enabled"] is True
+    assert detail["agent_visibility"] == "all"
 
 
 @pytest.mark.asyncio
@@ -427,3 +427,16 @@ async def test_search_entries_no_results(client: AsyncClient, world_info_id: str
     assert data["total_entries"] == 0
     assert data["total_matches"] == 0
     assert len(data["results"]) == 0
+
+
+@pytest.mark.asyncio
+async def test_world_visibility_rejects_unknown_state(
+    client: AsyncClient, world_info_id: str
+) -> None:
+    entry = await client.post(
+        f"/api/v1/world-info/{world_info_id}/entries", json={"name": "Visibility"}
+    )
+    response = await client.patch(
+        f"/api/v1/world-info-entries/{entry.json()['id']}", json={"agent_visibility": "invalid"}
+    )
+    assert response.status_code == 422

@@ -8,7 +8,7 @@ import time
 from collections.abc import Callable
 from contextlib import asynccontextmanager, suppress
 from datetime import UTC, datetime
-from typing import Literal, TypeGuard, cast
+from typing import TypeGuard, cast
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from loguru import logger
@@ -72,6 +72,8 @@ from app.api.schemas.agent import (
     AgentForkRequest,
     AgentForkResponse,
     AgentInterruptResumeRequest,
+    AgentKnowledgeScopeRequest,
+    AgentKnowledgeScopeResponse,
     AgentPendingMessageResponse,
     AgentQuestionAnswerRequest,
     AgentRollbackRequest,
@@ -89,6 +91,7 @@ from app.background.jobs import service as background_service
 from app.background.jobs.session_title_jobs import enqueue_session_title_job
 from app.core.errors import NotFoundError
 from app.core.ids import generate_id
+from app.core.knowledge_scope import KnowledgeScope, merge_known_scope, validate_scope_change
 from app.socket import emit
 from app.socket.handlers import agent_session_room, background_project_room
 from app.storage.database import get_session
@@ -184,7 +187,7 @@ def _build_seed_state(
     task_id: str,
     project_id: str,
     model_config: dict,
-    context_mode: Literal["global", "local"] = "local",
+    context_mode: KnowledgeScope = KnowledgeScope.LOCAL,
     agent_key: str = "build",
     current_revision_id: str | None = None,
 ) -> dict:
@@ -211,6 +214,18 @@ def _is_valid_model_config(model_config: object) -> TypeGuard[dict[str, object]]
         return False
     max_context_tokens = model_config.get("max_context_tokens")
     return isinstance(max_context_tokens, int) and max_context_tokens >= 0
+
+
+def _ensure_scope_change(
+    current: KnowledgeScope,
+    requested: KnowledgeScope,
+    *,
+    supports_global: bool,
+) -> None:
+    try:
+        validate_scope_change(current, requested, supports_global=supports_global)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 def _build_subagent_state_response(
@@ -306,11 +321,25 @@ async def _get_runner(
         task_id=task.id,
         model_config={"max_context_tokens": 1},
         project_id=task.project_id,
-        context_mode=cast(Literal["global", "local"], task.context_mode),
+        context_mode=KnowledgeScope(task.context_mode),
     )
     graph = await runner._get_graph()
     state = await graph.aget_state({"configurable": {"thread_id": session_id}})
     values = state.values if isinstance(getattr(state, "values", None), dict) else {}
+    # Task scope is monotonic across rollback/fork; a checkpoint can only widen it.
+    checkpoint_scope = KnowledgeScope(values.get("context_mode", KnowledgeScope.LOCAL))
+    restored_scope = merge_known_scope(KnowledgeScope(task.context_mode), checkpoint_scope)
+    if restored_scope != task.context_mode:
+        task.context_mode = restored_scope
+        session.add(task)
+        await session.commit()
+    runner.context_mode = KnowledgeScope(task.context_mode)
+    if values.get("context_mode", "local") != runner.context_mode:
+        await graph.aupdate_state(
+            {"configurable": {"thread_id": session_id}},
+            {"context_mode": runner.context_mode},
+            as_node="primary",
+        )
     restored_model_config = values.get("model_config")
     if not _is_valid_model_config(restored_model_config):
         raise NotFoundError(f"会话不存在: {session_id}")
@@ -337,15 +366,28 @@ async def _get_runner(
     restored_agent_key = values.get("agent_key")
     if isinstance(restored_agent_key, str) and restored_agent_key:
         try:
-            await _validate_primary_agent(session, restored_agent_key)
+            definition = await _validate_primary_agent(session, restored_agent_key)
+            _ensure_scope_change(
+                runner.context_mode,
+                runner.context_mode,
+                supports_global=supports_global_context(definition),
+            )
         except HTTPException:
+            runner.agent_key = "discuss" if runner.context_mode == "global" else "build"
             await graph.aupdate_state(
                 {"configurable": {"thread_id": session_id}},
-                {"agent_key": "build"},
+                {"agent_key": runner.agent_key},
                 as_node="primary",
             )
         else:
             runner.agent_key = restored_agent_key
+    if runner.context_mode == "global" and runner.agent_key == "build":
+        runner.agent_key = "discuss"
+        await graph.aupdate_state(
+            {"configurable": {"thread_id": session_id}},
+            {"agent_key": runner.agent_key},
+            as_node="primary",
+        )
     _SESSION_RUNNERS[session_id] = runner
     return runner
 
@@ -785,11 +827,11 @@ async def create_agent_session(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"智能体 '{request.agent_key}' 不是主智能体 (kind != primary)",
             )
-        if request.context_mode == "global" and not supports_global_context(definition):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="所选 Agent 不支持全局上下文",
-            )
+        _ensure_scope_change(
+            KnowledgeScope.LOCAL,
+            request.context_mode,
+            supports_global=supports_global_context(definition),
+        )
         model_config = await _resolve_model_config(
             session, request.model_id, request.reasoning_effort
         )
@@ -809,14 +851,14 @@ async def create_agent_session(
             model_config=model_config,
             project_id=request.project_id,
             agent_key=request.agent_key,
-            context_mode=cast(Literal["global", "local"], task.context_mode),
+            context_mode=KnowledgeScope(task.context_mode),
         )
         await runner.materialize_state(
             _build_seed_state(
                 session_id=session_id,
                 task_id=task.id,
                 project_id=request.project_id,
-                context_mode=cast(Literal["global", "local"], task.context_mode),
+                context_mode=KnowledgeScope(task.context_mode),
                 model_config=model_config,
                 agent_key=request.agent_key,
             )
@@ -832,7 +874,7 @@ async def create_agent_session(
             task_created_at=task.created_at.isoformat(),
             task_updated_at=task.updated_at.isoformat(),
             agent_key=request.agent_key,
-            context_mode=cast(Literal["global", "local"], task.context_mode),
+            context_mode=KnowledgeScope(task.context_mode),
         )
     except HTTPException:
         raise
@@ -883,6 +925,68 @@ async def upload_agent_attachment(
         height=attachment.height,
         url=get_agent_attachment_url(attachment.storage_name),
     )
+
+
+@router.patch("/sessions/{session_id}/knowledge-scope", response_model=AgentKnowledgeScopeResponse)
+async def update_agent_knowledge_scope(
+    session_id: str,
+    body: AgentKnowledgeScopeRequest,
+    session: AsyncSession = Depends(get_session),
+) -> AgentKnowledgeScopeResponse:
+    registry = get_agent_run_registry()
+    async with _agent_session_lifecycle_lock(registry, session_id):
+        runner = await _get_runner(session_id, session)
+        task = await task_service.get_task(session, runner.task_id)
+        _ensure_scope_change(runner.context_mode, body.context_mode, supports_global=True)
+        graph = await runner._get_graph()
+        snapshot = await graph.aget_state({"configurable": {"thread_id": session_id}})
+        values = snapshot.values if isinstance(snapshot.values, dict) else {}
+        metadata = getattr(snapshot, "metadata", None) or {}
+        # materialize_state seeds the graph through START: next=("primary",)
+        # describes its first potential turn, not a turn that has begun. Only
+        # the initial empty update checkpoint qualifies; real interrupts and
+        # any later checkpoint must still finish before the scope can change.
+        unstarted_seed = (
+            metadata.get("source") == "update"
+            and metadata.get("step") == 0
+            and getattr(snapshot, "parent_config", None) is None
+            and not getattr(snapshot, "interrupts", ())
+            and values.get("current_revision_id") is None
+            and not values.get("user_request")
+            and not values.get("messages")
+        )
+        if (
+            await registry.is_running(session_id)
+            or task.is_running
+            or runner.peek_next_pending_user_message() is not None
+            or (snapshot.next and not unstarted_seed)
+            or any(
+                child.status not in TERMINAL_CHILD_RUN_STATUSES
+                for child in await list_active_child_runs(session, parent_session_id=session_id)
+            )
+        ):
+            raise HTTPException(status_code=409, detail="当前轮尚未结束，请结束后切换知识范围")
+        agent_key = body.agent_key or runner.agent_key
+        definition = await _validate_primary_agent(session, agent_key)
+        _ensure_scope_change(
+            runner.context_mode,
+            body.context_mode,
+            supports_global=supports_global_context(definition),
+        )
+        task.context_mode = body.context_mode
+        task.updated_at = datetime.now(UTC)
+        session.add(task)
+        # Persist the monotonic floor first: an interrupted checkpoint write must
+        # not allow a later restore to forget the scope upgrade.
+        await session.commit()
+        runner.context_mode = body.context_mode
+        runner.agent_key = agent_key
+        await graph.aupdate_state(
+            {"configurable": {"thread_id": session_id}},
+            {"context_mode": body.context_mode, "agent_key": agent_key},
+            as_node="primary",
+        )
+    return AgentKnowledgeScopeResponse(context_mode=body.context_mode)
 
 
 @router.post("/sessions/{session_id}/message", response_model=AgentSendMessageResponse)
@@ -949,46 +1053,47 @@ async def send_agent_message(
                 task_title=task.title,
                 pending_message=AgentPendingMessageResponse(**pending_message),
             )
-    model_updated = False
-    if body.model_id:
-        try:
-            if requested_model_config is None:
-                requested_model_config = await _resolve_model_config(
-                    session, body.model_id, body.reasoning_effort
+        model_updated = False
+        if body.model_id:
+            try:
+                if requested_model_config is None:
+                    requested_model_config = await _resolve_model_config(
+                        session, body.model_id, body.reasoning_effort
+                    )
+                runner.update_model_config(requested_model_config)
+                model_updated = True
+            except NotFoundError as exc:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+            except ValueError as exc:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=str(exc),
+                ) from exc
+        elif body.reasoning_effort is not None:
+            model_record_id = runner.model_config.get("model_record_id")
+            if isinstance(model_record_id, str) and model_record_id:
+                runner.update_model_config(
+                    await _resolve_model_config(session, model_record_id, body.reasoning_effort)
                 )
-            runner.update_model_config(requested_model_config)
-            model_updated = True
-        except NotFoundError as exc:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
-        except ValueError as exc:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=str(exc),
-            ) from exc
-    elif body.reasoning_effort is not None:
-        model_record_id = runner.model_config.get("model_record_id")
-        if isinstance(model_record_id, str) and model_record_id:
-            runner.update_model_config(
-                await _resolve_model_config(session, model_record_id, body.reasoning_effort)
+        if body.agent_key:
+            definition = await _validate_primary_agent(session, body.agent_key)
+            _ensure_scope_change(
+                runner.context_mode,
+                runner.context_mode,
+                supports_global=supports_global_context(definition),
             )
-    if body.agent_key:
-        definition = await _validate_primary_agent(session, body.agent_key)
-        if runner.context_mode == "global" and not supports_global_context(definition):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="全局上下文会话不能切换为普通 Agent",
-            )
-        runner.agent_key = body.agent_key
-        active_agent_key = body.agent_key
-    run_kwargs = {"attachments": attachment_metadata} if attachment_metadata else {}
-    coro = runner.run(user_request=body.message, **run_kwargs)
-    await _launch_task(
-        db_session_factory=status_session_factory,
-        session_id=session_id,
-        task_id=runner.task_id,
-        project_id=runner.project_id,
-        coro=coro,
-    )
+            runner.agent_key = body.agent_key
+            active_agent_key = body.agent_key
+        run_kwargs = {"attachments": attachment_metadata} if attachment_metadata else {}
+        coro = runner.run(user_request=body.message, **run_kwargs)
+        await _launch_task(
+            db_session_factory=status_session_factory,
+            session_id=session_id,
+            task_id=runner.task_id,
+            project_id=runner.project_id,
+            coro=coro,
+            lifecycle_lock_held=True,
+        )
     return AgentSendMessageResponse(
         success=True,
         session_id=session_id,
@@ -1667,7 +1772,8 @@ async def fork_agent_session(
             task_id=result.task.id,
             model_config=model_config,
             project_id=result.task.project_id,
-            context_mode=cast(Literal["global", "local"], result.task.context_mode),
+            context_mode=KnowledgeScope(result.task.context_mode),
+            agent_key="discuss" if result.task.context_mode == "global" else "build",
         )
         fork_session_id = result.session_id
         _SESSION_RUNNERS[result.session_id] = runner

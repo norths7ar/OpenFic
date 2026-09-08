@@ -87,7 +87,6 @@ export {
   moveWorldInfoEntry,
   previewWorldInfoImport,
   searchWorldInfoEntries,
-  toggleWorldInfoEntry,
   updateWorldInfoEntry,
 } from "../features/world-info/lib/world-info-api";
 export {
@@ -118,7 +117,6 @@ export {
   moveNoteItem,
   reorderMixedNoteItems,
   reorderNoteItems,
-  toggleNoteHidden,
   toggleNoteLock,
   updateNote,
   updateNoteCategory,

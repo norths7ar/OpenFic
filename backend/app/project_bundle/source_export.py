@@ -13,8 +13,16 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col
 
+from app.core.agent_visibility import (
+    AGENT_VISIBILITY_STATES,
+    DEFAULT_AGENT_VISIBILITY,
+    AgentVisibility,
+    validate_agent_visibility,
+)
 from app.project_bundle.archive import BundleFormatError, build_zip
+from app.project_bundle.markdown import body_format
 from app.project_bundle.names import slugify_filename
+from app.project_bundle.source_mapping import _validate_rule
 from app.storage.models.character import Character
 from app.storage.models.note import Note
 from app.storage.models.project import Project
@@ -33,13 +41,15 @@ class _SourceDocument:
     target_id: str
     title: str
     body: str
-    writing_visible: bool
+    agent_visibility: AgentVisibility
     order: int
     section: str | None = None
     category_path: tuple[str, ...] = ()
     category_target_ids: tuple[str, ...] = ()
     category_orders: tuple[int, ...] = ()
     document_type: str | None = None
+    is_locked: bool = False
+    is_favorited: bool = False
 
 
 @dataclass
@@ -100,6 +110,7 @@ def _canonical_rule(rule: dict[str, Any]) -> dict[str, Any]:
     """Emit the one-level folder vocabulary while accepting older profiles."""
 
     result = dict(rule)
+    result["agent_visibility"] = DEFAULT_AGENT_VISIBILITY.value
     if "folder_level" not in result:
         legacy_levels = result.pop("category_levels", None)
         legacy_section = result.pop("section_level", None)
@@ -120,7 +131,7 @@ def _canonical_rule(rule: dict[str, Any]) -> dict[str, Any]:
     legacy_orders = result.pop("category_orders", None)
     if "folder_order" not in result and isinstance(legacy_orders, list) and legacy_orders:
         result["folder_order"] = legacy_orders[0]
-    return result
+    return _validate_rule(result)
 
 
 def _category_paths(
@@ -202,7 +213,7 @@ async def _load_documents(
             item.id,
             item.name,
             item.content,
-            item.is_enabled,
+            item.agent_visibility,
             item.order,
             section=item.section,
             category_path=(folder.title,) if folder else (),
@@ -216,11 +227,12 @@ async def _load_documents(
             item.id,
             item.name,
             item.description,
-            item.is_writing_visible,
+            item.agent_visibility,
             item.order,
             category_path=(folder.title,) if folder else (),
             category_target_ids=(folder.id,) if folder else (),
             category_orders=(folder.order,) if folder else (),
+            is_favorited=item.is_favorited,
         )
     for item in notes:
         if item.category_id is not None and item.category_id not in category_paths:
@@ -230,12 +242,13 @@ async def _load_documents(
             item.id,
             item.title,
             item.content,
-            item.is_writing_visible,
+            item.agent_visibility,
             item.order,
             category_path=category_paths.get(item.category_id, ()),
             category_target_ids=category_id_paths.get(item.category_id, ()),
             category_orders=category_order_paths.get(item.category_id, ()),
             document_type=item.document_type,
+            is_locked=item.is_locked,
         )
     return project, documents
 
@@ -253,15 +266,19 @@ def _anchor_parts(anchor: str) -> list[tuple[int, str]]:
 
 
 def _visible_title(document: _SourceDocument, rule: dict[str, Any]) -> str:
-    suffix = rule.get("disabled_title_suffix")
-    if not document.writing_visible and isinstance(suffix, str):
-        return f"{document.title}{suffix}"
-    return document.title
+    try:
+        visibility = validate_agent_visibility(document.agent_visibility)
+    except ValueError as exc:
+        raise BundleFormatError("agent_visibility is invalid") from exc
+    marker = next(
+        state.export_marker for state in AGENT_VISIBILITY_STATES if state.value == visibility
+    )
+    return f"{document.title}{marker}"
 
 
 def _render_file_source(document: _SourceDocument, rule: dict[str, Any]) -> str:
     title = _visible_title(document, rule)
-    return f"# {title}\n\n{document.body}".rstrip() + "\n"
+    return f"# {title}\n\n{document.body}".rstrip("\r\n") + "\n"
 
 
 def _render_heading_source(
@@ -317,7 +334,39 @@ def _render_heading_source(
 
     for root in sorted(roots.values(), key=lambda value: (value.order, value.key)):
         emit(root)
-    return "\n".join(lines).rstrip() + "\n"
+    return "\n".join(lines).rstrip("\r\n") + "\n"
+
+
+def _item_metadata(
+    document: _SourceDocument, rule_id: str, source: str, anchor: str
+) -> dict[str, Any]:
+    metadata = {
+        "rule_id": rule_id,
+        "source": source,
+        "anchor": anchor,
+        "target_id": document.target_id,
+        "order": document.order,
+        "folder_id": document.category_target_ids[0] if document.category_target_ids else None,
+        "body_format": body_format(document.body),
+    }
+    if document.target_kind == "world_entry":
+        metadata["section"] = document.section or ""
+    elif document.target_kind == "character":
+        metadata["is_favorited"] = document.is_favorited
+    else:
+        metadata["is_locked"] = document.is_locked
+    return metadata
+
+
+def _exported_anchor(
+    binding: ProjectImportBinding, document: _SourceDocument, rule: dict[str, Any]
+) -> str:
+    parts = _anchor_parts(binding.source_anchor)
+    folder_level = rule.get("folder_level")
+    return "/".join(
+        f"H{level}:{document.title if index == len(parts) - 1 else document.category_path[0] if level == folder_level and document.category_path else title}"
+        for index, (level, title) in enumerate(parts)
+    )
 
 
 def _fallback_path(document: _SourceDocument, document_type: str | None) -> str:
@@ -351,7 +400,7 @@ def _fallback_rule(
         "target": target,
         "source": source_path,
         "split": {"type": "file"},
-        "writing_visible": document.writing_visible,
+        "agent_visibility": DEFAULT_AGENT_VISIBILITY.value,
         "target_id": document.target_id,
         "order": document.order,
     }
@@ -405,6 +454,26 @@ async def export_markdown_source_bundle(session: AsyncSession, project_id: str) 
         mapped_targets.add((binding.target_kind, binding.target_id))
 
     files: dict[str, str | bytes] = {}
+    config["items"] = []
+    config["folders"] = [
+        {
+            "id": folder.id,
+            "scope": folder.scope,
+            "title": folder.title,
+            "order": folder.order,
+            "description": folder.description,
+        }
+        for folder in (
+            await session.execute(
+                select(ProjectFolder)
+                .where(
+                    col(ProjectFolder.project_id) == project_id,
+                    col(ProjectFolder.scope).in_(["world", "character", "note", "outline"]),
+                )
+                .order_by(col(ProjectFolder.scope), col(ProjectFolder.order), col(ProjectFolder.id))
+            )
+        ).scalars()
+    ]
     rules_with_files: set[str] = set()
     for (rule_id, source_path), records in sorted(by_source.items()):
         rule = rules_by_id[rule_id]
@@ -418,6 +487,13 @@ async def export_markdown_source_bundle(session: AsyncSession, project_id: str) 
         else:
             raise BundleFormatError("stored import profile has an invalid split")
         rules_with_files.add(rule_id)
+        for binding, document in records:
+            anchor = (
+                "H1:" + document.title
+                if split.get("type") == "file"
+                else _exported_anchor(binding, document, rule)
+            )
+            config["items"].append(_item_metadata(document, rule_id, source_path, anchor))
 
     for rule in config["rules"]:
         if rule.get("id") not in rules_with_files:
@@ -432,7 +508,11 @@ async def export_markdown_source_bundle(session: AsyncSession, project_id: str) 
         document_type = document.document_type
         source_path = _fallback_path(document, document_type)
         files[source_path] = _render_file_source(document, {})
-        config["rules"].append(_fallback_rule(document, source_path, document_type))
+        fallback_rule = _fallback_rule(document, source_path, document_type)
+        config["rules"].append(fallback_rule)
+        config["items"].append(
+            _item_metadata(document, fallback_rule["id"], source_path, "H1:" + document.title)
+        )
 
     # A dormant template glob must not also import the explicit fallback documents.
     config["rules"] = [

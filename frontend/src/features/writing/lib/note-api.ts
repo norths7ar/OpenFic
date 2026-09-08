@@ -26,8 +26,7 @@ function transformNote(raw: Record<string, unknown>): Note {
     content: raw.content as string,
     order: raw.order as number,
     isLocked: raw.is_locked as boolean,
-    isHidden: raw.is_hidden as boolean,
-    isWritingVisible: raw.is_writing_visible as boolean,
+    agentVisibility: raw.agent_visibility as string,
     createdAt: raw.created_at as string,
     updatedAt: raw.updated_at as string,
   };
@@ -42,8 +41,7 @@ function transformNoteListItem(raw: Record<string, unknown>): NoteListItem {
     documentType: (raw.scope ?? raw.document_type) as DocumentType,
     order: raw.order as number,
     isLocked: raw.is_locked as boolean,
-    isHidden: raw.is_hidden as boolean,
-    isWritingVisible: raw.is_writing_visible as boolean,
+    agentVisibility: raw.agent_visibility as string,
     createdAt: raw.created_at as string,
     updatedAt: raw.updated_at as string,
   };
@@ -144,8 +142,7 @@ export async function updateNote(noteId: string, data: NoteUpdate): Promise<Note
   const response = await apiClient.patch(`/notes/${noteId}`, {
     title: data.title,
     content: data.content,
-    is_writing_visible: data.isWritingVisible,
-    is_hidden: data.isHidden,
+    agent_visibility: data.agentVisibility,
   });
   return transformNote(response.data);
 }
@@ -157,13 +154,6 @@ export async function deleteNote(noteId: string): Promise<void> {
 export async function toggleNoteLock(noteId: string, isLocked: boolean): Promise<Note> {
   const response = await apiClient.patch(`/notes/${noteId}/lock`, {
     is_locked: isLocked,
-  });
-  return transformNote(response.data);
-}
-
-export async function toggleNoteHidden(noteId: string, isHidden: boolean): Promise<Note> {
-  const response = await apiClient.patch(`/notes/${noteId}/hidden`, {
-    is_hidden: isHidden,
   });
   return transformNote(response.data);
 }

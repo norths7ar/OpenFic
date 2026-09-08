@@ -75,7 +75,7 @@ def test_update_schema_exposes_only_mutable_fields() -> None:
         "target_id",
         "title",
         "body",
-        "writing_visible",
+        "agent_visibility",
         "section",
     }
     assert {
@@ -139,6 +139,10 @@ async def test_project_update_sends_only_requested_patch_fields() -> None:
             return_value=db_session,
         ),
         patch(
+            "app.agent_runtime.tools.impls.project_change.pending_project_change_apply_service._resolve_snapshot",
+            new=AsyncMock(return_value=(None, {"agent_visibility": "all"})),
+        ),
+        patch(
             "app.agent_runtime.tools.impls.project_change.pending_project_change_service.create_pending_change",
             new=AsyncMock(return_value=change),
         ) as create_change,
@@ -186,6 +190,10 @@ async def test_project_create_builds_target_specific_payload() -> None:
             return_value=db_session,
         ),
         patch(
+            "app.agent_runtime.tools.impls.project_change.pending_project_change_apply_service._resolve_snapshot",
+            new=AsyncMock(return_value=(None, {"agent_visibility": "all"})),
+        ),
+        patch(
             "app.agent_runtime.tools.impls.project_change.pending_project_change_service.create_pending_change",
             new=AsyncMock(return_value=change),
         ) as create_change,
@@ -197,7 +205,7 @@ async def test_project_create_builds_target_specific_payload() -> None:
                 "body": "正文",
                 "category_id": "category-1",
                 "document_type": "outline",
-                "writing_visible": False,
+                "agent_visibility": "global",
             }
         )
 
@@ -211,7 +219,7 @@ async def test_project_create_builds_target_specific_payload() -> None:
             "title": "新提纲",
             "body": "正文",
             "category_id": "category-1",
-            "writing_visible": False,
+            "agent_visibility": "global",
             "document_type": "outline",
         },
         source_task_id="task-1",
@@ -230,6 +238,10 @@ async def test_project_delete_uses_server_snapshot_without_after_payload() -> No
         patch(
             "app.agent_runtime.tools.impls.project_change.create_session",
             return_value=db_session,
+        ),
+        patch(
+            "app.agent_runtime.tools.impls.project_change.pending_project_change_apply_service._resolve_snapshot",
+            new=AsyncMock(return_value=(None, {"agent_visibility": "all"})),
         ),
         patch(
             "app.agent_runtime.tools.impls.project_change.pending_project_change_service.create_pending_change",

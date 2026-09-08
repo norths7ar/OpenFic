@@ -168,6 +168,18 @@ export async function createAgentSession(
   return response.data;
 }
 
+export async function updateAgentKnowledgeScope(
+  sessionId: string,
+  contextMode: "global" | "local",
+  agentKey: string,
+): Promise<{ context_mode: "global" | "local" }> {
+  const response = await apiClient.patch(`/agent/sessions/${sessionId}/knowledge-scope`, {
+    context_mode: contextMode,
+    agent_key: agentKey,
+  });
+  return response.data;
+}
+
 export async function fetchAgentSessionState(
   sessionId: string,
 ): Promise<AgentSessionStateResponse> {

@@ -32,7 +32,7 @@ def _make_note(
     title: str = "测试笔记",
     content: str = "测试内容",
     is_locked: bool = False,
-    is_hidden: bool = False,
+    agent_visibility: str = "all",
     project_id: str = "proj-1",
     category_id: str | None = None,
 ):
@@ -43,7 +43,7 @@ def _make_note(
     note.title = title
     note.content = content
     note.is_locked = is_locked
-    note.is_hidden = is_hidden
+    note.agent_visibility = agent_visibility
     note.created_at = None
     note.updated_at = None
     return note
@@ -67,7 +67,7 @@ def _make_category(
 async def test_read_note_rejects_hidden_note() -> None:
     from app.agent_runtime.tools.impls.note.read_note import ReadNoteTool
 
-    note = _make_note(note_id="note-1", title="隐藏", is_hidden=True)
+    note = _make_note(note_id="note-1", title="隐藏", agent_visibility="none")
     tool = ReadNoteTool(_state=_make_state())
 
     with patch("app.agent_runtime.tools.impls.note.read_note.create_session") as mock_cs:
@@ -220,7 +220,7 @@ async def test_edit_note_rejects_over_limit_replace_all_without_updating_repo() 
 async def test_delete_note_rejects_hidden_note() -> None:
     from app.agent_runtime.tools.impls.note.delete_note import DeleteNoteTool
 
-    note = _make_note(note_id="note-1", title="隐藏笔记", is_hidden=True)
+    note = _make_note(note_id="note-1", title="隐藏笔记", agent_visibility="none")
     tool = DeleteNoteTool(_state=_make_state())
 
     with patch("app.agent_runtime.tools.impls.note.delete_note.create_session") as mock_cs:
@@ -945,6 +945,15 @@ async def test_delete_note_category_previews_only_direct_notes_returned_to_root(
             AsyncMock(
                 return_value=[
                     _make_note(note_id="note-1", title="分类内笔记", category_id="cat-1"),
+                    _make_note(
+                        note_id="hidden", title="隐藏", category_id="cat-1", agent_visibility="none"
+                    ),
+                    _make_note(
+                        note_id="global",
+                        title="仅全局",
+                        category_id="cat-1",
+                        agent_visibility="global",
+                    ),
                     _make_note(note_id="note-2", title="子分类笔记", category_id="cat-2"),
                 ]
             ),
@@ -1003,3 +1012,17 @@ def test_edit_note_input_rejects_empty_old_content() -> None:
                 "new_content": "x",
             }
         )
+
+
+@pytest.mark.parametrize("visibility", ["global", "none"])
+async def test_write_note_preview_does_not_reveal_private_title_collision(visibility) -> None:
+    from app.agent_runtime.tools.impls.note.write_note import WriteNoteTool
+
+    tool = WriteNoteTool(_state=_make_state())
+    object.__setattr__(tool, "_config", {"configurable": {"db_session": AsyncMock()}})
+    with patch(
+        "app.agent_runtime.tools.impls.note.write_note.note_repo.list_by_project",
+        AsyncMock(return_value=[_make_note(title="新笔记", agent_visibility=visibility)]),
+    ):
+        preview = await tool.build_interrupt_preview({"title": "新笔记", "content": "内容"})
+    assert preview["metadata"]["note_diff"]["note_title"] == "新笔记"

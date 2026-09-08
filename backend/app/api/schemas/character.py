@@ -4,6 +4,8 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
+from app.core.agent_visibility import AgentVisibility
+
 
 class CharacterResponse(BaseModel):
     """角色响应。"""
@@ -16,7 +18,7 @@ class CharacterResponse(BaseModel):
     image_url: str | None = Field(description="角色头像 URL")
     is_favorited: bool = Field(description="是否收藏")
     order: int = Field(description="手动排序")
-    is_writing_visible: bool = Field(description="是否对写作 Agent 可见")
+    agent_visibility: AgentVisibility = Field(description="Agent 可见范围")
     created_at: datetime = Field(description="创建时间")
     updated_at: datetime = Field(description="更新时间")
 
@@ -32,7 +34,7 @@ class CharacterListItemResponse(BaseModel):
     token_count: int = Field(description="角色描述 Token 数")
     is_favorited: bool = Field(description="是否收藏")
     order: int = Field(description="手动排序")
-    is_writing_visible: bool = Field(description="是否对写作 Agent 可见")
+    agent_visibility: AgentVisibility = Field(description="Agent 可见范围")
     created_at: datetime = Field(description="创建时间")
     updated_at: datetime = Field(description="更新时间")
 

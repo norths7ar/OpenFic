@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field, field_validator
 
 from app.agent_runtime.context.knowledge_visibility import (
     character_is_visible,
-    includes_all_knowledge,
+    get_knowledge_scope,
 )
 from app.agent_runtime.revisions import (
     character_images_by_id,
@@ -22,6 +22,7 @@ from app.core.editor_content_limits import (
     EditorContentLimitError,
     validate_editor_content,
 )
+from app.core.knowledge_scope import KnowledgeScope
 from app.storage.database import create_session
 from app.storage.models.character import Character
 from app.storage.repos import character_repo
@@ -151,14 +152,10 @@ async def _list_project_characters(
     session,
     project_id: str,
     *,
-    include_all: bool = True,
+    scope: KnowledgeScope = KnowledgeScope.GLOBAL,
 ) -> list[Character]:
     characters = await character_repo.list_all_by_project(session, project_id)
-    return [
-        character
-        for character in characters
-        if character_is_visible(character, include_all=include_all)
-    ]
+    return [character for character in characters if character_is_visible(character, scope=scope)]
 
 
 async def _resolve_character_by_name(
@@ -166,7 +163,7 @@ async def _resolve_character_by_name(
     project_id: str,
     name: str,
     *,
-    include_all: bool = True,
+    scope: KnowledgeScope = KnowledgeScope.GLOBAL,
 ) -> Character:
     normalized_name = name.strip()
     if not normalized_name:
@@ -174,7 +171,7 @@ async def _resolve_character_by_name(
     characters = await _list_project_characters(
         session,
         project_id,
-        include_all=include_all,
+        scope=scope,
     )
     matches = [character for character in characters if character.name == normalized_name]
     if not matches:
@@ -222,7 +219,7 @@ class ListCharactersTool(AgentTool):
             characters = await _list_project_characters(
                 session,
                 self.project_id,
-                include_all=includes_all_knowledge(self._state),
+                scope=get_knowledge_scope(self._state),
             )
             return json.dumps(
                 {
@@ -250,7 +247,7 @@ class ReadCharacterTool(AgentTool):
                 session,
                 self.project_id,
                 name,
-                include_all=includes_all_knowledge(self._state),
+                scope=get_knowledge_scope(self._state),
             )
             return json.dumps(
                 {
@@ -363,7 +360,7 @@ class EditCharacterTool(AgentTool):
                 session,
                 self.project_id,
                 name,
-                include_all=includes_all_knowledge(self._state),
+                scope=get_knowledge_scope(self._state),
             )
             before = _preview_from_character(character)
             description = before.description
@@ -419,7 +416,7 @@ class EditCharacterTool(AgentTool):
                     session,
                     self.project_id,
                     name,
-                    include_all=includes_all_knowledge(self._state),
+                    scope=get_knowledge_scope(self._state),
                 )
                 before = _preview_from_character(character)
                 description = character.description
@@ -494,7 +491,7 @@ class DeleteCharacterTool(AgentTool):
                 session,
                 self.project_id,
                 name,
-                include_all=includes_all_knowledge(self._state),
+                scope=get_knowledge_scope(self._state),
             )
             before = _preview_from_character(character)
             before_images = character_images_by_id([character])

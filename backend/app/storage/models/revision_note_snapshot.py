@@ -6,9 +6,10 @@ from sqlalchemy import UniqueConstraint
 from sqlmodel import Field, SQLModel
 
 from app.core.ids import generate_id
+from app.storage.models.agent_visibility import AgentVisibilitySnapshotModel
 
 
-class RevisionNoteSnapshot(SQLModel, table=True):
+class RevisionNoteSnapshot(AgentVisibilitySnapshotModel, table=True):
     """Note state before a revision's change, used for rollback."""
 
     __tablename__ = "revision_note_snapshots"
@@ -28,9 +29,7 @@ class RevisionNoteSnapshot(SQLModel, table=True):
         description="正文的内容寻址 blob id(长文本时使用)",
     )
     is_locked: bool | None = Field(default=None)
-    is_hidden: bool | None = Field(default=None)
     note_order: int | None = Field(default=None)
-    is_writing_visible: bool | None = Field(default=None)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC), index=True)
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 

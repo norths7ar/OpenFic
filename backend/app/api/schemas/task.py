@@ -3,11 +3,11 @@ Task API Schemas - 任务请求/响应模型。
 """
 
 from datetime import datetime
-from typing import Literal
 
 from pydantic import BaseModel, Field
 
 from app.agent_runtime.modes import AgentMode
+from app.core.knowledge_scope import KnowledgeScope
 
 
 class TaskMessage(BaseModel):
@@ -47,7 +47,7 @@ class TaskResponse(BaseModel):
     folder_id: str | None = Field(default=None, description="所属文件夹 ID")
     title: str = Field(description="任务标题")
     mode: AgentMode = Field(description="固定为单一 Agent runtime")
-    context_mode: Literal["global", "local"] = Field(default="local")
+    context_mode: KnowledgeScope = Field(default=KnowledgeScope.LOCAL)
     messages: list[TaskMessage] = Field(description="对话消息列表")
     token_input: int = Field(default=0, description="输入 token 总数")
     token_output: int = Field(default=0, description="输出 token 总数")
@@ -74,7 +74,7 @@ class TaskListItem(BaseModel):
     folder_id: str | None = Field(default=None, description="所属文件夹 ID")
     title: str = Field(description="任务标题")
     mode: AgentMode = Field(description="固定为单一 Agent runtime")
-    context_mode: Literal["global", "local"] = Field(default="local")
+    context_mode: KnowledgeScope = Field(default=KnowledgeScope.LOCAL)
     token_input: int = Field(default=0, description="输入 token 总数")
     token_output: int = Field(default=0, description="输出 token 总数")
     token_cache: int = Field(default=0, description="缓存命中 token 总数")

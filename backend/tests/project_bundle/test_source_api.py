@@ -31,7 +31,7 @@ def _source_bundle(
                 "source": "world.md",
                 "split": {"type": "headings", "item_levels": [3]},
                 "section_level": 2,
-                "writing_visible": False,
+                "agent_visibility": "global",
             },
             {
                 "id": "character",
@@ -89,11 +89,10 @@ def _visibility_bundle(project_id: str, *, disabled: bool) -> bytes:
                 "source": "world.md",
                 "split": {"type": "headings", "item_levels": [3]},
                 "section_level": 2,
-                "disabled_title_suffix": "[已停用]",
             }
         ],
     }
-    marker = " [已停用]" if disabled else ""
+    marker = " [仅全局]" if disabled else ""
     return build_zip(
         {
             "openfic-import.yaml": yaml.safe_dump(config, allow_unicode=True, sort_keys=True),
@@ -215,7 +214,7 @@ async def test_source_apply_updates_visibility_without_recreating_target(
         await session.execute(select(WorldInfoEntry).where(WorldInfoEntry.name == "灵气"))
     ).scalar_one()
     target_id = before.id
-    assert before.is_enabled is True
+    assert before.agent_visibility == "all"
 
     second = await client.post(
         f"/api/v1/projects/{project.id}/bundle/source/apply",
@@ -236,7 +235,7 @@ async def test_source_apply_updates_visibility_without_recreating_target(
         .all()
     )
     assert [entry.id for entry in entries] == [target_id]
-    assert entries[0].is_enabled is False
+    assert entries[0].agent_visibility == "global"
 
 
 @pytest.mark.asyncio

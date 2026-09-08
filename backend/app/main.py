@@ -698,6 +698,9 @@ def create_app() -> FastAPI:
     app.add_middleware(AccessLogMiddleware)
 
     # Mount routers
+    from app.api.routers import agent_visibility
+
+    app.include_router(agent_visibility.router, prefix=app_settings.api_v1_prefix)
     app.include_router(auth.router, prefix=app_settings.api_v1_prefix)
     app.include_router(health.router, prefix=app_settings.api_v1_prefix)
     app.include_router(runtime_config.router, prefix=app_settings.api_v1_prefix)

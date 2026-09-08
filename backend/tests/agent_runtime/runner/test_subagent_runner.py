@@ -86,6 +86,33 @@ def stub_checkpointer(monkeypatch):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("scope", ["local", "global"])
+async def test_child_inherits_persisted_parent_knowledge_scope(db_session_factory, scope):
+    from app.agent_runtime.runner.subagent_runner import SubagentRunner
+
+    async with db_session_factory() as session:
+        task = await session.get(Task, "task-1")
+        task.context_mode = scope
+        await session.commit()
+    runner = SubagentRunner(
+        session_factory=db_session_factory,
+        model_config={},
+        project_id="project-1",
+    )
+    row = SimpleNamespace(
+        id="child",
+        parent_task_id="task-1",
+        child_thread_id="child-thread",
+        agent_key="explore",
+        parent_session_id="parent-session",
+        parent_thread_id="parent-session",
+        dispatch_id="dispatch",
+    )
+    state = await runner._build_runtime_state(row, "inspect materials")
+    assert state["context_mode"] == scope
+
+
+@pytest.mark.asyncio
 async def test_resolve_agent_model_config_prefers_configured_default_setting(
     db_session_factory,
 ):

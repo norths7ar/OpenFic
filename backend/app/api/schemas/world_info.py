@@ -6,6 +6,8 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
+from app.core.agent_visibility import AgentVisibility
+
 
 class WorldInfoResponse(BaseModel):
     """世界书响应。"""
@@ -39,7 +41,7 @@ class WorldInfoEntryCreate(BaseModel):
     section: str = Field(default="", max_length=500, description="条目分区")
     content: str = Field(default="", description="条目内容")
     token_count: int = Field(default=0, ge=0, description="Token 数量")
-    is_enabled: bool = Field(default=True, description="开关状态")
+    agent_visibility: AgentVisibility = Field(default=AgentVisibility.ALL, description="Agent 可见范围")
 
 
 class WorldInfoEntryUpdate(BaseModel):
@@ -49,7 +51,7 @@ class WorldInfoEntryUpdate(BaseModel):
     section: str | None = Field(default=None, max_length=500)
     content: str | None = None
     token_count: int | None = Field(default=None, ge=0)
-    is_enabled: bool | None = None
+    agent_visibility: AgentVisibility | None = None
 
 
 class WorldInfoEntryMoveRequest(BaseModel):
@@ -62,7 +64,7 @@ class WorldInfoEntryBatchToggleRequest(BaseModel):
     """批量切换条目开关请求。"""
 
     entry_ids: list[str] = Field(min_length=1, description="要切换的条目 ID 列表")
-    is_enabled: bool = Field(description="目标开关状态")
+    agent_visibility: AgentVisibility = Field(description="目标 Agent 可见范围")
 
 
 class WorldInfoEntryBatchDeleteRequest(BaseModel):
@@ -95,7 +97,7 @@ class WorldInfoEntryResponse(BaseModel):
     order: int = Field(description="排序序号")
     content: str = Field(description="条目内容")
     token_count: int = Field(description="Token 数量")
-    is_enabled: bool = Field(description="开关状态")
+    agent_visibility: AgentVisibility = Field(description="Agent 可见范围")
     created_at: datetime = Field(description="创建时间")
     updated_at: datetime = Field(description="更新时间")
 
@@ -113,7 +115,7 @@ class WorldInfoEntryBriefResponse(BaseModel):
     section: str = Field(default="", description="条目分区")
     order: int = Field(description="排序序号")
     token_count: int = Field(description="Token 数量")
-    is_enabled: bool = Field(description="开关状态")
+    agent_visibility: AgentVisibility = Field(description="Agent 可见范围")
     created_at: datetime = Field(description="创建时间")
     updated_at: datetime = Field(description="更新时间")
 
@@ -134,7 +136,7 @@ class WorldInfoImportPreviewEntry(BaseModel):
     name: str = Field(description="导入后的条目名称")
     section: str = Field(default="", description="条目分区")
     content_preview: str = Field(description="内容预览")
-    is_enabled: bool = Field(description="导入后的启用状态")
+    agent_visibility: AgentVisibility = Field(description="导入后的 Agent 可见范围")
 
 
 class WorldInfoImportPreviewResponse(BaseModel):

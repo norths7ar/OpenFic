@@ -29,9 +29,8 @@ async def test_create_note(client: AsyncClient) -> None:
     assert data["content"] == "内容"
     assert data["project_id"] == project_id
     assert data["is_locked"] is False
-    assert data["is_hidden"] is False
+    assert data["agent_visibility"] == "all"
     assert data["order"] == 1
-    assert data["is_writing_visible"] is True
 
 
 @pytest.mark.asyncio
@@ -114,12 +113,11 @@ async def test_update_note_agent_visibility_atomically(client: AsyncClient) -> N
 
     response = await client.patch(
         f"/api/v1/notes/{note_id}",
-        json={"is_writing_visible": False, "is_hidden": True},
+        json={"agent_visibility": "none"},
     )
 
     assert response.status_code == 200
-    assert response.json()["is_writing_visible"] is False
-    assert response.json()["is_hidden"] is True
+    assert response.json()["agent_visibility"] == "none"
 
 
 @pytest.mark.asyncio
@@ -259,11 +257,11 @@ async def test_toggle_note_hidden(client: AsyncClient) -> None:
     )
     note_id = create.json()["id"]
     resp = await client.patch(
-        f"/api/v1/notes/{note_id}/hidden",
-        json={"is_hidden": True},
+        f"/api/v1/notes/{note_id}",
+        json={"agent_visibility": "none"},
     )
     assert resp.status_code == 200
-    assert resp.json()["is_hidden"] is True
+    assert resp.json()["agent_visibility"] == "none"
 
 
 @pytest.mark.asyncio
@@ -406,8 +404,8 @@ async def test_mentions_hidden_note_absent(client: AsyncClient) -> None:
     )
     note_id = note.json()["id"]
     await client.patch(
-        f"/api/v1/notes/{note_id}/hidden",
-        json={"is_hidden": True},
+        f"/api/v1/notes/{note_id}",
+        json={"agent_visibility": "none"},
     )
     resp = await client.get(
         f"/api/v1/projects/{project_id}/mentions",
@@ -542,7 +540,7 @@ async def test_mentions_excludes_disabled_world_info_entries(
         json={
             "name": "禁用设定",
             "content": "不应出现在候选中",
-            "is_enabled": False,
+            "agent_visibility": "global",
         },
     )
     assert entry.status_code == 201
@@ -578,3 +576,13 @@ async def test_mentions_empty_query_returns_empty(client: AsyncClient) -> None:
     )
     assert resp.status_code == 200
     assert resp.json() == {"items": []}
+
+
+@pytest.mark.asyncio
+async def test_note_visibility_rejects_unknown_state(client: AsyncClient) -> None:
+    project_id, _ = await _create_project(client)
+    note = await client.post(f"/api/v1/projects/{project_id}/notes", json={"title": "Visibility"})
+    response = await client.patch(
+        f"/api/v1/notes/{note.json()['id']}", json={"agent_visibility": "invalid"}
+    )
+    assert response.status_code == 422

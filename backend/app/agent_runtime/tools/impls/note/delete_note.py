@@ -7,7 +7,7 @@ import json
 from pydantic import BaseModel, Field
 
 from app.agent_runtime.context.knowledge_visibility import (
-    includes_all_knowledge,
+    get_knowledge_scope,
     note_is_visible,
 )
 from app.agent_runtime.revisions import (
@@ -22,6 +22,7 @@ from app.agent_runtime.tools.impls.note.refs import (
     resolve_note_from_list,
 )
 from app.agent_runtime.tools.registry import ToolRegistry
+from app.core.agent_visibility import AgentVisibility
 from app.storage.database import create_session
 from app.storage.repos import note_category_repo, note_repo
 
@@ -44,7 +45,7 @@ class DeleteNoteTool(AgentTool):
         session = await create_session()
         try:
             ref = NoteRef.model_validate(note_ref)
-            include_all = includes_all_knowledge(self._state)
+            scope = get_knowledge_scope(self._state)
             if ref.id is not None:
                 note = await note_repo.get_by_id(session, ref.id)
                 if note is None:
@@ -53,7 +54,7 @@ class DeleteNoteTool(AgentTool):
                 notes = await note_repo.list_by_project(
                     session, self.project_id, include_hidden=False
                 )
-                notes = [note for note in notes if note_is_visible(note, include_all=include_all)]
+                notes = [note for note in notes if note_is_visible(note, scope=scope)]
                 cats = await note_category_repo.list_by_project(session, self.project_id)
                 note = resolve_note_from_list(notes, ref, categories=cats)
 
@@ -61,9 +62,9 @@ class DeleteNoteTool(AgentTool):
                 raise ToolExecutionError("笔记不属于当前项目")
             if note.is_locked:
                 raise ToolExecutionError("该笔记已锁定，无法删除")
-            if note.is_hidden:
+            if note.agent_visibility == AgentVisibility.NONE:
                 raise ToolExecutionError("该笔记已隐藏")
-            if not note_is_visible(note, include_all=include_all):
+            if not note_is_visible(note, scope=scope):
                 raise ToolExecutionError("笔记不在当前上下文范围内")
 
             before = note_images_by_id(

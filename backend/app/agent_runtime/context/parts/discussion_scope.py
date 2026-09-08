@@ -2,25 +2,25 @@ from app.agent_runtime.context.types import ContextMessage
 
 
 def build_discussion_scope(context_mode: str) -> ContextMessage:
-    """Describe the immutable knowledge boundary for a Discuss session."""
+    """Describe the session's current, monotonically widening knowledge scope."""
 
     if context_mode == "global":
         scope = (
-            "当前会话固定为“全局讨论”。你可以按需使用当前项目的全部资料，"
-            "包括写作阶段尚不可见的信息；不得跨项目读取或混入其他作品的资料。"
+            "当前知识范围为“全局资料”。你可以按需使用当前项目中标为“全部 Agent”"
+            "或“仅全局 Agent”的资料；标为“所有 Agent 不可见”的资料仍不可读取。"
+            "不得跨项目读取或混入其他作品的资料。"
         )
     else:
         scope = (
-            "当前会话固定为“局部讨论”。你仍是 Discuss 讨论 Agent；“局部”仅表示"
-            "采用与写作 Agent 相同的资料可见边界，并不切换身份或要求直接创作。"
-            "你只能使用当前项目中写作阶段可见的资料；"
-            "被隐藏或尚不可见的信息视为未知，不得尝试推断、暗示或绕过边界获取。"
+            "当前知识范围为“公开资料”。你只能使用当前项目中标为“全部 Agent”的资料。"
+            "其他资料视为未知，不得尝试推断、暗示或绕过边界获取。"
         )
 
     content = (
         "<discussion_scope>\n"
         f"{scope}\n"
-        "讨论范围在本会话内不可切换；如需改变范围，应新建讨论会话。\n"
+        "知识范围不改变 Agent 身份。公开资料可在一轮结束后升级为全局资料；"
+        "已知信息不能遗忘，全局资料会话不能切回公开资料或 Build。子 Agent 继承知识范围。\n"
         "</discussion_scope>"
     )
     return ContextMessage(

@@ -8,11 +8,16 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from app.agent_runtime.context.knowledge_visibility import get_knowledge_scope
 from app.agent_runtime.tools.base import AgentTool
 from app.agent_runtime.tools.errors import ToolExecutionError
 from app.agent_runtime.tools.registry import ToolRegistry
+from app.core.agent_visibility import AgentVisibility, visible_in_scope
 from app.storage.database import create_session
-from app.storage.services import pending_project_change_service
+from app.storage.services import (
+    pending_project_change_apply_service,
+    pending_project_change_service,
+)
 
 PendingTargetType = Literal["note", "note_category", "character", "world_entry"]
 PendingOperation = Literal["create", "update", "delete"]
@@ -26,9 +31,9 @@ class ProposeProjectCreateInput(_ProposalInput):
     target_type: PendingTargetType = Field(description="要创建的正式资料类型")
     title: str = Field(description="资料标题", min_length=1, max_length=200)
     body: str = Field(default="", description="资料正文；笔记分类不使用此字段")
-    writing_visible: bool = Field(
-        default=True,
-        description="写作 Agent 是否可见；笔记分类不使用此字段",
+    agent_visibility: AgentVisibility = Field(
+        default=AgentVisibility.ALL,
+        description="Agent 可见范围；笔记分类不使用此字段",
     )
     category_id: str | None = Field(
         default=None,
@@ -53,7 +58,7 @@ class ProposeProjectCreateInput(_ProposalInput):
             raise ValueError("document_type 只适用于新建笔记或笔记分类")
         if self.target_type != "world_entry" and "section" in supplied:
             raise ValueError("section 只适用于新建背景设定")
-        if self.target_type == "note_category" and ({"body", "writing_visible"} & supplied):
+        if self.target_type == "note_category" and ({"body", "agent_visibility"} & supplied):
             raise ValueError("笔记分类只需要标题和文档类型")
         return self
 
@@ -68,9 +73,9 @@ class ProposeProjectUpdateInput(_ProposalInput):
         max_length=200,
     )
     body: str | None = Field(default=None, description="新正文；不修改时不要填写")
-    writing_visible: bool | None = Field(
+    agent_visibility: AgentVisibility | None = Field(
         default=None,
-        description="新的写作 Agent 可见性；不修改时不要填写",
+        description="新的 Agent 可见范围；不修改时不要填写",
     )
     section: str | None = Field(
         default=None,
@@ -129,7 +134,7 @@ def _create_after(
     *,
     title: str,
     body: str,
-    writing_visible: bool,
+    agent_visibility: AgentVisibility,
     category_id: str | None,
     document_type: Literal["note", "outline"],
     section: str,
@@ -139,7 +144,7 @@ def _create_after(
             "title": title,
             "body": body,
             "category_id": category_id,
-            "writing_visible": writing_visible,
+            "agent_visibility": agent_visibility,
             "document_type": document_type,
         }
     if target_type == "note_category":
@@ -152,13 +157,13 @@ def _create_after(
         return {
             "title": title,
             "body": body,
-            "writing_visible": writing_visible,
+            "agent_visibility": agent_visibility,
         }
     return {
         "title": title,
         "body": body,
         "section": section,
-        "writing_visible": writing_visible,
+        "agent_visibility": agent_visibility,
     }
 
 
@@ -176,6 +181,13 @@ async def _queue_pending_change(
 
     session = await create_session()
     try:
+        if target_id and target_type != "note_category":
+            _, snapshot = await pending_project_change_apply_service._resolve_snapshot(
+                session, project_id, target_type, target_id
+            )
+            scope = get_knowledge_scope(tool._state)
+            if not visible_in_scope(snapshot["agent_visibility"], scope):
+                raise ToolExecutionError("资料不在当前知识范围内")
         change = await pending_project_change_service.create_pending_change(
             session,
             project_id=project_id,
@@ -229,7 +241,7 @@ class ProposeProjectCreateTool(AgentTool):
         target_type: PendingTargetType,
         title: str,
         body: str = "",
-        writing_visible: bool = True,
+        agent_visibility: AgentVisibility = AgentVisibility.ALL,
         category_id: str | None = None,
         document_type: Literal["note", "outline"] = "note",
         section: str = "",
@@ -243,7 +255,7 @@ class ProposeProjectCreateTool(AgentTool):
                 target_type,
                 title=title,
                 body=body,
-                writing_visible=writing_visible,
+                agent_visibility=agent_visibility,
                 category_id=category_id,
                 document_type=document_type,
                 section=section,
@@ -267,7 +279,7 @@ class ProposeProjectUpdateTool(AgentTool):
         target_id: str,
         title: str | None = None,
         body: str | None = None,
-        writing_visible: bool | None = None,
+        agent_visibility: AgentVisibility | None = None,
         section: str | None = None,
     ) -> str:
         patch = {
@@ -275,7 +287,7 @@ class ProposeProjectUpdateTool(AgentTool):
             for key, value in {
                 "title": title,
                 "body": body,
-                "writing_visible": writing_visible,
+                "agent_visibility": agent_visibility,
                 "section": section,
             }.items()
             if value is not None

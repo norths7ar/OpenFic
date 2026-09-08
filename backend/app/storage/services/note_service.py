@@ -8,6 +8,7 @@ from typing import Literal, cast
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.agent_visibility import AgentVisibility, validate_agent_visibility
 from app.core.editor_content_limits import validate_editor_content
 from app.core.errors import ConflictError, NotFoundError
 from app.storage.models.note import Note
@@ -96,7 +97,7 @@ async def create_note(
         content=content,
         document_type=document_type,
         order=await _get_max_mixed_order(session, project_id, category_id, document_type) + 1,
-        is_writing_visible=True,
+        agent_visibility=AgentVisibility.ALL,
     )
     note = await note_repo.create(session, note)
 
@@ -266,8 +267,7 @@ async def update_note(
     note_id: str,
     title: str | None = None,
     content: str | None = None,
-    is_writing_visible: bool | None = None,
-    is_hidden: bool | None = None,
+    agent_visibility: AgentVisibility | None = None,
 ) -> Note:
     note = await get_note(session, note_id)
     changed = False
@@ -290,12 +290,8 @@ async def update_note(
         changed = True
         records_writing_activity = True
 
-    if is_writing_visible is not None and is_writing_visible != note.is_writing_visible:
-        note.is_writing_visible = is_writing_visible
-        changed = True
-
-    if is_hidden is not None and is_hidden != note.is_hidden:
-        note.is_hidden = is_hidden
+    if agent_visibility is not None and agent_visibility != note.agent_visibility:
+        note.agent_visibility = validate_agent_visibility(agent_visibility)
         changed = True
 
     if changed:
@@ -345,29 +341,6 @@ async def set_note_locked(
     note = await get_note(session, note_id)
     if note.is_locked != is_locked:
         note.is_locked = is_locked
-        note.updated_at = datetime.now(UTC)
-        note = await note_repo.update_note(session, note)
-        await writing_activity_service.record_activity(
-            session,
-            project_id=note.project_id,
-            chapter_id=note.id,
-            chapter_title=note.title,
-            source="user",
-            operation="update",
-            old_word_count=0,
-            new_word_count=0,
-        )
-    return note
-
-
-async def set_note_hidden(
-    session: AsyncSession,
-    note_id: str,
-    is_hidden: bool,
-) -> Note:
-    note = await get_note(session, note_id)
-    if note.is_hidden != is_hidden:
-        note.is_hidden = is_hidden
         note.updated_at = datetime.now(UTC)
         note = await note_repo.update_note(session, note)
         await writing_activity_service.record_activity(

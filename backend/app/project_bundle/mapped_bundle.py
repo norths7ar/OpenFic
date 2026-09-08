@@ -18,7 +18,14 @@ from app.project_bundle.archive import BundleFormatError, build_zip
 from app.project_bundle.export import document_semantic_hash, semantic_hash
 from app.project_bundle.markdown import render_markdown_document
 from app.project_bundle.names import slugify_filename
-from app.project_bundle.source_mapping import MappedSourceItem, parse_source_mapping
+from app.project_bundle.source_mapping import (
+    MappedSourceItem,
+    _source_metadata,
+    parse_source_mapping,
+    read_source_mapping_manifest,
+)
+from app.storage.models.character import Character
+from app.storage.models.note import Note
 from app.storage.models.project import Project
 from app.storage.models.project_import_binding import ProjectImportBinding
 from app.storage.models.project_import_profile import ProjectImportProfile
@@ -111,11 +118,13 @@ class _Builder:
         world_info_id: str,
         existing: dict[str, ProjectImportBinding],
         existing_world_uids: dict[str, int],
+        existing_document_flags: dict[tuple[str, str], dict[str, bool]],
     ) -> None:
         self.project = project
         self.world_info_id = world_info_id
         self.existing = existing
         self.existing_world_uids = existing_world_uids
+        self.existing_document_flags = existing_document_flags
         self.used_world_uids = set(existing_world_uids.values())
         self.next_world_uid = max(self.used_world_uids, default=0) + 1
         self.files: dict[str, str | bytes] = {}
@@ -229,6 +238,8 @@ class _Builder:
         document_type: str,
         target_id_hints: list[str] | None = None,
         order_hints: list[int] | None = None,
+        description: str | None = None,
+        include_description: bool = False,
     ) -> str | None:
         if target_id_hints and len(target_id_hints) != len(path):
             raise BundleFormatError("category target hints do not match category path")
@@ -267,6 +278,11 @@ class _Builder:
                 "title": current_path[-1],
                 "document_type": document_type,
                 "order": order,
+                **(
+                    {"description": description}
+                    if description is not None or include_description
+                    else {}
+                ),
             }
             incoming_hash = semantic_hash(fields)
             self.categories.append(
@@ -277,6 +293,11 @@ class _Builder:
                     "title": current_path[-1],
                     "document_type": document_type,
                     "order": order,
+                    **(
+                        {"description": description}
+                        if description is not None or include_description
+                        else {}
+                    ),
                     "base_hash": _base_hash(binding, incoming_hash),
                 }
             )
@@ -299,6 +320,8 @@ class _Builder:
         scope: str,
         target_id_hints: list[str] | None = None,
         order_hints: list[int] | None = None,
+        description: str | None = None,
+        include_description: bool = False,
     ) -> str | None:
         if not path:
             return None
@@ -326,6 +349,11 @@ class _Builder:
             "scope": scope,
             "title": title,
             "order": order,
+            **(
+                {"description": description}
+                if description is not None or include_description
+                else {}
+            ),
         }
         incoming_hash = semantic_hash(fields)
         self.folders.append({**fields, "base_hash": _base_hash(binding, incoming_hash)})
@@ -365,6 +393,12 @@ class _Builder:
             "id": target_id,
             "project_id": self.project.id,
             **fields,
+            **self.existing_document_flags.get((target_kind, target_id), {}),
+            **{
+                flag: item.metadata[flag]
+                for flag in ("is_locked", "is_favorited")
+                if flag in item.metadata
+            },
         }
         incoming_hash = document_semantic_hash(complete_fields, title, body)
         base_hash = _base_hash(binding, incoming_hash)
@@ -453,13 +487,44 @@ async def build_mapped_project_bundle(
             )
         ).scalars()
     )
+    existing_document_flags = {}
+    for model, kind, flag in (
+        (Character, "character", "is_favorited"),
+        (Note, "note", "is_locked"),
+    ):
+        rows = (
+            await session.execute(select(model).where(col(model.project_id) == target_project_id))
+        ).scalars()
+        existing_document_flags.update({(kind, row.id): {flag: getattr(row, flag)} for row in rows})
     builder = _Builder(
         project=project,
         world_info_id=world_info_id,
         existing=existing,
         existing_world_uids={entry.id: entry.uid for entry in existing_world_entries},
+        existing_document_flags=existing_document_flags,
     )
 
+    config, _ = read_source_mapping_manifest(source_data, target_project_id)
+    _, source_folders = _source_metadata(config)
+    for folder in source_folders.values():
+        if folder["scope"] in {"note", "outline"}:
+            builder.add_category_path(
+                [folder["title"]],
+                folder["scope"],
+                [folder["id"]],
+                [folder["order"]],
+                folder.get("description"),
+                include_description="description" in folder,
+            )
+        else:
+            builder.add_project_folder(
+                [folder["title"]],
+                folder["scope"],
+                [folder["id"]],
+                [folder["order"]],
+                folder.get("description"),
+                include_description="description" in folder,
+            )
     for item in source_items:
         slug = slugify_filename(item.title, item.rule_id)
         if item.target == "worldbook":
@@ -477,7 +542,7 @@ async def build_mapped_project_bundle(
                     "uid": builder.world_uid_for(item),
                     "section": item.section or "",
                     "order": item.order,
-                    "writing_visible": item.writing_visible,
+                    "agent_visibility": item.agent_visibility,
                     "folder_id": folder_id,
                 },
                 title=item.title,
@@ -496,7 +561,7 @@ async def build_mapped_project_bundle(
                 target_kind="character",
                 fields={
                     "order": item.order,
-                    "writing_visible": item.writing_visible,
+                    "agent_visibility": item.agent_visibility,
                     "is_favorited": False,
                     "folder_id": folder_id,
                 },
@@ -519,9 +584,8 @@ async def build_mapped_project_bundle(
                     "category_id": category_id,
                     "document_type": document_type,
                     "order": item.order,
-                    "writing_visible": item.writing_visible,
+                    "agent_visibility": item.agent_visibility,
                     "is_locked": False,
-                    "is_hidden": False,
                 },
                 title=item.title,
                 body=item.body,

@@ -271,8 +271,7 @@ export function NoteSidebar({
       void updateNoteMutation.mutateAsync({
         noteId,
         data: {
-          isWritingVisible: visibility === "all",
-          isHidden: visibility === "none",
+          agentVisibility: visibility,
         },
       });
     },
@@ -703,7 +702,7 @@ export function NoteSidebar({
           await reorderMutation.mutateAsync({ parentId, orderedItems });
         }}
         onSetAgentVisibility={handleSetAgentVisibility}
-        isWritingVisibilityLocked={isAgentLocked}
+        isAgentLocked={isAgentLocked}
         sortMode={sortMode}
       />
 
@@ -777,8 +776,7 @@ function findNoteInTree(
       id: string;
       categoryId: string | null;
       isLocked: boolean;
-      isHidden: boolean;
-      isWritingVisible: boolean;
+      agentVisibility: string;
     }
   | undefined {
   if (!data) return undefined;
@@ -790,8 +788,7 @@ function findNoteInTree(
     id: note.id,
     categoryId: note.categoryId,
     isLocked: note.isLocked,
-    isHidden: note.isHidden,
-    isWritingVisible: note.isWritingVisible,
+    agentVisibility: note.agentVisibility,
   };
 }
 

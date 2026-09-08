@@ -7,7 +7,7 @@ import json
 from pydantic import BaseModel, Field
 
 from app.agent_runtime.context.knowledge_visibility import (
-    includes_all_knowledge,
+    get_knowledge_scope,
     note_is_visible,
 )
 from app.agent_runtime.tools.base import AgentTool
@@ -17,6 +17,7 @@ from app.agent_runtime.tools.impls.note.refs import (
     resolve_note_from_list,
 )
 from app.agent_runtime.tools.registry import ToolRegistry
+from app.core.agent_visibility import AgentVisibility
 from app.storage.database import create_session
 from app.storage.repos import note_category_repo, note_repo
 
@@ -50,11 +51,11 @@ class ReadNoteTool(AgentTool):
             if note.project_id != self.project_id:
                 raise ToolExecutionError("笔记不属于当前项目")
 
-            if note.is_hidden:
+            if note.agent_visibility == AgentVisibility.NONE:
                 raise ToolExecutionError("该笔记已隐藏")
             if not note_is_visible(
                 note,
-                include_all=includes_all_knowledge(self._state),
+                scope=get_knowledge_scope(self._state),
             ):
                 raise ToolExecutionError("笔记不在当前上下文范围内")
 

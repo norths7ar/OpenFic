@@ -8,6 +8,7 @@ from datetime import UTC, datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.agent_visibility import AgentVisibility, validate_agent_visibility
 from app.core.editor_content_limits import validate_editor_content
 from app.core.errors import NotFoundError
 from app.core.utils.tiktoken import get_encoding
@@ -27,7 +28,7 @@ class WorldInfoImportEntry:
     uid: int
     name: str
     content: str
-    is_enabled: bool
+    agent_visibility: AgentVisibility
     order: int
     section: str = ""
 
@@ -171,7 +172,7 @@ def parse_sillytavern_worldbook(raw_payload: bytes) -> WorldInfoImportPreviewRes
                 name=_build_entry_name(comment, uid),
                 section="",
                 content=content_text,
-                is_enabled=not disable,
+                agent_visibility=AgentVisibility.GLOBAL if disable else AgentVisibility.ALL,
                 order=order_value,
             )
         )
@@ -218,7 +219,7 @@ async def import_entries(
             existing.content = entry.content
             existing.section = entry.section
             existing.token_count = token_count
-            existing.is_enabled = entry.is_enabled
+            existing.agent_visibility = entry.agent_visibility
             existing.updated_at = datetime.now(UTC)
             await world_info_entry_repo.update_entry(session, existing)
             imported_count += 1
@@ -236,7 +237,7 @@ async def import_entries(
                 order=max_order,
                 content=entry.content,
                 token_count=token_count,
-                is_enabled=entry.is_enabled,
+                agent_visibility=entry.agent_visibility,
             ),
         )
         existing_by_name[created.name] = created
@@ -257,7 +258,7 @@ async def create_entry(
     name: str,
     content: str = "",
     token_count: int = 0,
-    is_enabled: bool = True,
+    agent_visibility: AgentVisibility = AgentVisibility.ALL,
     section: str = "",
 ) -> WorldInfoEntry:
     """
@@ -269,7 +270,7 @@ async def create_entry(
         name: 条目名称。
         content: 条目内容。
         token_count: Token 数量。
-        is_enabled: 开关状态。
+        agent_visibility: 开关状态。
 
     Returns:
         创建的条目实例。
@@ -297,7 +298,7 @@ async def create_entry(
         order=max_order + 1,
         content=content,
         token_count=token_count,
-        is_enabled=is_enabled,
+        agent_visibility=validate_agent_visibility(agent_visibility),
     )
     return await world_info_entry_repo.create(session, entry)
 
@@ -350,7 +351,7 @@ async def update_entry(
     name: str | None = None,
     content: str | None = None,
     token_count: int | None = None,
-    is_enabled: bool | None = None,
+    agent_visibility: AgentVisibility | None = None,
     section: str | None = None,
 ) -> WorldInfoEntry:
     """
@@ -362,7 +363,7 @@ async def update_entry(
         name: 新名称。
         content: 新内容。
         token_count: 新 Token 数量。
-        is_enabled: 新开关状态。
+        agent_visibility: 新开关状态。
 
     Returns:
         更新后的条目实例。
@@ -386,8 +387,8 @@ async def update_entry(
         entry.section = section
     if token_count is not None:
         entry.token_count = token_count
-    if is_enabled is not None:
-        entry.is_enabled = is_enabled
+    if agent_visibility is not None:
+        entry.agent_visibility = validate_agent_visibility(agent_visibility)
 
     entry.updated_at = datetime.now(UTC)
     return await world_info_entry_repo.update_entry(session, entry)
@@ -488,36 +489,16 @@ async def move_entry(
     return await world_info_entry_repo.update_entry(session, entry)
 
 
-async def toggle_entry(session: AsyncSession, entry_id: str) -> WorldInfoEntry:
-    """
-    切换世界书条目的开关状态。
-
-    Args:
-        session: 数据库 session。
-        entry_id: 条目 ID。
-
-    Returns:
-        更新后的条目实例。
-
-    Raises:
-        NotFoundError: 条目不存在。
-    """
-    entry = await get_entry(session, entry_id)
-    entry.is_enabled = not entry.is_enabled
-    entry.updated_at = datetime.now(UTC)
-    return await world_info_entry_repo.update_entry(session, entry)
-
-
 async def batch_toggle_entries(
     session: AsyncSession,
     world_info_id: str,
     entry_ids: list[str],
-    is_enabled: bool,
+    agent_visibility: AgentVisibility,
 ) -> int:
     """批量切换条目启用状态。"""
     await get_world_info(session, world_info_id)
     updated = await world_info_entry_repo.batch_toggle(
-        session, world_info_id, entry_ids, is_enabled
+        session, world_info_id, entry_ids, validate_agent_visibility(agent_visibility)
     )
     return updated
 

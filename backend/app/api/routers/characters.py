@@ -29,6 +29,7 @@ from app.api.schemas.character import (
     ReorderResponse,
 )
 from app.background.jobs import service as background_service
+from app.core.agent_visibility import AgentVisibility
 from app.core.storage import get_character_image_url
 from app.storage.database import get_session
 from app.storage.models.character import Character
@@ -48,7 +49,7 @@ def to_response(character: Character) -> CharacterResponse:
         image_url=get_character_image_url(character.image_path),
         is_favorited=character.is_favorited,
         order=character.order,
-        is_writing_visible=character.is_writing_visible,
+        agent_visibility=character.agent_visibility,
         created_at=character.created_at,
         updated_at=character.updated_at,
     )
@@ -65,7 +66,7 @@ def to_list_item_response(character: Character) -> CharacterListItemResponse:
         token_count=character_service.calculate_token_count(character.description),
         is_favorited=character.is_favorited,
         order=character.order,
-        is_writing_visible=character.is_writing_visible,
+        agent_visibility=character.agent_visibility,
         created_at=character.created_at,
         updated_at=character.updated_at,
     )
@@ -218,7 +219,7 @@ async def update_character(
     name: Annotated[str | None, Form(min_length=1, max_length=200)] = None,
     description: Annotated[str | None, Form()] = None,
     is_favorited: Annotated[bool | None, Form()] = None,
-    is_writing_visible: Annotated[bool | None, Form()] = None,
+    agent_visibility: Annotated[AgentVisibility | None, Form()] = None,
     image: Annotated[UploadFile | None, File()] = None,
 ) -> CharacterResponse:
     """更新角色。"""
@@ -228,7 +229,7 @@ async def update_character(
         name=name,
         description=description,
         is_favorited=is_favorited,
-        is_writing_visible=is_writing_visible,
+        agent_visibility=agent_visibility,
         image_file=image,
     )
     return to_response(character)

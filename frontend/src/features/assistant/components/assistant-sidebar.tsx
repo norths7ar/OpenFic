@@ -65,6 +65,7 @@ import {
   fetchAgentSessionState,
   fetchTask,
   subscribeBackgroundEvents,
+  updateAgentKnowledgeScope,
 } from "../lib/agent-runtime-api";
 import { loadAgentTaskBundle } from "../lib/agent-task-bundle";
 import {
@@ -260,6 +261,7 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
     const [currentTaskTitle, setCurrentTaskTitle] = useState<string>("");
     const [currentTaskId, setCurrentTaskId] = useState<string | null>(null);
     const [contextMode, setContextMode] = useState<"global" | "local">("local");
+    const [isUpdatingScope, setIsUpdatingScope] = useState(false);
     const [sceneDraftTarget, setSceneDraftTarget] = useState<SceneDraftTarget | null>(null);
     const [summaryWarningOpen, setSummaryWarningOpen] = useState(false);
     const [sessionTotalUsage, setSessionTotalUsage] = useState<SessionTotalUsageState>(() =>
@@ -1195,7 +1197,12 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
           toast.error(t("assistant.globalDiscussionAgentLocked"));
           return;
         }
-        if (!hasActiveSession) setContextMode("local");
+        if (
+          !hasActiveSession &&
+          !primaryAgents.find((agent) => agent.key === nextAgentKey)?.metadata
+            .supports_global_context
+        )
+          setContextMode("local");
         setSelectedAgentKey(nextAgentKey);
         storeAgentKey(nextAgentKey);
         if (hasActiveSession) {
@@ -1214,7 +1221,10 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
       ],
     );
 
-    const hasDiscussionAgent = primaryAgents.some((agent) => agent.key === "discuss");
+    const supportsGlobalScope = Boolean(
+      primaryAgents.find((agent) => agent.key === effectiveAgentKey)?.metadata
+        .supports_global_context,
+    );
     const handleStartDiscussion = useCallback(
       (nextContextMode: "global" | "local") => {
         backToTaskList();
@@ -1223,6 +1233,48 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
         storeAgentKey("discuss");
       },
       [backToTaskList],
+    );
+    const scopeChangeDisabled =
+      isViewingSubagent ||
+      isLoadingTask ||
+      isUpdatingScope ||
+      agentSidebar.isRunning ||
+      agentSidebar.isCompacting ||
+      Boolean(agentSidebar.pendingMessage) ||
+      agentSidebar.status === "waiting_answer" ||
+      agentSidebar.status === "waiting_approval";
+    const handleKnowledgeScopeChange = useCallback(
+      async (nextContextMode: "global" | "local") => {
+        if (scopeChangeDisabled || nextContextMode === contextMode) return;
+        if (hasActiveSession && contextMode === "global") return;
+        if (nextContextMode === "global" && !supportsGlobalScope) return;
+        setIsUpdatingScope(true);
+        try {
+          if (parentConversationSessionId) {
+            await updateAgentKnowledgeScope(
+              parentConversationSessionId,
+              nextContextMode,
+              effectiveAgentKey,
+            );
+          }
+          setContextMode(nextContextMode);
+        } catch (error) {
+          toast.error(
+            error instanceof Error ? error.message : t("assistant.knowledgeScopeUpdateFailed"),
+          );
+        } finally {
+          setIsUpdatingScope(false);
+        }
+      },
+      [
+        scopeChangeDisabled,
+        contextMode,
+        hasActiveSession,
+        supportsGlobalScope,
+        parentConversationSessionId,
+        effectiveAgentKey,
+        t,
+      ],
     );
 
     useEffect(() => {
@@ -1282,6 +1334,12 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
             (definition) =>
               !definition.metadata.workflow_only || definition.key === effectiveAgentKey,
           )
+          .filter(
+            (definition) =>
+              !hasActiveSession ||
+              contextMode !== "global" ||
+              definition.metadata.supports_global_context,
+          )
           .map((d) => ({
             value: d.key,
             label: d.display_name || d.key,
@@ -1295,7 +1353,7 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
               />
             ),
           })),
-      [effectiveAgentKey, primaryAgents],
+      [effectiveAgentKey, primaryAgents, hasActiveSession, contextMode],
     );
 
     const handleGoToSettings = useCallback(() => {
@@ -1441,27 +1499,36 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
               className="ai-sidebar-project-actions"
             >
               {!discussionWorkspace ? <PendingProjectChangesDialog projectId={projectId} /> : null}
-              {hasDiscussionAgent ? (
+              {primaryAgents.length > 0 ? (
                 <DropdownMenu.Root>
                   <DropdownMenu.Trigger>
                     <Button
                       size="1"
                       variant="soft"
                       color="purple"
+                      disabled={scopeChangeDisabled}
+                      aria-label={t("assistant.knowledgeScope")}
                     >
                       <MessageCircle size={14} />
                       {contextMode === "global"
-                        ? t("assistant.globalDiscussionStatus")
-                        : t("assistant.localDiscussionStatus")}
+                        ? t("assistant.globalKnowledge")
+                        : t("assistant.publicKnowledge")}
                       <ChevronDown size={13} />
                     </Button>
                   </DropdownMenu.Trigger>
                   <DropdownMenu.Content align="end">
-                    <DropdownMenu.Item onClick={() => handleStartDiscussion("global")}>
-                      {t("assistant.globalDiscussion")}
+                    <DropdownMenu.Label>{t("assistant.knowledgeScope")}</DropdownMenu.Label>
+                    <DropdownMenu.Item
+                      disabled={!supportsGlobalScope}
+                      onClick={() => void handleKnowledgeScopeChange("global")}
+                    >
+                      {t("assistant.globalKnowledge")}
                     </DropdownMenu.Item>
-                    <DropdownMenu.Item onClick={() => handleStartDiscussion("local")}>
-                      {t("assistant.localDiscussion")}
+                    <DropdownMenu.Item
+                      disabled={hasActiveSession && contextMode === "global"}
+                      onClick={() => void handleKnowledgeScopeChange("local")}
+                    >
+                      {t("assistant.publicKnowledge")}
                     </DropdownMenu.Item>
                   </DropdownMenu.Content>
                 </DropdownMenu.Root>
@@ -1525,7 +1592,7 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
                       >
                         {currentTaskTitle || t("assistant.taskFallbackTitle")}
                       </Text>
-                      {effectiveAgentKey === "discuss" ? (
+                      {supportsGlobalScope ? (
                         <Text
                           size="1"
                           color="gray"
@@ -1533,7 +1600,7 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
                         >
                           {contextMode === "global"
                             ? t("assistant.globalContextLocked")
-                            : t("assistant.localContextLocked")}
+                            : t("assistant.publicKnowledge")}
                         </Text>
                       ) : null}
                     </Flex>
@@ -1868,7 +1935,7 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
                 agentChangeDisabled={
                   isSendingMessage ||
                   Boolean(agentSidebar.pendingMessage) ||
-                  (hasActiveSession && contextMode === "global") ||
+                  isUpdatingScope ||
                   effectiveAgentKey === "draft"
                 }
                 onAgentChange={handleAgentChange}

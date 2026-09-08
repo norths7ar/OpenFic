@@ -7,6 +7,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from app.agent_runtime.context.knowledge_visibility import get_knowledge_scope, note_is_visible
 from app.agent_runtime.revisions import (
     current_revision_id_from_state,
     note_images_by_id,
@@ -21,6 +22,7 @@ from app.agent_runtime.tools.impls.note.refs import (
     resolve_category_from_list,
 )
 from app.agent_runtime.tools.registry import ToolRegistry
+from app.core.agent_visibility import AgentVisibility
 from app.core.editor_content_limits import EditorContentLimitError, validate_editor_content
 from app.storage.database import create_session
 from app.storage.models.note import Note
@@ -70,6 +72,9 @@ class WriteNoteTool(AgentTool):
             category_id = category.id
 
         notes = await note_repo.list_by_project(session, self.project_id, include_hidden=False)
+        notes = [
+            note for note in notes if note_is_visible(note, scope=get_knowledge_scope(self._state))
+        ]
         unique_title = generate_unique_title(
             title,
             {note.title for note in notes if note.category_id == category_id},
@@ -128,14 +133,19 @@ class WriteNoteTool(AgentTool):
                 category_id = cat.id
 
             async with await keyed_lock((self.project_id, category_id)):
-                notes = await note_repo.list_by_project(
-                    session, self.project_id, include_hidden=False
+                all_notes = await note_repo.list_by_project(
+                    session, self.project_id, include_hidden=True
                 )
+                notes = [
+                    note
+                    for note in all_notes
+                    if note_is_visible(note, scope=get_knowledge_scope(self._state))
+                ]
                 sibling_titles = {n.title for n in notes if n.category_id == category_id}
                 unique_title = generate_unique_title(title, sibling_titles)
                 next_order = (
                     max(
-                        (note.order for note in notes if note.category_id == category_id),
+                        (note.order for note in all_notes if note.category_id == category_id),
                         default=0,
                     )
                     + 1
@@ -151,8 +161,7 @@ class WriteNoteTool(AgentTool):
                     content=content,
                     order=next_order,
                     is_locked=False,
-                    is_hidden=False,
-                    is_writing_visible=True,
+                    agent_visibility=AgentVisibility.ALL,
                 )
                 note = await note_repo.create(session, note)
                 after = note_images_by_id(

@@ -187,14 +187,14 @@ async def test_list_characters_returns_project_character_names() -> None:
             name="林舟",
             description="主角",
             is_favorited=True,
-            is_writing_visible=True,
+            agent_visibility="all",
         ),
         SimpleNamespace(
             id="char-2",
             name="沈墨",
             description="反派",
             is_favorited=False,
-            is_writing_visible=True,
+            agent_visibility="all",
         ),
     ]
 
@@ -229,7 +229,7 @@ async def test_read_character_reads_description_by_name() -> None:
             name="林舟",
             description="主角\n旧友",
             is_favorited=True,
-            is_writing_visible=True,
+            agent_visibility="all",
         ),
     ]
 
@@ -395,7 +395,7 @@ async def test_edit_character_replaces_description_text() -> None:
         name="林舟",
         description="主角",
         is_favorited=False,
-        is_writing_visible=True,
+        agent_visibility="all",
     )
     updated_character = SimpleNamespace(
         id="char-1",
@@ -403,7 +403,7 @@ async def test_edit_character_replaces_description_text() -> None:
         name="林舟",
         description="主角与旧友",
         is_favorited=True,
-        is_writing_visible=True,
+        agent_visibility="all",
     )
 
     with (
@@ -463,7 +463,7 @@ async def test_edit_character_rejects_over_limit_replacement_without_updating() 
         name="林舟",
         description="旧内容",
         is_favorited=False,
-        is_writing_visible=True,
+        agent_visibility="all",
     )
 
     with (
@@ -502,7 +502,7 @@ async def test_delete_character_removes_name() -> None:
         name="林舟",
         description="主角",
         is_favorited=False,
-        is_writing_visible=True,
+        agent_visibility="all",
     )
 
     with (
@@ -539,8 +539,12 @@ async def test_list_world_entries_returns_enabled_entry_titles() -> None:
 
     tool = ListWorldEntriesTool(_state=_make_state())
     entries = [
-        SimpleNamespace(id="e1", name="主角", uid=1, order=1, content="林舟"),
-        SimpleNamespace(id="e2", name="势力", uid=2, order=2, content="青岚会"),
+        SimpleNamespace(
+            agent_visibility="all", id="e1", name="主角", uid=1, order=1, content="林舟"
+        ),
+        SimpleNamespace(
+            agent_visibility="all", id="e2", name="势力", uid=2, order=2, content="青岚会"
+        ),
     ]
 
     with (
@@ -554,7 +558,9 @@ async def test_list_world_entries_returns_enabled_entry_titles() -> None:
     ):
         mock_session = AsyncMock()
         mock_cs.return_value = mock_session
-        mock_world_repo.get_by_project_id = AsyncMock(return_value=SimpleNamespace(id="world-1"))
+        mock_world_repo.get_by_project_id = AsyncMock(
+            return_value=SimpleNamespace(agent_visibility="all", id="world-1")
+        )
         mock_entry_repo.list_enabled_by_world_info = AsyncMock(return_value=entries)
 
         result = await tool.ainvoke({})
@@ -573,7 +579,9 @@ async def test_read_world_entry_reads_content_by_title() -> None:
 
     tool = ReadWorldEntryTool(_state=_make_state())
     entries = [
-        SimpleNamespace(id="e1", name="主角", uid=1, order=1, content="林舟\n旧友"),
+        SimpleNamespace(
+            agent_visibility="all", id="e1", name="主角", uid=1, order=1, content="林舟\n旧友"
+        ),
     ]
 
     with (
@@ -587,7 +595,9 @@ async def test_read_world_entry_reads_content_by_title() -> None:
     ):
         mock_session = AsyncMock()
         mock_cs.return_value = mock_session
-        mock_world_repo.get_by_project_id = AsyncMock(return_value=SimpleNamespace(id="world-1"))
+        mock_world_repo.get_by_project_id = AsyncMock(
+            return_value=SimpleNamespace(agent_visibility="all", id="world-1")
+        )
         mock_entry_repo.list_enabled_by_world_info = AsyncMock(return_value=entries)
 
         result = await tool.ainvoke({"title": "主角"})
@@ -608,6 +618,7 @@ async def test_read_world_entry_prefers_visible_entry_id() -> None:
     tool = ReadWorldEntryTool(_state=_make_state())
     entries = [
         SimpleNamespace(
+            agent_visibility="all",
             id="e1",
             name="经脉回路投影（视觉化“变强”）",
             uid=1,
@@ -626,7 +637,9 @@ async def test_read_world_entry_prefers_visible_entry_id() -> None:
     ):
         mock_session = AsyncMock()
         mock_cs.return_value = mock_session
-        mock_world_repo.get_by_project_id = AsyncMock(return_value=SimpleNamespace(id="world-1"))
+        mock_world_repo.get_by_project_id = AsyncMock(
+            return_value=SimpleNamespace(agent_visibility="all", id="world-1")
+        )
         mock_entry_repo.list_enabled_by_world_info = AsyncMock(return_value=entries)
 
         result = await tool.ainvoke({"entry_id": "e1"})
@@ -641,6 +654,7 @@ async def test_read_world_entry_normalizes_quote_punctuation_in_legacy_title() -
     tool = ReadWorldEntryTool(_state=_make_state())
     entries = [
         SimpleNamespace(
+            agent_visibility="all",
             id="e1",
             name="经脉回路投影（视觉化“变强”）",
             uid=1,
@@ -659,7 +673,9 @@ async def test_read_world_entry_normalizes_quote_punctuation_in_legacy_title() -
     ):
         mock_session = AsyncMock()
         mock_cs.return_value = mock_session
-        mock_world_repo.get_by_project_id = AsyncMock(return_value=SimpleNamespace(id="world-1"))
+        mock_world_repo.get_by_project_id = AsyncMock(
+            return_value=SimpleNamespace(agent_visibility="all", id="world-1")
+        )
         mock_entry_repo.list_enabled_by_world_info = AsyncMock(return_value=entries)
 
         result = await tool.ainvoke({"title": '经脉回路投影（视觉化"变强"）'})
@@ -673,8 +689,8 @@ async def test_read_world_entry_rejects_duplicate_titles() -> None:
 
     tool = ReadWorldEntryTool(_state=_make_state())
     entries = [
-        SimpleNamespace(id="e1", name="主角", uid=1, order=1, content="一"),
-        SimpleNamespace(id="e2", name="主角", uid=2, order=2, content="二"),
+        SimpleNamespace(agent_visibility="all", id="e1", name="主角", uid=1, order=1, content="一"),
+        SimpleNamespace(agent_visibility="all", id="e2", name="主角", uid=2, order=2, content="二"),
     ]
 
     with (
@@ -688,7 +704,9 @@ async def test_read_world_entry_rejects_duplicate_titles() -> None:
     ):
         mock_session = AsyncMock()
         mock_cs.return_value = mock_session
-        mock_world_repo.get_by_project_id = AsyncMock(return_value=SimpleNamespace(id="world-1"))
+        mock_world_repo.get_by_project_id = AsyncMock(
+            return_value=SimpleNamespace(agent_visibility="all", id="world-1")
+        )
         mock_entry_repo.list_enabled_by_world_info = AsyncMock(return_value=entries)
 
         result = await tool.ainvoke({"title": "主角"})
@@ -758,7 +776,9 @@ async def test_read_world_entry_duplicate_title_ignores_disabled_entry() -> None
 
     tool = ReadWorldEntryTool(_state=_make_state())
     entries = [
-        SimpleNamespace(id="e1", name="主角", uid=1, order=1, content="启用", is_enabled=True),
+        SimpleNamespace(
+            id="e1", name="主角", uid=1, order=1, content="启用", agent_visibility="all"
+        ),
     ]
     with (
         patch("app.agent_runtime.tools.impls.context.world_entry.create_session") as mock_cs,
@@ -792,7 +812,7 @@ async def test_create_world_entry_returns_diff() -> None:
         order=1,
         content="林舟",
         token_count=2,
-        is_enabled=True,
+        agent_visibility="all",
     )
 
     with (
@@ -868,7 +888,7 @@ async def test_create_world_entry_serializes_parallel_creates_per_world() -> Non
         order=1,
         content="林舟",
         token_count=2,
-        is_enabled=True,
+        agent_visibility="all",
     )
     we_name = "app.agent_runtime.tools.impls.context.world_entry"
     with (
@@ -971,7 +991,7 @@ async def test_edit_world_entry_returns_diff() -> None:
         order=1,
         content="林舟",
         token_count=2,
-        is_enabled=True,
+        agent_visibility="all",
     )
     updated_entry = SimpleNamespace(
         id="e1",
@@ -981,7 +1001,7 @@ async def test_edit_world_entry_returns_diff() -> None:
         order=1,
         content="林舟与旧友",
         token_count=2,
-        is_enabled=True,
+        agent_visibility="all",
     )
 
     with (
@@ -1048,7 +1068,7 @@ async def test_edit_world_entry_rejects_over_limit_replacement_without_updating(
         order=1,
         content="旧内容",
         token_count=2,
-        is_enabled=True,
+        agent_visibility="all",
     )
 
     with (
@@ -1086,8 +1106,12 @@ async def test_edit_world_entry_rejects_duplicate_new_title() -> None:
 
     tool = EditWorldEntryTool(_state={**_make_state(), "current_revision_id": "rev-1"})
     entries = [
-        SimpleNamespace(id="e1", name="主角", uid=1, order=1, content="林舟", is_enabled=True),
-        SimpleNamespace(id="e2", name="反派", uid=2, order=2, content="沈墨", is_enabled=True),
+        SimpleNamespace(
+            id="e1", name="主角", uid=1, order=1, content="林舟", agent_visibility="all"
+        ),
+        SimpleNamespace(
+            id="e2", name="反派", uid=2, order=2, content="沈墨", agent_visibility="all"
+        ),
     ]
 
     with (
@@ -1124,7 +1148,7 @@ async def test_delete_world_entry_removes_title() -> None:
         order=1,
         content="林舟",
         token_count=2,
-        is_enabled=True,
+        agent_visibility="all",
     )
 
     with (
@@ -1158,3 +1182,30 @@ async def test_delete_world_entry_removes_title() -> None:
     assert data["metadata"]["world_entry_diff"]["operation"] == "delete"
     assert data["metadata"]["world_entry_diff"]["entry_id"] == "e1"
     assert data["metadata"]["world_entry_diff"]["entry_title"] == "主角"
+
+
+@pytest.mark.asyncio
+async def test_global_world_list_does_not_reveal_hidden_entries() -> None:
+    from app.agent_runtime.tools.impls.context.world_entry import ListWorldEntriesTool
+
+    tool = ListWorldEntriesTool(_state={**_make_state(), "context_mode": "global"})
+    entries = [
+        SimpleNamespace(id=value, name=value, uid=index, order=index, agent_visibility=value)
+        for index, value in enumerate(("all", "global", "none"))
+    ]
+    with (
+        patch(
+            "app.agent_runtime.tools.impls.context.world_entry.create_session",
+            return_value=AsyncMock(),
+        ),
+        patch(
+            "app.agent_runtime.tools.impls.context.world_entry.world_info_repo.get_by_project_id",
+            AsyncMock(return_value=SimpleNamespace(id="world-1")),
+        ),
+        patch(
+            "app.agent_runtime.tools.impls.context.world_entry.world_info_entry_repo.list_all_by_world_info",
+            AsyncMock(return_value=entries),
+        ),
+    ):
+        payload = json.loads(await tool.ainvoke({}))
+    assert [entry["id"] for entry in payload["entries"]] == ["all", "global"]

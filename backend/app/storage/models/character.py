@@ -2,12 +2,13 @@
 
 from datetime import UTC, datetime
 
-from sqlmodel import Field, SQLModel
+from sqlmodel import Field
 
 from app.core.ids import generate_id
+from app.storage.models.agent_visibility import AgentVisibilityModel
 
 
-class Character(SQLModel, table=True):
+class Character(AgentVisibilityModel, table=True):
     """项目角色模型。"""
 
     __tablename__ = "characters"
@@ -20,6 +21,5 @@ class Character(SQLModel, table=True):
     image_path: str | None = Field(default=None)
     is_favorited: bool = Field(default=False, index=True)
     order: int = Field(default=0, index=True)
-    is_writing_visible: bool = Field(default=True, index=True)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC), index=True)

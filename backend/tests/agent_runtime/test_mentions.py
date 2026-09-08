@@ -208,7 +208,7 @@ async def test_compile_canonical_mentions_redacts_unavailable_compact_entries(
         id="note_mentions_hidden",
         project_id=project.id,
         title="不应读取的隐藏笔记",
-        is_hidden=True,
+        agent_visibility="none",
     )
     world_info = WorldInfo(
         id="wi_mentions_scope",
@@ -221,7 +221,7 @@ async def test_compile_canonical_mentions_redacts_unavailable_compact_entries(
         uid=1,
         name="不应读取的禁用条目",
         order=1,
-        is_enabled=False,
+        agent_visibility="global",
     )
     foreign_character = Character(
         id="char_mentions_foreign",

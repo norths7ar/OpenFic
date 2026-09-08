@@ -1,11 +1,13 @@
-from typing import Any, Literal, NotRequired, TypedDict
+from typing import Any, NotRequired, TypedDict
+
+from app.core.knowledge_scope import KnowledgeScope
 
 
 class AgentRuntimeState(TypedDict):
     session_id: str
     task_id: str
     project_id: str
-    context_mode: Literal["global", "local"]
+    context_mode: KnowledgeScope
     model_config: dict
     active_agent: str | None
     agent_key: str

@@ -6,7 +6,7 @@ from typing import Any
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.agent_runtime.context.knowledge_visibility import (
-    includes_all_knowledge,
+    get_knowledge_scope,
     world_entry_is_visible,
 )
 from app.agent_runtime.revisions import (
@@ -19,10 +19,12 @@ from app.agent_runtime.tools.errors import ToolExecutionError
 from app.agent_runtime.tools.impls._locks import keyed_lock
 from app.agent_runtime.tools.registry import ToolRegistry
 from app.agent_runtime.tools.text_match import fuzzy_replace
+from app.core.agent_visibility import AgentVisibility
 from app.core.editor_content_limits import (
     EditorContentLimitError,
     validate_editor_content,
 )
+from app.core.knowledge_scope import KnowledgeScope
 from app.storage.database import create_session
 from app.storage.models.world_info_entry import WorldInfoEntry
 from app.storage.repos import world_info_entry_repo, world_info_repo
@@ -91,7 +93,7 @@ class WorldEntryPreview:
     order: int
     content: str
     token_count: int
-    is_enabled: bool
+    agent_visibility: AgentVisibility
 
 
 def _preview_from_entry(entry: WorldInfoEntry) -> WorldEntryPreview:
@@ -102,7 +104,7 @@ def _preview_from_entry(entry: WorldInfoEntry) -> WorldEntryPreview:
         order=entry.order,
         content=entry.content,
         token_count=getattr(entry, "token_count", 0),
-        is_enabled=getattr(entry, "is_enabled", True),
+        agent_visibility=getattr(entry, "agent_visibility", AgentVisibility.ALL),
     )
 
 
@@ -193,17 +195,19 @@ async def _resolve_visible_entry(
     *,
     entry_id: str | None = None,
     title: str | None = None,
-    include_all: bool = False,
+    scope: KnowledgeScope = KnowledgeScope.LOCAL,
 ) -> WorldInfoEntry:
     """Resolve an entry without crossing the immutable session visibility boundary."""
     entries = (
         await world_info_entry_repo.list_all_by_world_info(session, world_info_id)
-        if include_all
+        if scope == KnowledgeScope.GLOBAL
         else await world_info_entry_repo.list_enabled_by_world_info(
             session,
             world_info_id,
         )
     )
+
+    entries = [entry for entry in entries if world_entry_is_visible(entry, scope=scope)]
 
     normalized_id = entry_id.strip() if entry_id else ""
     if normalized_id:
@@ -230,14 +234,14 @@ async def _resolve_enabled_entry_by_title(
     world_info_id: str,
     title: str,
     *,
-    include_all: bool = False,
+    scope: KnowledgeScope = KnowledgeScope.LOCAL,
 ) -> WorldInfoEntry:
     """Backward-compatible title lookup for boundary tests and legacy callers."""
     return await _resolve_visible_entry(
         session,
         world_info_id,
         title=title,
-        include_all=include_all,
+        scope=scope,
     )
 
 
@@ -246,7 +250,7 @@ async def _resolve_writable_entry_by_title(
     world_info_id: str,
     title: str,
     *,
-    include_all: bool,
+    scope: KnowledgeScope,
 ) -> WorldInfoEntry:
     normalized_title = title.strip()
     if not normalized_title:
@@ -255,7 +259,7 @@ async def _resolve_writable_entry_by_title(
     matches = [
         entry
         for entry in entries
-        if entry.name == normalized_title and world_entry_is_visible(entry, include_all=include_all)
+        if entry.name == normalized_title and world_entry_is_visible(entry, scope=scope)
     ]
     if not matches:
         raise ToolExecutionError(f"世界书条目不存在: {normalized_title}")
@@ -297,18 +301,19 @@ class ListWorldEntriesTool(AgentTool):
         session = await create_session()
         try:
             world_info = await _get_project_world_info(session, self.project_id)
-            include_all = includes_all_knowledge(self._state)
+            scope = get_knowledge_scope(self._state)
             entries = (
                 await world_info_entry_repo.list_all_by_world_info(
                     session,
                     world_info.id,
                 )
-                if include_all
+                if scope == KnowledgeScope.GLOBAL
                 else await world_info_entry_repo.list_enabled_by_world_info(
                     session,
                     world_info.id,
                 )
             )
+            entries = [entry for entry in entries if world_entry_is_visible(entry, scope=scope)]
             return json.dumps(
                 {
                     "entries": [
@@ -347,7 +352,7 @@ class ReadWorldEntryTool(AgentTool):
                 world_info.id,
                 entry_id=entry_id,
                 title=title,
-                include_all=includes_all_knowledge(self._state),
+                scope=get_knowledge_scope(self._state),
             )
             return json.dumps(
                 {
@@ -392,7 +397,7 @@ class CreateWorldEntryTool(AgentTool):
             order=0,
             content=content,
             token_count=0,
-            is_enabled=True,
+            agent_visibility=AgentVisibility.ALL,
         )
         return {
             "type": "preview",
@@ -418,7 +423,7 @@ class CreateWorldEntryTool(AgentTool):
                     world_info.id,
                     name=normalized_title,
                     content=content,
-                    is_enabled=True,
+                    agent_visibility=AgentVisibility.ALL,
                 )
                 await record_world_entry_diffs(
                     session,
@@ -475,7 +480,7 @@ class EditWorldEntryTool(AgentTool):
                 session,
                 world_info.id,
                 title,
-                include_all=includes_all_knowledge(self._state),
+                scope=get_knowledge_scope(self._state),
             )
             before = _preview_from_entry(entry)
             content = before.content
@@ -509,7 +514,7 @@ class EditWorldEntryTool(AgentTool):
             order=before.order,
             content=content,
             token_count=before.token_count,
-            is_enabled=before.is_enabled,
+            agent_visibility=before.agent_visibility,
         )
         return {
             "type": "preview",
@@ -535,7 +540,7 @@ class EditWorldEntryTool(AgentTool):
                 session,
                 world_info.id,
                 title,
-                include_all=includes_all_knowledge(self._state),
+                scope=get_knowledge_scope(self._state),
             )
             before = _preview_from_entry(entry)
             content = entry.content
@@ -609,7 +614,7 @@ class DeleteWorldEntryTool(AgentTool):
                 session,
                 world_info.id,
                 title,
-                include_all=includes_all_knowledge(self._state),
+                scope=get_knowledge_scope(self._state),
             )
             before = _preview_from_entry(entry)
             before_images = world_entry_images_by_id([entry], project_id=self.project_id)

@@ -137,7 +137,7 @@ async def export_project_bundle(session: AsyncSession, project_id: str) -> bytes
             "uid": entry.uid,
             "section": entry.section,
             "order": entry.order,
-            "writing_visible": entry.is_enabled,
+            "agent_visibility": entry.agent_visibility,
             "folder_id": entry.folder_id,
         }
         path = (
@@ -168,7 +168,7 @@ async def export_project_bundle(session: AsyncSession, project_id: str) -> bytes
             "id": character.id,
             "project_id": project_id,
             "order": character.order,
-            "writing_visible": character.is_writing_visible,
+            "agent_visibility": character.agent_visibility,
             "is_favorited": character.is_favorited,
             "folder_id": character.folder_id,
         }
@@ -204,9 +204,8 @@ async def export_project_bundle(session: AsyncSession, project_id: str) -> bytes
             "category_id": note.category_id,
             "document_type": note.document_type,
             "order": note.order,
-            "writing_visible": note.is_writing_visible,
+            "agent_visibility": note.agent_visibility,
             "is_locked": note.is_locked,
-            "is_hidden": note.is_hidden,
         }
         if note.category_id is not None and note.category_id not in category_paths:
             raise BundleFormatError("note category is missing or cross-project")

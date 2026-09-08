@@ -90,14 +90,13 @@ async def test_document_folder_preserves_content_and_visibility(
     )
     assert response.status_code == 201, response.text
     note = response.json()
-    for hidden, writing_visible in [(False, True), (False, False), (True, False)]:
+    for visibility in ("all", "global", "none"):
         updated = await client.patch(
             f"/api/v1/notes/{note['id']}",
-            json={"is_hidden": hidden, "is_writing_visible": writing_visible},
+            json={"agent_visibility": visibility},
         )
         assert updated.status_code == 200
-        assert updated.json()["is_hidden"] is hidden
-        assert updated.json()["is_writing_visible"] is writing_visible
+        assert updated.json()["agent_visibility"] == visibility
     listing = await client.get(
         f"/api/v1/projects/{project_id}/notes", params={"document_type": scope}
     )
@@ -107,7 +106,7 @@ async def test_document_folder_preserves_content_and_visibility(
     restored = (await client.get(f"/api/v1/notes/{note['id']}")).json()
     assert restored["category_id"] is None
     assert restored["content"] == note["content"]
-    assert restored["is_hidden"] is True
+    assert restored["agent_visibility"] == "none"
 
 
 @pytest.mark.asyncio

@@ -46,7 +46,7 @@ import {
   fetchWorldInfoEntries,
   fetchWorldInfoEntry,
   moveWorldInfoEntry,
-  toggleWorldInfoEntry,
+  updateWorldInfoEntry,
 } from "../lib/world-info-api";
 import { useWorldInfoStore } from "../store/use-world-info-store";
 import {
@@ -243,7 +243,7 @@ export function WorldInfoPage() {
       section: entry.section,
       order: entry.order,
       tokenCount: entry.tokenCount,
-      isEnabled: entry.isEnabled,
+      agentVisibility: entry.agentVisibility,
       createdAt: entry.createdAt,
       updatedAt: entry.updatedAt,
     }),
@@ -330,10 +330,11 @@ export function WorldInfoPage() {
 
   // 切换条目启用状态
   const toggleEntryMutation = useMutation({
-    mutationFn: (entryId: string) => toggleWorldInfoEntry(entryId),
+    mutationFn: ({ entryId, agentVisibility }: { entryId: string; agentVisibility: string }) =>
+      updateWorldInfoEntry(entryId, { agentVisibility }),
     mutationKey: ["world-info-entry-toggle", currentWorldInfoId],
     scope: { id: `world-info-entry-state-${currentWorldInfoId ?? ""}` },
-    onMutate: async (entryId) => {
+    onMutate: async ({ entryId, agentVisibility }) => {
       const queryKey = projectDataQueryKeys.worldInfo.entries(currentWorldInfoId);
       await queryClient.cancelQueries({ queryKey });
       const previousEntries = queryClient.getQueryData<WorldInfoEntryBriefListResponse>(queryKey);
@@ -341,7 +342,7 @@ export function WorldInfoPage() {
       queryClient.setQueryData(queryKey, (data: WorldInfoEntryBriefListResponse | undefined) =>
         updateWorldInfoEntryBrief(data, entryId, (entry) => ({
           ...entry,
-          isEnabled: !entry.isEnabled,
+          agentVisibility,
         })),
       );
 
@@ -418,8 +419,8 @@ export function WorldInfoPage() {
 
   /** 处理切换条目启用状态 */
   const handleToggleEntry = useCallback(
-    (entryId: string) => {
-      toggleEntryMutation.mutate(entryId);
+    (entryId: string, agentVisibility: string) => {
+      toggleEntryMutation.mutate({ entryId, agentVisibility });
     },
     [toggleEntryMutation],
   );
@@ -535,17 +536,17 @@ export function WorldInfoPage() {
   );
 
   const batchToggleMutation = useMutation({
-    mutationFn: ({ entryIds, isEnabled }: { entryIds: string[]; isEnabled: boolean }) =>
-      batchToggleWorldInfoEntries(currentWorldInfoId!, entryIds, isEnabled),
+    mutationFn: ({ entryIds, agentVisibility }: { entryIds: string[]; agentVisibility: string }) =>
+      batchToggleWorldInfoEntries(currentWorldInfoId!, entryIds, agentVisibility),
     mutationKey: ["world-info-entry-batch-toggle", currentWorldInfoId],
     scope: { id: `world-info-entry-state-${currentWorldInfoId ?? ""}` },
-    onMutate: async ({ entryIds, isEnabled }) => {
+    onMutate: async ({ entryIds, agentVisibility }) => {
       const queryKey = projectDataQueryKeys.worldInfo.entries(currentWorldInfoId);
       await queryClient.cancelQueries({ queryKey });
       const previousEntries = queryClient.getQueryData<WorldInfoEntryBriefListResponse>(queryKey);
 
       queryClient.setQueryData(queryKey, (data: WorldInfoEntryBriefListResponse | undefined) =>
-        updateWorldInfoEntryBriefs(data, entryIds, (entry) => ({ ...entry, isEnabled })),
+        updateWorldInfoEntryBriefs(data, entryIds, (entry) => ({ ...entry, agentVisibility })),
       );
 
       return { previousEntries, queryKey };
@@ -565,9 +566,9 @@ export function WorldInfoPage() {
 
   /** 批量切换条目开关 */
   const handleBatchToggle = useCallback(
-    (entryIds: string[], isEnabled: boolean) => {
+    (entryIds: string[], agentVisibility: string) => {
       if (!currentWorldInfoId) return;
-      batchToggleMutation.mutate({ entryIds, isEnabled });
+      batchToggleMutation.mutate({ entryIds, agentVisibility });
     },
     [batchToggleMutation, currentWorldInfoId],
   );

@@ -3,12 +3,12 @@ Agent API Schemas。
 """
 
 from datetime import datetime
-from typing import Literal
 
 from pydantic import BaseModel, Field
 
 from app.agent_runtime.types import DEFAULT_AGENT_MAX_ITERATIONS
 from app.api.schemas.task import TaskMessage
+from app.core.knowledge_scope import KnowledgeScope
 from app.models.clients.model_params import ReasoningEffort
 
 
@@ -31,7 +31,7 @@ class AgentSessionCreateRequest(BaseModel):
         default=None,
         description="当前会话推理强度，仅 reasoning 模型可用",
     )
-    context_mode: Literal["global", "local"] = Field(default="local")
+    context_mode: KnowledgeScope = Field(default=KnowledgeScope.LOCAL)
 
     model_config = {"extra": "forbid"}
 
@@ -47,7 +47,18 @@ class AgentSessionCreateResponse(BaseModel):
     task_created_at: str = Field(..., description="任务创建时间")
     task_updated_at: str = Field(..., description="任务更新时间")
     agent_key: str = Field(..., description="当前会话使用的主智能体标识")
-    context_mode: Literal["global", "local"] = Field(default="local")
+    context_mode: KnowledgeScope = Field(default=KnowledgeScope.LOCAL)
+
+
+class AgentKnowledgeScopeRequest(BaseModel):
+    context_mode: KnowledgeScope
+    agent_key: str | None = None
+
+    model_config = {"extra": "forbid"}
+
+
+class AgentKnowledgeScopeResponse(BaseModel):
+    context_mode: KnowledgeScope
 
 
 class AgentAttachmentResponse(BaseModel):

@@ -789,7 +789,7 @@ export function useAgentSession({
           ...(reasoningEffort ? { reasoning_effort: reasoningEffort } : {}),
           max_iterations: maxIterations,
           ...(agentKey ? { agent_key: agentKey } : {}),
-          context_mode: agentKey === "discuss" || agentKey === "draft" ? contextMode : "local",
+          context_mode: agentKey === "build" ? "local" : contextMode,
         });
 
         if (projectIdRef.current !== projectId) return;

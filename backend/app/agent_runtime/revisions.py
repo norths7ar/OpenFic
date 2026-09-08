@@ -14,6 +14,7 @@ from app.agent_runtime.persistence import compaction_repo
 from app.agent_runtime.persistence import repo as message_repo
 from app.agent_runtime.persistence.child_runs import rollback_child_runs_for_parent_revisions
 from app.agent_runtime.persistence.model import AgentRunMessage
+from app.core.agent_visibility import AgentVisibility
 from app.core.editor_content_limits import validate_editor_content
 from app.core.errors import NotFoundError
 from app.storage.models.chapter import Chapter
@@ -71,9 +72,8 @@ class NoteImage:
     title: str
     content: str
     is_locked: bool
-    is_hidden: bool
     order: int
-    is_writing_visible: bool
+    agent_visibility: AgentVisibility
     document_type: str = "note"
 
 
@@ -99,7 +99,7 @@ class WorldEntryImage:
     order: int
     content: str
     token_count: int
-    is_enabled: bool
+    agent_visibility: AgentVisibility
     section: str = ""
 
 
@@ -111,7 +111,7 @@ class CharacterImage:
     description: str
     is_favorited: bool
     order: int
-    is_writing_visible: bool
+    agent_visibility: AgentVisibility
 
 
 @dataclass(frozen=True)
@@ -382,9 +382,8 @@ def _image_from_note(note: Note) -> NoteImage:
         title=note.title,
         content=note.content,
         is_locked=note.is_locked,
-        is_hidden=note.is_hidden,
         order=getattr(note, "order", 0),
-        is_writing_visible=getattr(note, "is_writing_visible", True),
+        agent_visibility=getattr(note, "agent_visibility", AgentVisibility.ALL),
     )
 
 
@@ -399,11 +398,8 @@ def _image_from_note_snapshot(snapshot: RevisionNoteSnapshot) -> NoteImage | Non
         title=snapshot.title or "",
         content=snapshot.content or "",
         is_locked=snapshot.is_locked or False,
-        is_hidden=snapshot.is_hidden or False,
         order=snapshot.note_order or 0,
-        is_writing_visible=(
-            snapshot.is_writing_visible if snapshot.is_writing_visible is not None else True
-        ),
+        agent_visibility=(snapshot.agent_visibility or AgentVisibility.ALL),
     )
 
 
@@ -433,9 +429,8 @@ async def _snapshot_from_note_image(
         content=content,
         content_blob_id=content_blob_id,
         is_locked=image.is_locked,
-        is_hidden=image.is_hidden,
         note_order=image.order,
-        is_writing_visible=image.is_writing_visible,
+        agent_visibility=image.agent_visibility,
     )
 
 
@@ -448,9 +443,8 @@ def _note_has_changed(before: NoteImage | None, after: NoteImage | None) -> bool
         or before.category_id != after.category_id
         or before.document_type != after.document_type
         or before.is_locked != after.is_locked
-        or before.is_hidden != after.is_hidden
         or before.order != after.order
-        or before.is_writing_visible != after.is_writing_visible
+        or before.agent_visibility != after.agent_visibility
     )
 
 
@@ -597,7 +591,7 @@ def _image_from_world_entry(entry: WorldInfoEntry, project_id: str) -> WorldEntr
         order=entry.order,
         content=entry.content,
         token_count=entry.token_count,
-        is_enabled=entry.is_enabled,
+        agent_visibility=entry.agent_visibility,
     )
 
 
@@ -616,7 +610,7 @@ def _image_from_world_entry_snapshot(
         order=snapshot.entry_order or 1,
         content=snapshot.content or "",
         token_count=snapshot.token_count or 0,
-        is_enabled=snapshot.is_enabled if snapshot.is_enabled is not None else True,
+        agent_visibility=snapshot.agent_visibility or AgentVisibility.ALL,
     )
 
 
@@ -648,7 +642,7 @@ async def _snapshot_from_world_entry_image(
         content=content,
         content_blob_id=content_blob_id,
         token_count=image.token_count,
-        is_enabled=image.is_enabled,
+        agent_visibility=image.agent_visibility,
     )
 
 
@@ -666,7 +660,7 @@ def _world_entry_has_changed(
         or before.order != after.order
         or before.content != after.content
         or before.token_count != after.token_count
-        or before.is_enabled != after.is_enabled
+        or before.agent_visibility != after.agent_visibility
     )
 
 
@@ -716,7 +710,7 @@ def _image_from_character(character: Character) -> CharacterImage:
         description=character.description,
         is_favorited=character.is_favorited,
         order=getattr(character, "order", 0),
-        is_writing_visible=getattr(character, "is_writing_visible", True),
+        agent_visibility=getattr(character, "agent_visibility", AgentVisibility.ALL),
     )
 
 
@@ -732,9 +726,7 @@ def _image_from_character_snapshot(
         description=snapshot.description or "",
         is_favorited=snapshot.is_favorited if snapshot.is_favorited is not None else False,
         order=snapshot.character_order or 0,
-        is_writing_visible=(
-            snapshot.is_writing_visible if snapshot.is_writing_visible is not None else True
-        ),
+        agent_visibility=(snapshot.agent_visibility or AgentVisibility.ALL),
     )
 
 
@@ -763,7 +755,7 @@ async def _snapshot_from_character_image(
         description_blob_id=description_blob_id,
         is_favorited=image.is_favorited,
         character_order=image.order,
-        is_writing_visible=image.is_writing_visible,
+        agent_visibility=image.agent_visibility,
     )
 
 
@@ -778,7 +770,7 @@ def _character_has_changed(
         or before.description != after.description
         or before.is_favorited != after.is_favorited
         or before.order != after.order
-        or before.is_writing_visible != after.is_writing_visible
+        or before.agent_visibility != after.agent_visibility
     )
 
 
@@ -1121,8 +1113,7 @@ async def rollback_revision_for_session(
                     content=after_note_image.content,
                     order=after_note_image.order,
                     is_locked=after_note_image.is_locked,
-                    is_hidden=after_note_image.is_hidden,
-                    is_writing_visible=after_note_image.is_writing_visible,
+                    agent_visibility=after_note_image.agent_visibility,
                 ),
             )
         else:
@@ -1135,8 +1126,7 @@ async def rollback_revision_for_session(
             current_note.content = after_note_image.content
             current_note.order = after_note_image.order
             current_note.is_locked = after_note_image.is_locked
-            current_note.is_hidden = after_note_image.is_hidden
-            current_note.is_writing_visible = after_note_image.is_writing_visible
+            current_note.agent_visibility = after_note_image.agent_visibility
             current_note.updated_at = datetime.now(UTC)
             await note_repo.update_note(session, current_note)
 
@@ -1162,7 +1152,7 @@ async def rollback_revision_for_session(
                     order=after_entry_image.order,
                     content=after_entry_image.content,
                     token_count=after_entry_image.token_count,
-                    is_enabled=after_entry_image.is_enabled,
+                    agent_visibility=after_entry_image.agent_visibility,
                 ),
             )
         else:
@@ -1173,7 +1163,7 @@ async def rollback_revision_for_session(
             current_entry.order = after_entry_image.order
             current_entry.content = after_entry_image.content
             current_entry.token_count = after_entry_image.token_count
-            current_entry.is_enabled = after_entry_image.is_enabled
+            current_entry.agent_visibility = after_entry_image.agent_visibility
             current_entry.updated_at = datetime.now(UTC)
             await world_info_entry_repo.update_entry(session, current_entry)
 
@@ -1197,7 +1187,7 @@ async def rollback_revision_for_session(
                     description=after_character_image.description,
                     is_favorited=after_character_image.is_favorited,
                     order=after_character_image.order,
-                    is_writing_visible=after_character_image.is_writing_visible,
+                    agent_visibility=after_character_image.agent_visibility,
                 ),
             )
         else:
@@ -1205,7 +1195,7 @@ async def rollback_revision_for_session(
             current_character.description = after_character_image.description
             current_character.is_favorited = after_character_image.is_favorited
             current_character.order = after_character_image.order
-            current_character.is_writing_visible = after_character_image.is_writing_visible
+            current_character.agent_visibility = after_character_image.agent_visibility
             current_character.updated_at = datetime.now(UTC)
             await character_repo.update(session, current_character)
 

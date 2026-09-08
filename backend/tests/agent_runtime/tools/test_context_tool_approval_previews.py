@@ -29,7 +29,7 @@ def _make_world_entry(
     entry.order = 1
     entry.content = content
     entry.token_count = 0
-    entry.is_enabled = True
+    entry.agent_visibility = "all"
     return entry
 
 
@@ -43,6 +43,7 @@ def _make_character(
     character.id = character_id
     character.name = name
     character.description = description
+    character.agent_visibility = "all"
     return character
 
 

@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 from fastapi import UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.agent_visibility import AgentVisibility, validate_agent_visibility
 from app.core.editor_content_limits import validate_editor_content
 from app.core.errors import ConflictError, NotFoundError
 from app.core.storage import delete_character_image, save_character_image
@@ -85,7 +86,7 @@ async def create_character(
             name=resolved_name,
             description=description,
             order=next_order,
-            is_writing_visible=True,
+            agent_visibility=AgentVisibility.ALL,
         ),
     )
     if image_file is not None:
@@ -187,7 +188,7 @@ async def update_character(
     name: str | None = None,
     description: str | None = None,
     is_favorited: bool | None = None,
-    is_writing_visible: bool | None = None,
+    agent_visibility: AgentVisibility | None = None,
     image_file: UploadFile | None = None,
 ) -> Character:
     """更新角色。"""
@@ -206,8 +207,8 @@ async def update_character(
         character.description = description
     if is_favorited is not None:
         character.is_favorited = is_favorited
-    if is_writing_visible is not None:
-        character.is_writing_visible = is_writing_visible
+    if agent_visibility is not None:
+        character.agent_visibility = validate_agent_visibility(agent_visibility)
     if image_file is not None:
         character.image_path = await save_character_image(character.id, image_file)
     character.updated_at = datetime.now(UTC)

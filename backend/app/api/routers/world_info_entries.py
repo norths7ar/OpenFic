@@ -27,6 +27,7 @@ from app.api.schemas.world_info import (
     WorldInfoImportPreviewEntry,
     WorldInfoImportPreviewResponse,
 )
+from app.core.agent_visibility import AgentVisibility
 from app.core.errors import NotFoundError
 from app.storage.database import get_session
 from app.storage.services import world_info_entry_service
@@ -56,7 +57,7 @@ def _entry_to_response(entry) -> WorldInfoEntryResponse:
         order=entry.order,
         content=entry.content,
         token_count=entry.token_count,
-        is_enabled=entry.is_enabled,
+        agent_visibility=entry.agent_visibility,
         created_at=entry.created_at,
         updated_at=entry.updated_at,
     )
@@ -71,7 +72,7 @@ def _preview_entry_to_response(
         name=entry.name,
         section=entry.section,
         content_preview=entry.content[:200],
-        is_enabled=entry.is_enabled,
+        agent_visibility=entry.agent_visibility,
     )
 
 
@@ -86,7 +87,7 @@ def _entry_to_brief_response(entry) -> WorldInfoEntryBriefResponse:
         section=entry.section,
         order=entry.order,
         token_count=entry.token_count,
-        is_enabled=entry.is_enabled,
+        agent_visibility=entry.agent_visibility,
         created_at=entry.created_at,
         updated_at=entry.updated_at,
     )
@@ -126,7 +127,7 @@ async def preview_world_info_import(
 
     return WorldInfoImportPreviewResponse(
         entry_count=len(preview.entries),
-        enabled_count=sum(1 for entry in preview.entries if entry.is_enabled),
+        enabled_count=sum(1 for entry in preview.entries if entry.agent_visibility == AgentVisibility.ALL),
         entries=[_preview_entry_to_response(entry) for entry in preview.entries],
     )
 
@@ -236,7 +237,7 @@ async def create_entry(
         section=data.section,
         content=data.content,
         token_count=data.token_count,
-        is_enabled=data.is_enabled,
+        agent_visibility=data.agent_visibility,
     )
     return _entry_to_response(entry)
 
@@ -328,7 +329,7 @@ async def update_entry(
             section=data.section,
             content=data.content,
             token_count=data.token_count,
-            is_enabled=data.is_enabled,
+            agent_visibility=data.agent_visibility,
         )
         return _entry_to_response(entry)
     except world_info_entry_service.WorldInfoEntryNameConflictError as e:
@@ -412,33 +413,6 @@ async def move_entry(
 
 
 @router.post(
-    "/world-info-entries/{entry_id}/toggle",
-    response_model=WorldInfoEntryResponse,
-    summary="切换条目开关",
-)
-async def toggle_entry(
-    entry_id: str,
-    session: Annotated[AsyncSession, Depends(get_session)],
-) -> WorldInfoEntryResponse:
-    """
-    切换世界书条目的开关状态。
-
-    Args:
-        entry_id: 条目 ID。
-        session: 数据库 session。
-
-    Returns:
-        切换后的条目。
-
-    Raises:
-        HTTPException: 条目不存在。
-    """
-    logger.info(f"切换条目开关: {entry_id}")
-    entry = await world_info_entry_service.toggle_entry(session, entry_id)
-    return _entry_to_response(entry)
-
-
-@router.post(
     "/world-info/{world_info_id}/entries/batch/toggle",
     response_model=WorldInfoEntryBatchToggleResponse,
     summary="批量切换条目开关",
@@ -451,7 +425,7 @@ async def batch_toggle_entries(
     """批量切换世界书条目的开关状态。"""
     logger.info(f"批量切换条目开关: world_info_id={world_info_id}, count={len(data.entry_ids)}")
     updated_count = await world_info_entry_service.batch_toggle_entries(
-        session, world_info_id, data.entry_ids, data.is_enabled
+        session, world_info_id, data.entry_ids, data.agent_visibility
     )
     return WorldInfoEntryBatchToggleResponse(updated_count=updated_count)
 

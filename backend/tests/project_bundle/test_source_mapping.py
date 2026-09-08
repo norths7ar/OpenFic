@@ -33,11 +33,11 @@ def test_file_split_and_defaults() -> None:
         **{"a.md": "# 人物\n\n描述"},
     )
     item = parse_source_mapping(data, "p")[0]
-    assert (item.title, item.body, item.anchor, item.writing_visible, item.order) == (
+    assert (item.title, item.body, item.anchor, item.agent_visibility, item.order) == (
         "人物",
         "描述",
         "H1:人物",
-        True,
+        "all",
         0,
     )
 
@@ -135,7 +135,6 @@ def test_disabled_title_suffix_controls_visibility_without_changing_identity() -
         "source": "world.md",
         "split": {"type": "headings", "item_levels": [3]},
         "section_level": 2,
-        "disabled_title_suffix": "[已停用]",
     }
     enabled = parse_source_mapping(
         bundle("p", [rule], **{"world.md": "# 世界\n## 分区\n### 条目\n内容"}),
@@ -145,27 +144,27 @@ def test_disabled_title_suffix_controls_visibility_without_changing_identity() -
         bundle(
             "p",
             [rule],
-            **{"world.md": "# 世界\n## 分区\n### 条目 [已停用]\n内容"},
+            **{"world.md": "# 世界\n## 分区\n### 条目 [仅全局]\n内容"},
         ),
         "p",
     )[0]
 
     assert enabled.title == disabled.title == "条目"
     assert enabled.anchor == disabled.anchor == "H1:世界/H2:分区/H3:条目"
-    assert enabled.writing_visible is True
-    assert disabled.writing_visible is False
+    assert enabled.agent_visibility == "all"
+    assert disabled.agent_visibility == "global"
 
 
-@pytest.mark.parametrize("value", ["", "bad\nmarker"])
-def test_disabled_title_suffix_must_be_non_empty_and_single_line(value: str) -> None:
+@pytest.mark.parametrize("value", ["", "bad", True, None, []])
+def test_invalid_visibility_is_rejected(value) -> None:
     rule = {
         "id": "world",
         "target": "worldbook",
         "source": "world.md",
         "split": {"type": "file"},
-        "disabled_title_suffix": value,
+        "agent_visibility": value,
     }
-    with pytest.raises(BundleFormatError, match="disabled_title_suffix"):
+    with pytest.raises(BundleFormatError, match="agent_visibility"):
         parse_source_mapping(bundle("p", [rule], **{"world.md": "# 世界"}), "p")
 
 

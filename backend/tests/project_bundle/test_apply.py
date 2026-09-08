@@ -42,7 +42,7 @@ async def test_apply_restores_all_supported_entities_as_safe_archives(session) -
         section="基础",
         order=1,
         content="世界内容",
-        is_enabled=False,
+        agent_visibility="global",
     )
     category = NoteCategory(
         scope="note", id="apply-category", project_id=project.id, title="提纲", order=1
@@ -55,7 +55,7 @@ async def test_apply_restores_all_supported_entities_as_safe_archives(session) -
         order=1,
         content="提纲内容",
         is_locked=True,
-        is_writing_visible=False,
+        agent_visibility="global",
     )
     character = Character(
         id="apply-character",
@@ -64,7 +64,7 @@ async def test_apply_restores_all_supported_entities_as_safe_archives(session) -
         description="角色内容",
         order=1,
         is_favorited=True,
-        is_writing_visible=False,
+        agent_visibility="global",
     )
     task = Task(
         id="apply-discussion",
@@ -103,10 +103,10 @@ async def test_apply_restores_all_supported_entities_as_safe_archives(session) -
     restored_note = await session.get(Note, note.id)
     restored_task = await session.get(Task, task.id)
     restored_message = await session.get(AgentRunMessage, message.id)
-    assert restored_entry is not None and restored_entry.is_enabled is False
-    assert restored_character is not None and restored_character.is_writing_visible is False
+    assert restored_entry is not None and restored_entry.agent_visibility == "global"
+    assert restored_character is not None and restored_character.agent_visibility == "global"
     assert restored_note is not None and restored_note.is_locked is True
-    assert restored_note.is_writing_visible is False
+    assert restored_note.agent_visibility == "global"
     assert restored_task is not None and restored_task.is_imported_archive is True
     assert restored_task.agent_session_id is None
     assert restored_task.context_mode == "global"

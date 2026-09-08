@@ -17,7 +17,7 @@ async def test_overwrite_import_validates_all_entries_before_deleting_existing_e
             uid=1,
             name="超限条目",
             content="\n".join("内容" for _ in range(2001)),
-            is_enabled=True,
+            agent_visibility="all",
             order=1,
         )
     ]

@@ -4,12 +4,13 @@ WorldInfoEntry 数据模型。
 
 from datetime import UTC, datetime
 
-from sqlmodel import Field, SQLModel
+from sqlmodel import Field
 
 from app.core.ids import generate_id
+from app.storage.models.agent_visibility import AgentVisibilityModel
 
 
-class WorldInfoEntry(SQLModel, table=True):
+class WorldInfoEntry(AgentVisibilityModel, table=True):
     """
     世界书条目模型。
 
@@ -21,7 +22,7 @@ class WorldInfoEntry(SQLModel, table=True):
         order: 排序序号。
         content: 条目内容。
         token_count: Token 数量。
-        is_enabled: 开关状态。
+        agent_visibility: 开关状态。
         created_at: 创建时间。
         updated_at: 更新时间。
     """
@@ -37,6 +38,5 @@ class WorldInfoEntry(SQLModel, table=True):
     order: int = Field(index=True)
     content: str = Field(default="")
     token_count: int = Field(default=0)
-    is_enabled: bool = Field(default=True)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))

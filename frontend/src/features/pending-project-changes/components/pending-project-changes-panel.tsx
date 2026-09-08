@@ -18,6 +18,7 @@ import { ConfirmDialog, Spinner, StreamingMarkdown, toast } from "@/components";
 import { ProjectNavItemRow } from "@/features/project-navigation/components/project-nav-item-row";
 import { ProjectNavShell } from "@/features/project-navigation/components/project-nav-shell";
 import { ProjectNavToolbar } from "@/features/project-navigation/components/project-nav-toolbar";
+import { useAgentVisibilityCatalog } from "@/hooks/use-agent-visibility-catalog";
 
 import {
   useApplyPendingProjectChange,
@@ -268,6 +269,10 @@ export function PendingProjectChangesPanel({
   projectId: string;
   className?: string;
 }) {
+  const { data: visibilityCatalog } = useAgentVisibilityCatalog();
+  const visibilityLabel = (value: unknown) =>
+    visibilityCatalog?.states.find((state) => state.value === value)?.label ??
+    (typeof value === "string" ? value : "");
   const { t, i18n } = useTranslation();
   const [selectedChangeId, setSelectedChangeId] = useState<string | null>(null);
   const [changeToReject, setChangeToReject] = useState<PendingProjectChange | null>(null);
@@ -375,7 +380,7 @@ export function PendingProjectChangesPanel({
     selectedBefore &&
     selectedAfter &&
     (selectedBefore.title !== selectedAfter.title ||
-      selectedBefore.writing_visible !== selectedAfter.writing_visible ||
+      selectedBefore.agent_visibility !== selectedAfter.agent_visibility ||
       selectedBefore.section !== selectedAfter.section),
   );
   const hasSelectedBodyChange = Boolean(
@@ -596,14 +601,10 @@ export function PendingProjectChangesPanel({
                     />
                     {selectedChange.operation !== "update" &&
                     selectedAfter &&
-                    typeof selectedAfter.writing_visible === "boolean" ? (
+                    typeof selectedAfter.agent_visibility === "string" ? (
                       <ChangeMetadata
-                        label={t("pendingProjectChanges.writingVisibility")}
-                        value={
-                          selectedAfter.writing_visible
-                            ? t("pendingProjectChanges.visibleToWritingAgent")
-                            : t("pendingProjectChanges.hiddenFromWritingAgent")
-                        }
+                        label="资料可见性"
+                        value={visibilityLabel(selectedAfter.agent_visibility)}
                       />
                     ) : null}
                     {selectedChange.operation !== "update" && asString(selectedAfter?.section) ? (
@@ -634,9 +635,9 @@ export function PendingProjectChangesPanel({
                           hiddenLabel={t("pendingProjectChanges.hiddenFromWritingAgent")}
                         />
                         <FieldComparison
-                          label={t("pendingProjectChanges.writingVisibility")}
-                          before={selectedBefore.writing_visible}
-                          after={selectedAfter.writing_visible}
+                          label="资料可见性"
+                          before={visibilityLabel(selectedBefore.agent_visibility)}
+                          after={visibilityLabel(selectedAfter.agent_visibility)}
                           emptyLabel={t("pendingProjectChanges.none")}
                           visibleLabel={t("pendingProjectChanges.visibleToWritingAgent")}
                           hiddenLabel={t("pendingProjectChanges.hiddenFromWritingAgent")}

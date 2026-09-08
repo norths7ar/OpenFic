@@ -7,6 +7,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from app.agent_runtime.context.knowledge_visibility import get_knowledge_scope, note_is_visible
 from app.agent_runtime.revisions import (
     current_revision_id_from_state,
     note_category_images_by_id,
@@ -66,7 +67,9 @@ class DeleteNoteCategoryTool(AgentTool):
                 },
                 "affected_category_count": len(affected_category_ids),
                 "affected_note_count": sum(
-                    note.category_id in affected_category_ids for note in notes
+                    note.category_id in affected_category_ids
+                    and note_is_visible(note, scope=get_knowledge_scope(self._state))
+                    for note in notes
                 ),
             },
         }

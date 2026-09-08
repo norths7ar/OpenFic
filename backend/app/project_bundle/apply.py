@@ -185,7 +185,7 @@ async def _apply_world_entry(
                 order=fields["order"],
                 content=document.body,
                 token_count=token_count,
-                is_enabled=fields["writing_visible"],
+                agent_visibility=fields["agent_visibility"],
                 folder_id=fields.get("folder_id"),
                 created_at=now,
                 updated_at=now,
@@ -201,7 +201,7 @@ async def _apply_world_entry(
     current.order = fields["order"]
     current.content = document.body
     current.token_count = token_count
-    current.is_enabled = fields["writing_visible"]
+    current.agent_visibility = fields["agent_visibility"]
     if "folder_id" in fields:
         current.folder_id = fields["folder_id"]
     current.updated_at = now
@@ -225,7 +225,7 @@ async def _apply_character(
                 name=document.title,
                 description=document.body,
                 order=fields["order"],
-                is_writing_visible=fields["writing_visible"],
+                agent_visibility=fields["agent_visibility"],
                 is_favorited=fields["is_favorited"],
                 folder_id=fields.get("folder_id"),
                 created_at=now,
@@ -239,7 +239,7 @@ async def _apply_character(
     current.name = document.title
     current.description = document.body
     current.order = fields["order"]
-    current.is_writing_visible = fields["writing_visible"]
+    current.agent_visibility = fields["agent_visibility"]
     current.is_favorited = fields["is_favorited"]
     if "folder_id" in fields:
         current.folder_id = fields["folder_id"]
@@ -267,8 +267,7 @@ async def _apply_note(
                 content=document.body,
                 document_type=fields["document_type"],
                 is_locked=fields["is_locked"],
-                is_hidden=fields["is_hidden"],
-                is_writing_visible=fields["writing_visible"],
+                agent_visibility=fields["agent_visibility"],
                 created_at=now,
                 updated_at=now,
             )
@@ -283,8 +282,7 @@ async def _apply_note(
     current.content = document.body
     current.document_type = fields["document_type"]
     current.is_locked = fields["is_locked"]
-    current.is_hidden = fields["is_hidden"]
-    current.is_writing_visible = fields["writing_visible"]
+    current.agent_visibility = fields["agent_visibility"]
     current.updated_at = now
     session.add(current)
 

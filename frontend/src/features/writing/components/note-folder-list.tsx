@@ -8,18 +8,19 @@ import {
 } from "@dnd-kit/core";
 import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { IconButton, Tooltip } from "@radix-ui/themes";
+import { IconButton } from "@radix-ui/themes";
 import { GripVertical, Lock, MoreHorizontal } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
+import { AgentVisibilityButton } from "@/components/agent-visibility-button";
 import { ProjectFolderGroups } from "@/features/project-navigation/components/project-folder-groups";
 import { ProjectNavItemRow } from "@/features/project-navigation/components/project-nav-item-row";
 import type { NoteListItem, NoteTreeResponse } from "@/lib/note.types";
 import { formatRelativeTime } from "@/lib/time-utils";
 
 export type NoteSortMode = "manual" | "title" | "updated";
-export type NoteAgentVisibility = "all" | "discussion" | "none";
+export type NoteAgentVisibility = string;
 interface NoteFolderListProps {
   data: NoteTreeResponse | undefined;
   emptyLabel?: string;
@@ -42,7 +43,7 @@ interface NoteFolderListProps {
     items: Array<{ id: string; kind: "category" | "note" }>,
   ) => Promise<void>;
   onSetAgentVisibility: (id: string, visibility: NoteAgentVisibility) => void;
-  isWritingVisibilityLocked: boolean;
+  isAgentLocked: boolean;
   sortMode: NoteSortMode;
 }
 function FolderDrop({ id, children }: { id: string | null; children: ReactNode }) {
@@ -67,13 +68,8 @@ function NoteRow({ note, options }: { note: NoteListItem; options: NoteFolderLis
   }, [note.title, options.renamingId]);
   const { setNodeRef, attributes, listeners, transform, transition, isDragging } = useSortable({
     id: note.id,
-    disabled: note.isLocked || options.isWritingVisibilityLocked || options.sortMode !== "manual",
+    disabled: note.isLocked || options.isAgentLocked || options.sortMode !== "manual",
   });
-  const visibility: NoteAgentVisibility = note.isHidden
-    ? "none"
-    : note.isWritingVisible
-      ? "all"
-      : "discussion";
   const menu = (x: number, y: number) =>
     options.onContextMenu(note.id, "note", { x, y }, note.title);
   return (
@@ -131,53 +127,11 @@ function NoteRow({ note, options }: { note: NoteListItem; options: NoteFolderLis
       status={note.isLocked && <Lock size={12} />}
       actions={
         <>
-          <div
-            role="radiogroup"
-            aria-label={t("writing.noteAgentVisibility")}
-            onPointerDown={(e) => e.stopPropagation()}
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              display: "flex",
-              border: "1px solid var(--gray-a6)",
-              borderRadius: 6,
-              overflow: "hidden",
-            }}
-          >
-            {(["all", "discussion", "none"] as const).map((value, index) => {
-              const label = t(
-                [
-                  "writing.noteVisibilityAll",
-                  "writing.noteVisibilityDiscussion",
-                  "writing.noteVisibilityNone",
-                ][index],
-              );
-              return (
-                <Tooltip
-                  key={value}
-                  content={label}
-                >
-                  <button
-                    type="button"
-                    role="radio"
-                    aria-label={label}
-                    aria-checked={visibility === value}
-                    disabled={note.isLocked || options.isWritingVisibilityLocked}
-                    onClick={() => options.onSetAgentVisibility(note.id, value)}
-                    style={{
-                      width: 14,
-                      height: 16,
-                      padding: 0,
-                      border: 0,
-                      background: ["var(--green-9)", "var(--amber-9)", "var(--gray-9)"][index],
-                      opacity: visibility === value ? 1 : 0.3,
-                      boxShadow:
-                        visibility === value ? "inset 0 0 0 1px var(--gray-a12)" : undefined,
-                    }}
-                  />
-                </Tooltip>
-              );
-            })}
-          </div>
+          <AgentVisibilityButton
+            value={note.agentVisibility}
+            disabled={note.isLocked || options.isAgentLocked}
+            onChange={(value) => options.onSetAgentVisibility(note.id, value)}
+          />
           <IconButton
             variant="ghost"
             size="1"
@@ -223,7 +177,7 @@ export function NoteFolderList(options: NoteFolderListProps) {
     .map((note) => ({ ...note, folderId: note.categoryId }))
     .sort(compare);
   const onDragEnd = async ({ active, over }: DragEndEvent) => {
-    if (!over || options.isWritingVisibilityLocked) return;
+    if (!over || options.isAgentLocked) return;
     const item = items.find((item) => item.id === active.id);
     if (!item) return;
     const target = items.find((item) => item.id === over.id);

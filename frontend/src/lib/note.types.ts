@@ -9,8 +9,7 @@ export interface Note {
   content: string;
   order: number;
   isLocked: boolean;
-  isHidden: boolean;
-  isWritingVisible: boolean;
+  agentVisibility: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -23,8 +22,7 @@ export interface NoteListItem {
   documentType: DocumentType;
   order: number;
   isLocked: boolean;
-  isHidden: boolean;
-  isWritingVisible: boolean;
+  agentVisibility: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -62,8 +60,7 @@ export interface NoteCreate {
 export interface NoteUpdate {
   title?: string;
   content?: string;
-  isWritingVisible?: boolean;
-  isHidden?: boolean;
+  agentVisibility?: string;
 }
 
 export interface NoteCategoryCreate {

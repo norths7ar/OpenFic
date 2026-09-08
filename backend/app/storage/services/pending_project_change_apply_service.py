@@ -10,6 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from pydantic import ValidationError as PydanticValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.agent_visibility import AgentVisibility
 from app.core.errors import ConflictError, NotFoundError, ValidationError
 from app.project_bundle.export import semantic_hash
 from app.storage.models.character import Character
@@ -43,7 +44,7 @@ class _NotePayload(_StrictPayload):
     title: str = Field(min_length=1, max_length=200)
     body: str = ""
     category_id: str | None = None
-    writing_visible: bool = True
+    agent_visibility: AgentVisibility = AgentVisibility.ALL
     document_type: Literal["note", "outline"] = "note"
 
 
@@ -56,14 +57,14 @@ class _NoteCategoryPayload(_StrictPayload):
 class _CharacterPayload(_StrictPayload):
     title: str = Field(min_length=1, max_length=200)
     body: str = ""
-    writing_visible: bool = True
+    agent_visibility: AgentVisibility = AgentVisibility.ALL
 
 
 class _WorldEntryPayload(_StrictPayload):
     title: str = Field(min_length=1, max_length=200)
     body: str = ""
     section: str = Field(default="", max_length=500)
-    writing_visible: bool = True
+    agent_visibility: AgentVisibility = AgentVisibility.ALL
 
 
 @dataclass(frozen=True)
@@ -107,9 +108,8 @@ def _note_snapshot(note: Note) -> dict[str, Any]:
         "category_id": note.category_id,
         "document_type": note.document_type,
         "order": note.order,
-        "writing_visible": note.is_writing_visible,
+        "agent_visibility": note.agent_visibility,
         "is_locked": note.is_locked,
-        "is_hidden": note.is_hidden,
         "title": note.title,
         "body": note.content,
     }
@@ -133,7 +133,7 @@ def _character_snapshot(character: Character) -> dict[str, Any]:
         "id": character.id,
         "project_id": character.project_id,
         "order": character.order,
-        "writing_visible": character.is_writing_visible,
+        "agent_visibility": character.agent_visibility,
         "is_favorited": character.is_favorited,
         "title": character.name,
         "body": character.description,
@@ -156,7 +156,7 @@ async def _world_entry_snapshot(
         "uid": entry.uid,
         "section": entry.section,
         "order": entry.order,
-        "writing_visible": entry.is_enabled,
+        "agent_visibility": entry.agent_visibility,
         "title": entry.name,
         "body": entry.content,
     }
@@ -208,7 +208,7 @@ def _editable_payload(
             "body": snapshot["body"],
             "category_id": snapshot["category_id"],
             "document_type": snapshot["document_type"],
-            "writing_visible": snapshot["writing_visible"],
+            "agent_visibility": snapshot["agent_visibility"],
         }
     if target_type == "note_category":
         return {
@@ -220,13 +220,13 @@ def _editable_payload(
         return {
             "title": snapshot["title"],
             "body": snapshot["body"],
-            "writing_visible": snapshot["writing_visible"],
+            "agent_visibility": snapshot["agent_visibility"],
         }
     return {
         "title": snapshot["title"],
         "body": snapshot["body"],
         "section": snapshot["section"],
-        "writing_visible": snapshot["writing_visible"],
+        "agent_visibility": snapshot["agent_visibility"],
     }
 
 
@@ -403,8 +403,10 @@ async def _apply_create(
             after["body"],
             after["document_type"],
         )
-        if not after["writing_visible"]:
-            note = await note_service.update_note(session, note.id, is_writing_visible=False)
+        if after["agent_visibility"] != AgentVisibility.ALL:
+            note = await note_service.update_note(
+                session, note.id, agent_visibility=after["agent_visibility"]
+            )
         return note.id, _note_snapshot(note)
     if target_type == "note_category":
         category = await note_service.create_category(
@@ -422,11 +424,11 @@ async def _apply_create(
             after["title"],
             after["body"],
         )
-        if not after["writing_visible"]:
+        if after["agent_visibility"] != AgentVisibility.ALL:
             character = await character_service.update_character(
                 session,
                 character.id,
-                is_writing_visible=False,
+                agent_visibility=after["agent_visibility"],
             )
         return character.id, _character_snapshot(character)
     world_info = await world_info_service.get_or_create_world_info_by_project(session, project_id)
@@ -436,7 +438,7 @@ async def _apply_create(
         after["title"],
         content=after["body"],
         token_count=world_info_entry_service.calculate_token_count(after["body"]),
-        is_enabled=after["writing_visible"],
+        agent_visibility=after["agent_visibility"],
         section=after["section"],
     )
     return entry.id, await _world_entry_snapshot(session, entry, project_id)
@@ -460,7 +462,7 @@ async def _apply_update(
             note.id,
             title=after["title"],
             content=after["body"],
-            is_writing_visible=after["writing_visible"],
+            agent_visibility=after["agent_visibility"],
         )
         return _note_snapshot(updated)
     if target_type == "note_category":
@@ -483,7 +485,7 @@ async def _apply_update(
                 character.id,
                 name=after["title"],
                 description=after["body"],
-                is_writing_visible=after["writing_visible"],
+                agent_visibility=after["agent_visibility"],
             )
         except ConflictError as exc:
             raise PendingChangeConflictError(str(exc)) from exc
@@ -498,7 +500,7 @@ async def _apply_update(
             name=after["title"],
             content=after["body"],
             token_count=world_info_entry_service.calculate_token_count(after["body"]),
-            is_enabled=after["writing_visible"],
+            agent_visibility=after["agent_visibility"],
             section=after["section"],
         )
     except ValueError as exc:

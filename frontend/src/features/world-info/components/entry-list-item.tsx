@@ -4,11 +4,12 @@ import { useDraggable } from "@dnd-kit/core";
  *
  * 世界书条目列表项组件，支持拖拽排序。
  */
-import { Box, Flex, Switch, Checkbox, Tooltip } from "@radix-ui/themes";
+import { Box, Flex, Checkbox } from "@radix-ui/themes";
 import { GripVertical } from "lucide-react";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { AgentVisibilityButton } from "@/components/agent-visibility-button";
 import { ProjectNavItemRow } from "@/features/project-navigation/components/project-nav-item-row";
 import { formatRelativeTime } from "@/lib/time-utils";
 import type { WorldInfoEntryBrief } from "@/lib/world-info.types";
@@ -45,7 +46,7 @@ interface EntryListItemProps {
   /** 点击回调 */
   onClick: (entryId: string) => void;
   /** 切换启用状态回调 */
-  onToggle: (entryId: string) => void;
+  onToggle: (entryId: string, visibility: string) => void;
   /** 长按开始回调 */
   onLongPressStart: () => void;
   /** 右键菜单回调 */
@@ -343,28 +344,10 @@ function EntryListItemComponent({
           ) : null
         }
         actions={
-          <Tooltip
-            content={
-              entry.isEnabled
-                ? t("worldInfo.visibleToWritingAgent")
-                : t("worldInfo.notVisibleToWritingAgent")
-            }
-          >
-            <span>
-              <Switch
-                size="1"
-                checked={entry.isEnabled}
-                color="green"
-                aria-label={
-                  entry.isEnabled
-                    ? t("worldInfo.visibleToWritingAgent")
-                    : t("worldInfo.notVisibleToWritingAgent")
-                }
-                onClick={(e) => e.stopPropagation()}
-                onCheckedChange={() => onToggle(entry.id)}
-              />
-            </span>
-          </Tooltip>
+          <AgentVisibilityButton
+            value={entry.agentVisibility}
+            onChange={(value) => onToggle(entry.id, value)}
+          />
         }
       />
     </Box>
@@ -378,7 +361,7 @@ export const EntryListItem = memo(
     prev.entry.id === next.entry.id &&
     prev.entry.name === next.entry.name &&
     prev.entry.tokenCount === next.entry.tokenCount &&
-    prev.entry.isEnabled === next.entry.isEnabled &&
+    prev.entry.agentVisibility === next.entry.agentVisibility &&
     prev.entry.updatedAt === next.entry.updatedAt &&
     prev.isSelected === next.isSelected &&
     prev.showDragHandle === next.showDragHandle &&

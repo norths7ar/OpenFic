@@ -49,7 +49,7 @@ def _source_item_response(item: MappedSourceItem) -> dict:
         "title": item.title,
         "section": item.section,
         "category_path": item.category_path,
-        "writing_visible": item.writing_visible,
+        "agent_visibility": item.agent_visibility,
         "order": item.order,
     }
 

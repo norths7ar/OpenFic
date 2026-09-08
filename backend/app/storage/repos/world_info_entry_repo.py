@@ -11,6 +11,8 @@ from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col
 
+from app.core.agent_visibility import AgentVisibility, values_for_scope
+from app.core.knowledge_scope import KnowledgeScope
 from app.storage.models.world_info_entry import WorldInfoEntry
 
 
@@ -96,7 +98,7 @@ async def list_enabled_by_world_info(
         select(WorldInfoEntry)
         .where(
             col(WorldInfoEntry.world_info_id) == world_info_id,
-            col(WorldInfoEntry.is_enabled) == True,  # noqa: E712
+            col(WorldInfoEntry.agent_visibility).in_(values_for_scope(KnowledgeScope.LOCAL)),
         )
         .order_by(col(WorldInfoEntry.order))
     )
@@ -115,7 +117,7 @@ async def search_by_world_info(
         select(WorldInfoEntry)
         .where(
             col(WorldInfoEntry.world_info_id) == world_info_id,
-            col(WorldInfoEntry.is_enabled) == True,  # noqa: E712
+            col(WorldInfoEntry.agent_visibility).in_(values_for_scope(KnowledgeScope.LOCAL)),
         )
         .where(
             or_(
@@ -235,7 +237,7 @@ async def batch_toggle(
     session: AsyncSession,
     world_info_id: str,
     entry_ids: list[str],
-    is_enabled: bool,
+    agent_visibility: AgentVisibility,
 ) -> int:
     """批量切换条目启用状态。"""
     result = await session.execute(
@@ -244,7 +246,7 @@ async def batch_toggle(
             col(WorldInfoEntry.world_info_id) == world_info_id,
             col(WorldInfoEntry.id).in_(entry_ids),
         )
-        .values(is_enabled=is_enabled)
+        .values(agent_visibility=agent_visibility)
     )
     await session.flush()
     return cast("CursorResult[Any]", result).rowcount

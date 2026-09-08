@@ -89,7 +89,7 @@ async def revision_db(monkeypatch):
                 order=1,
                 content="原始设定",
                 token_count=4,
-                is_enabled=True,
+                agent_visibility="all",
             )
         )
         session.add(

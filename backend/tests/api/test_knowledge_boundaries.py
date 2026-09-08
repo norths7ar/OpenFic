@@ -14,6 +14,7 @@ from app.agent_runtime.tools.impls.context.world_entry import (
 )
 from app.agent_runtime.tools.impls.note.edit_note import EditNoteTool
 from app.agent_runtime.tools.impls.note.read_note import ReadNoteTool
+from app.core.knowledge_scope import KnowledgeScope
 from app.storage.models.character import Character
 from app.storage.models.note import Note
 from app.storage.models.project import Project
@@ -23,7 +24,7 @@ from tests.api.test_agent import _SESSION_RUNNERS, _seed_agent_target
 
 
 @pytest.mark.asyncio
-async def test_global_context_requires_discuss_agent(client: AsyncClient) -> None:
+async def test_build_rejects_global_context(client: AsyncClient) -> None:
     target = await _seed_agent_target(client)
 
     response = await client.post(
@@ -40,7 +41,7 @@ async def test_global_context_requires_discuss_agent(client: AsyncClient) -> Non
 
 
 @pytest.mark.asyncio
-async def test_global_discuss_session_cannot_switch_agent_on_message(
+async def test_global_discuss_session_cannot_switch_to_build_on_message(
     client: AsyncClient,
 ) -> None:
     target = await _seed_agent_target(client)
@@ -75,13 +76,13 @@ async def test_local_visibility_filters_character_and_world_entry_but_global_all
         id="visible-character",
         project_id=project.id,
         name="可见人物",
-        is_writing_visible=True,
+        agent_visibility="all",
     )
     hidden = Character(
         id="hidden-character",
         project_id=project.id,
         name="隐藏人物",
-        is_writing_visible=False,
+        agent_visibility="global",
     )
     world = WorldInfo(id="knowledge-boundary-world", project_id=project.id, name="世界书")
     disabled = WorldInfoEntry(
@@ -90,20 +91,22 @@ async def test_local_visibility_filters_character_and_world_entry_but_global_all
         uid=1,
         order=1,
         name="隐藏设定",
-        is_enabled=False,
+        agent_visibility="global",
     )
     session.add_all([project, visible, hidden, world, disabled])
     await session.commit()
 
-    local = await _list_project_characters(session, project.id, include_all=False)
-    global_ = await _list_project_characters(session, project.id, include_all=True)
+    local = await _list_project_characters(session, project.id, scope=KnowledgeScope.LOCAL)
+    global_ = await _list_project_characters(session, project.id, scope=KnowledgeScope.GLOBAL)
     assert [item.name for item in local] == ["可见人物"]
     assert {item.name for item in global_} == {"可见人物", "隐藏人物"}
 
     with pytest.raises(ToolExecutionError):
-        await _resolve_enabled_entry_by_title(session, world.id, "隐藏设定", include_all=False)
+        await _resolve_enabled_entry_by_title(
+            session, world.id, "隐藏设定", scope=KnowledgeScope.LOCAL
+        )
     resolved = await _resolve_enabled_entry_by_title(
-        session, world.id, "隐藏设定", include_all=True
+        session, world.id, "隐藏设定", scope=KnowledgeScope.GLOBAL
     )
     assert resolved.id == disabled.id
 
@@ -118,7 +121,7 @@ async def test_note_read_and_edit_preview_follow_local_global_boundary(
         project_id=project.id,
         title="隐藏笔记",
         content="旧正文",
-        is_writing_visible=False,
+        agent_visibility="global",
     )
     session.add_all([project, note])
     await session.commit()
@@ -188,14 +191,14 @@ async def test_expanded_mentions_drop_hidden_body_in_local_but_compile_global(
         project_id=project.id,
         name="隐藏人物",
         description="不应泄漏的正文",
-        is_writing_visible=False,
+        agent_visibility="global",
     )
     note = Note(
         id="expanded-hidden-note",
         project_id=project.id,
         title="隐藏笔记",
         content="不应泄漏的笔记正文",
-        is_writing_visible=False,
+        agent_visibility="global",
     )
     world = WorldInfo(id="expanded-boundary-world", project_id=project.id, name="世界书")
     entry = WorldInfoEntry(
@@ -205,7 +208,7 @@ async def test_expanded_mentions_drop_hidden_body_in_local_but_compile_global(
         order=1,
         name="隐藏设定",
         content="不应泄漏的世界书正文",
-        is_enabled=False,
+        agent_visibility="global",
     )
     session.add_all([project, character, note, world, entry])
     await session.commit()

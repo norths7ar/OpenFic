@@ -19,7 +19,6 @@ from app.api.schemas.note import (
     NoteCategoryResponse,
     NoteCategoryUpdate,
     NoteCreate,
-    NoteHiddenToggle,
     NoteItemMove,
     NoteItemsMixedReorderRequest,
     NoteItemsReorderRequest,
@@ -251,8 +250,7 @@ async def update_note(
         note_id,
         title=data.title,
         content=data.content,
-        is_writing_visible=data.is_writing_visible,
-        is_hidden=data.is_hidden,
+        agent_visibility=data.agent_visibility,
     )
     await background_service.commit_and_notify(session)
     return NoteResponse.model_validate(note)
@@ -283,21 +281,6 @@ async def toggle_note_lock(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> NoteResponse:
     note = await note_service.set_note_locked(session, note_id, data.is_locked)
-    await background_service.commit_and_notify(session)
-    return NoteResponse.model_validate(note)
-
-
-@router.patch(
-    "/notes/{note_id}/hidden",
-    response_model=NoteResponse,
-    summary="切换笔记隐藏状态",
-)
-async def toggle_note_hidden(
-    note_id: str,
-    data: NoteHiddenToggle,
-    session: Annotated[AsyncSession, Depends(get_session)],
-) -> NoteResponse:
-    note = await note_service.set_note_hidden(session, note_id, data.is_hidden)
     await background_service.commit_and_notify(session)
     return NoteResponse.model_validate(note)
 

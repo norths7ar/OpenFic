@@ -29,7 +29,7 @@ async def test_create_note_at_root_level(session: AsyncSession) -> None:
     assert note.title == "根笔记"
     assert note.content == "内容"
     assert note.order == 1
-    assert note.is_writing_visible is True
+    assert note.agent_visibility == "all"
 
 
 @pytest.mark.asyncio
@@ -95,8 +95,8 @@ async def test_locked_note_blocks_content_move_and_delete_but_allows_visibility(
     with pytest.raises(ConflictError, match="已锁定"):
         await note_service.delete_note(session, note.id)
 
-    updated = await note_service.update_note(session, note.id, is_writing_visible=False)
-    assert updated.is_writing_visible is False
+    updated = await note_service.update_note(session, note.id, agent_visibility="global")
+    assert updated.agent_visibility == "global"
 
 
 @pytest.mark.asyncio
@@ -136,12 +136,12 @@ async def test_hidden_notes_not_returned_in_list_notes_tool_mode(
         category_id=None,
         title="隐藏笔记",
         content="",
-        is_hidden=True,
+        agent_visibility="none",
     )
     session.add(hidden_note)
     await session.flush()
     visible_notes = await note_repo.list_by_project(session, project.id, include_hidden=False)
-    assert all(n.is_hidden is False for n in visible_notes)
+    assert all(n.agent_visibility != "none" for n in visible_notes)
 
 
 @pytest.mark.asyncio

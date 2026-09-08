@@ -10,7 +10,7 @@ from typing import Any
 from pydantic import BaseModel, Field, field_validator
 
 from app.agent_runtime.context.knowledge_visibility import (
-    includes_all_knowledge,
+    get_knowledge_scope,
     note_is_visible,
 )
 from app.agent_runtime.revisions import (
@@ -26,6 +26,7 @@ from app.agent_runtime.tools.impls.note.refs import (
 )
 from app.agent_runtime.tools.registry import ToolRegistry
 from app.agent_runtime.tools.text_match import fuzzy_replace
+from app.core.agent_visibility import AgentVisibility
 from app.core.editor_content_limits import (
     EditorContentLimitError,
     validate_editor_content,
@@ -109,14 +110,14 @@ class EditNoteTool(AgentTool):
             return None
 
         ref = NoteRef.model_validate(note_ref)
-        include_all = includes_all_knowledge(self._state)
+        scope = get_knowledge_scope(self._state)
         if ref.id is not None:
             note = await note_repo.get_by_id(session, ref.id)
             if note is None:
                 return None
         else:
             notes = await note_repo.list_by_project(session, self.project_id, include_hidden=False)
-            notes = [note for note in notes if note_is_visible(note, include_all=include_all)]
+            notes = [note for note in notes if note_is_visible(note, scope=scope)]
             categories = await note_category_repo.list_by_project(session, self.project_id)
             try:
                 note = resolve_note_from_list(notes, ref, categories=categories)
@@ -126,7 +127,7 @@ class EditNoteTool(AgentTool):
         if (
             note.project_id != self.project_id
             or note.is_locked
-            or not note_is_visible(note, include_all=include_all)
+            or not note_is_visible(note, scope=scope)
         ):
             return None
 
@@ -170,7 +171,7 @@ class EditNoteTool(AgentTool):
         session = await create_session()
         try:
             ref = NoteRef.model_validate(note_ref)
-            include_all = includes_all_knowledge(self._state)
+            scope = get_knowledge_scope(self._state)
             if ref.id is not None:
                 note = await note_repo.get_by_id(session, ref.id)
                 if note is None:
@@ -179,7 +180,7 @@ class EditNoteTool(AgentTool):
                 notes = await note_repo.list_by_project(
                     session, self.project_id, include_hidden=False
                 )
-                notes = [note for note in notes if note_is_visible(note, include_all=include_all)]
+                notes = [note for note in notes if note_is_visible(note, scope=scope)]
                 cats = await note_category_repo.list_by_project(session, self.project_id)
                 note = resolve_note_from_list(notes, ref, categories=cats)
 
@@ -187,9 +188,9 @@ class EditNoteTool(AgentTool):
                 raise ToolExecutionError("笔记不属于当前项目")
             if note.is_locked:
                 raise ToolExecutionError("该笔记已锁定，无法修改")
-            if note.is_hidden:
+            if note.agent_visibility == AgentVisibility.NONE:
                 raise ToolExecutionError("该笔记已隐藏")
-            if not note_is_visible(note, include_all=include_all):
+            if not note_is_visible(note, scope=scope):
                 raise ToolExecutionError("笔记不在当前上下文范围内")
 
             before = note_images_by_id(

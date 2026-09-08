@@ -13,9 +13,11 @@ from app.agent_runtime.agents.definitions import (
     DEFAULT_AGENT_DEFINITIONS,
     load_agent_definition,
     load_all_agent_definitions,
+    supports_global_context,
 )
 from app.agent_runtime.agents.tool_categories import get_tool_names_for_categories
 from app.agent_runtime.context.helpers import extract_referenced_skill_ids
+from app.agent_runtime.context.knowledge_visibility import get_knowledge_scope
 from app.agent_runtime.graph.config import build_child_config, get_inject_queue
 from app.agent_runtime.graph.node_events import with_node_events
 from app.agent_runtime.graph.orchestrator.state import OrchestratorState
@@ -35,6 +37,7 @@ from app.agent_runtime.tools.impls.skill.skill import (
     skill_tool_names_for_definition,
 )
 from app.agent_runtime.types import ReactAgentConfig, TerminationCondition
+from app.core.knowledge_scope import KnowledgeScope, merge_known_scope, validate_scope_change
 from app.models.clients.model_factory import ModelConfig, create_chat_model
 from app.storage.repos import setting_repo
 
@@ -167,6 +170,18 @@ async def primary_node(
 ) -> dict:
     """Run the Primary Agent as the only parent graph node."""
     configurable = config.get("configurable", {}) if isinstance(config, dict) else {}
+    agent_key = state.get("agent_key", "build")
+    scope = merge_known_scope(get_knowledge_scope(state), get_knowledge_scope(configurable))
+    if scope == KnowledgeScope.GLOBAL:
+        # Restoring an older checkpoint cannot lower the session's known scope.
+        state = cast(OrchestratorState, {**state, "context_mode": scope})
+        db_session = configurable.get("db_session")
+        definition = (
+            await load_agent_definition(db_session, agent_key)
+            if db_session is not None
+            else DEFAULT_AGENT_DEFINITIONS[agent_key]
+        )
+        validate_scope_change(scope, scope, supports_global=supports_global_context(definition))
     runtime_model_config = (
         configurable.get("model_config") if isinstance(configurable, dict) else None
     )

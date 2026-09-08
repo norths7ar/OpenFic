@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col
 
 from app.agent_runtime.persistence.model import AgentRunMessage
+from app.core.agent_visibility import AgentVisibility, validate_agent_visibility
 from app.core.editor_content_limits import validate_editor_content
 from app.core.errors import NotFoundError
 from app.project_bundle.archive import BundleFormatError, read_zip
@@ -112,6 +113,13 @@ def _bool(value: Any, field: str) -> bool:
     return value
 
 
+def _visibility(value: Any) -> AgentVisibility:
+    try:
+        return validate_agent_visibility(value)
+    except ValueError as exc:
+        raise BundleFormatError("agent_visibility is invalid") from exc
+
+
 def _nullable_text(value: Any, field: str) -> str | None:
     if value is not None and not isinstance(value, str):
         raise BundleFormatError(f"{field} must be a string or null")
@@ -143,14 +151,14 @@ def _document_fields(frontmatter: dict[str, Any], kind: str, project_id: str) ->
             uid=_int(frontmatter.get("uid"), "uid"),
             section=_string(frontmatter.get("section"), "section"),
             order=_nonnegative_int(frontmatter.get("order"), "order"),
-            writing_visible=_bool(frontmatter.get("writing_visible"), "writing_visible"),
+            agent_visibility=_visibility(frontmatter.get("agent_visibility")),
         )
         if "folder_id" in frontmatter:
             fields["folder_id"] = _nullable_text(frontmatter.get("folder_id"), "folder_id")
     elif kind == "character":
         fields.update(
             order=_nonnegative_int(frontmatter.get("order"), "order"),
-            writing_visible=_bool(frontmatter.get("writing_visible"), "writing_visible"),
+            agent_visibility=_visibility(frontmatter.get("agent_visibility")),
             is_favorited=_bool(frontmatter.get("is_favorited"), "is_favorited"),
         )
         if "folder_id" in frontmatter:
@@ -162,9 +170,8 @@ def _document_fields(frontmatter: dict[str, Any], kind: str, project_id: str) ->
         fields.update(
             category_id=_nullable_text(frontmatter.get("category_id"), "category_id"),
             order=_nonnegative_int(frontmatter.get("order"), "order"),
-            writing_visible=_bool(frontmatter.get("writing_visible"), "writing_visible"),
+            agent_visibility=_visibility(frontmatter.get("agent_visibility")),
             is_locked=_bool(frontmatter.get("is_locked"), "is_locked"),
-            is_hidden=_bool(frontmatter.get("is_hidden"), "is_hidden"),
             document_type=document_type,
         )
     elif kind == "discussion":
@@ -307,7 +314,7 @@ def parse_project_bundle(data: bytes, target_project_id: str) -> ParsedProjectBu
             "project_id": target_project_id,
             "parent_id": parent_id,
             **(
-                {"description": _string(item["description"], "folder description")}
+                {"description": _nullable_text(item["description"], "folder description")}
                 if "description" in item
                 else {}
             ),
@@ -349,7 +356,7 @@ def parse_project_bundle(data: bytes, target_project_id: str) -> ParsedProjectBu
             "project_id": target_project_id,
             "scope": scope,
             **(
-                {"description": _string(item["description"], "folder description")}
+                {"description": _nullable_text(item["description"], "folder description")}
                 if "description" in item
                 else {}
             ),
@@ -458,6 +465,7 @@ async def preview_project_bundle(
                         **(
                             {"description": current.description}
                             if current.description is not None
+                            or "description" in folder.semantic_fields
                             else {}
                         ),
                         "order": current.order,
@@ -500,6 +508,7 @@ async def preview_project_bundle(
                         **(
                             {"description": current.description}
                             if current.description is not None
+                            or "description" in category.semantic_fields
                             else {}
                         ),
                         "document_type": current.scope,
@@ -724,7 +733,7 @@ async def _current_hash(
             "uid": current.uid,
             "section": current.section,
             "order": current.order,
-            "writing_visible": current.is_enabled,
+            "agent_visibility": current.agent_visibility,
         }
         if "folder_id" in doc.semantic_fields:
             fields["folder_id"] = current.folder_id
@@ -740,7 +749,7 @@ async def _current_hash(
             "id": current.id,
             "project_id": project_id,
             "order": current.order,
-            "writing_visible": current.is_writing_visible,
+            "agent_visibility": current.agent_visibility,
             "is_favorited": current.is_favorited,
         }
         if "folder_id" in doc.semantic_fields:
@@ -759,9 +768,8 @@ async def _current_hash(
             "category_id": current.category_id,
             "document_type": current.document_type,
             "order": current.order,
-            "writing_visible": current.is_writing_visible,
+            "agent_visibility": current.agent_visibility,
             "is_locked": current.is_locked,
-            "is_hidden": current.is_hidden,
         }
         return document_semantic_hash(fields, current.title, current.content), True
     if doc.kind == "discussion":

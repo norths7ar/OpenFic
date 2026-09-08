@@ -45,6 +45,7 @@ from app.agent_runtime.context.helpers import (
     compile_canonical_mentions,
     extract_referenced_skill_ids,
 )
+from app.agent_runtime.context.knowledge_visibility import get_knowledge_scope
 from app.agent_runtime.context.processors.filter import (
     filter_tool_result_metadata_content,
 )
@@ -713,12 +714,7 @@ def create_react_agent(
                                 content,
                                 db_session,
                                 project_id=project_id,
-                                context_mode=(
-                                    "global"
-                                    if effective_runtime_state is not None
-                                    and effective_runtime_state.get("context_mode") == "global"
-                                    else "local"
-                                ),
+                                context_mode=get_knowledge_scope(effective_runtime_state or {}),
                             )
                         drained_injected_user_message = True
                         attachment_metadata = (

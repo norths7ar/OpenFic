@@ -3,12 +3,13 @@
 from datetime import UTC, datetime
 
 from sqlalchemy import UniqueConstraint
-from sqlmodel import Field, SQLModel
+from sqlmodel import Field
 
 from app.core.ids import generate_id
+from app.storage.models.agent_visibility import AgentVisibilitySnapshotModel
 
 
-class RevisionCharacterSnapshot(SQLModel, table=True):
+class RevisionCharacterSnapshot(AgentVisibilitySnapshotModel, table=True):
     """Character state before a revision's change, used for rollback."""
 
     __tablename__ = "revision_character_snapshots"
@@ -29,6 +30,5 @@ class RevisionCharacterSnapshot(SQLModel, table=True):
     )
     is_favorited: bool | None = Field(default=None)
     character_order: int | None = Field(default=None)
-    is_writing_visible: bool | None = Field(default=None)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC), index=True)
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))

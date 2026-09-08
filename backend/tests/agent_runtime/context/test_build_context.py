@@ -114,8 +114,10 @@ async def test_assembles_messages_in_order(base_state: AgentRuntimeState) -> Non
 
 
 @pytest.mark.asyncio
-async def test_discuss_injects_fixed_scope_after_agent_prompt(
+@pytest.mark.parametrize("agent_name", ["discuss", "plan"])
+async def test_planning_roles_inject_scope_after_agent_prompt(
     base_state: AgentRuntimeState,
+    agent_name: str,
 ) -> None:
     base_state["context_mode"] = "global"
 
@@ -147,14 +149,14 @@ async def test_discuss_injects_fixed_scope_after_agent_prompt(
     ):
         out = await build_context(
             state=base_state,
-            agent_name="discuss",
+            agent_name=agent_name,
             node_messages=[{"role": "user", "content": "讨论剧情"}],
             db_session=AsyncMock(),
         )
 
     assert [message.type for message in out] == ["system", "system", "human"]
     assert out[0].content == "discuss-prompt"
-    assert "全局讨论" in out[1].content
+    assert "全局资料" in out[1].content
     assert out[2].content == "讨论剧情"
 
 

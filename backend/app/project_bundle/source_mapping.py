@@ -4,12 +4,20 @@ from __future__ import annotations
 
 import fnmatch
 import re
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from typing import Any
 
 import yaml
 
+from app.core.agent_visibility import (
+    AGENT_VISIBILITY_STATES,
+    DEFAULT_AGENT_VISIBILITY,
+    AgentVisibility,
+    validate_agent_visibility,
+)
+
 from .archive import BundleFormatError, read_zip
+from .markdown import restore_body_format
 
 
 @dataclass(frozen=True)
@@ -22,11 +30,12 @@ class MappedSourceItem:
     body: str
     section: str | None
     category_path: list[str]
-    writing_visible: bool
+    agent_visibility: AgentVisibility
     order: int
     target_id: str | None
     category_target_ids: list[str]
     category_orders: list[int]
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -51,8 +60,7 @@ _RULE_KEYS = {
     "folder_path",
     "folder_target_id",
     "folder_order",
-    "writing_visible",
-    "disabled_title_suffix",
+    "agent_visibility",
     "required",
     "target_id",
     "category_target_ids",
@@ -185,19 +193,11 @@ def _validate_rule(rule: Any) -> dict[str, Any]:
         or any(not isinstance(value, str) or not value for value in rule["folder_path"])
     ):
         _fail("folder_path must contain at most one non-empty string")
-    if "writing_visible" in rule and (
-        target not in {"worldbook", "characters", "notes", "outlines"}
-        or not isinstance(rule["writing_visible"], bool)
-    ):
-        _fail("writing_visible is only a boolean for content targets")
-    if "disabled_title_suffix" in rule and (
-        target not in {"worldbook", "characters", "notes", "outlines"}
-        or not isinstance(rule["disabled_title_suffix"], str)
-        or not rule["disabled_title_suffix"]
-        or "\n" in rule["disabled_title_suffix"]
-        or "\r" in rule["disabled_title_suffix"]
-    ):
-        _fail("disabled_title_suffix must be a non-empty content-target string")
+    if "agent_visibility" in rule:
+        try:
+            validate_agent_visibility(rule["agent_visibility"])
+        except ValueError as exc:
+            raise BundleFormatError("agent_visibility is invalid") from exc
     if "required" in rule and not isinstance(rule["required"], bool):
         _fail("required must be a boolean")
     if "target_id" in rule and (
@@ -266,17 +266,20 @@ def _mapped_items(path: str, text: str, rule: dict[str, Any]) -> list[MappedSour
     lines = text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
     headings = _scan(text)
     target = rule["target"]
-    visible = rule.get("writing_visible", True)
+    visible = validate_agent_visibility(rule.get("agent_visibility", DEFAULT_AGENT_VISIBILITY))
     h1 = next(heading for heading in headings if heading.level == 1)
 
-    def item_title_and_visibility(title: str) -> tuple[str, bool]:
-        suffix = rule.get("disabled_title_suffix")
-        if not isinstance(suffix, str) or not title.endswith(suffix):
-            return title, visible
-        clean_title = title[: -len(suffix)].rstrip()
-        if not clean_title:
-            _fail("disabled title suffix must not consume the whole title")
-        return clean_title, False
+    def item_title_and_visibility(title: str) -> tuple[str, AgentVisibility]:
+        for state in sorted(
+            AGENT_VISIBILITY_STATES, key=lambda state: len(state.export_marker), reverse=True
+        ):
+            suffix = state.export_marker
+            if suffix and title.endswith(suffix):
+                clean_title = title[: -len(suffix)].rstrip()
+                if not clean_title:
+                    _fail("visibility marker must not consume the whole title")
+                return clean_title, state.value
+        return title, visible
 
     def file_folder_metadata() -> tuple[list[str], list[str], list[int]]:
         folder_path = list(rule.get("folder_path", rule.get("category_path", [])))
@@ -355,7 +358,10 @@ def _mapped_items(path: str, text: str, rule: dict[str, Any]) -> list[MappedSour
             categories = [" / ".join(categories)]
         anchor = "/".join(
             [
-                *(f"H{item.level}:{item.title}" for item in ancestors),
+                *(
+                    f"H{item.level}:{item_title_and_visibility(item.title)[0] if item.level in item_levels else item.title}"
+                    for item in ancestors
+                ),
                 f"H{heading.level}:{title}",
             ]
         )
@@ -395,6 +401,8 @@ def _read_source_mapping_manifest(
         "version",
         "project_id",
         "rules",
+        "items",
+        "folders",
     }:
         _fail("invalid import map fields")
     configured_project_id = config.get("project_id")
@@ -410,6 +418,86 @@ def _read_source_mapping_manifest(
     return config, config_bytes.decode("utf-8")
 
 
+def _source_metadata(
+    config: dict[str, Any],
+) -> tuple[dict[tuple[str, str, str], dict[str, Any]], dict[str, dict[str, Any]]]:
+    folders: dict[str, dict[str, Any]] = {}
+    raw_folders = config.get("folders", [])
+    raw_items = config.get("items", [])
+    if not isinstance(raw_folders, list) or not isinstance(raw_items, list):
+        _fail("source items and folders must be lists")
+    for folder in raw_folders:
+        if not isinstance(folder, dict) or set(folder) - {
+            "id",
+            "scope",
+            "title",
+            "order",
+            "description",
+        }:
+            _fail("source folder metadata is invalid")
+        if not isinstance(folder.get("id"), str) or not _TARGET_ID.fullmatch(folder["id"]):
+            _fail("source folder id is invalid")
+        if (
+            folder["id"] in folders
+            or not isinstance(folder.get("scope"), str)
+            or folder["scope"]
+            not in {
+                "world",
+                "character",
+                "note",
+                "outline",
+            }
+        ):
+            _fail("source folder identity is invalid")
+        if (
+            not isinstance(folder.get("title"), str)
+            or not folder["title"]
+            or _int(folder.get("order"), "folder order") < 0
+        ):
+            _fail("source folder title/order is invalid")
+        if folder.get("description") is not None and not isinstance(folder["description"], str):
+            _fail("source folder description is invalid")
+        folders[folder["id"]] = folder
+    items: dict[tuple[str, str, str], dict[str, Any]] = {}
+    for item in raw_items:
+        if not isinstance(item, dict) or set(item) - {
+            "rule_id",
+            "source",
+            "anchor",
+            "target_id",
+            "order",
+            "section",
+            "folder_id",
+            "is_locked",
+            "is_favorited",
+            "body_format",
+        }:
+            _fail("source item metadata is invalid")
+        if any(
+            not isinstance(item.get(key), str) or not item[key]
+            for key in ("rule_id", "source", "anchor", "target_id")
+        ) or not _TARGET_ID.fullmatch(item["target_id"]):
+            _fail("source item identity is invalid")
+        key = (item["rule_id"], item["source"], item["anchor"])
+        if key in items or _int(item.get("order"), "item order") < 0:
+            _fail("duplicate source item metadata or invalid order")
+        if (
+            "folder_id" in item
+            and item["folder_id"] is not None
+            and (not isinstance(item["folder_id"], str) or item["folder_id"] not in folders)
+        ):
+            _fail("source item references a missing folder")
+        if "section" in item and not isinstance(item["section"], str):
+            _fail("source item section is invalid")
+        for flag in ("is_locked", "is_favorited"):
+            if flag in item and not isinstance(item[flag], bool):
+                _fail("source item flag is invalid")
+        if "body_format" in item:
+            restore_body_format("", item["body_format"])
+        items[key] = item
+    return items, folders
+
+
 def read_source_mapping_manifest(data: bytes, target_project_id: str) -> tuple[dict[str, Any], str]:
     return _read_source_mapping_manifest(read_zip(data), target_project_id)
 
@@ -417,11 +505,14 @@ def read_source_mapping_manifest(data: bytes, target_project_id: str) -> tuple[d
 def parse_source_mapping(data: bytes, target_project_id: str) -> list[MappedSourceItem]:
     files = read_zip(data)
     config, _ = _read_source_mapping_manifest(files, target_project_id)
+    metadata, folders = _source_metadata(config)
     rules = config["rules"]
     seen_rules: set[str] = set()
     seen_logic: set[tuple[str, str, str]] = set()
     output: list[MappedSourceItem] = []
     orders: dict[str, int] = {}
+    used_metadata: set[tuple[str, str, str]] = set()
+    target_ids: set[tuple[str, str]] = set()
     for raw_rule in rules:
         rule = _validate_rule(raw_rule)
         if rule["id"] in seen_rules:
@@ -448,7 +539,50 @@ def parse_source_mapping(data: bytes, target_project_id: str) -> list[MappedSour
             except UnicodeDecodeError as exc:
                 raise BundleFormatError(f"source file is not UTF-8: {path}") from exc
             for item in _mapped_items(path, text, rule):
+                details = metadata.get((item.rule_id, item.source, item.anchor))
+                if details is not None:
+                    used_metadata.add((item.rule_id, item.source, item.anchor))
+                    if (
+                        ("section" in details and item.target != "worldbook")
+                        or ("is_favorited" in details and item.target != "characters")
+                        or ("is_locked" in details and item.target not in {"notes", "outlines"})
+                    ):
+                        _fail("source item metadata fields differ from target")
+                    folder = folders.get(details.get("folder_id"))
+                    expected_scope = {
+                        "worldbook": "world",
+                        "characters": "character",
+                        "notes": "note",
+                        "outlines": "outline",
+                    }[item.target]
+                    if folder and folder["scope"] != expected_scope:
+                        _fail("source item folder scope differs from target")
+                    item = replace(
+                        item,
+                        target_id=details["target_id"],
+                        order=details["order"],
+                        section=details.get("section", item.section),
+                        category_path=([folder["title"]] if folder else [])
+                        if "folder_id" in details
+                        else item.category_path,
+                        category_target_ids=([folder["id"]] if folder else [])
+                        if "folder_id" in details
+                        else item.category_target_ids,
+                        category_orders=([folder["order"]] if folder else [])
+                        if "folder_id" in details
+                        else item.category_orders,
+                        body=restore_body_format(item.body, details["body_format"])
+                        if "body_format" in details
+                        else item.body,
+                        metadata=details,
+                    )
                 logic = (item.target, item.source, item.anchor)
+                if item.target_id is not None:
+                    target_kind = "notes" if item.target == "outlines" else item.target
+                    identity = (target_kind, item.target_id)
+                    if identity in target_ids:
+                        _fail("source items contain duplicate target IDs")
+                    target_ids.add(identity)
                 if logic in seen_logic:
                     _fail("duplicate logical object")
                 seen_logic.add(logic)
@@ -456,4 +590,8 @@ def parse_source_mapping(data: bytes, target_project_id: str) -> list[MappedSour
                 order = item.order if item.order >= 0 else next_order
                 output.append(replace(item, order=order))
                 orders[item.target] = max(next_order, order + 1)
+    if metadata.keys() - used_metadata:
+        _fail(
+            "source item metadata has unmatched anchors; update its source/anchor when moving or renaming headings"
+        )
     return output

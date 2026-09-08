@@ -34,7 +34,7 @@ function transformWorldInfoEntry(raw: Record<string, unknown>): WorldInfoEntry {
     order: raw.order as number,
     content: raw.content as string,
     tokenCount: raw.token_count as number,
-    isEnabled: raw.is_enabled as boolean,
+    agentVisibility: raw.agent_visibility as string,
     createdAt: raw.created_at as string,
     updatedAt: raw.updated_at as string,
   };
@@ -50,7 +50,7 @@ function transformWorldInfoEntryBrief(raw: Record<string, unknown>): WorldInfoEn
     section: (raw.section as string | undefined) ?? "",
     order: raw.order as number,
     tokenCount: raw.token_count as number,
-    isEnabled: raw.is_enabled as boolean,
+    agentVisibility: raw.agent_visibility as string,
     createdAt: raw.created_at as string,
     updatedAt: raw.updated_at as string,
   };
@@ -67,7 +67,7 @@ function transformWorldInfoImportPreview(
       name: entry.name as string,
       section: (entry.section as string | undefined) ?? "",
       contentPreview: (entry.content_preview as string) || "",
-      isEnabled: Boolean(entry.is_enabled),
+      agentVisibility: String(entry.agent_visibility),
     })),
   };
 }
@@ -110,7 +110,7 @@ export async function createWorldInfoEntry(
     name: data.name,
     content: data.content ?? "",
     token_count: data.tokenCount ?? 0,
-    is_enabled: data.isEnabled ?? true,
+    agent_visibility: data.agentVisibility ?? "all",
   });
   return transformWorldInfoEntry(response.data);
 }
@@ -123,7 +123,7 @@ export async function updateWorldInfoEntry(
     name: data.name,
     content: data.content,
     token_count: data.tokenCount,
-    is_enabled: data.isEnabled,
+    agent_visibility: data.agentVisibility,
   });
   return transformWorldInfoEntry(response.data);
 }
@@ -149,19 +149,14 @@ export async function moveWorldInfoEntry(
   return transformWorldInfoEntryBrief(response.data);
 }
 
-export async function toggleWorldInfoEntry(entryId: string): Promise<WorldInfoEntry> {
-  const response = await apiClient.post(`/world-info-entries/${entryId}/toggle`);
-  return transformWorldInfoEntry(response.data);
-}
-
 export async function batchToggleWorldInfoEntries(
   worldInfoId: string,
   entryIds: string[],
-  isEnabled: boolean,
+  agentVisibility: string,
 ): Promise<number> {
   const response = await apiClient.post(`/world-info/${worldInfoId}/entries/batch/toggle`, {
     entry_ids: entryIds,
-    is_enabled: isEnabled,
+    agent_visibility: agentVisibility,
   });
   return response.data.updated_count as number;
 }
