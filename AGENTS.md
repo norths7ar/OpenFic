@@ -5,3 +5,9 @@
 - 及时清理 Docker 中已确认不再需要的旧版镜像和容器。
 - 本机正式服务使用 Windows 本地运行（127.0.0.1:18081），由 `scripts/openfic-service.ps1` 管理，正式数据位于仓库根目录 `data`；`backend/data` 下的验证副本不是正式数据。
 - Git 远端：`origin` 是 GitHub 上的 OpenFic 主远端，`gitea` 是 Gitea 备份远端，`upstream` 仅供参考。用户要求推送时，将本次指定的分支或标签同步推送到 `origin` 和 `gitea`，分别核验结果；任一失败须明确报告，不向 `upstream` 推送。仅要求提交时，不自动推送。
+
+## 版本发布
+
+- 使用 `vX.Y.Z` 附注标签；发布前统一 `frontend/package.json`、`backend/pyproject.toml` 及相关锁文件中的版本，并验证实际运行版本。
+- 分支和标签按上述远端规则同步；Release 发布到 GitHub `origin`，正文作为更新记录，不维护独立 `CHANGELOG.md`，不制作安装包。
+- 正式数据、凭据、缓存及备份不进入 Git。
