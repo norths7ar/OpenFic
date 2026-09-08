@@ -1,21 +1,27 @@
 #Requires -Version 7.4
 param(
     [Parameter(Position = 0)]
-    [ValidateSet('start', 'stop', 'restart', 'status', 'logs')]
-    [string]$Action = 'status'
+    [ValidateSet('start', 'stop', 'restart', 'status', 'logs', 'backup', 'restore')]
+    [string]$Action = 'status',
+    [string]$DataPath,
+    [int]$Port = 18081,
+    [string]$SnapshotPath,
+    [string]$BrowserBackupPath,
+    [string]$RestorePath,
+    [string]$RestoreEnvironmentPath
 )
 
 $ErrorActionPreference = 'Stop'
 $projectRoot = [IO.Path]::GetFullPath((Split-Path -Parent $PSScriptRoot))
 $backendRoot = Join-Path $projectRoot 'backend'
 $pythonPath = Join-Path $backendRoot '.venv\Scripts\python.exe'
-$dataDirectory = Join-Path $projectRoot 'data'
+$dataDirectory = if ($DataPath) { [IO.Path]::GetFullPath($DataPath) } else { Join-Path $projectRoot 'data' }
 $runtimeDirectory = Join-Path $dataDirectory 'runtime'
 $logDirectory = Join-Path $dataDirectory 'logs'
 $statePath = Join-Path $runtimeDirectory 'openfic.json'
 $frontendDirectory = Join-Path $projectRoot 'frontend\dist'
-$port = 18081
 $healthUri = "http://127.0.0.1:$port/api/v1/health"
+$pathSettingNames = @('COVERS_DIR', 'CHARACTER_IMAGES_DIR', 'AGENT_ATTACHMENTS_DIR', 'CHAPTER_EXPORTS_DIR', 'STATIC_DIR', 'AGENT_CHECKPOINT_DB')
 $basePython = ''
 $venvConfig = Join-Path $backendRoot '.venv\pyvenv.cfg'
 if (Test-Path -LiteralPath $venvConfig) {
@@ -66,7 +72,66 @@ function Test-Health {
     catch { return $false }
 }
 
+function ConvertTo-ManagedPathSettings {
+    param($Values)
+    $paths = [ordered]@{}
+    foreach ($name in $pathSettingNames) {
+        $value = if ($Values -is [Collections.IDictionary]) { $Values[$name] } else { $Values.$name }
+        if ([string]::IsNullOrWhiteSpace([string]$value) -or -not [IO.Path]::IsPathFullyQualified([string]$value)) {
+            throw "Managed path setting is missing or not absolute: $name"
+        }
+        $paths[$name] = [IO.Path]::GetFullPath([string]$value)
+    }
+    return $paths
+}
+
+function Get-ConfiguredPathSettings {
+    Push-Location -LiteralPath $backendRoot
+    try {
+        $output = & $pythonPath -m app.backup paths --data $dataDirectory --repository $projectRoot
+        if ($LASTEXITCODE -ne 0) { throw 'Unable to resolve the managed data paths.' }
+        return ConvertTo-ManagedPathSettings ($output | ConvertFrom-Json -AsHashtable)
+    }
+    finally { Pop-Location }
+}
+
+function Test-PathIsWithin {
+    param([string]$Path, [string]$Root)
+    $relative = [IO.Path]::GetRelativePath($Root, $Path)
+    return -not ([IO.Path]::IsPathRooted($relative) -or $relative -eq '..' -or $relative.StartsWith("..$([IO.Path]::DirectorySeparatorChar)"))
+}
+
+function Get-RestorePathSettings {
+    $environmentPath = [IO.Path]::GetFullPath($RestoreEnvironmentPath)
+    $restoreRoot = [IO.Path]::GetFullPath((Split-Path -Parent $environmentPath))
+    if ([IO.Path]::GetFileName($environmentPath) -ne 'restore-environment.json') {
+        throw 'Restore environment must be the generated restore-environment.json file.'
+    }
+    $restoreEnvironment = Get-Content -LiteralPath $environmentPath -Raw | ConvertFrom-Json -AsHashtable
+    $expectedDataDirectory = Join-Path $restoreRoot 'data'
+    if (-not $restoreEnvironment.ContainsKey('OPENFIC_DATA_DIR') -or
+        [IO.Path]::GetFullPath([string]$restoreEnvironment.OPENFIC_DATA_DIR) -ne $expectedDataDirectory -or
+        $dataDirectory -ne $expectedDataDirectory) {
+        throw 'Restored environment does not match the restored data directory.'
+    }
+    foreach ($entry in $restoreEnvironment.GetEnumerator()) {
+        if ($entry.Key -notin @('OPENFIC_DATA_DIR') + $pathSettingNames) {
+            throw "Unsupported restore environment setting: $($entry.Key)"
+        }
+        $value = [IO.Path]::GetFullPath([string]$entry.Value)
+        if (-not (Test-PathIsWithin $value $restoreRoot)) {
+            throw "Restored environment points outside the restore directory: $($entry.Key)"
+        }
+        if ((Test-Path -LiteralPath $value) -and
+            (([IO.File]::GetAttributes($value) -band [IO.FileAttributes]::ReparsePoint) -ne 0)) {
+            throw "Restored environment path cannot be a link: $($entry.Key)"
+        }
+    }
+    return ConvertTo-ManagedPathSettings $restoreEnvironment
+}
+
 function Start-OpenFic {
+    param([System.Collections.IDictionary]$ManagedPaths)
     $state = Read-ServiceState
     $existing = Get-OwnedProcess $state
     $listeners = Get-ListeningProcessIds
@@ -79,8 +144,18 @@ function Start-OpenFic {
     }
     if ($listeners.Count -gt 0) { throw "Port $port is occupied by unmanaged PID(s): $($listeners -join ', ')." }
     if (-not (Test-Path -LiteralPath $pythonPath)) { throw "Run uv sync --frozen in backend first: $pythonPath" }
+    if (-not [string]::IsNullOrWhiteSpace($env:ENCRYPTION_KEY)) {
+        throw "Process ENCRYPTION_KEY is not supported by the managed service. Store it in $dataDirectory\.env instead."
+    }
     if (-not (Test-Path -LiteralPath (Join-Path $frontendDirectory 'index.html'))) {
         throw 'Run pnpm build in frontend before starting OpenFic.'
+    }
+    $effectivePaths = if ($RestoreEnvironmentPath) {
+        Get-RestorePathSettings
+    } elseif ($null -ne $ManagedPaths) {
+        ConvertTo-ManagedPathSettings $ManagedPaths
+    } else {
+        Get-ConfiguredPathSettings
     }
     New-Item -ItemType Directory -Path $logDirectory -Force | Out-Null
     $stamp = Get-Date -Format 'yyyyMMdd-HHmmss-fff'
@@ -101,6 +176,9 @@ function Start-OpenFic {
             OPENFIC_SHUTDOWN_TOKEN = $shutdownToken
             PYTHONUNBUFFERED = '1'
         }
+    }
+    foreach ($entry in $effectivePaths.GetEnumerator()) {
+        $parameters.Environment[$entry.Key] = [string]$entry.Value
     }
     $launcher = Start-Process @parameters
     $startupComplete = $false
@@ -128,6 +206,7 @@ function Start-OpenFic {
                 stdout = $stdout
                 stderr = $stderr
                 shutdown_token = $shutdownToken
+                paths = $effectivePaths
             }
             $state | ConvertTo-Json | Set-Content -LiteralPath $statePath -Encoding utf8
             $startupComplete = $true
@@ -198,6 +277,25 @@ function Show-OpenFicLogs {
     }
 }
 
+function Invoke-SnapshotCommand {
+    param([string[]]$SnapshotArguments)
+    Push-Location -LiteralPath $backendRoot
+    try {
+        & $pythonPath -m app.backup @SnapshotArguments
+        if ($LASTEXITCODE -ne 0) { throw 'Snapshot operation failed; formal data was not replaced.' }
+    }
+    finally { Pop-Location }
+}
+
+if ($Action -eq 'restore') {
+    if (-not $SnapshotPath -or -not $RestorePath) { throw 'restore requires -SnapshotPath and -RestorePath (a new directory).' }
+    Invoke-SnapshotCommand @('restore', '--snapshot', [IO.Path]::GetFullPath($SnapshotPath), '--destination', [IO.Path]::GetFullPath($RestorePath))
+    $restoredRoot = [IO.Path]::GetFullPath($RestorePath)
+    $sourceScript = Join-Path $restoredRoot 'source\scripts\openfic-service.ps1'
+    Write-Output "Restored to $restoredRoot. To run the matching source, first run 'uv sync --frozen' in $restoredRoot\source\backend, then use:"
+    Write-Output "& '$sourceScript' start -DataPath '$restoredRoot\data' -RestoreEnvironmentPath '$restoredRoot\restore-environment.json' -Port 18082"
+    return
+}
 if ($Action -eq 'status') { Show-OpenFicStatus; return }
 if ($Action -eq 'logs') { Show-OpenFicLogs; return }
 New-Item -ItemType Directory -Path $runtimeDirectory -Force | Out-Null
@@ -207,7 +305,37 @@ try {
     switch ($Action) {
         'start' { Start-OpenFic }
         'stop' { Stop-OpenFic }
-        'restart' { Stop-OpenFic; Start-OpenFic }
+        'restart' {
+            $restartState = Read-ServiceState
+            $restartPaths = if ($null -ne $restartState -and $null -ne $restartState.paths) {
+                ConvertTo-ManagedPathSettings $restartState.paths
+            } else { $null }
+            Stop-OpenFic
+            Start-OpenFic -ManagedPaths $restartPaths
+        }
+        'backup' {
+            if (-not $SnapshotPath) {
+                $SnapshotPath = Join-Path $projectRoot ("output/backups/" + (Get-Date -Format 'yyyyMMdd-HHmmss-fff'))
+            }
+            $snapshotArguments = @('create', '--data', $dataDirectory, '--repository', $projectRoot, '--snapshot', [IO.Path]::GetFullPath($SnapshotPath))
+            if ($BrowserBackupPath) { $snapshotArguments += @('--browser', [IO.Path]::GetFullPath($BrowserBackupPath)) }
+            $backupState = Read-ServiceState
+            $wasRunning = $null -ne (Get-OwnedProcess $backupState)
+            $backupPaths = if ($null -ne $backupState -and $null -ne $backupState.paths) {
+                ConvertTo-ManagedPathSettings $backupState.paths
+            } else { Get-ConfiguredPathSettings }
+            $pathsFile = New-TemporaryFile
+            $backupPaths | ConvertTo-Json | Set-Content -LiteralPath $pathsFile -Encoding utf8
+            $snapshotArguments += @('--paths-file', $pathsFile.FullName)
+            Stop-OpenFic
+            try { Invoke-SnapshotCommand $snapshotArguments }
+            finally {
+                Remove-Item -LiteralPath $pathsFile -Force -ErrorAction SilentlyContinue
+                if ($wasRunning) { Start-OpenFic -ManagedPaths $backupPaths }
+            }
+            Write-Output "Snapshot: $SnapshotPath"
+            if (-not $BrowserBackupPath) { Write-Output 'Server snapshot only: export the browser companion separately to include unsubmitted work.' }
+        }
     }
 }
 finally { $lock.Dispose() }

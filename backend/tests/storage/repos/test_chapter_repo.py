@@ -45,6 +45,22 @@ async def test_get_by_project_and_order_returns_none_when_missing(session):
 
 
 @pytest.mark.asyncio
+async def test_list_by_volume_reads_root_chapters_only_from_requested_project(session):
+    project = Project(title="P", description="")
+    other_project = Project(title="Other", description="")
+    session.add_all([project, other_project])
+    await session.flush()
+    root = Chapter(project_id=project.id, volume_id=None, title="根章节", order=1)
+    foreign_root = Chapter(project_id=other_project.id, volume_id=None, title="外部根章节", order=1)
+    session.add_all([root, foreign_root])
+    await session.flush()
+
+    chapters = await chapter_repo.list_by_volume(session, None, project_id=project.id)
+
+    assert [chapter.id for chapter in chapters] == [root.id]
+
+
+@pytest.mark.asyncio
 async def test_get_by_project_and_order_uses_volume_ordered_flat_index(session):
     project = Project(title="P", description="")
     session.add(project)

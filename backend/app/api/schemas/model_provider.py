@@ -33,6 +33,10 @@ class ModelProviderResponse(BaseModel):
     supported_task_types: list[str] = Field(
         description="支持的任务类型列表 (llm, embedding, rerank)"
     )
+    unavailable_task_types: list[str] = Field(
+        default_factory=list,
+        description="当前未安装可选 SDK 的任务类型",
+    )
     icon_path: str | None = Field(description="Catalog 图标路径")
     is_builtin: bool = Field(default=False, description="是否为内置提供商")
     catalog_match: CatalogMatchResponse | None = Field(
@@ -54,7 +58,7 @@ class ModelProviderValidateRequest(BaseModel):
 
     provider_type: str = Field(description="提供商类型")
     url: str = Field(description="服务 URL")
-    api_key: str = Field(description="API Key")
+    api_key: str = Field(default="", description="API Key；无认证通用连接可留空")
     custom_headers: list["CustomHeaderEntry"] = Field(
         default_factory=list,
         description="自定义请求头",

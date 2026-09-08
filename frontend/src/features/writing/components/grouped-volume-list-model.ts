@@ -69,19 +69,19 @@ export function shouldAnchorCollapsedGroupScroll({
   return typeof groupTop === "number" && groupTop <= viewportTop;
 }
 
-export function getSortedVolumeChapters(
-  chapters: ChapterListItem[],
-  dragOrderMap: Readonly<Record<string, number>>,
-): ChapterListItem[] {
-  if (Object.keys(dragOrderMap).length === 0) {
-    return chapters;
-  }
-
-  return [...chapters].sort((a, b) => {
-    const orderA = dragOrderMap[a.id] ?? a.order;
-    const orderB = dragOrderMap[b.id] ?? b.order;
-    return orderA - orderB;
-  });
+export function getReorderedChapterIds(
+  chapters: Array<Pick<ChapterListItem, "id" | "order">>,
+  activeId: string,
+  overId: string,
+): string[] | null {
+  if (activeId === overId) return null;
+  const ids = [...chapters].sort((a, b) => a.order - b.order).map((chapter) => chapter.id);
+  const from = ids.indexOf(activeId);
+  const to = ids.indexOf(overId);
+  // A drop outside this volume must not move or reorder its chapters.
+  if (from < 0 || to < 0) return null;
+  ids.splice(to, 0, ...ids.splice(from, 1));
+  return ids;
 }
 
 export function getGroupedVolumeListStructureSignature(

@@ -1,9 +1,19 @@
+from importlib.util import find_spec
+
+import httpx
 import pytest
+import respx
 import tiktoken.load
 import tiktoken.registry
 
 from app.agent_runtime.model_config import to_client_model_config, without_api_key
 from app.models.clients.model_factory import ModelConfig, create_chat_model
+
+
+def requires_extra(module: str):
+    return pytest.mark.skipif(
+        find_spec(module) is None, reason=f"optional provider SDK missing: {module}"
+    )
 
 
 def test_to_client_model_config_excludes_internal_model_record_id():
@@ -50,6 +60,7 @@ def test_create_chat_model_openai_returns_chat_openai():
     assert model.request_timeout == (10.0, 600.0)
 
 
+@requires_extra("langchain_anthropic")
 def test_create_chat_model_anthropic_uses_native_client():
     config = ModelConfig(
         provider_type="anthropic",
@@ -64,6 +75,7 @@ def test_create_chat_model_anthropic_uses_native_client():
     assert isinstance(model, ChatAnthropic)
 
 
+@requires_extra("langchain_anthropic")
 def test_create_chat_model_anthropic_compatible_uses_anthropic_client_with_custom_url():
     config = ModelConfig(
         provider_type="anthropic-compatible",
@@ -83,6 +95,7 @@ def test_create_chat_model_anthropic_compatible_uses_anthropic_client_with_custo
     assert model.max_retries == 0
 
 
+@requires_extra("langchain_anthropic")
 def test_create_chat_model_custom_providers_send_custom_headers():
     openai_model = create_chat_model(
         ModelConfig(
@@ -196,6 +209,7 @@ def test_create_chat_model_omits_disabled_reasoning_effort():
     }
 
 
+@requires_extra("langchain_deepseek")
 def test_create_chat_model_deepseek_omits_disabled_reasoning_effort():
     model = create_chat_model(
         ModelConfig(
@@ -210,6 +224,7 @@ def test_create_chat_model_deepseek_omits_disabled_reasoning_effort():
     assert "reasoning_effort" not in model._default_params  # type: ignore[attr-defined]
 
 
+@requires_extra("langchain_anthropic")
 def test_create_chat_model_maps_anthropic_reasoning_effort():
     model = create_chat_model(
         ModelConfig(
@@ -224,6 +239,7 @@ def test_create_chat_model_maps_anthropic_reasoning_effort():
     assert model.effort == "xhigh"
 
 
+@requires_extra("langchain_google_genai")
 def test_create_chat_model_maps_google_reasoning_effort():
     model = create_chat_model(
         ModelConfig(
@@ -238,6 +254,7 @@ def test_create_chat_model_maps_google_reasoning_effort():
     assert model.thinking_level == "high"
 
 
+@requires_extra("langchain_openrouter")
 def test_create_chat_model_maps_openrouter_reasoning_effort():
     model = create_chat_model(
         ModelConfig(
@@ -252,6 +269,7 @@ def test_create_chat_model_maps_openrouter_reasoning_effort():
     assert model._default_params["reasoning"] == {"effort": "high"}  # type: ignore[attr-defined]
 
 
+@requires_extra("langchain_groq")
 def test_create_chat_model_maps_groq_reasoning_effort():
     model = create_chat_model(
         ModelConfig(
@@ -266,6 +284,7 @@ def test_create_chat_model_maps_groq_reasoning_effort():
     assert model._default_params["reasoning_effort"] == "high"  # type: ignore[attr-defined]
 
 
+@requires_extra("langchain_cohere")
 def test_create_chat_model_maps_cohere_reasoning_effort():
     model = create_chat_model(
         ModelConfig(
@@ -283,6 +302,7 @@ def test_create_chat_model_maps_cohere_reasoning_effort():
     }
 
 
+@requires_extra("langchain_amazon_nova")
 def test_create_chat_model_maps_amazon_nova_reasoning_effort():
     model = create_chat_model(
         ModelConfig(
@@ -297,6 +317,7 @@ def test_create_chat_model_maps_amazon_nova_reasoning_effort():
     assert model._default_params["reasoning_effort"] == "high"  # type: ignore[attr-defined]
 
 
+@requires_extra("langchain_mistralai")
 def test_create_chat_model_passes_reasoning_effort_to_mistral():
     mistral_model = create_chat_model(
         ModelConfig(
@@ -310,6 +331,7 @@ def test_create_chat_model_passes_reasoning_effort_to_mistral():
     assert mistral_model._default_params["reasoning_effort"] == "high"  # type: ignore[attr-defined]
 
 
+@requires_extra("langchain_nvidia_ai_endpoints")
 def test_create_chat_model_enables_nvidia_thinking_mode():
     nvidia_model = create_chat_model(
         ModelConfig(
@@ -342,6 +364,7 @@ def test_create_chat_model_disables_provider_internal_retries_for_openai_like_mo
     assert model.max_retries == 0
 
 
+@requires_extra("langchain_anthropic")
 def test_create_chat_model_disables_provider_internal_retries_for_anthropic():
     config = ModelConfig(
         provider_type="anthropic",
@@ -353,6 +376,7 @@ def test_create_chat_model_disables_provider_internal_retries_for_anthropic():
     assert model.max_retries == 0
 
 
+@requires_extra("langchain_deepseek")
 def test_create_chat_model_disables_provider_internal_retries_for_deepseek():
     config = ModelConfig(
         provider_type="deepseek",
@@ -364,6 +388,7 @@ def test_create_chat_model_disables_provider_internal_retries_for_deepseek():
     assert model.max_retries == 0
 
 
+@requires_extra("langchain_mistralai")
 def test_create_chat_model_disables_provider_internal_retries_for_mistral():
     config = ModelConfig(
         provider_type="mistral",
@@ -375,6 +400,7 @@ def test_create_chat_model_disables_provider_internal_retries_for_mistral():
     assert model.max_retries == 0
 
 
+@requires_extra("langchain_google_genai")
 def test_create_chat_model_configures_google_genai_retries():
     config = ModelConfig(
         provider_type="google-genai",
@@ -400,6 +426,7 @@ def test_create_chat_model_unknown_provider_falls_back_to_openai():
     assert isinstance(model, ChatOpenAI)
 
 
+@requires_extra("langchain_anthropic")
 def test_create_chat_model_uses_native_client_for_configured_provider():
     config = ModelConfig(
         provider_type="anthropic",
@@ -416,6 +443,7 @@ def test_create_chat_model_uses_native_client_for_configured_provider():
     assert model.anthropic_api_url == "https://api.anthropic.com"
 
 
+@requires_extra("langchain_deepseek")
 def test_create_chat_model_deepseek_uses_native_client(monkeypatch):
     from app.settings import settings
 
@@ -433,6 +461,7 @@ def test_create_chat_model_deepseek_uses_native_client(monkeypatch):
     assert model.stream_chunk_timeout == 77.0
 
 
+@requires_extra("langchain_openrouter")
 def test_create_chat_model_openrouter_uses_native_client(monkeypatch):
     from app.settings import settings
 
@@ -452,6 +481,7 @@ def test_create_chat_model_openrouter_uses_native_client(monkeypatch):
     assert model.request_timeout == 600000
 
 
+@requires_extra("langchain_groq")
 def test_create_chat_model_groq_uses_native_client():
     config = ModelConfig(
         provider_type="groq",
@@ -467,6 +497,7 @@ def test_create_chat_model_groq_uses_native_client():
     assert isinstance(model, ChatGroq)
 
 
+@requires_extra("langchain_cohere")
 def test_create_chat_model_cohere_uses_native_client():
     config = ModelConfig(
         provider_type="cohere",
@@ -498,6 +529,7 @@ def test_create_chat_model_ollama_uses_openai_compatible_client():
     assert str(model.root_client.base_url) == "https://ollama.com/v1/"
 
 
+@requires_extra("langchain_amazon_nova")
 def test_create_chat_model_amazon_nova_uses_native_client():
     config = ModelConfig(
         provider_type="amazon-nova",
@@ -528,6 +560,136 @@ def test_create_chat_model_openai_compatible_enables_stream_usage_for_custom_bas
     assert model.stream_usage is True
 
 
+@respx.mock
+def test_create_chat_model_anonymous_compatible_sync_request_omits_authorization() -> None:
+    route = respx.get("http://127.0.0.1:10100/v1/models").mock(
+        return_value=httpx.Response(200, json={"data": []})
+    )
+    model = create_chat_model(
+        ModelConfig(
+            provider_type="openai-compatible",
+            base_url="http://127.0.0.1:10100/v1",
+            api_key="",
+            model_id="proxy/model",
+        )
+    )
+
+    list(model.root_client.models.list())
+
+    assert route.called
+    assert "authorization" not in route.calls[0].request.headers
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_create_chat_model_anonymous_compatible_async_request_omits_authorization() -> None:
+    route = respx.get("http://127.0.0.1:10100/v1/models").mock(
+        return_value=httpx.Response(200, json={"data": []})
+    )
+    model = create_chat_model(
+        ModelConfig(
+            provider_type="openai-compatible",
+            base_url="http://127.0.0.1:10100/v1",
+            api_key="",
+            model_id="proxy/model",
+        )
+    )
+
+    await model.root_async_client.models.list()
+
+    assert route.called
+    assert "authorization" not in route.calls[0].request.headers
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_create_chat_model_anonymous_chat_completions_request_omits_authorization() -> None:
+    route = respx.post("http://127.0.0.1:10100/v1/chat/completions").mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "id": "chatcmpl-test",
+                "object": "chat.completion",
+                "created": 0,
+                "model": "proxy/model",
+                "choices": [
+                    {
+                        "index": 0,
+                        "message": {"role": "assistant", "content": "OK"},
+                        "finish_reason": "stop",
+                    }
+                ],
+            },
+        )
+    )
+    model = create_chat_model(
+        ModelConfig(
+            provider_type="openai-compatible",
+            base_url="http://127.0.0.1:10100/v1",
+            api_key="",
+            model_id="proxy/model",
+        )
+    )
+
+    await model.root_async_client.chat.completions.create(
+        model="proxy/model",
+        messages=[{"role": "user", "content": "ping"}],
+    )
+
+    assert route.called
+    assert "authorization" not in route.calls[0].request.headers
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_create_chat_model_anonymous_responses_request_omits_authorization() -> None:
+    route = respx.post("http://127.0.0.1:10100/v1/responses").mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "id": "resp-test",
+                "object": "response",
+                "created_at": 0,
+                "model": "proxy/model",
+                "output": [],
+            },
+        )
+    )
+    model = create_chat_model(
+        ModelConfig(
+            provider_type="openai-compatible-responses",
+            base_url="http://127.0.0.1:10100/v1",
+            api_key="",
+            model_id="proxy/model",
+        )
+    )
+
+    await model.root_async_client.responses.create(model="proxy/model", input="ping")
+
+    assert route.called
+    assert "authorization" not in route.calls[0].request.headers
+
+
+@respx.mock
+def test_create_chat_model_anonymous_compatible_keeps_custom_authorization() -> None:
+    route = respx.get("http://127.0.0.1:10100/v1/models").mock(
+        return_value=httpx.Response(200, json={"data": []})
+    )
+    model = create_chat_model(
+        ModelConfig(
+            provider_type="openai-compatible",
+            base_url="http://127.0.0.1:10100/v1",
+            api_key="",
+            model_id="proxy/model",
+            custom_headers={"Authorization": "Token configured-by-user"},
+        )
+    )
+
+    list(model.root_client.models.list())
+
+    assert route.calls[0].request.headers["authorization"] == "Token configured-by-user"
+
+
 def test_create_chat_model_openai_responses_compatible_uses_responses_api():
     config = ModelConfig(
         provider_type="openai-compatible-responses",
@@ -544,6 +706,7 @@ def test_create_chat_model_openai_responses_compatible_uses_responses_api():
     assert str(model.root_client.base_url) == "https://gateway.example/v1/"
 
 
+@requires_extra("langchain_deepseek")
 def test_create_chat_model_deepseek_enables_stream_usage():
     config = ModelConfig(
         provider_type="deepseek",
@@ -559,6 +722,7 @@ def test_create_chat_model_deepseek_enables_stream_usage():
     assert model.stream_usage is True
 
 
+@requires_extra("langchain_deepseek")
 def test_create_chat_model_deepseek_uses_bundled_tiktoken_encoding(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path,

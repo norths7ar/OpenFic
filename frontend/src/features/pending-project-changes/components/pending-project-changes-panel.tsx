@@ -7,15 +7,15 @@ import {
   IconButton,
   ScrollArea,
   Text,
-  TextField,
 } from "@radix-ui/themes";
 import axios from "axios";
-import { ArrowUpDown, CheckCircle2, FileClock, Search, XCircle } from "lucide-react";
+import { ArrowUpDown, CheckCircle2, FileClock, XCircle } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { ConfirmDialog, Spinner, StreamingMarkdown, toast } from "@/components";
 import { ProjectNavItemRow } from "@/features/project-navigation/components/project-nav-item-row";
+import { ProjectNavSearch } from "@/features/project-navigation/components/project-nav-search";
 import { ProjectNavShell } from "@/features/project-navigation/components/project-nav-shell";
 import { ProjectNavToolbar } from "@/features/project-navigation/components/project-nav-toolbar";
 import { useAgentVisibilityCatalog } from "@/hooks/use-agent-visibility-catalog";
@@ -278,6 +278,7 @@ export function PendingProjectChangesPanel({
   const [changeToReject, setChangeToReject] = useState<PendingProjectChange | null>(null);
   const [changeToApply, setChangeToApply] = useState<PendingProjectChange | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [searchExpanded, setSearchExpanded] = useState(false);
   const [sortDirection, setSortDirection] = useState<"newest" | "oldest">("newest");
   const changesQuery = usePendingProjectChanges(projectId, "pending");
   const countQuery = usePendingProjectChangeCount(projectId);
@@ -396,22 +397,18 @@ export function PendingProjectChangesPanel({
           <div className="pending-project-changes-layout">
             <ProjectNavShell>
               <ProjectNavToolbar
+                searchExpanded={searchExpanded}
                 search={
                   <Flex
                     align="center"
                     gap="2"
                   >
-                    <TextField.Root
-                      size="2"
+                    <ProjectNavSearch
+                      onExpandedChange={setSearchExpanded}
                       value={searchQuery}
-                      onChange={(event) => setSearchQuery(event.target.value)}
+                      onChange={setSearchQuery}
                       placeholder={t("pendingProjectChanges.searchPlaceholder")}
-                      style={{ flex: 1 }}
-                    >
-                      <TextField.Slot>
-                        <Search size={16} />
-                      </TextField.Slot>
-                    </TextField.Root>
+                    />
                     <Badge
                       color="amber"
                       variant="soft"
@@ -432,12 +429,18 @@ export function PendingProjectChangesPanel({
                       </IconButton>
                     </DropdownMenu.Trigger>
                     <DropdownMenu.Content align="end">
-                      <DropdownMenu.Item onClick={() => setSortDirection("newest")}>
+                      <DropdownMenu.CheckboxItem
+                        checked={sortDirection === "newest"}
+                        onCheckedChange={() => setSortDirection("newest")}
+                      >
                         {t("pendingProjectChanges.sortNewest")}
-                      </DropdownMenu.Item>
-                      <DropdownMenu.Item onClick={() => setSortDirection("oldest")}>
+                      </DropdownMenu.CheckboxItem>
+                      <DropdownMenu.CheckboxItem
+                        checked={sortDirection === "oldest"}
+                        onCheckedChange={() => setSortDirection("oldest")}
+                      >
                         {t("pendingProjectChanges.sortOldest")}
-                      </DropdownMenu.Item>
+                      </DropdownMenu.CheckboxItem>
                     </DropdownMenu.Content>
                   </DropdownMenu.Root>
                 }
@@ -535,6 +538,14 @@ export function PendingProjectChangesPanel({
                               })
                         }
                         metadata={formatCreatedAt(change.created_at, i18n.language)}
+                        actions={
+                          <Badge
+                            color="amber"
+                            variant="soft"
+                          >
+                            {t("pendingProjectChanges.navStatus")}
+                          </Badge>
+                        }
                       />
                     ))
                   )}

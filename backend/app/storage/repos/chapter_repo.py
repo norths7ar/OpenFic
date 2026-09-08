@@ -2,7 +2,6 @@
 Chapter Repository - 章节数据访问层。
 """
 
-from datetime import UTC, datetime
 from typing import Any, Literal, NamedTuple, cast
 
 from sqlalchemy import case, func, or_, select, update
@@ -259,18 +258,23 @@ async def search_by_content(
 
 async def list_by_volume(
     session: AsyncSession,
-    volume_id: str,
+    volume_id: str | None,
     *,
+    project_id: str | None = None,
     offset: int = 0,
     limit: int | None = None,
 ) -> list[Chapter]:
-    """分页获取卷下章节列表。"""
+    """分页获取卷或根目录下的章节列表。"""
+    if volume_id is None and project_id is None:
+        raise ValueError("Root chapter operations require a project ID")
     stmt = (
         select(Chapter)
         .where(col(Chapter.volume_id) == volume_id)
         .order_by(col(Chapter.order).asc())
         .offset(offset)
     )
+    if project_id is not None:
+        stmt = stmt.where(col(Chapter.project_id) == project_id)
     if limit is not None:
         stmt = stmt.limit(limit)
     result = await session.execute(stmt)
@@ -375,12 +379,10 @@ async def get_max_order(
     """
     if volume_id is None and project_id is None:
         raise ValueError("Root chapter operations require a project ID")
-    result = await session.execute(
-        select(func.max(col(Chapter.order))).where(
-            col(Chapter.volume_id) == volume_id,
-            col(Chapter.project_id) == project_id if project_id is not None else True,
-        )
-    )
+    stmt = select(func.max(col(Chapter.order))).where(col(Chapter.volume_id) == volume_id)
+    if project_id is not None:
+        stmt = stmt.where(col(Chapter.project_id) == project_id)
+    result = await session.execute(stmt)
     max_order = result.scalar_one_or_none()
     return max_order if max_order is not None else 0
 
@@ -452,7 +454,17 @@ async def update_orders(
     if not orders:
         return
 
-    now = datetime.now(UTC)
+    current = await session.execute(
+        select(col(Chapter.id), col(Chapter.order)).where(col(Chapter.id).in_(orders))
+    )
+    orders = {
+        chapter_id: orders[chapter_id]
+        for chapter_id, order in current
+        if orders[chapter_id] != order
+    }
+    if not orders:
+        return
+
     ids = list(orders.keys())
 
     # Phase 1: set to negative temp values to avoid UNIQUE(volume_id, order) conflicts
@@ -464,7 +476,6 @@ async def update_orders(
             order=case(
                 *[(col(Chapter.id) == cid, val) for cid, val in temp_whens.items()],
             ),
-            updated_at=now,
         )
     )
     await session.flush()
@@ -477,7 +488,6 @@ async def update_orders(
             order=case(
                 *[(col(Chapter.id) == cid, order) for cid, order in orders.items()],
             ),
-            updated_at=now,
         )
     )
     await session.flush()
@@ -485,7 +495,7 @@ async def update_orders(
 
 async def shift_orders(
     session: AsyncSession,
-    volume_id: str,
+    volume_id: str | None,
     start_order: int,
     end_order: int,
     delta: int,
@@ -506,14 +516,14 @@ async def shift_orders(
     """
     if volume_id is None and project_id is None:
         raise ValueError("Root chapter operations require a project ID")
-    result = await session.execute(
-        select(Chapter).where(
-            col(Chapter.volume_id) == volume_id,
-            col(Chapter.project_id) == project_id if project_id is not None else True,
-            col(Chapter.order) >= start_order,
-            col(Chapter.order) <= end_order,
-        )
+    stmt = select(Chapter).where(
+        col(Chapter.volume_id) == volume_id,
+        col(Chapter.order) >= start_order,
+        col(Chapter.order) <= end_order,
     )
+    if project_id is not None:
+        stmt = stmt.where(col(Chapter.project_id) == project_id)
+    result = await session.execute(stmt)
     orders = {chapter.id: chapter.order + delta for chapter in result.scalars().all()}
     await update_orders(session, orders)
 

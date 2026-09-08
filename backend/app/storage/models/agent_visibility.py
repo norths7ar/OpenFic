@@ -1,6 +1,6 @@
 """Typed ORM boundary for material visibility, including rollback snapshots."""
 
-from typing import Any
+from typing import Any, cast
 
 from sqlalchemy import Enum as SQLAlchemyEnum
 from sqlmodel import Field, SQLModel
@@ -8,17 +8,23 @@ from sqlmodel import Field, SQLModel
 from app.core.agent_visibility import AgentVisibility
 
 
-def _visibility_column_type() -> SQLAlchemyEnum:
+class AgentVisibilityType(SQLAlchemyEnum):
     # Persist public values ("all"), not Python member names ("ALL"). SQLite
     # keeps its existing text storage; invalid ORM binds/loads are rejected.
-    return SQLAlchemyEnum(
-        AgentVisibility,
-        values_callable=lambda enum: [member.value for member in enum],
-        native_enum=False,
-        create_constraint=False,
-        validate_strings=True,
-        length=32,
-    )
+    def __init__(self, *enums: object, **kwargs: Any) -> None:
+        if enums:
+            # SQLAlchemy creates dialect-adapted copies with its stored enum
+            # values. Let that constructor path keep its supplied settings.
+            super().__init__(*cast(tuple[Any, ...], enums), **kwargs)
+        else:
+            super().__init__(
+                AgentVisibility,
+                values_callable=lambda enum: [member.value for member in enum],
+                native_enum=False,
+                create_constraint=False,
+                validate_strings=True,
+                length=32,
+            )
 
 
 class _AgentVisibilityModel(SQLModel):
@@ -37,13 +43,16 @@ class _AgentVisibilityModel(SQLModel):
 
 class AgentVisibilityModel(_AgentVisibilityModel):
     agent_visibility: AgentVisibility = Field(
-        default=AgentVisibility.ALL, sa_type=_visibility_column_type(), index=True
+        default=AgentVisibility.ALL,
+        sa_type=AgentVisibilityType,
+        index=True,
     )
 
 
 class AgentVisibilitySnapshotModel(_AgentVisibilityModel):
     agent_visibility: AgentVisibility | None = Field(
-        default=None, sa_type=_visibility_column_type()
+        default=None,
+        sa_type=AgentVisibilityType,
     )
 
     @staticmethod

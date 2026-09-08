@@ -252,15 +252,12 @@ async def test_source_apply_conflict_does_not_partially_write(
         )
     ).status_code == 200
 
-    note = (
+    note_id = (
         await session.execute(
-            Note.__table__.select().where(
-                (Note.project_id == project.id) & (Note.content == "卷内容")
-            )
+            select(Note.id).where((Note.project_id == project.id) & (Note.content == "卷内容"))
         )
-    ).first()
-    assert note is not None
-    note_id = note[0]
+    ).scalar_one_or_none()
+    assert note_id is not None
     # Use an independent session to model a saved OpenFic edit from another
     # request/transaction; the import request must not roll it back.
     async with db_engine.connect() as edit_conn:

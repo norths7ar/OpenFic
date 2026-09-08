@@ -5,7 +5,7 @@ from __future__ import annotations
 import fnmatch
 import re
 from dataclasses import dataclass, field, replace
-from typing import Any
+from typing import Any, NoReturn
 
 import yaml
 
@@ -46,7 +46,7 @@ class _Heading:
     ancestors: tuple[_Heading, ...] = ()
 
 
-_TARGETS = {"worldbook", "characters", "notes", "outlines"}
+_TARGETS = {"worldbook", "characters", "chapters", "notes", "outlines"}
 _RULE_KEYS = {
     "id",
     "target",
@@ -72,9 +72,10 @@ _SPLIT_KEYS = {"type", "item_levels"}
 _FENCE = re.compile(r"^ {0,3}(`{3,}|~{3,})")
 _HEADING = re.compile(r"^ {0,3}(#{1,6})[ \t]+(.+?)[ \t]*$")
 _TARGET_ID = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
+_CHAPTER_FILE_KEYS = {"id", "volume_id", "order"}
 
 
-def _fail(message: str) -> None:
+def _fail(message: str) -> NoReturn:
     raise BundleFormatError(message)
 
 
@@ -122,6 +123,39 @@ def _scan(text: str) -> list[_Heading]:
     return headings
 
 
+def _chapter_file_metadata(text: str) -> dict[str, Any]:
+    """Read the identity envelope required by every mapped chapter file."""
+
+    lines = text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
+    if not lines or lines[0] != "---":
+        _fail("chapter source must begin with OpenFic chapter metadata")
+    try:
+        closing = lines.index("---", 1)
+    except ValueError:
+        _fail("chapter source metadata is not terminated")
+    try:
+        parsed = yaml.safe_load("\n".join(lines[1:closing]))
+    except yaml.YAMLError as exc:
+        raise BundleFormatError("chapter source metadata is invalid YAML") from exc
+    if not isinstance(parsed, dict) or set(parsed) != {"openfic_chapter"}:
+        _fail("chapter source metadata must contain only openfic_chapter")
+    chapter = parsed["openfic_chapter"]
+    if not isinstance(chapter, dict) or set(chapter) != _CHAPTER_FILE_KEYS:
+        _fail("chapter source metadata fields are invalid")
+    chapter_id = chapter.get("id")
+    volume_id = chapter.get("volume_id")
+    if not isinstance(chapter_id, str) or _TARGET_ID.fullmatch(chapter_id) is None:
+        _fail("chapter source id is invalid")
+    if volume_id is not None and (
+        not isinstance(volume_id, str) or _TARGET_ID.fullmatch(volume_id) is None
+    ):
+        _fail("chapter source volume_id is invalid")
+    order = _int(chapter.get("order"), "chapter source order")
+    if order < 0:
+        _fail("chapter source order must be non-negative")
+    return {"id": chapter_id, "volume_id": volume_id, "order": order}
+
+
 def _validate_rule(rule: Any) -> dict[str, Any]:
     if not isinstance(rule, dict):
         _fail("each rule must be a mapping")
@@ -143,6 +177,8 @@ def _validate_rule(rule: Any) -> dict[str, Any]:
     split_type = split.get("type")
     if split_type not in {"file", "headings"}:
         _fail("split type must be file or headings")
+    if target == "chapters" and split_type != "file":
+        _fail("chapters must use one file per chapter")
     levels = split.get("item_levels")
     if split_type == "headings":
         if not isinstance(levels, list) or not levels:
@@ -171,7 +207,9 @@ def _validate_rule(rule: Any) -> dict[str, Any]:
         if section_level < 1 or section_level >= min(levels):
             _fail("section_level must be below all item levels")
     if "category_levels" in rule:
-        if target not in {"notes", "outlines"} or not isinstance(rule["category_levels"], list):
+        if target not in {"chapters", "notes", "outlines"} or not isinstance(
+            rule["category_levels"], list
+        ):
             _fail("category_levels is only valid as a list for notes or outlines")
         category_levels = [_int(level, "category_levels") for level in rule["category_levels"]]
         if (
@@ -182,7 +220,7 @@ def _validate_rule(rule: Any) -> dict[str, Any]:
         ):
             _fail("category_levels must contain at most one ancestor level")
     if "category_path" in rule and (
-        target not in {"notes", "outlines"}
+        target not in {"chapters", "notes", "outlines"}
         or not isinstance(rule["category_path"], list)
         or any(not isinstance(value, str) or not value for value in rule["category_path"])
     ):
@@ -219,7 +257,7 @@ def _validate_rule(rule: Any) -> dict[str, Any]:
         category_ids = rule["category_target_ids"]
         category_path = rule.get("category_path")
         if (
-            target not in {"notes", "outlines"}
+            target not in {"chapters", "notes", "outlines"}
             or split_type != "file"
             or not has_source
             or not isinstance(category_ids, list)
@@ -235,7 +273,7 @@ def _validate_rule(rule: Any) -> dict[str, Any]:
         category_orders = rule["category_orders"]
         category_path = rule.get("category_path")
         if (
-            target not in {"notes", "outlines"}
+            target not in {"chapters", "notes", "outlines"}
             or split_type != "file"
             or not has_source
             or not isinstance(category_orders, list)
@@ -266,6 +304,7 @@ def _mapped_items(path: str, text: str, rule: dict[str, Any]) -> list[MappedSour
     lines = text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
     headings = _scan(text)
     target = rule["target"]
+    chapter_metadata = _chapter_file_metadata(text) if target == "chapters" else None
     visible = validate_agent_visibility(rule.get("agent_visibility", DEFAULT_AGENT_VISIBILITY))
     h1 = next(heading for heading in headings if heading.level == 1)
 
@@ -302,6 +341,15 @@ def _mapped_items(path: str, text: str, rule: dict[str, Any]) -> list[MappedSour
     if rule["split"]["type"] == "file":
         title, item_visible = item_title_and_visibility(h1.title)
         folder_path, folder_target_ids, folder_orders = file_folder_metadata()
+        if chapter_metadata is not None:
+            if rule.get("target_id") not in {None, chapter_metadata["id"]}:
+                _fail("chapter rule target_id conflicts with chapter metadata")
+            if rule.get("order") not in {None, chapter_metadata["order"]}:
+                _fail("chapter rule order conflicts with chapter metadata")
+            if folder_path and chapter_metadata["volume_id"] is None:
+                _fail("root chapter metadata conflicts with chapter rule folder")
+            if folder_target_ids and folder_target_ids != [chapter_metadata["volume_id"]]:
+                _fail("chapter rule folder conflicts with chapter metadata")
         return [
             MappedSourceItem(
                 path,
@@ -313,10 +361,17 @@ def _mapped_items(path: str, text: str, rule: dict[str, Any]) -> list[MappedSour
                 None,
                 folder_path,
                 item_visible,
-                rule.get("order", -1),
-                rule.get("target_id"),
-                folder_target_ids,
+                chapter_metadata["order"]
+                if chapter_metadata is not None
+                else rule.get("order", -1),
+                chapter_metadata["id"] if chapter_metadata is not None else rule.get("target_id"),
+                (
+                    [chapter_metadata["volume_id"]]
+                    if chapter_metadata is not None and chapter_metadata["volume_id"] is not None
+                    else folder_target_ids
+                ),
                 folder_orders,
+                {"chapter_file": chapter_metadata} if chapter_metadata is not None else {},
             )
         ]
     item_levels = set(rule["split"]["item_levels"])
@@ -444,6 +499,7 @@ def _source_metadata(
             not in {
                 "world",
                 "character",
+                "writing",
                 "note",
                 "outline",
             }
@@ -539,9 +595,50 @@ def parse_source_mapping(data: bytes, target_project_id: str) -> list[MappedSour
             except UnicodeDecodeError as exc:
                 raise BundleFormatError(f"source file is not UTF-8: {path}") from exc
             for item in _mapped_items(path, text, rule):
-                details = metadata.get((item.rule_id, item.source, item.anchor))
+                chapter_file = item.metadata.get("chapter_file")
+                if item.target == "chapters":
+                    if not isinstance(chapter_file, dict):
+                        _fail("chapter source metadata is missing")
+                    volume_id = chapter_file["volume_id"]
+                    folder = folders.get(volume_id) if volume_id is not None else None
+                    if volume_id is not None and (folder is None or folder["scope"] != "writing"):
+                        _fail("chapter source volume is missing or not a writing folder")
+                    item = replace(
+                        item,
+                        category_path=[folder["title"]] if folder else [],
+                        category_target_ids=[folder["id"]] if folder else [],
+                        category_orders=[folder["order"]] if folder else [],
+                    )
+                details = (
+                    None
+                    if item.target == "chapters"
+                    else metadata.get((item.rule_id, item.source, item.anchor))
+                )
+                metadata_key = (item.rule_id, item.source, item.anchor)
+                # File-split rules carry a stable target_id. When users rename
+                # that file or its H1, retain the recorded object identity and
+                # let a successful apply refresh the stored source location.
+                if item.target != "chapters" and details is None and item.target_id is not None:
+                    candidates = [
+                        (key, value)
+                        for key, value in metadata.items()
+                        if value["target_id"] == item.target_id and key[0] == item.rule_id
+                    ]
+                    if len(candidates) == 1:
+                        metadata_key, details = candidates[0]
+                if item.target == "chapters":
+                    # Older source exports recorded chapter identity in the
+                    # manifest.  A current file envelope is authoritative, but
+                    # count that legacy entry as consumed if it still agrees.
+                    candidates = [
+                        (key, value)
+                        for key, value in metadata.items()
+                        if value["target_id"] == item.target_id and key[0] == item.rule_id
+                    ]
+                    if len(candidates) == 1:
+                        used_metadata.add(candidates[0][0])
                 if details is not None:
-                    used_metadata.add((item.rule_id, item.source, item.anchor))
+                    used_metadata.add(metadata_key)
                     if (
                         ("section" in details and item.target != "worldbook")
                         or ("is_favorited" in details and item.target != "characters")
@@ -554,6 +651,7 @@ def parse_source_mapping(data: bytes, target_project_id: str) -> list[MappedSour
                         "characters": "character",
                         "notes": "note",
                         "outlines": "outline",
+                        "chapters": "writing",
                     }[item.target]
                     if folder and folder["scope"] != expected_scope:
                         _fail("source item folder scope differs from target")
@@ -574,11 +672,15 @@ def parse_source_mapping(data: bytes, target_project_id: str) -> list[MappedSour
                         body=restore_body_format(item.body, details["body_format"])
                         if "body_format" in details
                         else item.body,
-                        metadata=details,
+                        metadata={**item.metadata, **details},
                     )
                 logic = (item.target, item.source, item.anchor)
                 if item.target_id is not None:
-                    target_kind = "notes" if item.target == "outlines" else item.target
+                    target_kind = (
+                        "note"
+                        if item.target in {"notes", "outlines"}
+                        else ("chapter" if item.target == "chapters" else item.target)
+                    )
                     identity = (target_kind, item.target_id)
                     if identity in target_ids:
                         _fail("source items contain duplicate target IDs")

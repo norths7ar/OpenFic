@@ -128,6 +128,8 @@ function transformProvider(raw: ModelProviderResponse): ModelProvider {
     providerType: raw.provider_type as ModelProvider["providerType"],
     customHeaderNames: raw.custom_header_names ?? [],
     supportedTaskTypes: raw.supported_task_types as ModelProvider["supportedTaskTypes"],
+    unavailableTaskTypes: (raw.unavailable_task_types ??
+      []) as ModelProvider["unavailableTaskTypes"],
     iconPath: raw.icon_path || null,
     isBuiltin: raw.is_builtin ?? false,
     catalogMatch: transformCatalogMatch(raw.catalog_match),
@@ -156,7 +158,7 @@ function transformModel(raw: ModelResponse): Model {
     presencePenalty: raw.presence_penalty,
     repetitionPenalty: raw.repetition_penalty,
     maxTokens: raw.max_tokens,
-    contextLength: raw.context_length ?? 128000,
+    contextLength: raw.context_length ?? 0,
     inputPrice: raw.input_price ?? 0,
     outputPrice: raw.output_price ?? 0,
     cacheReadPrice: raw.cache_read_price ?? 0,

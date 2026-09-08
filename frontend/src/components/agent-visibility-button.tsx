@@ -52,7 +52,10 @@ export function AgentVisibilityButton({
         if (!unavailable && next) onChange(next.value);
       }}
     >
-      <AnimatePresence initial={false} mode="popLayout">
+      <AnimatePresence
+        initial={false}
+        mode="popLayout"
+      >
         <motion.span
           key={label}
           className="agent-visibility-button__content"
@@ -62,8 +65,14 @@ export function AgentVisibilityButton({
           transition={{ duration: reduceMotion ? 0 : 0.18, ease: "easeOut" }}
           aria-hidden="true"
         >
-          <span className="agent-visibility-button__symbol" data-symbol={value}>
-            <StateIcon size={11} strokeWidth={2} />
+          <span
+            className="agent-visibility-button__symbol"
+            data-symbol={value}
+          >
+            <StateIcon
+              size={11}
+              strokeWidth={2}
+            />
           </span>
           <span className="agent-visibility-button__label">{label}</span>
         </motion.span>

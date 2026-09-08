@@ -50,6 +50,9 @@ export interface ChapterUpdate {
   title?: string;
   content?: string;
   wordCount?: number;
+  baseUpdatedAt?: string;
+  baseTitle?: string;
+  baseContent?: string;
 }
 
 export interface Volume {

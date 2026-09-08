@@ -129,7 +129,13 @@ export function ProjectNavGroupHeader({
           pointerEvents: "none",
         }}
       />
-      <Flex align="center" gap="2" px="3" py="2" style={{ minWidth: 0 }}>
+      <Flex
+        align="center"
+        gap="2"
+        px="3"
+        py="2"
+        style={{ minWidth: 0 }}
+      >
         <IconButton
           variant="ghost"
           color="gray"
@@ -147,7 +153,10 @@ export function ProjectNavGroupHeader({
           </motion.div>
         </IconButton>
 
-        <Box style={{ flex: 1, minWidth: 0 }} onClick={onToggle}>
+        <Box
+          style={{ flex: 1, minWidth: 0 }}
+          onClick={onToggle}
+        >
           {isRenaming && onRenameConfirm && onRenameCancel ? (
             <HeaderRenameInput
               initialValue={title}
@@ -186,7 +195,11 @@ export function ProjectNavGroupHeader({
           ) : null}
         </Box>
 
-        <Text size="1" color="gray" style={{ flexShrink: 0 }}>
+        <Text
+          size="1"
+          color="gray"
+          style={{ flexShrink: 0 }}
+        >
           {count}
         </Text>
 

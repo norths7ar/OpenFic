@@ -61,6 +61,9 @@ export interface NoteUpdate {
   title?: string;
   content?: string;
   agentVisibility?: string;
+  baseUpdatedAt?: string;
+  baseTitle?: string;
+  baseContent?: string;
 }
 
 export interface NoteCategoryCreate {

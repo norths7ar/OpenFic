@@ -7,10 +7,12 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Literal
 
+from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import col
 
 from app.core.editor_content_limits import validate_editor_content
-from app.core.errors import NotFoundError
+from app.core.errors import ConflictError, NotFoundError
 from app.memory.chapter.sequence import global_order_index
 from app.storage.models.chapter import Chapter
 from app.storage.models.project_folder import ProjectFolder
@@ -129,6 +131,8 @@ async def _update_project_stats(session: AsyncSession, project_id: str) -> None:
 
 async def _update_volume_stats(session: AsyncSession, volume_id: str | None) -> None:
     """更新卷的章节数缓存。"""
+    if volume_id is None:
+        return
     volume = await volume_repo.get_by_id(session, volume_id)
     if volume is None:
         return
@@ -168,7 +172,7 @@ async def create_chapter(
     project = await project_repo.get_by_id(session, project_id)
     if project is None:
         raise NotFoundError(f"项目不存在: {project_id}")
-    volume = await volume_repo.get_by_id(session, volume_id)
+    volume = await volume_repo.get_by_id(session, volume_id) if volume_id is not None else None
     if volume_id is not None and (volume is None or volume.project_id != project_id):
         raise NotFoundError(f"卷不存在: {volume_id}")
 
@@ -263,7 +267,7 @@ async def list_chapters(
 
     volumes = await volume_repo.list_by_project(session, project_id)
     chapters = await chapter_repo.list_metadata_by_project(session, project_id)
-    chapters_by_volume: dict[str, list[Chapter]] = {volume.id: [] for volume in volumes}
+    chapters_by_volume: dict[str | None, list[Chapter]] = {volume.id: [] for volume in volumes}
     for chapter in chapters:
         chapters_by_volume.setdefault(chapter.volume_id, []).append(chapter)
     groups = [
@@ -437,6 +441,9 @@ async def update_chapter(
     title: str | None = None,
     content: str | None = None,
     word_count: int | None = None,
+    base_updated_at: datetime | None = None,
+    base_title: str | None = None,
+    base_content: str | None = None,
 ) -> Chapter:
     """
     更新章节。
@@ -455,6 +462,26 @@ async def update_chapter(
         NotFoundError: 章节不存在。
     """
     chapter = await get_chapter(session, chapter_id)
+    has_content_base = base_title is not None or base_content is not None
+    if has_content_base and (base_title is None or base_content is None):
+        raise ConflictError("编辑基准不完整，请刷新后重试")
+    if base_updated_at is not None or has_content_base:
+        conditions = [col(Chapter.id) == chapter_id]
+        if has_content_base:
+            conditions.extend(
+                [col(Chapter.title) == base_title, col(Chapter.content) == base_content]
+            )
+        else:
+            conditions.append(col(Chapter.updated_at) == base_updated_at)
+        guarded = await session.execute(
+            update(Chapter)
+            .where(*conditions)
+            .values(updated_at=col(Chapter.updated_at))
+            .returning(col(Chapter.id))
+        )
+        if guarded.scalar_one_or_none() is None:
+            raise ConflictError("章节已被修改，请比较并选择要保留的版本")
+        await session.refresh(chapter)
     old_word_count = chapter.word_count
     old_content = chapter.content
 
@@ -475,7 +502,9 @@ async def update_chapter(
         chapter.word_count = word_count
         content_changed = True
 
-    if title_changed or content_changed:
+    if not title_changed and not content_changed:
+        return chapter
+    if title_changed or chapter.content != old_content:
         chapter.updated_at = datetime.now(UTC)
     chapter = await chapter_repo.update_chapter(session, chapter)
 
@@ -712,7 +741,9 @@ async def move_chapter_to_volume(
     if source_volume_id == volume_id:
         return chapter
 
-    target_volume = await volume_repo.get_by_id(session, volume_id)
+    target_volume = (
+        await volume_repo.get_by_id(session, volume_id) if volume_id is not None else None
+    )
     if volume_id is not None and (
         target_volume is None or target_volume.project_id != chapter.project_id
     ):
@@ -740,7 +771,6 @@ async def move_chapter_to_volume(
     )
     chapter.volume_id = volume_id
     chapter.order = target_max_order + 1
-    chapter.updated_at = datetime.now(UTC)
     chapter = await chapter_repo.update_chapter(session, chapter)
 
     await _update_volume_stats(session, source_volume_id)

@@ -5,7 +5,6 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { ConfirmDialog, Spinner, toast } from "@/components";
-import { setTelemetryEnabled } from "@/lib/posthog";
 
 import {
   clearAuditDetails,
@@ -14,6 +13,7 @@ import {
   updateSettings,
 } from "../lib/settings-api";
 import type { Settings, SettingsUpdateRequest } from "../lib/settings.types";
+import { BrowserBackupSettings } from "./browser-backup-settings";
 
 function formatBytes(bytes: number, locale: string): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -48,13 +48,6 @@ export function AdvancedSettings() {
         queryClient.setQueryData<Settings>(["settings"], {
           ...previousSettings,
           auditPersistDetails: patch.audit_persist_details,
-        });
-      }
-
-      if (previousSettings && patch.telemetry_enabled !== undefined) {
-        queryClient.setQueryData<Settings>(["settings"], {
-          ...previousSettings,
-          telemetryEnabled: patch.telemetry_enabled,
         });
       }
 
@@ -99,38 +92,6 @@ export function AdvancedSettings() {
         direction="column"
         gap="5"
       >
-        <Flex
-          align="center"
-          justify="between"
-          gap="4"
-        >
-          <Flex
-            direction="column"
-            gap="1"
-          >
-            <Text
-              size="2"
-              weight="medium"
-            >
-              {t("settings.advancedTelemetry")}
-            </Text>
-            <Text
-              size="1"
-              color="gray"
-            >
-              {t("settings.advancedTelemetryHint")}
-            </Text>
-          </Flex>
-          <Switch
-            checked={settings.telemetryEnabled}
-            aria-label={t("settings.advancedTelemetry")}
-            onCheckedChange={(checked) => {
-              setTelemetryEnabled(checked);
-              updateMutation.mutate({ telemetry_enabled: checked });
-            }}
-          />
-        </Flex>
-
         <Flex
           align="center"
           justify="between"
@@ -223,6 +184,8 @@ export function AdvancedSettings() {
             {t("settings.advancedClear")}
           </Button>
         </Flex>
+
+        <BrowserBackupSettings />
       </Flex>
 
       <ConfirmDialog

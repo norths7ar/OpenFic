@@ -136,6 +136,37 @@ async def test_resolve_model_config_wraps_api_key_decryption_failure(monkeypatch
 
 
 @pytest.mark.asyncio
+async def test_resolve_model_config_allows_empty_api_key_for_anonymous_provider(
+    monkeypatch,
+) -> None:
+    class FailIfDecrypted:
+        def __init__(self, _key: str) -> None:
+            pass
+
+        def decrypt(self, _ciphertext: str) -> str:
+            raise AssertionError("empty API key must not be decrypted")
+
+    monkeypatch.setattr(model_resolution.model_repo, "get_by_id", AsyncMock(return_value=_model()))
+    monkeypatch.setattr(
+        model_resolution.model_provider_repo,
+        "get_by_id",
+        AsyncMock(
+            return_value=SimpleNamespace(
+                api_key_encrypted="",
+                custom_headers_encrypted="",
+                provider_type="openai-compatible",
+                url="http://127.0.0.1:10100/v1",
+            )
+        ),
+    )
+    monkeypatch.setattr(model_resolution, "EncryptionService", FailIfDecrypted)
+
+    config = await model_resolution.resolve_model_config(object(), "model-record")  # type: ignore[arg-type]
+
+    assert config["api_key"] == ""
+
+
+@pytest.mark.asyncio
 async def test_resolve_legacy_model_config_rejects_invalid_config() -> None:
     with pytest.raises(NotFoundError, match="会话模型配置无法恢复"):
         await model_resolution.resolve_legacy_model_config(

@@ -3,7 +3,10 @@ from uuid import uuid4
 import yaml
 from httpx import AsyncClient
 
+from app.project_bundle import source_mapping
 from app.project_bundle.archive import build_zip, read_zip
+from app.project_bundle.source_export import export_markdown_source_bundle
+from app.storage.models.chapter import Chapter
 from app.storage.models.note import Note
 from app.storage.models.project import Project
 from app.storage.models.project_folder import ProjectFolder as NoteCategory
@@ -158,3 +161,33 @@ async def test_source_export_without_profile_generates_portable_optional_map(
     config = yaml.safe_load(files["openfic-import.yaml"])
     assert "project_id" not in config
     assert all(rule["required"] is False for rule in config["rules"])
+
+
+async def test_source_export_maps_root_and_volume_chapters(session) -> None:
+    project = await _create_project(session)
+    volume = NoteCategory(
+        id="source-export-volume",
+        project_id=project.id,
+        scope="writing",
+        title="第一卷",
+        order=1,
+    )
+    root = Chapter(id="source-export-root", project_id=project.id, title="序章", order=1)
+    nested = Chapter(
+        id="source-export-nested",
+        project_id=project.id,
+        volume_id=volume.id,
+        title="第一章",
+        order=1,
+    )
+    session.add_all([volume, root, nested])
+    await session.flush()
+
+    mapped = source_mapping.parse_source_mapping(
+        await export_markdown_source_bundle(session, project.id), project.id
+    )
+
+    chapters = {item.target_id: item for item in mapped if item.target == "chapters"}
+    assert set(chapters) == {root.id, nested.id}
+    assert chapters[root.id].category_target_ids == []
+    assert chapters[nested.id].category_target_ids == [volume.id]

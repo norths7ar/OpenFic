@@ -226,13 +226,17 @@ class _MentionResolver:
         if chapter is None or not chapter.title or not self._is_current_project(chapter.project_id):
             self._chapter_path_cache[chapter_id] = None
             return None
-        if self._project_id is not None:
+        if self._project_id is not None and chapter.volume_id is not None:
             volume = await get_volume_by_id(session, chapter.volume_id)
             if volume is None or not self._is_current_project(volume.project_id):
                 self._chapter_path_cache[chapter_id] = None
                 return None
         chapter_title = chapter.title.strip()
-        volume_title = await self._resolve_volume_title(chapter.volume_id)
+        volume_title = (
+            await self._resolve_volume_title(chapter.volume_id)
+            if chapter.volume_id is not None
+            else None
+        )
         path = f"{volume_title}/{chapter_title}" if volume_title else chapter_title
         self._chapter_path_cache[chapter_id] = path
         return path

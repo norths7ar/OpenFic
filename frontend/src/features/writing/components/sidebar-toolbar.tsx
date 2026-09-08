@@ -1,92 +1,47 @@
-import { Badge, Box, DropdownMenu, IconButton, Tooltip } from "@radix-ui/themes";
+import { Box, DropdownMenu, IconButton } from "@radix-ui/themes";
 import {
   BookPlus,
   BookOpenText,
-  Check,
   Download,
   FilePlus,
-  GripVertical,
+  Plus,
   MoreHorizontal,
   Search,
-  X,
 } from "lucide-react";
 import { motion } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useShallow } from "zustand/react/shallow";
 
 import { ProjectNavToolbar } from "@/features/project-navigation/components/project-nav-toolbar";
-import type { ChapterListItem } from "@/lib/chapter.types";
 
-import { useWritingStore } from "../store/use-writing-store";
 import { ChapterSearchPopover } from "./chapter-search-popover";
 
 interface SidebarToolbarProps {
   projectId: string;
-  chapters: ChapterListItem[];
   onChapterSelect: (chapterId: string) => void;
   onCreateChapter: () => void;
   onCreateVolume: () => void;
   onExport: () => void;
   onOpenSummary?: () => void;
-  onSaveOrder: () => void;
-  onCancelOrder: () => void;
-  isSavingOrder?: boolean;
   isAgentLocked?: boolean;
   onLockedAction?: () => void;
 }
 
 export function SidebarToolbar({
   projectId,
-  chapters,
   onChapterSelect,
   onCreateChapter,
   onCreateVolume,
   onExport,
   onOpenSummary,
-  onSaveOrder,
-  onCancelOrder,
-  isSavingOrder,
   isAgentLocked = false,
   onLockedAction,
 }: SidebarToolbarProps) {
   const { t } = useTranslation();
-  const { isDragMode, hasUnsavedDragChanges, enterDragMode } = useWritingStore(
-    useShallow((state) => ({
-      isDragMode: state.isDragMode,
-      hasUnsavedDragChanges: state.hasUnsavedDragChanges,
-      enterDragMode: state.enterDragMode,
-    })),
-  );
-
   const [contentSearchOpen, setContentSearchOpen] = useState(false);
   const [contentSearchExpanded, setContentSearchExpanded] = useState(false);
   const [contentSearchQuery, setContentSearchQuery] = useState("");
   const searchContainerRef = useRef<HTMLDivElement | null>(null);
-
-  const handleEnterDragMode = () => {
-    if (isAgentLocked) {
-      onLockedAction?.();
-      return;
-    }
-    enterDragMode(chapters.map((chapter) => ({ id: chapter.id, order: chapter.order })));
-  };
-
-  const handleCancelDragMode = () => {
-    if (isAgentLocked) {
-      onLockedAction?.();
-      return;
-    }
-    onCancelOrder();
-  };
-
-  const handleSaveCurrentOrder = () => {
-    if (isAgentLocked) {
-      onLockedAction?.();
-      return;
-    }
-    onSaveOrder();
-  };
 
   const handleCreate = () => {
     if (isAgentLocked) {
@@ -160,146 +115,111 @@ export function SidebarToolbar({
   return (
     <ProjectNavToolbar
       search={
-        isDragMode ? (
-          <Badge
-            color="blue"
-            variant="soft"
+        <Box
+          ref={searchContainerRef}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 0,
+            height: "var(--space-6)",
+            paddingRight: contentSearchExpanded ? "var(--space-2)" : 0,
+            border: "1px solid transparent",
+            borderColor: contentSearchExpanded ? "var(--gray-a7)" : "transparent",
+            borderRadius: "max(var(--radius-2), var(--radius-full))",
+            background: contentSearchExpanded ? "var(--color-surface)" : "transparent",
+            flex: contentSearchExpanded ? 1 : undefined,
+            minWidth: 0,
+            position: "relative",
+            transition: "border-color 0.15s ease, background 0.15s ease, padding-right 0.15s ease",
+          }}
+        >
+          <ChapterSearchPopover
+            projectId={projectId}
+            query={contentSearchQuery}
+            open={contentSearchOpen}
+            onOpenChange={handlePopoverOpenChange}
+            onNavigateToChapter={handleNavigateToChapter}
           >
-            {t("writing.dragModeOn")}
-          </Badge>
-        ) : (
-          <Box
-            ref={searchContainerRef}
+            <Box
+              style={{
+                position: "absolute",
+                inset: 0,
+                pointerEvents: "none",
+              }}
+            />
+          </ChapterSearchPopover>
+          <IconButton
+            variant="ghost"
+            size="2"
+            onClick={contentSearchExpanded ? undefined : handleContentSearchToggle}
             style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 0,
-              height: "var(--space-6)",
-              paddingRight: contentSearchExpanded ? "var(--space-2)" : 0,
-              border: "1px solid transparent",
-              borderColor: contentSearchExpanded ? "var(--gray-a7)" : "transparent",
-              borderRadius: "max(var(--radius-2), var(--radius-full))",
-              background: contentSearchExpanded ? "var(--color-surface)" : "transparent",
-              flex: contentSearchExpanded ? 1 : undefined,
-              minWidth: 0,
-              position: "relative",
-              transition:
-                "border-color 0.15s ease, background 0.15s ease, padding-right 0.15s ease",
+              flexShrink: 0,
+              opacity: contentSearchExpanded ? 0.5 : 1,
+              transition: "opacity 0.15s ease",
+              cursor: contentSearchExpanded ? "default" : undefined,
             }}
           >
-            <ChapterSearchPopover
-              projectId={projectId}
-              query={contentSearchQuery}
-              open={contentSearchOpen}
-              onOpenChange={handlePopoverOpenChange}
-              onNavigateToChapter={handleNavigateToChapter}
-            >
-              <Box
+            <Search size={16} />
+          </IconButton>
+          <motion.div
+            initial={{ width: 0, opacity: 0 }}
+            animate={{
+              width: contentSearchExpanded ? "100%" : 0,
+              opacity: contentSearchExpanded ? 1 : 0,
+            }}
+            transition={{ duration: 0.15, ease: "easeOut" }}
+            style={{ overflow: "hidden" }}
+          >
+            {contentSearchExpanded && (
+              <input
+                type="text"
+                placeholder={t("writing.contentSearchPlaceholder")}
+                value={contentSearchQuery}
+                onChange={handleContentSearchChange}
+                onFocus={handleContentSearchFocus}
+                onBlur={handleContentSearchBlur}
                 style={{
-                  position: "absolute",
-                  inset: 0,
-                  pointerEvents: "none",
+                  width: "100%",
+                  border: "none",
+                  outline: "none",
+                  background: "transparent",
+                  fontSize: "var(--font-size-base)",
+                  lineHeight: "var(--line-height-2)",
+                  color: "var(--gray-12)",
+                  padding: 0,
                 }}
               />
-            </ChapterSearchPopover>
-            <IconButton
-              variant="ghost"
-              size="2"
-              onClick={contentSearchExpanded ? undefined : handleContentSearchToggle}
-              style={{
-                flexShrink: 0,
-                opacity: contentSearchExpanded ? 0.5 : 1,
-                transition: "opacity 0.15s ease",
-                cursor: contentSearchExpanded ? "default" : undefined,
-              }}
-            >
-              <Search size={16} />
-            </IconButton>
-            <motion.div
-              initial={{ width: 0, opacity: 0 }}
-              animate={{
-                width: contentSearchExpanded ? "100%" : 0,
-                opacity: contentSearchExpanded ? 1 : 0,
-              }}
-              transition={{ duration: 0.15, ease: "easeOut" }}
-              style={{ overflow: "hidden" }}
-            >
-              {contentSearchExpanded && (
-                <input
-                  type="text"
-                  placeholder={t("writing.contentSearchPlaceholder")}
-                  value={contentSearchQuery}
-                  onChange={handleContentSearchChange}
-                  onFocus={handleContentSearchFocus}
-                  onBlur={handleContentSearchBlur}
-                  style={{
-                    width: "100%",
-                    border: "none",
-                    outline: "none",
-                    background: "transparent",
-                    fontSize: "var(--font-size-base)",
-                    lineHeight: "var(--line-height-2)",
-                    color: "var(--gray-12)",
-                    padding: 0,
-                  }}
-                />
-              )}
-            </motion.div>
-          </Box>
-        )
+            )}
+          </motion.div>
+        </Box>
       }
-      sort={
-        contentSearchExpanded ? null : isDragMode ? (
-          <>
-            <Tooltip content={t("writing.cancelOrder")}>
+      create={
+        !contentSearchExpanded ? (
+          <DropdownMenu.Root>
+            <DropdownMenu.Trigger>
               <IconButton
                 variant="ghost"
                 size="2"
-                color="gray"
-                onClick={handleCancelDragMode}
-                disabled={isSavingOrder}
+                aria-label={t("common.create")}
               >
-                <X size={16} />
+                <Plus size={16} />
               </IconButton>
-            </Tooltip>
-            <Tooltip content={t("writing.saveOrder")}>
-              <IconButton
-                variant="solid"
-                size="2"
-                onClick={handleSaveCurrentOrder}
-                disabled={!hasUnsavedDragChanges || isSavingOrder}
-              >
-                <Check size={16} />
-              </IconButton>
-            </Tooltip>
-          </>
-        ) : (
-          <Tooltip content={t("writing.dragModeOn")}>
-            <IconButton
-              variant="ghost"
-              size="2"
-              onClick={handleEnterDragMode}
-            >
-              <GripVertical size={16} />
-            </IconButton>
-          </Tooltip>
-        )
-      }
-      create={
-        !isDragMode && !contentSearchExpanded ? (
-          <Tooltip content={t("writing.newChapter")}>
-            <IconButton
-              variant="ghost"
-              size="2"
-              onClick={handleCreate}
-            >
-              <FilePlus size={16} />
-            </IconButton>
-          </Tooltip>
+            </DropdownMenu.Trigger>
+            <DropdownMenu.Content align="end">
+              <DropdownMenu.Item onClick={handleCreate}>
+                <FilePlus size={16} />
+                {t("writing.newChapter")}
+              </DropdownMenu.Item>
+              <DropdownMenu.Item onClick={handleCreateVolume}>
+                <BookPlus size={16} />
+                {t("writing.newVolume")}
+              </DropdownMenu.Item>
+            </DropdownMenu.Content>
+          </DropdownMenu.Root>
         ) : null
       }
       more={
-        !isDragMode && !contentSearchExpanded ? (
+        !contentSearchExpanded ? (
           <DropdownMenu.Root>
             <DropdownMenu.Trigger>
               <IconButton
@@ -311,10 +231,6 @@ export function SidebarToolbar({
               </IconButton>
             </DropdownMenu.Trigger>
             <DropdownMenu.Content align="end">
-              <DropdownMenu.Item onClick={handleCreateVolume}>
-                <BookPlus size={16} />
-                {t("writing.newVolume")}
-              </DropdownMenu.Item>
               <DropdownMenu.Item onClick={onExport}>
                 <Download size={16} />
                 {t("writing.chapterExport.open")}

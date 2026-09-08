@@ -1,7 +1,6 @@
 import asyncio
 import dataclasses
 import os
-import shutil
 import time
 from collections import deque
 from collections.abc import Callable, Mapping
@@ -11,8 +10,6 @@ from typing import Any
 
 import aiosqlite
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage, ToolMessage
-from langchain_core.runnables import RunnableConfig
-from langgraph.checkpoint.base import Checkpoint, copy_checkpoint
 from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 from loguru import logger
@@ -21,7 +18,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col
 
 import app.settings as app_settings
-from app.agent_runtime.model_config import without_api_key
 from app.agent_runtime.persistence.model import AgentChildRun, AgentChildRunRequest
 from app.maintenance import maintenance_state
 from app.storage.models.revision import Revision
@@ -33,9 +29,6 @@ _ALLOWED_MSGPACK_MODULES = (
     ("app.agent_runtime.tools.impls.interaction.ask_user", "Question"),
     ("app.agent_runtime.tools.impls.interaction.ask_user", "QuestionOption"),
 )
-_LEGACY_API_KEY_MARKER = b"api_key"
-_LEGACY_API_KEY_MIGRATION = "remove_plaintext_api_keys_v1"
-_INCREMENTAL_AUTO_VACUUM_MIGRATION = "incremental_auto_vacuum_v1"
 _CHECKPOINT_CLEANUP_BATCH_SIZE = 500
 _VACUUM_MIN_FREE_BYTES = 64 * 1024 * 1024
 _INCREMENTAL_VACUUM_BATCH_BYTES = 64 * 1024 * 1024
@@ -308,35 +301,12 @@ def _default_db_path() -> Path:
     return app_settings.settings.checkpoint_db_path
 
 
-def _legacy_runtime_db_path() -> Path:
-    return app_settings.BACKEND_DIR.parent / "data" / "agent" / "langgraph_checkpoints.db"
-
-
-def _legacy_backend_db_path() -> Path:
-    return app_settings.BACKEND_DATA_DIR / "agent_checkpoints.db"
-
-
-def _migrate_default_checkpoint_db(target_path: Path) -> None:
-    legacy_runtime_path = _legacy_runtime_db_path()
-    legacy_backend_path = _legacy_backend_db_path()
-
-    target_path.parent.mkdir(parents=True, exist_ok=True)
-
-    if not target_path.exists() and legacy_runtime_path.exists():
-        shutil.move(str(legacy_runtime_path), str(target_path))
-
-    if target_path.exists() and legacy_backend_path.exists():
-        legacy_backend_path.unlink()
-
-
 def _get_db_path() -> str:
     db_path = os.environ.get("AGENT_CHECKPOINT_DB")
     if db_path:
         return db_path
 
-    target_path = _default_db_path()
-    _migrate_default_checkpoint_db(target_path)
-    return str(target_path)
+    return str(_default_db_path())
 
 
 async def _configure_checkpoint_connection(conn: aiosqlite.Connection) -> None:
@@ -363,7 +333,6 @@ async def get_checkpointer() -> AsyncSqliteSaver:
         conn = await aiosqlite.connect(db_path)
         if not db_path_exists:
             await conn.execute("PRAGMA auto_vacuum = INCREMENTAL")
-            await _mark_incremental_auto_vacuum_migration_completed(conn)
         await _configure_checkpoint_connection(conn)
         _checkpointer = AsyncSqliteSaver(
             conn,
@@ -372,141 +341,7 @@ async def get_checkpointer() -> AsyncSqliteSaver:
             ),
         )
         await _checkpointer.setup()
-        await _remove_api_keys_from_existing_checkpoints(_checkpointer)
     return _checkpointer
-
-
-async def _remove_api_keys_from_existing_checkpoints(
-    checkpointer: AsyncSqliteSaver,
-) -> None:
-    """Rewrite legacy Agent checkpoints that persisted plaintext API keys."""
-    if await _has_completed_legacy_api_key_migration(checkpointer):
-        return
-
-    checkpoints: list[tuple[RunnableConfig, Checkpoint]] = []
-    for config in await _list_legacy_api_key_checkpoint_configs(checkpointer):
-        item = await checkpointer.aget_tuple(config)
-        if item is None:
-            continue
-        channel_values = item.checkpoint.get("channel_values")
-        if not isinstance(channel_values, dict):
-            continue
-        model_config = channel_values.get("model_config")
-        if not isinstance(model_config, dict) or "api_key" not in model_config:
-            continue
-        sanitized_checkpoint = copy_checkpoint(item.checkpoint)
-        sanitized_channel_values = sanitized_checkpoint["channel_values"]
-        sanitized_channel_values["model_config"] = without_api_key(model_config)
-        sanitized_checkpoint["channel_values"] = sanitized_channel_values
-        checkpoints.append((item.config, sanitized_checkpoint))
-
-    for config, checkpoint in checkpoints:
-        await checkpointer.aput(
-            config,
-            checkpoint,
-            {},
-            checkpoint.get("channel_versions", {}),
-        )
-
-    await _mark_legacy_api_key_migration_completed(checkpointer)
-
-
-async def _has_completed_legacy_api_key_migration(
-    checkpointer: AsyncSqliteSaver,
-) -> bool:
-    cursor = await checkpointer.conn.execute(
-        """
-        CREATE TABLE IF NOT EXISTS openfic_checkpoint_migrations (
-            name TEXT PRIMARY KEY
-        )
-        """
-    )
-    await cursor.close()
-    cursor = await checkpointer.conn.execute(
-        "SELECT 1 FROM openfic_checkpoint_migrations WHERE name = ?",
-        (_LEGACY_API_KEY_MIGRATION,),
-    )
-    try:
-        return await cursor.fetchone() is not None
-    finally:
-        await cursor.close()
-
-
-async def _list_legacy_api_key_checkpoint_configs(
-    checkpointer: AsyncSqliteSaver,
-) -> list[RunnableConfig]:
-    cursor = await checkpointer.conn.execute(
-        """
-        SELECT thread_id, checkpoint_ns, checkpoint_id
-        FROM checkpoints
-        WHERE instr(checkpoint, ?) > 0
-        """,
-        (_LEGACY_API_KEY_MARKER,),
-    )
-    try:
-        rows = await cursor.fetchall()
-    finally:
-        await cursor.close()
-
-    return [
-        {
-            "configurable": {
-                "thread_id": thread_id,
-                "checkpoint_ns": checkpoint_ns,
-                "checkpoint_id": checkpoint_id,
-            }
-        }
-        for thread_id, checkpoint_ns, checkpoint_id in rows
-    ]
-
-
-async def _mark_legacy_api_key_migration_completed(
-    checkpointer: AsyncSqliteSaver,
-) -> None:
-    cursor = await checkpointer.conn.execute(
-        "INSERT INTO openfic_checkpoint_migrations (name) VALUES (?)",
-        (_LEGACY_API_KEY_MIGRATION,),
-    )
-    try:
-        await checkpointer.conn.commit()
-    finally:
-        await cursor.close()
-
-
-async def _ensure_migrations_table(conn: aiosqlite.Connection) -> None:
-    cursor = await conn.execute(
-        """
-        CREATE TABLE IF NOT EXISTS openfic_checkpoint_migrations (
-            name TEXT PRIMARY KEY
-        )
-        """
-    )
-    await cursor.close()
-
-
-async def _has_migration_completed(conn: aiosqlite.Connection, name: str) -> bool:
-    cursor = await conn.execute(
-        "SELECT 1 FROM openfic_checkpoint_migrations WHERE name = ?",
-        (name,),
-    )
-    try:
-        return await cursor.fetchone() is not None
-    finally:
-        await cursor.close()
-
-
-async def _mark_incremental_auto_vacuum_migration_completed(
-    conn: aiosqlite.Connection,
-) -> None:
-    await _ensure_migrations_table(conn)
-    cursor = await conn.execute(
-        "INSERT INTO openfic_checkpoint_migrations (name) VALUES (?)",
-        (_INCREMENTAL_AUTO_VACUUM_MIGRATION,),
-    )
-    try:
-        await conn.commit()
-    finally:
-        await cursor.close()
 
 
 async def delete_checkpoints_for_thread(thread_id: str) -> int:
@@ -848,19 +683,6 @@ async def _run_vacuum_into(
     await conn.execute(f"VACUUM INTO '{target.replace(chr(39), chr(39) * 2)}'")
 
 
-async def needs_incremental_auto_vacuum_migration() -> bool:
-    """Return True if the checkpoint db still needs the INCREMENTAL migration."""
-    db_path = _get_db_path()
-    if not Path(db_path).exists():
-        return False
-    conn = await aiosqlite.connect(db_path)
-    try:
-        await _ensure_migrations_table(conn)
-        return not await _has_migration_completed(conn, _INCREMENTAL_AUTO_VACUUM_MIGRATION)
-    finally:
-        await conn.close()
-
-
 async def checkpoint_free_page_bytes() -> tuple[int, int]:
     """Return (free_bytes, live_bytes) for the checkpoint db."""
     db_path = _get_db_path()
@@ -875,29 +697,6 @@ async def checkpoint_free_page_bytes() -> tuple[int, int]:
         await conn.close()
     live_pages = max(0, page_count - freelist)
     return freelist * page_size, live_pages * page_size
-
-
-async def migrate_checkpoint_database_to_incremental(
-    progress_callback: CheckpointMaintenanceProgress | None = None,
-) -> bool:
-    """Enable incremental auto-vacuum, rebuilding legacy databases once."""
-    db_path = _get_db_path()
-    if not Path(db_path).exists():
-        return False
-
-    conn = await aiosqlite.connect(db_path)
-    try:
-        await _ensure_migrations_table(conn)
-        if await _has_migration_completed(conn, _INCREMENTAL_AUTO_VACUUM_MIGRATION):
-            return False
-
-        await conn.execute("PRAGMA auto_vacuum = INCREMENTAL")
-        await conn.commit()
-        await _run_full_vacuum(conn, progress_callback, db_path=db_path)
-        await _mark_incremental_auto_vacuum_migration_completed(conn)
-        return True
-    finally:
-        await conn.close()
 
 
 async def full_vacuum_checkpoint_database(

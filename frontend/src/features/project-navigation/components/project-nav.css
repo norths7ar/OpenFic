@@ -90,6 +90,28 @@
   flex: 1;
   min-width: 0;
 }
+.project-nav-item-leading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 20px;
+  width: 20px;
+  color: var(--gray-9);
+}
+.project-nav-item-leading svg {
+  width: 16px;
+  height: 16px;
+}
+.project-nav-item-more {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  color: var(--gray-10);
+}
+.project-nav-item-more:hover,
+.project-nav-item-more:focus-visible {
+  color: var(--gray-12);
+}
 .project-nav-item-heading {
   display: flex;
   align-items: center;

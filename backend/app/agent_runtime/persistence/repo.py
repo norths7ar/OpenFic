@@ -20,6 +20,7 @@ from app.agent_runtime.persistence.types import (
     Status,
 )
 from app.core.ids import generate_id
+from app.storage.repos import task_repo
 
 
 def _row_to_dto(row: AgentRunMessage) -> PersistedMessage:
@@ -117,6 +118,8 @@ async def insert_message(
             updated_at=now,
         )
         session.add(row)
+        if role in {"user", "assistant"} and display_channel == "list":
+            await task_repo.record_message_time(session, task_id, now)
         await session.commit()
         await session.refresh(row)
         return _row_to_dto(row)

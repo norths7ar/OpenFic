@@ -4,8 +4,8 @@ import { useDraggable } from "@dnd-kit/core";
  *
  * 世界书条目列表项组件，支持拖拽排序。
  */
-import { Box, Flex, Checkbox } from "@radix-ui/themes";
-import { GripVertical } from "lucide-react";
+import { Box, Flex, Checkbox, IconButton } from "@radix-ui/themes";
+import { GripVertical, MoreHorizontal } from "lucide-react";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -295,22 +295,15 @@ function EntryListItemComponent({
         selected={isSelected}
         style={{ color: textColor }}
         title={entry.name}
-        metadata={
-          <>
-            <span>
-              {entry.tokenCount} {t("worldInfo.tokenCount")}
-            </span>
-            <span>· {formatRelativeTime(entry.updatedAt)}</span>
-          </>
-        }
+        metadata={formatRelativeTime(entry.updatedAt)}
         leading={
           isMultiSelect ? (
             <Flex
               align="center"
               justify="center"
               style={{
-                width: 44,
-                minWidth: 44,
+                width: 20,
+                minWidth: 20,
                 flexShrink: 0,
               }}
               onClick={(e) => e.stopPropagation()}
@@ -327,8 +320,8 @@ function EntryListItemComponent({
               align="center"
               justify="center"
               style={{
-                width: 44,
-                minWidth: 44,
+                width: 20,
+                minWidth: 20,
                 flexShrink: 0,
                 cursor: isDragging ? "grabbing" : "grab",
                 color: "var(--gray-a9)",
@@ -344,10 +337,26 @@ function EntryListItemComponent({
           ) : null
         }
         actions={
-          <AgentVisibilityButton
-            value={entry.agentVisibility}
-            onChange={(value) => onToggle(entry.id, value)}
-          />
+          <>
+            <AgentVisibilityButton
+              value={entry.agentVisibility}
+              onChange={(value) => onToggle(entry.id, value)}
+            />
+            <IconButton
+              className="project-nav-item-more"
+              variant="ghost"
+              size="1"
+              aria-label={t("common.more")}
+              onPointerDown={(event) => event.stopPropagation()}
+              onClick={(event) => {
+                event.stopPropagation();
+                const rect = event.currentTarget.getBoundingClientRect();
+                onContextMenu(entry.id, { x: rect.right, y: rect.bottom });
+              }}
+            >
+              <MoreHorizontal size={16} />
+            </IconButton>
+          </>
         }
       />
     </Box>

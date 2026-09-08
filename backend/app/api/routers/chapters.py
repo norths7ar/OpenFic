@@ -150,6 +150,9 @@ async def update_chapter(
         title=data.title,
         content=data.content,
         word_count=data.word_count,
+        base_updated_at=data.base_updated_at,
+        base_title=data.base_title,
+        base_content=data.base_content,
     )
     await background_service.commit_and_notify(session)
     return ChapterResponse.model_validate(chapter)

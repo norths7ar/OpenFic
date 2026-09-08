@@ -235,6 +235,7 @@ async def test_write_chapter_records_current_revision_and_structured_result(revi
         (inserted_id, False),
         ("chap-2", True),
     }
+    assert next(item for item in snapshots if item.chapter_id == "chap-2").volume_id == "vol-1"
 
 
 @pytest.mark.asyncio

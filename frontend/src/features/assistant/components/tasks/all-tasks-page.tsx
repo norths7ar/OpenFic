@@ -6,7 +6,6 @@ import {
   Flex,
   Text,
   IconButton,
-  Tooltip,
   TextField,
 } from "@radix-ui/themes";
 /**
@@ -26,13 +25,13 @@ import {
   Plus,
   Star,
   Trash2,
-  Search,
   ListX,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { ConfirmDialog, Spinner } from "@/components";
+import { ContextMenu, type ContextMenuItem } from "@/components/context-menu";
 import {
   useProjectFolderMutations,
   useProjectFolders,
@@ -40,6 +39,7 @@ import {
 import type { ProjectFolder } from "@/features/project-folders/lib/project-folder-api";
 import { ProjectFolderGroups } from "@/features/project-navigation/components/project-folder-groups";
 import { ProjectNavItemRow } from "@/features/project-navigation/components/project-nav-item-row";
+import { ProjectNavSearch } from "@/features/project-navigation/components/project-nav-search";
 import { ProjectNavToolbar } from "@/features/project-navigation/components/project-nav-toolbar";
 import type { TaskListItem } from "@/lib/task.types";
 
@@ -73,6 +73,10 @@ export function AllTasksPage({
 }: AllTasksPageProps) {
   const { t } = useTranslation();
   const [searchQuery, setSearchQuery] = useState("");
+  const [searchExpanded, setSearchExpanded] = useState(false);
+  const [itemMenu, setItemMenu] = useState<{ task: TaskListItem; x: number; y: number } | null>(
+    null,
+  );
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletingTask, setDeletingTask] = useState<TaskListItem | null>(null);
   const [deleteAllDialogOpen, setDeleteAllDialogOpen] = useState(false);
@@ -115,11 +119,6 @@ export function AllTasksPage({
     }
   };
 
-  const handleStartEdit = (task: TaskListItem, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setEditingTaskId(task.id);
-  };
-
   const handleCancelEdit = () => {
     setEditingTaskId(null);
   };
@@ -141,20 +140,6 @@ export function AllTasksPage({
     } finally {
       setSavingTaskId(null);
     }
-  };
-
-  const handleToggleFavorite = (task: TaskListItem, e: React.MouseEvent) => {
-    e.stopPropagation();
-    updateMutation.mutate({
-      taskId: task.id,
-      data: { is_favorited: !task.isFavorited },
-    });
-  };
-
-  const handleOpenDelete = (task: TaskListItem, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setDeletingTask(task);
-    setDeleteDialogOpen(true);
   };
 
   const handleConfirmDelete = async () => {
@@ -183,6 +168,66 @@ export function AllTasksPage({
       : t("writing.aiSidebar.deleteAllTasksConfirm");
   const runningLabel = t("writing.aiSidebar.taskRunning");
 
+  const menuTask = itemMenu ? tasks.find((task) => task.id === itemMenu.task.id) : undefined;
+  const menuItems: ContextMenuItem[] = menuTask
+    ? [
+        {
+          id: "rename",
+          label: t("common.rename"),
+          icon: Pencil,
+          disabled: savingTaskId === menuTask.id,
+          onClick: () => setEditingTaskId(menuTask.id),
+        },
+        {
+          id: "move",
+          label: t("projectNavigation.moveTo"),
+          icon: FolderInput,
+          disabled:
+            folderMutations.moveItem.isPending || (folders.length === 0 && !menuTask.folderId),
+          onClick: () => {},
+          children: [{ id: "root", title: t("projectNavigation.root") }, ...folders].map(
+            (folder) => {
+              const folderId = folder.id === "root" ? null : folder.id;
+              return {
+                id: `move-${folder.id}`,
+                label: folder.title,
+                disabled: (menuTask.folderId ?? null) === folderId,
+                onClick: () => {
+                  if (
+                    (menuTask.folderId ?? null) !== folderId &&
+                    !folderMutations.moveItem.isPending
+                  )
+                    folderMutations.moveItem.mutate({ itemId: menuTask.id, folderId });
+                },
+              };
+            },
+          ),
+        },
+        {
+          id: "favorite",
+          label: t(
+            menuTask.isFavorited ? "writing.aiSidebar.unfavorite" : "writing.aiSidebar.favorite",
+          ),
+          icon: Star,
+          onClick: () =>
+            updateMutation.mutate({
+              taskId: menuTask.id,
+              data: { is_favorited: !menuTask.isFavorited },
+            }),
+        },
+        {
+          id: "delete",
+          label: t("common.delete"),
+          icon: Trash2,
+          danger: true,
+          disabled: menuTask.isRunning,
+          onClick: () => {
+            setDeletingTask(menuTask);
+            setDeleteDialogOpen(true);
+          },
+        },
+      ]
+    : [];
   return (
     <Box
       style={{
@@ -193,6 +238,7 @@ export function AllTasksPage({
       }}
     >
       <ProjectNavToolbar
+        searchExpanded={searchExpanded}
         search={
           <Flex
             align="center"
@@ -208,17 +254,12 @@ export function AllTasksPage({
                 <ArrowLeft size={18} />
               </IconButton>
             ) : null}
-            <TextField.Root
-              placeholder={searchPlaceholder ?? title ?? t("writing.aiSidebar.searchTasks")}
+            <ProjectNavSearch
+              onExpandedChange={setSearchExpanded}
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              size="2"
-              style={{ flex: 1 }}
-            >
-              <TextField.Slot>
-                <Search size={16} />
-              </TextField.Slot>
-            </TextField.Root>
+              onChange={setSearchQuery}
+              placeholder={searchPlaceholder ?? title ?? t("writing.aiSidebar.searchTasks")}
+            />
           </Flex>
         }
         sort={
@@ -233,43 +274,40 @@ export function AllTasksPage({
               </IconButton>
             </DropdownMenu.Trigger>
             <DropdownMenu.Content align="end">
-              <DropdownMenu.Item onClick={() => setSortBy("updated")}>
+              <DropdownMenu.CheckboxItem
+                checked={sortBy === "updated"}
+                onCheckedChange={() => setSortBy("updated")}
+              >
                 {t("characters.sortByUpdated")}
-              </DropdownMenu.Item>
-              <DropdownMenu.Item onClick={() => setSortBy("title")}>
+              </DropdownMenu.CheckboxItem>
+              <DropdownMenu.CheckboxItem
+                checked={sortBy === "title"}
+                onCheckedChange={() => setSortBy("title")}
+              >
                 {t("characters.sortByName")}
-              </DropdownMenu.Item>
+              </DropdownMenu.CheckboxItem>
             </DropdownMenu.Content>
           </DropdownMenu.Root>
         }
         create={
-          onNew ? (
-            <Tooltip content={newLabel ?? t("assistant.newTask")}>
-              <IconButton
-                variant="soft"
-                size="2"
-                onClick={() => onNew?.()}
-                aria-label={newLabel ?? t("assistant.newTask")}
-              >
-                <Plus size={18} />
-              </IconButton>
-            </Tooltip>
-          ) : null
-        }
-        more={
           <DropdownMenu.Root>
             <DropdownMenu.Trigger>
               <IconButton
                 variant="ghost"
                 size="2"
-                aria-label={t("common.more")}
+                aria-label={t("common.create")}
               >
-                <MoreHorizontal size={18} />
+                <Plus size={16} />
               </IconButton>
             </DropdownMenu.Trigger>
             <DropdownMenu.Content align="end">
+              {onNew && (
+                <DropdownMenu.Item onSelect={() => onNew()}>
+                  {newLabel ?? t("assistant.newTask")}
+                </DropdownMenu.Item>
+              )}
               <DropdownMenu.Item
-                onClick={() => {
+                onSelect={() => {
                   setFolderTitle("");
                   setFolderDescription("");
                   setFolderDialog({ mode: "create" });
@@ -278,17 +316,34 @@ export function AllTasksPage({
                 <FolderPlus size={16} />
                 {t("projectNavigation.newFolder")}
               </DropdownMenu.Item>
-              {hasAnyTasks ? (
-                <DropdownMenu.Item
-                  color="red"
-                  onClick={() => setDeleteAllDialogOpen(true)}
-                >
-                  <ListX size={16} />
-                  {t("writing.aiSidebar.deleteAllTasks")}
-                </DropdownMenu.Item>
-              ) : null}
             </DropdownMenu.Content>
           </DropdownMenu.Root>
+        }
+        more={
+          hasAnyTasks ? (
+            <DropdownMenu.Root>
+              <DropdownMenu.Trigger>
+                <IconButton
+                  variant="ghost"
+                  size="2"
+                  aria-label={t("common.more")}
+                >
+                  <MoreHorizontal size={18} />
+                </IconButton>
+              </DropdownMenu.Trigger>
+              <DropdownMenu.Content align="end">
+                {hasAnyTasks ? (
+                  <DropdownMenu.Item
+                    color="red"
+                    onClick={() => setDeleteAllDialogOpen(true)}
+                  >
+                    <ListX size={16} />
+                    {t("writing.aiSidebar.deleteAllTasks")}
+                  </DropdownMenu.Item>
+                ) : null}
+              </DropdownMenu.Content>
+            </DropdownMenu.Root>
+          ) : null
         }
       />
 
@@ -390,103 +445,44 @@ export function AllTasksPage({
                 metadata={formatTime(task.updatedAt)}
                 actions={
                   <>
-                    <DropdownMenu.Root>
-                      <DropdownMenu.Trigger>
-                        <IconButton
-                          variant="ghost"
-                          size="1"
-                          onClick={(event) => event.stopPropagation()}
-                          style={{ width: "24px", height: "24px" }}
-                        >
-                          <FolderInput size={14} />
-                        </IconButton>
-                      </DropdownMenu.Trigger>
-                      <DropdownMenu.Content
-                        align="end"
-                        onClick={(event) => event.stopPropagation()}
-                      >
-                        <DropdownMenu.Item
-                          disabled={task.folderId === null}
-                          onClick={() =>
-                            folderMutations.moveItem.mutate({ itemId: task.id, folderId: null })
-                          }
-                        >
-                          {t("projectNavigation.root")}
-                        </DropdownMenu.Item>
-                        {folders.map((folder) => (
-                          <DropdownMenu.Item
-                            key={folder.id}
-                            disabled={task.folderId === folder.id}
-                            onClick={() =>
-                              folderMutations.moveItem.mutate({
-                                itemId: task.id,
-                                folderId: folder.id,
-                              })
-                            }
-                          >
-                            {folder.title}
-                          </DropdownMenu.Item>
-                        ))}
-                      </DropdownMenu.Content>
-                    </DropdownMenu.Root>
-                    <Tooltip content={t("common.edit")}>
-                      <IconButton
-                        variant="ghost"
-                        size="1"
-                        onClick={(e) => handleStartEdit(task, e)}
-                        disabled={savingTaskId === task.id}
-                        style={{ width: "24px", height: "24px" }}
-                      >
-                        <Pencil size={14} />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip
-                      content={
-                        task.isFavorited
-                          ? t("writing.aiSidebar.unfavorite")
-                          : t("writing.aiSidebar.favorite")
-                      }
-                    >
-                      <IconButton
-                        variant="ghost"
-                        size="1"
-                        onClick={(e) => handleToggleFavorite(task, e)}
-                        style={{
-                          width: "24px",
-                          height: "24px",
-                          color: task.isFavorited ? "var(--amber-9)" : "var(--gray-9)",
-                        }}
-                      >
-                        <Star
-                          size={14}
-                          fill={task.isFavorited ? "currentColor" : "none"}
-                        />
-                      </IconButton>
-                    </Tooltip>
-                    {!task.isRunning && (
-                      <Tooltip content={t("common.delete")}>
-                        <IconButton
-                          variant="ghost"
-                          size="1"
-                          onClick={(e) => handleOpenDelete(task, e)}
-                          style={{
-                            width: "24px",
-                            height: "24px",
-                            color: "var(--red-9)",
-                          }}
-                        >
-                          <Trash2 size={14} />
-                        </IconButton>
-                      </Tooltip>
+                    {task.isFavorited && (
+                      <Star
+                        size={14}
+                        fill="currentColor"
+                        color="var(--amber-9)"
+                        aria-label={t("writing.aiSidebar.favorite")}
+                      />
                     )}
+                    <IconButton
+                      variant="ghost"
+                      size="1"
+                      className="project-nav-item-more"
+                      aria-label={t("common.more")}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        const rect = event.currentTarget.getBoundingClientRect();
+                        setItemMenu({ task, x: rect.left, y: rect.bottom });
+                      }}
+                    >
+                      <MoreHorizontal size={14} />
+                    </IconButton>
                   </>
                 }
+                onContextMenu={(event) => {
+                  event.preventDefault();
+                  setItemMenu({ task, x: event.clientX, y: event.clientY });
+                }}
               />
             )}
           />
         )}
       </Box>
 
+      <ContextMenu
+        position={itemMenu}
+        items={menuItems}
+        onClose={() => setItemMenu(null)}
+      />
       {/* 删除确认对话框 */}
       <ConfirmDialog
         open={deleteDialogOpen}

@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
+import { invalidateWritingEditorEntityQueries } from "@/features/writing/hooks/use-writing-editor-entity";
 import { projectDataQueryKeys } from "@/lib/project-data-query-keys";
 
 import {
@@ -63,7 +64,7 @@ export function useApplyPendingProjectChange(projectId: string) {
 
   return useMutation({
     mutationFn: (changeId: string) => applyPendingProjectChange(projectId, changeId),
-    onSuccess: () => {
+    onSuccess: (change) => {
       void queryClient.invalidateQueries({
         queryKey: pendingProjectChangesQueryKeys.listRoot(projectId),
       });
@@ -87,6 +88,12 @@ export function useApplyPendingProjectChange(projectId: string) {
       void queryClient.invalidateQueries({
         queryKey: projectDataQueryKeys.worldInfo.entryDetails,
       });
+      if (change.target_type === "chapter") {
+        invalidateWritingEditorEntityQueries(queryClient, "chapter", change.target_id ?? undefined);
+      }
+      if (change.target_type === "note" || change.target_type === "outline") {
+        invalidateWritingEditorEntityQueries(queryClient, "note", change.target_id ?? undefined);
+      }
     },
   });
 }

@@ -53,3 +53,18 @@ async def test_openai_compatible_adapter_sends_custom_headers() -> None:
 
     assert route.calls[0].request.headers["authorization"] == "Bearer test-key"
     assert route.calls[0].request.headers["x-provider-token"] == "custom-token"
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_openai_compatible_adapter_omits_authorization_without_api_key() -> None:
+    route = respx.get("http://127.0.0.1:10100/v1/models").mock(
+        return_value=httpx.Response(200, json={"data": [{"id": "proxy/model"}]})
+    )
+    adapter = AdapterRegistry.get_adapter("openai-compatible")
+
+    async with httpx.AsyncClient() as client:
+        models = await adapter.get_llm_models(client, "http://127.0.0.1:10100/v1", "")
+
+    assert models == [{"id": "proxy/model", "name": "proxy/model"}]
+    assert "authorization" not in route.calls[0].request.headers

@@ -21,6 +21,11 @@ class RevisionChapterSnapshot(SQLModel, table=True):
     chapter_id: str = Field(index=True)
     project_id: str = Field(index=True, foreign_key="projects.id")
     exists: bool = Field(default=True)
+    volume_id: str | None = Field(
+        default=None,
+        index=True,
+        description="历史所属卷 ID；NULL 表示根目录或旧快照中未知，不能关联活目录外键",
+    )
     title: str | None = Field(default=None, max_length=200)
     content: str | None = Field(default=None)
     content_blob_id: str | None = Field(

@@ -1,4 +1,5 @@
 import { Flex, Text } from "@radix-ui/themes";
+import { useQueryClient } from "@tanstack/react-query";
 import { Lock } from "lucide-react";
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
@@ -16,6 +17,7 @@ import { createToastThrottler } from "@/lib/ui-utils";
 import { useAutoSave } from "../hooks/use-auto-save";
 import { useUpdateNote } from "../hooks/use-notes";
 import {
+  invalidateWritingEditorEntityQueries,
   shouldShowWritingEditorLoading,
   useWritingEditorEntity,
 } from "../hooks/use-writing-editor-entity";
@@ -30,7 +32,9 @@ import {
   getNextWritingWorkingCopyTimestamp,
   isRemoteWritingEntityNewer,
 } from "../lib/writing-working-copy";
+import type { WritingWorkingCopyConflict } from "../lib/writing-working-copy";
 import { useTabsStore } from "../store/use-tabs-store";
+import { WritingConflictDialog } from "./writing-conflict-dialog";
 
 interface NoteEditorProps {
   noteId: string | null;
@@ -46,6 +50,9 @@ interface NoteEditorContentProps {
   scrollTop: number;
   initialDraft: WritingDraft;
   initialDraftUpdatedAt: Date;
+  baseUpdatedAt: string;
+  baseDraft?: WritingDraft;
+  conflict?: WritingWorkingCopyConflict;
   workingCopy: WritingWorkingCopyController;
   isAgentLocked?: boolean;
   onScrollPositionChange?: (noteId: string, scrollTop: number) => void;
@@ -56,14 +63,18 @@ function NoteEditorContent({
   scrollTop,
   initialDraft,
   initialDraftUpdatedAt,
+  baseUpdatedAt,
+  baseDraft,
+  conflict,
   workingCopy,
   isAgentLocked = false,
   onScrollPositionChange,
 }: NoteEditorContentProps) {
   const { t } = useTranslation();
   const updateMutation = useUpdateNote(note.projectId, note.documentType);
+  const queryClient = useQueryClient();
   const { updateTabTitle } = useTabsStore();
-  const { clearWorkingCopy, persistWorkingCopy } = workingCopy;
+  const { clearWorkingCopy, discardWorkingCopy, persistWorkingCopy } = workingCopy;
 
   const showLockedToast = useMemo(
     () => createToastThrottler(t("writing.agentLockedNoteEdit")),
@@ -87,7 +98,11 @@ function NoteEditorContent({
     title: note.title,
     content: note.content,
   });
-  const baseUpdatedAtRef = useRef(note.updatedAt);
+  const baseDraftRef = useRef({
+    title: baseDraft?.title,
+    content: baseDraft?.content,
+    updatedAt: baseUpdatedAt,
+  });
   const rejectedContentRef = useRef<string | null>(null);
 
   const showContentLimitToast = useCallback(
@@ -112,7 +127,7 @@ function NoteEditorContent({
       latestDraftUpdatedAtRef.current = getNextWritingWorkingCopyTimestamp(
         latestDraftUpdatedAtRef.current,
       );
-      persistWorkingCopy(draft, baseUpdatedAtRef.current, latestDraftUpdatedAtRef.current);
+      persistWorkingCopy(draft, baseDraftRef.current, latestDraftUpdatedAtRef.current);
     },
     [persistWorkingCopy],
   );
@@ -127,7 +142,7 @@ function NoteEditorContent({
     const draftUpdatedAt = latestDraftUpdatedAtRef.current;
     const contentLimit = getEditorContentLimit(draftToSave.content);
     if (!contentLimit.isWithinLimit) {
-      persistWorkingCopy(draftToSave, baseUpdatedAtRef.current, draftUpdatedAt);
+      persistWorkingCopy(draftToSave, baseDraftRef.current, draftUpdatedAt);
       hasChangesRef.current = true;
       setHasChanges(true);
       showContentLimitToast(draftToSave.content);
@@ -137,19 +152,30 @@ function NoteEditorContent({
 
     setIsSaving(true);
     try {
-      persistWorkingCopy(draftToSave, baseUpdatedAtRef.current, draftUpdatedAt);
+      persistWorkingCopy(draftToSave, baseDraftRef.current, draftUpdatedAt);
       const updatedNote = await updateMutation.mutateAsync({
         noteId: note.id,
         data: {
           title: draftToSave.title,
           content: draftToSave.content,
+          baseUpdatedAt: baseDraftRef.current.updatedAt,
+          ...(baseDraftRef.current.title !== undefined && baseDraftRef.current.content !== undefined
+            ? {
+                baseTitle: baseDraftRef.current.title,
+                baseContent: baseDraftRef.current.content,
+              }
+            : {}),
         },
       });
       lastSavedDraftRef.current = {
         title: updatedNote.title,
         content: updatedNote.content,
       };
-      baseUpdatedAtRef.current = updatedNote.updatedAt;
+      baseDraftRef.current = {
+        title: updatedNote.title,
+        content: updatedNote.content,
+        updatedAt: updatedNote.updatedAt,
+      };
       void clearWorkingCopy(draftToSave, draftUpdatedAt);
       updateTabTitle(`note:${updatedNote.id}`, latestDraftRef.current.title);
       const isDirty = !areWritingWorkingCopyDraftsEqual(
@@ -159,6 +185,8 @@ function NoteEditorContent({
       hasChangesRef.current = isDirty;
       setHasChanges(isDirty);
     } catch {
+      await persistWorkingCopy(draftToSave, baseDraftRef.current, draftUpdatedAt);
+      invalidateWritingEditorEntityQueries(queryClient, "note", note.id);
       hasChangesRef.current = true;
       setHasChanges(true);
     } finally {
@@ -173,6 +201,7 @@ function NoteEditorContent({
     showContentLimitToast,
     updateMutation,
     updateTabTitle,
+    queryClient,
   ]);
 
   useEffect(() => {
@@ -180,7 +209,7 @@ function NoteEditorContent({
   }, [title]);
 
   useEffect(() => {
-    if (hasChanges || !isRemoteWritingEntityNewer(note.updatedAt, baseUpdatedAtRef.current)) {
+    if (hasChanges || !isRemoteWritingEntityNewer(note.updatedAt, baseDraftRef.current.updatedAt)) {
       return;
     }
 
@@ -189,7 +218,7 @@ function NoteEditorContent({
     savedContentRef.current = draft.content;
     setEditorContent(draft.content);
     lastSavedDraftRef.current = draft;
-    baseUpdatedAtRef.current = note.updatedAt;
+    baseDraftRef.current = { title: note.title, content: note.content, updatedAt: note.updatedAt };
     latestDraftUpdatedAtRef.current = new Date(note.updatedAt);
 
     if (title !== draft.title) {
@@ -206,7 +235,7 @@ function NoteEditorContent({
       if (hasChangesRef.current) {
         persistWorkingCopy(
           latestDraftRef.current,
-          baseUpdatedAtRef.current,
+          baseDraftRef.current,
           latestDraftUpdatedAtRef.current,
         );
       }
@@ -282,25 +311,64 @@ function NoteEditorContent({
   ) : undefined;
 
   return (
-    <MarkdownEditor
-      title={title}
-      onTitleChange={handleTitleChange}
-      content={editorContent}
-      onContentChange={handleContentChange}
-      onSave={handleSave}
-      isSaving={isSaving}
-      hasChanges={hasChanges}
-      isLocked={isAgentLocked}
-      onLockedAction={showLockedToast}
-      placeholder={t(
-        note.documentType === "outline"
-          ? "writing.outlineContentPlaceholder"
-          : "writing.noteContentPlaceholder",
-      )}
-      lockedBanner={lockedBanner}
-      scrollTop={scrollTop}
-      onScrollPositionChange={handleScrollPositionChange}
-    />
+    <>
+      {conflict ? (
+        <WritingConflictDialog
+          conflict={conflict}
+          onAdoptLocal={async () => {
+            const saved = { title: note.title, content: note.content };
+            lastSavedDraftRef.current = saved;
+            baseDraftRef.current = {
+              title: note.title,
+              content: note.content,
+              updatedAt: note.updatedAt,
+            };
+            const isDirty = !areWritingWorkingCopyDraftsEqual(latestDraftRef.current, saved);
+            hasChangesRef.current = isDirty;
+            setHasChanges(isDirty);
+            if (isDirty) {
+              await persistWorkingCopy(
+                latestDraftRef.current,
+                baseDraftRef.current,
+                latestDraftUpdatedAtRef.current,
+              );
+            }
+          }}
+          onUseSaved={async () => {
+            await discardWorkingCopy();
+            const saved = { title: note.title, content: note.content };
+            latestDraftRef.current = saved;
+            lastSavedDraftRef.current = saved;
+            baseDraftRef.current = { ...saved, updatedAt: note.updatedAt };
+            savedContentRef.current = saved.content;
+            setTitle(saved.title);
+            setEditorContent(saved.content);
+            updateTabTitle(`note:${note.id}`, saved.title);
+            setHasChanges(false);
+            hasChangesRef.current = false;
+          }}
+        />
+      ) : null}
+      <MarkdownEditor
+        title={title}
+        onTitleChange={handleTitleChange}
+        content={editorContent}
+        onContentChange={handleContentChange}
+        onSave={handleSave}
+        isSaving={isSaving}
+        hasChanges={hasChanges}
+        isLocked={isAgentLocked}
+        onLockedAction={showLockedToast}
+        placeholder={t(
+          note.documentType === "outline"
+            ? "writing.outlineContentPlaceholder"
+            : "writing.noteContentPlaceholder",
+        )}
+        lockedBanner={lockedBanner}
+        scrollTop={scrollTop}
+        onScrollPositionChange={handleScrollPositionChange}
+      />
+    </>
   );
 }
 
@@ -348,6 +416,9 @@ export function NoteEditor(props: NoteEditorProps) {
       scrollTop={props.scrollTop ?? 0}
       initialDraft={data.draft}
       initialDraftUpdatedAt={data.draftUpdatedAt}
+      baseUpdatedAt={data.baseUpdatedAt}
+      baseDraft={data.baseDraft}
+      conflict={data.conflict}
       isAgentLocked={props.isAgentLocked ?? false}
       onScrollPositionChange={props.onScrollPositionChange}
     />
@@ -359,6 +430,9 @@ function NoteEditorWorkingCopy({
   scrollTop,
   initialDraft,
   initialDraftUpdatedAt,
+  baseUpdatedAt,
+  baseDraft,
+  conflict,
   isAgentLocked,
   onScrollPositionChange,
 }: Omit<NoteEditorContentProps, "workingCopy">) {
@@ -374,6 +448,9 @@ function NoteEditorWorkingCopy({
       scrollTop={scrollTop}
       initialDraft={initialDraft}
       initialDraftUpdatedAt={initialDraftUpdatedAt}
+      baseUpdatedAt={baseUpdatedAt}
+      baseDraft={baseDraft}
+      conflict={conflict}
       workingCopy={workingCopy}
       isAgentLocked={isAgentLocked}
       onScrollPositionChange={onScrollPositionChange}

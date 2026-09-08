@@ -84,6 +84,9 @@ export interface WritingWorkingCopy {
   title: string;
   content: string;
   baseUpdatedAt: string;
+  /** 正式版本的正文基准；旧草稿缺失时按未知基准保守处理。 */
+  baseTitle?: string;
+  baseContent?: string;
   updatedAt: Date;
 }
 
@@ -173,6 +176,39 @@ class OpenFicDB extends Dexie {
 export const db = new OpenFicDB();
 
 const writingWorkingCopyOperations = new Map<string, Promise<void>>();
+const pendingLocalDbWrites = new Set<Promise<unknown>>();
+const browserBackupFlushCallbacks = new Set<() => void | Promise<void>>();
+
+function trackLocalDbWrite<T>(operation: Promise<T>): Promise<T> {
+  const settled = operation.then(
+    () => undefined,
+    () => undefined,
+  );
+  pendingLocalDbWrites.add(settled);
+  void settled.finally(() => pendingLocalDbWrites.delete(settled));
+  return operation;
+}
+
+/**
+ * 注册需要在导出浏览器伴随包前落盘的界面草稿。
+ */
+export function registerBrowserBackupFlush(callback: () => void | Promise<void>): () => void {
+  browserBackupFlushCallbacks.add(callback);
+  return () => browserBackupFlushCallbacks.delete(callback);
+}
+
+/**
+ * 等待已排队的 IndexedDB 写入，并请求仍挂载的草稿界面立即落盘。
+ */
+export async function flushBrowserBackupWrites(): Promise<void> {
+  await Promise.all(
+    [...browserBackupFlushCallbacks].map((callback) => Promise.resolve(callback())),
+  );
+
+  while (pendingLocalDbWrites.size > 0) {
+    await Promise.all([...pendingLocalDbWrites]);
+  }
+}
 
 function enqueueWritingWorkingCopyOperation<T>(
   id: string,
@@ -185,6 +221,7 @@ function enqueueWritingWorkingCopyOperation<T>(
     () => undefined,
   );
   writingWorkingCopyOperations.set(id, settled);
+  void trackLocalDbWrite(next);
   void settled.finally(() => {
     if (writingWorkingCopyOperations.get(id) === settled) {
       writingWorkingCopyOperations.delete(id);
@@ -213,11 +250,13 @@ export async function getLastChapterId(projectId: string): Promise<string | null
  */
 export async function setLastChapterId(projectId: string, chapterId: string): Promise<void> {
   try {
-    await db.projectLastChapters.put({
-      projectId,
-      chapterId,
-      updatedAt: new Date(),
-    });
+    await trackLocalDbWrite(
+      db.projectLastChapters.put({
+        projectId,
+        chapterId,
+        updatedAt: new Date(),
+      }),
+    );
   } catch {
     console.error("保存最后访问章节失败");
   }
@@ -228,7 +267,7 @@ export async function setLastChapterId(projectId: string, chapterId: string): Pr
  */
 export async function deleteLastChapterId(projectId: string): Promise<void> {
   try {
-    await db.projectLastChapters.delete(projectId);
+    await trackLocalDbWrite(db.projectLastChapters.delete(projectId));
   } catch {
     console.error("删除最后访问章节记录失败");
   }
@@ -261,12 +300,14 @@ export async function setProjectTabs(
   activeTabId: string | null,
 ): Promise<void> {
   try {
-    await db.projectTabs.put({
-      projectId,
-      tabs,
-      activeTabId,
-      updatedAt: new Date(),
-    });
+    await trackLocalDbWrite(
+      db.projectTabs.put({
+        projectId,
+        tabs,
+        activeTabId,
+        updatedAt: new Date(),
+      }),
+    );
   } catch {
     console.error("保存项目标签页失败");
   }
@@ -277,7 +318,7 @@ export async function setProjectTabs(
  */
 export async function deleteProjectTabs(projectId: string): Promise<void> {
   try {
-    await db.projectTabs.delete(projectId);
+    await trackLocalDbWrite(db.projectTabs.delete(projectId));
   } catch {
     console.error("删除项目标签页记录失败");
   }
@@ -312,12 +353,14 @@ export async function setAgentInputHistory(
   draft = "",
 ): Promise<void> {
   try {
-    await db.agentInputHistories.put({
-      projectId,
-      entries,
-      draft,
-      updatedAt: new Date(),
-    });
+    await trackLocalDbWrite(
+      db.agentInputHistories.put({
+        projectId,
+        entries,
+        draft,
+        updatedAt: new Date(),
+      }),
+    );
   } catch {
     console.error("保存 Agent 输入历史失败");
   }
@@ -328,7 +371,7 @@ export async function setAgentInputHistory(
  */
 export async function deleteAgentInputHistory(projectId: string): Promise<void> {
   try {
-    await db.agentInputHistories.delete(projectId);
+    await trackLocalDbWrite(db.agentInputHistories.delete(projectId));
   } catch {
     console.error("删除 Agent 输入历史失败");
   }
@@ -354,11 +397,13 @@ export async function getPreference(key: string): Promise<string | null> {
  */
 export async function setPreference(key: string, value: string): Promise<void> {
   try {
-    await db.userPreferences.put({
-      key,
-      value,
-      updatedAt: new Date(),
-    });
+    await trackLocalDbWrite(
+      db.userPreferences.put({
+        key,
+        value,
+        updatedAt: new Date(),
+      }),
+    );
   } catch {
     console.error("保存用户偏好失败");
   }
@@ -369,7 +414,7 @@ export async function setPreference(key: string, value: string): Promise<void> {
  */
 export async function deletePreference(key: string): Promise<void> {
   try {
-    await db.userPreferences.delete(key);
+    await trackLocalDbWrite(db.userPreferences.delete(key));
   } catch {
     console.error("删除用户偏好失败");
   }
@@ -397,20 +442,22 @@ export async function openRecentProject(
   title: string,
 ): Promise<RecentProject[] | null> {
   try {
-    return await db.transaction("rw", db.recentProjects, async () => {
-      const recentProjects = await db.recentProjects.orderBy("slot").toArray();
-      const recentProject = recentProjects.find((project) => project.projectId === projectId);
-      const nextProjects = insertRecentProject(recentProjects, {
-        projectId,
-        title,
-        color: recentProject?.color ?? getRandomRecentProjectColor(recentProjects),
-      });
+    return await trackLocalDbWrite(
+      db.transaction("rw", db.recentProjects, async () => {
+        const recentProjects = await db.recentProjects.orderBy("slot").toArray();
+        const recentProject = recentProjects.find((project) => project.projectId === projectId);
+        const nextProjects = insertRecentProject(recentProjects, {
+          projectId,
+          title,
+          color: recentProject?.color ?? getRandomRecentProjectColor(recentProjects),
+        });
 
-      await db.recentProjects.clear();
-      await db.recentProjects.bulkPut(nextProjects);
+        await db.recentProjects.clear();
+        await db.recentProjects.bulkPut(nextProjects);
 
-      return nextProjects;
-    });
+        return nextProjects;
+      }),
+    );
   } catch {
     console.error("保存最近项目失败");
     return null;
@@ -422,7 +469,7 @@ export async function openRecentProject(
  */
 export async function removeRecentProject(slot: number): Promise<boolean> {
   try {
-    await db.recentProjects.delete(slot);
+    await trackLocalDbWrite(db.recentProjects.delete(slot));
     return true;
   } catch {
     console.error("移除最近项目失败");
@@ -435,7 +482,9 @@ export async function removeRecentProject(slot: number): Promise<boolean> {
  */
 export async function removeRecentProjectByProjectId(projectId: string): Promise<boolean> {
   try {
-    return (await db.recentProjects.where("projectId").equals(projectId).delete()) > 0;
+    return (
+      (await trackLocalDbWrite(db.recentProjects.where("projectId").equals(projectId).delete())) > 0
+    );
   } catch {
     console.error("移除项目的最近打开记录失败");
     return false;
@@ -468,12 +517,14 @@ export async function savePromptChainWorkingCopy(
   entries: PromptEntryData[],
 ): Promise<void> {
   try {
-    await db.promptChainWorkingCopies.put({
-      chainId,
-      baseVersionId,
-      entries,
-      updatedAt: new Date(),
-    });
+    await trackLocalDbWrite(
+      db.promptChainWorkingCopies.put({
+        chainId,
+        baseVersionId,
+        entries,
+        updatedAt: new Date(),
+      }),
+    );
   } catch {
     console.error("保存Working Copy失败");
   }
@@ -484,7 +535,7 @@ export async function savePromptChainWorkingCopy(
  */
 export async function deletePromptChainWorkingCopy(chainId: string): Promise<void> {
   try {
-    await db.promptChainWorkingCopies.delete(chainId);
+    await trackLocalDbWrite(db.promptChainWorkingCopies.delete(chainId));
   } catch {
     console.error("删除Working Copy失败");
   }

@@ -47,12 +47,11 @@ class CreateNoteCategoryTool(AgentTool):
             return None
         if parent_ref is not None:
             return None
-        parent_id = None
         return {
             "type": "preview",
             "success": True,
             "reason": "approval_preview",
-            "metadata": {"category": {"title": title, "parent_id": parent_id}},
+            "metadata": {"category": {"title": title, "scope": "note"}},
         }
 
     async def _execute(
@@ -67,11 +66,9 @@ class CreateNoteCategoryTool(AgentTool):
         try:
             if parent_ref is not None:
                 raise ToolExecutionError("文件夹只能存在一层，不能指定父文件夹")
-            parent_id = None
-
-            async with await keyed_lock((self.project_id, parent_id)):
+            async with await keyed_lock((self.project_id, "note")):
                 before = note_category_images_by_id(
-                    await note_category_repo.list_by_project(session, self.project_id)
+                    await note_category_repo.list_by_project(session, self.project_id, "note")
                 )
                 next_order = (
                     max(
@@ -89,7 +86,7 @@ class CreateNoteCategoryTool(AgentTool):
                 )
                 category = await note_category_repo.create(session, category)
                 after = note_category_images_by_id(
-                    await note_category_repo.list_by_project(session, self.project_id)
+                    await note_category_repo.list_by_project(session, self.project_id, "note")
                 )
                 await record_note_category_diffs(
                     session,
@@ -109,7 +106,7 @@ class CreateNoteCategoryTool(AgentTool):
                             "category": {
                                 "id": category.id,
                                 "title": category.title,
-                                "parent_id": None,
+                                "scope": category.scope,
                             }
                         },
                     },

@@ -1,6 +1,5 @@
 """Character Repository - 角色数据访问层。"""
 
-from datetime import UTC, datetime
 from typing import Any, cast
 
 from sqlalchemy import delete as sql_delete
@@ -144,7 +143,8 @@ async def batch_update_favorite(
             col(Character.project_id) == project_id,
             col(Character.id).in_(character_ids),
         )
-        .values(is_favorited=is_favorited, updated_at=datetime.now(UTC))
+        .where(col(Character.is_favorited) != is_favorited)
+        .values(is_favorited=is_favorited)
     )
     await session.flush()
     return cast("CursorResult[Any]", result).rowcount

@@ -251,6 +251,9 @@ async def update_note(
         title=data.title,
         content=data.content,
         agent_visibility=data.agent_visibility,
+        base_updated_at=data.base_updated_at,
+        base_title=data.base_title,
+        base_content=data.base_content,
     )
     await background_service.commit_and_notify(session)
     return NoteResponse.model_validate(note)

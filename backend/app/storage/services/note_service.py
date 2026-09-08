@@ -6,7 +6,9 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Literal, cast
 
+from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import col
 
 from app.core.agent_visibility import AgentVisibility, validate_agent_visibility
 from app.core.editor_content_limits import validate_editor_content
@@ -199,12 +201,12 @@ async def reorder_items(
     expected = {item.id for item in siblings}
     if set(ordered_ids) != expected or len(ordered_ids) != len(expected):
         raise ValueError("ordered_ids 必须完整匹配当前同级条目")
-    now = datetime.now(UTC)
     by_id = {item.id: item for item in siblings}
     for index, item_id in enumerate(ordered_ids):
         item = by_id[item_id]
+        if item.order == index:
+            continue
         item.order = index
-        item.updated_at = now
         session.add(item)
     await session.flush()
     return len(ordered_ids)
@@ -252,11 +254,11 @@ async def reorder_mixed_items(
     if set(ordered_items) != set(siblings) or len(ordered_items) != len(siblings):
         raise ValueError("ordered_items 必须完整匹配当前同级分类和条目")
 
-    now = datetime.now(UTC)
     for index, key in enumerate(ordered_items):
         item = siblings[key]
+        if item.order == index:
+            continue
         item.order = index
-        item.updated_at = now
         session.add(item)
     await session.flush()
     return len(ordered_items)
@@ -268,8 +270,29 @@ async def update_note(
     title: str | None = None,
     content: str | None = None,
     agent_visibility: AgentVisibility | None = None,
+    base_updated_at: datetime | None = None,
+    base_title: str | None = None,
+    base_content: str | None = None,
 ) -> Note:
     note = await get_note(session, note_id)
+    has_content_base = base_title is not None or base_content is not None
+    if has_content_base and (base_title is None or base_content is None):
+        raise ConflictError("编辑基准不完整，请刷新后重试")
+    if base_updated_at is not None or has_content_base:
+        conditions = [col(Note.id) == note_id]
+        if has_content_base:
+            conditions.extend([col(Note.title) == base_title, col(Note.content) == base_content])
+        else:
+            conditions.append(col(Note.updated_at) == base_updated_at)
+        guarded = await session.execute(
+            update(Note)
+            .where(*conditions)
+            .values(updated_at=col(Note.updated_at))
+            .returning(col(Note.id))
+        )
+        if guarded.scalar_one_or_none() is None:
+            raise ConflictError("笔记已被修改，请比较并选择要保留的版本")
+        await session.refresh(note)
     changed = False
     records_writing_activity = False
 
@@ -295,7 +318,8 @@ async def update_note(
         changed = True
 
     if changed:
-        note.updated_at = datetime.now(UTC)
+        if records_writing_activity:
+            note.updated_at = datetime.now(UTC)
         note = await note_repo.update_note(session, note)
         if records_writing_activity:
             await writing_activity_service.record_activity(
@@ -341,7 +365,6 @@ async def set_note_locked(
     note = await get_note(session, note_id)
     if note.is_locked != is_locked:
         note.is_locked = is_locked
-        note.updated_at = datetime.now(UTC)
         note = await note_repo.update_note(session, note)
         await writing_activity_service.record_activity(
             session,
@@ -413,19 +436,6 @@ async def move_item(
         if target_category_id is not None:
             raise ValueError("文件夹只支持一层")
 
-        category.updated_at = datetime.now(UTC)
-        category = await note_category_repo.update_category(session, category)
-
-        await writing_activity_service.record_activity(
-            session,
-            project_id=category.project_id,
-            chapter_id=category.id,
-            chapter_title=category.title,
-            source="user",
-            operation="update",
-            old_word_count=0,
-            new_word_count=0,
-        )
         return category
 
     else:
@@ -442,18 +452,18 @@ async def move_item(
             if target.scope != note.document_type:
                 raise ValueError("不能跨文档类型移动条目")
 
-        if note.category_id != target_category_id:
-            note.category_id = target_category_id
-            note.order = (
-                await _get_max_mixed_order(
-                    session,
-                    note.project_id,
-                    target_category_id,
-                    cast(DocumentType, note.document_type),
-                )
-                + 1
+        if note.category_id == target_category_id:
+            return note
+        note.category_id = target_category_id
+        note.order = (
+            await _get_max_mixed_order(
+                session,
+                note.project_id,
+                target_category_id,
+                cast(DocumentType, note.document_type),
             )
-        note.updated_at = datetime.now(UTC)
+            + 1
+        )
         note = await note_repo.update_note(session, note)
 
         await writing_activity_service.record_activity(

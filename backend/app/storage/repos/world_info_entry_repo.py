@@ -246,6 +246,7 @@ async def batch_toggle(
             col(WorldInfoEntry.world_info_id) == world_info_id,
             col(WorldInfoEntry.id).in_(entry_ids),
         )
+        .where(col(WorldInfoEntry.agent_visibility) != agent_visibility)
         .values(agent_visibility=agent_visibility)
     )
     await session.flush()

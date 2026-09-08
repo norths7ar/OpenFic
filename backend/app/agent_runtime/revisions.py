@@ -45,7 +45,6 @@ from app.storage.repos import (
     revision_repo,
     revision_world_entry_snapshot_repo,
     task_repo,
-    volume_repo,
     world_info_entry_repo,
 )
 from app.storage.services import writing_activity_service
@@ -57,7 +56,7 @@ from app.storage.services.volume_service import refresh_volume_chapter_count
 class ChapterImage:
     id: str
     project_id: str
-    volume_id: str
+    volume_id: str | None
     title: str
     content: str
     word_count: int
@@ -152,7 +151,7 @@ def _image_from_snapshot(snapshot: RevisionChapterSnapshot) -> ChapterImage | No
     return ChapterImage(
         id=snapshot.chapter_id,
         project_id=snapshot.project_id,
-        volume_id=getattr(snapshot, "volume_id", "") or "",
+        volume_id=snapshot.volume_id,
         title=snapshot.title or "",
         content=snapshot.content or "",
         word_count=snapshot.word_count or 0,
@@ -180,6 +179,7 @@ async def _snapshot_from_image(
         chapter_id=image.id,
         project_id=image.project_id,
         exists=True,
+        volume_id=image.volume_id,
         title=image.title,
         content=content,
         content_blob_id=content_blob_id,
@@ -829,13 +829,6 @@ def _sort_category_snapshots_by_hierarchy(
     return result
 
 
-async def _fallback_volume_id(session: AsyncSession, project_id: str) -> str:
-    volumes = await volume_repo.list_by_project(session, project_id)
-    if not volumes:
-        raise NotFoundError(f"项目缺少卷，无法恢复章节: {project_id}")
-    return volumes[0].id
-
-
 async def _resolve_note_category_id(
     session: AsyncSession,
     project_id: str,
@@ -1001,23 +994,20 @@ async def rollback_revision_for_session(
         current = await chapter_repo.get_by_id(session, snapshot.chapter_id)
         before_image = _image_from_chapter(current) if current is not None else None
         after_image = _image_from_snapshot(snapshot)
-        if before_image is not None:
+        if before_image is not None and before_image.volume_id is not None:
             affected_volume_ids.add(before_image.volume_id)
-        if after_image is not None:
+        if after_image is not None and after_image.volume_id is not None:
             affected_volume_ids.add(after_image.volume_id)
         if after_image is None:
             if current is not None:
                 await chapter_repo.delete(session, current)
         elif current is None:
-            volume_id = after_image.volume_id or await _fallback_volume_id(
-                session, after_image.project_id
-            )
             await chapter_repo.create(
                 session,
                 Chapter(
                     id=after_image.id,
                     project_id=after_image.project_id,
-                    volume_id=volume_id,
+                    volume_id=after_image.volume_id,
                     title=after_image.title,
                     content=after_image.content,
                     word_count=after_image.word_count,
@@ -1025,8 +1015,7 @@ async def rollback_revision_for_session(
                 ),
             )
         else:
-            if after_image.volume_id:
-                current.volume_id = after_image.volume_id
+            current.volume_id = after_image.volume_id
             current.title = after_image.title
             current.content = after_image.content
             current.word_count = after_image.word_count

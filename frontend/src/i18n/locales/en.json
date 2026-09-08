@@ -283,6 +283,7 @@
     "justNow": "Just now"
   },
   "projectNavigation": {
+    "moveTo": "Move to…",
     "deleteFolderConfirm": "Items in this folder will move to the root. Their content will not be deleted.",
     "moveFailed": "Move failed. The item remains at root; please retry moving it.",
     "expand": "Expand",
@@ -970,8 +971,6 @@
     "advancedPersistDetailsTooltipStorage": "Recording call details uses more database storage.",
     "advancedPersistDetailsTooltipRecommendation": "Enable it only while debugging.",
     "advancedPersistDetailsHint": "Only affects new calls. Existing details are not removed automatically.",
-    "advancedTelemetry": "Error telemetry",
-    "advancedTelemetryHint": "Anonymously report crashes and unhandled errors to help improve stability.",
     "advancedStorage": " LLM call detail storage",
     "advancedStorageValue": "About {{size}} across {{count}} call records",
     "advancedClear": "Clear details",
@@ -1107,6 +1106,7 @@
     "urlRequired": "Please enter service URL",
     "apiKey": "API Key",
     "apiKeyPlaceholder": "Enter API Key",
+    "apiKeyOptionalPlaceholder": "Leave empty when no authentication is required",
     "apiKeyRequired": "Please enter API Key",
     "providerType": "Provider Type",
     "providerTypePlaceholder": "Select provider type",
@@ -1135,6 +1135,7 @@
     "deleteSuccess": "Connection deleted",
     "createFailed": "Creation failed",
     "updateFailed": "Update failed",
+    "optionalSdkRequired": "Optional SDK required",
     "deleteFailed": "Delete failed"
   },
   "models": {
@@ -1155,6 +1156,7 @@
     "modelDisabled": "Model disabled",
     "toggleModel": "Enable or disable {{model}}",
     "notDetectedRemotely": "Not returned remotely",
+    "optionalSdkRequired": "This task type needs its provider extra. Existing model configurations are preserved and work after it is installed.",
     "contextWindowTooltip": "Context window: {{value}}",
     "capabilities": {
       "text": "Text input",
@@ -1216,7 +1218,7 @@
     "metadata": "Metadata",
     "metadataTooltipLabel": "Metadata information",
     "metadataTooltipBasic": "Basic information about the model;",
-    "metadataTooltipDefault": "If the selected model has no match in the built-in catalog, metadata uses default values. Complete it manually for the best experience;",
+    "metadataTooltipDefault": "If the selected model has no built-in catalog match, unknown metadata stays empty or 0. Fill in actual capabilities manually;",
     "metadataTooltipContext": "Context length is used to display usage and as the baseline for the compaction process;",
     "metadataTooltipPricing": "Prices are used to display billing in session data",
     "temperature": "Temperature",
@@ -2221,6 +2223,7 @@
     }
   },
   "pendingProjectChanges": {
+    "navStatus": "Pending",
     "navLabel": "Pending changes",
     "projectScope": "AI-proposed long-term changes for the current project. Pending content is never written automatically.",
     "trigger": "Pending changes {{count}}",

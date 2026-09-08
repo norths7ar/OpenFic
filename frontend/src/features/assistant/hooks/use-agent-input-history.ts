@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { getAgentInputHistory, setAgentInputHistory } from "@/lib/local-db";
+import {
+  getAgentInputHistory,
+  registerBrowserBackupFlush,
+  setAgentInputHistory,
+} from "@/lib/local-db";
 
 import {
   appendAgentInputHistory,
@@ -32,8 +36,8 @@ export function useAgentInputHistory(projectId: string) {
   }, []);
 
   const persistState = useCallback(
-    (targetProjectId: string, entries: string[], targetDraft: string) => {
-      if (!targetProjectId) return;
+    (targetProjectId: string, entries: string[], targetDraft: string): Promise<void> => {
+      if (!targetProjectId) return Promise.resolve();
       const nextWrite = writeQueueRef.current.then(() =>
         setAgentInputHistory(targetProjectId, entries, targetDraft),
       );
@@ -41,6 +45,7 @@ export function useAgentInputHistory(projectId: string) {
         () => undefined,
         () => undefined,
       );
+      return nextWrite;
     },
     [],
   );
@@ -52,11 +57,11 @@ export function useAgentInputHistory(projectId: string) {
   }, []);
 
   const flushDraftForProject = useCallback(
-    (targetProjectId: string) => {
+    (targetProjectId: string): Promise<void> => {
       clearDraftSaveTimer();
-      if (!targetProjectId || !draftChangedRef.current) return;
+      if (!targetProjectId || !draftChangedRef.current) return writeQueueRef.current;
       draftChangedRef.current = false;
-      persistState(targetProjectId, historyStateRef.current.entries, draftRef.current);
+      return persistState(targetProjectId, historyStateRef.current.entries, draftRef.current);
     },
     [clearDraftSaveTimer, persistState],
   );
@@ -131,6 +136,11 @@ export function useAgentInputHistory(projectId: string) {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [flushDraftForProject, projectId]);
+
+  useEffect(
+    () => registerBrowserBackupFlush(() => flushDraftForProject(projectId)),
+    [flushDraftForProject, projectId],
+  );
 
   const handleInputChange = useCallback(
     (value: string) => {

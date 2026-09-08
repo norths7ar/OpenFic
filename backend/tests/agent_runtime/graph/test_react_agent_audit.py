@@ -1,4 +1,3 @@
-import asyncio
 from unittest.mock import Mock, patch
 
 import pytest
@@ -302,17 +301,22 @@ async def test_react_agent_normalizes_tool_errors_in_audit(
 
 
 @pytest.mark.asyncio
-async def test_react_agent_records_first_token_latency_from_stream() -> None:
+async def test_react_agent_records_first_token_latency_from_stream(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     audit = _AuditProbe()
     audit_context = Mock()
     audit_context.llm_call.return_value = audit
+    clock = Mock()
+    clock.perf_counter.return_value = 1.0
+    monkeypatch.setattr("app.agent_runtime.graph.react_agent.time", clock)
 
     class _StreamingModel:
         def bind_tools(self, _tools):
             return self
 
         async def astream(self, _messages):
-            await asyncio.sleep(0.01)
+            clock.perf_counter.return_value = 1.125
             yield AIMessageChunk(content="done")
 
     config = ReactAgentConfig(
@@ -343,8 +347,7 @@ async def test_react_agent_records_first_token_latency_from_stream() -> None:
         },
     )
 
-    assert audit.responses[0]["first_token_ms"] is not None
-    assert audit.responses[0]["first_token_ms"] >= 1
+    assert audit.responses[0]["first_token_ms"] == 125
 
 
 @pytest.mark.asyncio

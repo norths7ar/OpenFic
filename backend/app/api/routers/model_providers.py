@@ -81,6 +81,9 @@ async def _build_provider_response(
     supported_task_types = await service.get_supported_task_types(
         provider, catalog_match=catalog_match
     )
+    unavailable_task_types = await service.get_unavailable_task_types(
+        provider, catalog_match=catalog_match
+    )
     icon_path = await service.get_effective_icon_path(provider, catalog_match=catalog_match)
 
     return ModelProviderResponse(
@@ -90,6 +93,7 @@ async def _build_provider_response(
         provider_type=provider.provider_type,
         custom_header_names=service.get_custom_header_names(provider),
         supported_task_types=supported_task_types,
+        unavailable_task_types=unavailable_task_types,
         icon_path=icon_path,
         is_builtin=provider.is_builtin,
         catalog_match=(
@@ -385,7 +389,7 @@ async def get_provider_models(
                 models=[AvailableModel.model_validate(model) for model in enriched_models],
             )
 
-        # 获取解密后的 API Key
+        # 获取解密后的 API Key。无认证的通用连接允许空密钥发现模型。
         api_key = service.get_decrypted_api_key(provider)
         if not api_key:
             # 检查是字段为空还是解密失败
@@ -402,7 +406,7 @@ async def get_provider_models(
                     message="API Key 解密失败，请重新配置该提供商的 API Key",
                     models=[],
                 )
-            else:
+            elif provider.provider_type not in {"openai-compatible", "openai-compatible-responses"}:
                 logger.info(f"Provider {provider_id} has no API key configured")
                 return ModelProviderValidateResponse(
                     success=False,
@@ -410,12 +414,14 @@ async def get_provider_models(
                     models=[],
                 )
 
-        # 记录API key的前缀和后缀用于调试（隐藏中间部分）
-        if len(api_key) > 8:
+        # 记录 API key 的掩码（无认证连接不输出伪造占位符）。
+        if api_key and len(api_key) > 8:
             masked_key = f"{api_key[:4]}...{api_key[-4:]}"
-        else:
+        elif api_key:
             masked_key = "****"
-        logger.debug(f"Using API key: {masked_key} (length: {len(api_key)})")
+        else:
+            masked_key = "(no authentication)"
+        logger.debug(f"Using API key: {masked_key} (length: {len(api_key or '')})")
 
         # 获取模型列表（根据task_type获取LLM或Embedding模型）
         models = await service.get_available_models(

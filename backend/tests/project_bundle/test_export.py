@@ -10,6 +10,7 @@ from app.project_bundle.export import (
     semantic_hash,
 )
 from app.project_bundle.markdown import parse_markdown_document
+from app.storage.models.chapter import Chapter
 from app.storage.models.character import Character
 from app.storage.models.note import Note
 from app.storage.models.project import Project
@@ -296,3 +297,35 @@ def test_semantic_hash_is_stable_and_changes_with_semantics() -> None:
     assert document_semantic_hash(fields, "标题", "正文") != document_semantic_hash(
         fields, "标题", "新正文"
     )
+
+
+@pytest.mark.asyncio
+async def test_export_includes_writing_folders_and_root_chapters(session) -> None:
+    project = Project(id="chapter-bundle", title="正文资料包")
+    volume = NoteCategory(
+        id="chapter-volume",
+        project_id=project.id,
+        scope="writing",
+        title="第一卷",
+        order=1,
+    )
+    root = Chapter(id="root-chapter", project_id=project.id, title="序章", order=1)
+    nested = Chapter(
+        id="nested-chapter",
+        project_id=project.id,
+        volume_id=volume.id,
+        title="第一章",
+        order=1,
+    )
+    session.add_all([project, volume, root, nested])
+    await session.flush()
+
+    files = read_zip(await export_project_bundle(session, project.id))
+    manifest = yaml.safe_load(files["openfic.yaml"])
+    documents = {item["id"]: item for item in manifest["documents"]}
+
+    assert any(folder["id"] == volume.id for folder in manifest["project_folders"])
+    assert documents[root.id]["path"].startswith("正文/")
+    assert documents[nested.id]["path"].startswith("正文/第一卷/")
+    root_document = parse_markdown_document(files[documents[root.id]["path"]].decode())
+    assert root_document.frontmatter["volume_id"] is None

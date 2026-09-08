@@ -106,18 +106,25 @@ export function VolumeHeader({
           ),
       },
       {
-        id: "moveUp",
-        label: t("volume.menu.moveUp"),
-        icon: ArrowUp,
-        disabled: isFirst,
-        onClick: onMoveUp,
-      },
-      {
-        id: "moveDown",
-        label: t("volume.menu.moveDown"),
-        icon: ArrowDown,
-        disabled: isLast,
-        onClick: onMoveDown,
+        id: "sort",
+        label: t("writing.sort"),
+        onClick: () => {},
+        children: [
+          {
+            id: "moveUp",
+            label: t("volume.menu.moveUp"),
+            icon: ArrowUp,
+            disabled: isFirst,
+            onClick: onMoveUp,
+          },
+          {
+            id: "moveDown",
+            label: t("volume.menu.moveDown"),
+            icon: ArrowDown,
+            disabled: isLast,
+            onClick: onMoveDown,
+          },
+        ],
       },
     ];
 

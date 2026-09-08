@@ -38,7 +38,7 @@ export function ProjectNavItemRow({
       aria-disabled={disabled || undefined}
       data-dragging={dragging || undefined}
     >
-      {leading}
+      <div className="project-nav-item-leading">{leading}</div>
       <div className="project-nav-item-text">
         <div className="project-nav-item-heading">
           <div className="project-nav-item-title">{title}</div>

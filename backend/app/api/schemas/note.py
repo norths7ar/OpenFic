@@ -36,6 +36,9 @@ class NoteUpdate(BaseModel):
         default=None,
         description="Agent 可见范围",
     )
+    base_updated_at: datetime | None = Field(default=None, description="编辑开始时的正文版本")
+    base_title: str | None = Field(default=None, description="编辑开始时的标题")
+    base_content: str | None = Field(default=None, description="编辑开始时的正文")
 
 
 class NoteLockToggle(BaseModel):

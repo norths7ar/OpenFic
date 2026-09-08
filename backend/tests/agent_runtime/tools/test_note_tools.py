@@ -55,12 +55,14 @@ def _make_category(
     title: str = "分类A",
     parent_id: str | None = None,
     project_id: str = "proj-1",
+    scope: str = "note",
 ):
     cat = MagicMock()
     cat.id = category_id
     cat.project_id = project_id
     cat.parent_id = parent_id
     cat.title = title
+    cat.scope = scope
     return cat
 
 
@@ -657,11 +659,11 @@ async def test_create_note_category_returns_success_and_metadata() -> None:
 
     assert json.loads(result) == {
         "success": True,
-        "metadata": {"category": {"id": "cat-new", "title": "新分类", "parent_id": None}},
+        "metadata": {"category": {"id": "cat-new", "title": "新分类", "scope": "note"}},
     }
 
 
-async def test_create_note_category_serializes_parallel_creates_per_parent() -> None:
+async def test_create_note_category_serializes_parallel_creates_per_scope() -> None:
     from app.agent_runtime.tools.impls import _locks
     from app.agent_runtime.tools.impls.note import create_note_category as cnc
 
@@ -726,7 +728,7 @@ async def test_create_note_category_builds_approval_preview() -> None:
         "metadata": {
             "category": {
                 "title": "新分类",
-                "parent_id": None,
+                "scope": "note",
             }
         },
     }
@@ -770,7 +772,7 @@ async def test_edit_note_category_returns_success_and_rename_metadata() -> None:
                 "id": "cat-1",
                 "title": "新分类",
                 "previous_title": "旧分类",
-                "parent_id": None,
+                "scope": "note",
             }
         },
     }
@@ -806,7 +808,7 @@ async def test_edit_note_category_builds_approval_preview() -> None:
                 "id": "cat-1",
                 "title": "新分类",
                 "previous_title": "旧分类",
-                "parent_id": None,
+                "scope": "note",
             }
         },
     }
@@ -862,7 +864,7 @@ async def test_edit_note_category_rejects_category_from_another_project() -> Non
         ):
             result = await tool.ainvoke({"category_ref": {"id": "cat-1"}, "new_title": "新分类"})
 
-    assert json.loads(result)["message"] == "分类不属于当前项目"
+    assert json.loads(result)["message"] == "分类不属于当前项目或笔记范围"
 
 
 async def test_delete_note_category_cascades_and_records_revisions() -> None:

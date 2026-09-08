@@ -1,15 +1,7 @@
-import {
-  Box,
-  Button,
-  Dialog,
-  DropdownMenu,
-  Flex,
-  IconButton,
-  TextArea,
-  Tooltip,
-} from "@radix-ui/themes";
+import { Box, Button, Dialog, DropdownMenu, Flex, IconButton, TextArea } from "@radix-ui/themes";
 import {
   FilePlus,
+  Plus,
   FolderPlus,
   ExternalLink,
   AtSign,
@@ -22,7 +14,6 @@ import {
   ArrowUp,
   ArrowDown,
   ArrowUpDown,
-  MoreHorizontal,
 } from "lucide-react";
 import { motion } from "motion/react";
 import { useState, useCallback, useMemo, useEffect, useRef } from "react";
@@ -347,25 +338,31 @@ export function NoteSidebar({
       });
     }
 
-    items.push(
-      {
-        id: "moveUp",
-        label: t("chapterMenu.moveUp"),
-        icon: ArrowUp,
-        disabled: targetIsLocked || !siblingOrder || siblingOrder.index <= 0,
-        onClick: () => void handleManualMove(-1),
-      },
-      {
-        id: "moveDown",
-        label: t("chapterMenu.moveDown"),
-        icon: ArrowDown,
-        disabled:
-          targetIsLocked ||
-          !siblingOrder ||
-          siblingOrder.index >= siblingOrder.orderedItems.length - 1,
-        onClick: () => void handleManualMove(1),
-      },
-    );
+    if (sortMode === "manual")
+      items.push({
+        id: "sort",
+        label: t("writing.sort"),
+        onClick: () => {},
+        children: [
+          {
+            id: "moveUp",
+            label: t("chapterMenu.moveUp"),
+            icon: ArrowUp,
+            disabled: targetIsLocked || !siblingOrder || siblingOrder.index <= 0,
+            onClick: () => void handleManualMove(-1),
+          },
+          {
+            id: "moveDown",
+            label: t("chapterMenu.moveDown"),
+            icon: ArrowDown,
+            disabled:
+              targetIsLocked ||
+              !siblingOrder ||
+              siblingOrder.index >= siblingOrder.orderedItems.length - 1,
+            onClick: () => void handleManualMove(1),
+          },
+        ],
+      });
 
     if (contextMenuTarget.type === "category")
       items.push({
@@ -378,18 +375,22 @@ export function NoteSidebar({
         },
       });
     if (contextMenuTarget.type === "note") {
-      for (const folder of [null, ...(data?.categories ?? [])])
-        items.push({
+      items.push({
+        id: "move",
+        label: t("projectNavigation.moveTo"),
+        disabled: targetIsLocked || !data?.categories.length,
+        onClick: () => {},
+        children: [null, ...(data?.categories ?? [])].map((folder) => ({
           id: `move:${folder?.id ?? "root"}`,
-          label: folder
-            ? t("projectNavigation.moveToFolder", { name: folder.title })
-            : t("projectNavigation.moveToRoot"),
+          label: folder?.title ?? t("projectNavigation.moveToRoot"),
           disabled: targetIsLocked || (targetNote?.categoryId ?? null) === (folder?.id ?? null),
           onClick: () => {
+            if ((targetNote?.categoryId ?? null) === (folder?.id ?? null)) return;
             void handleMove(contextMenuTarget.id, "note", folder?.id ?? null);
             handleCloseContextMenu();
           },
-        });
+        })),
+      });
     }
     if (contextMenuTarget.type === "category")
       items.push({
@@ -455,6 +456,22 @@ export function NoteSidebar({
       },
     });
 
+    const order = [
+      "openInNewTab",
+      "addToConversation",
+      "create",
+      "rename",
+      "duplicate",
+      "move",
+      "sort",
+      "description",
+      "toggleLock",
+      "delete",
+    ];
+    items.sort((a, b) => {
+      const rank = (id: string) => (order.includes(id) ? order.indexOf(id) : order.length - 1);
+      return rank(a.id) - rank(b.id);
+    });
     return items;
   }, [
     contextMenuTarget,
@@ -633,45 +650,45 @@ export function NoteSidebar({
                 </IconButton>
               </DropdownMenu.Trigger>
               <DropdownMenu.Content align="end">
-                <DropdownMenu.Item onClick={() => setSortMode("manual")}>
+                <DropdownMenu.CheckboxItem
+                  checked={sortMode === "manual"}
+                  onCheckedChange={() => setSortMode("manual")}
+                >
                   {t("writing.sortManual")}
-                </DropdownMenu.Item>
-                <DropdownMenu.Item onClick={() => setSortMode("title")}>
+                </DropdownMenu.CheckboxItem>
+                <DropdownMenu.CheckboxItem
+                  checked={sortMode === "title"}
+                  onCheckedChange={() => setSortMode("title")}
+                >
                   {t("writing.sortTitle")}
-                </DropdownMenu.Item>
-                <DropdownMenu.Item onClick={() => setSortMode("updated")}>
+                </DropdownMenu.CheckboxItem>
+                <DropdownMenu.CheckboxItem
+                  checked={sortMode === "updated"}
+                  onCheckedChange={() => setSortMode("updated")}
+                >
                   {t("writing.sortUpdated")}
-                </DropdownMenu.Item>
+                </DropdownMenu.CheckboxItem>
               </DropdownMenu.Content>
             </DropdownMenu.Root>
           )
         }
         create={
           contentSearchExpanded ? null : (
-            <Tooltip content={t(isOutline ? "writing.newOutline" : "writing.newNote")}>
-              <IconButton
-                variant="ghost"
-                size="2"
-                onClick={() => void handleNewNote()}
-              >
-                <FilePlus size={16} />
-              </IconButton>
-            </Tooltip>
-          )
-        }
-        more={
-          contentSearchExpanded ? null : (
             <DropdownMenu.Root>
               <DropdownMenu.Trigger>
                 <IconButton
                   variant="ghost"
                   size="2"
-                  aria-label={t("common.more")}
+                  aria-label={t("common.create")}
                 >
-                  <MoreHorizontal size={16} />
+                  <Plus size={16} />
                 </IconButton>
               </DropdownMenu.Trigger>
               <DropdownMenu.Content align="end">
+                <DropdownMenu.Item onClick={() => void handleNewNote()}>
+                  <FilePlus size={16} />
+                  {t(isOutline ? "writing.newOutline" : "writing.newNote")}
+                </DropdownMenu.Item>
                 <DropdownMenu.Item onClick={() => void handleNewCategory()}>
                   <FolderPlus size={16} />
                   {t("writing.newCategory")}

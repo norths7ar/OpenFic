@@ -9,8 +9,6 @@ import {
   SYSTEM_FONT_FAMILY,
 } from "@/features/settings/lib/settings.types";
 
-import { publishDesktopAppearance } from "./desktop-appearance-bridge";
-
 const appFontFallbacks =
   '"Noto Serif SC Variable", "Noto Sans SC Variable", Georgia, "PingFang SC", "Microsoft YaHei", serif';
 const codeFontFallbacks =
@@ -127,8 +125,6 @@ export function applyFontFamily(fontFamily: string): void {
   if (radixThemesEl instanceof HTMLElement) {
     radixThemesEl.style.setProperty("--default-font-family", fontStack);
   }
-
-  publishDesktopAppearance({ fontFamily: fontStack });
 }
 
 /**
@@ -147,8 +143,6 @@ export function applyCodeFontFamily(codeFontFamily: string): void {
 
   // 应用到所有代码相关的元素
   document.documentElement.style.setProperty("--code-font-family", fontStack);
-
-  publishDesktopAppearance({ codeFontFamily: fontStack });
 }
 
 export async function loadConfiguredFonts(

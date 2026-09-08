@@ -372,6 +372,8 @@ async def update_entry(
         NotFoundError: 条目不存在。
     """
     entry = await get_entry(session, entry_id)
+    original_content = (entry.name, entry.content)
+    original_metadata = (entry.section, entry.token_count, entry.agent_visibility)
 
     if name is not None:
         entry.name = await ensure_entry_name_available(
@@ -390,7 +392,10 @@ async def update_entry(
     if agent_visibility is not None:
         entry.agent_visibility = validate_agent_visibility(agent_visibility)
 
-    entry.updated_at = datetime.now(UTC)
+    if original_content != (entry.name, entry.content):
+        entry.updated_at = datetime.now(UTC)
+    elif original_metadata == (entry.section, entry.token_count, entry.agent_visibility):
+        return entry
     return await world_info_entry_repo.update_entry(session, entry)
 
 
@@ -485,7 +490,6 @@ async def move_entry(
         )
 
     entry.order = new_order
-    entry.updated_at = datetime.now(UTC)
     return await world_info_entry_repo.update_entry(session, entry)
 
 

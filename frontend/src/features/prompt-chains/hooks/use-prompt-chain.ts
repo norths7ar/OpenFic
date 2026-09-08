@@ -12,6 +12,7 @@ import {
   getPromptChainWorkingCopy,
   savePromptChainWorkingCopy,
   deletePromptChainWorkingCopy,
+  registerBrowserBackupFlush,
 } from "@/lib/local-db";
 import type { PromptEntry, PromptEntryData } from "@/lib/prompt-chain.types";
 import { countTokens } from "@/lib/tiktoken-utils";
@@ -55,10 +56,14 @@ export function usePromptChain(promptId: string) {
   const [baseEntries, setBaseEntries] = useState<PromptEntryData[]>([]);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const workingCopySaveRef = useRef(Promise.resolve());
+  const currentVersionIdRef = useRef<string | null>(null);
+  const entriesRef = useRef<PromptEntryData[]>([]);
   const [error, setError] = useState<Error | null>(null);
 
   const shouldQuery = !!promptId;
   const chainKey = promptId;
+  currentVersionIdRef.current = currentVersionId;
+  entriesRef.current = entries;
 
   const { data: versions = [], error: versionsError } = useQuery({
     queryKey: ["promptChainVersions", promptId],
@@ -91,6 +96,27 @@ export function usePromptChain(promptId: string) {
       return save;
     },
     [chainKey],
+  );
+
+  const flushWorkingCopy = useCallback(async () => {
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = null;
+    }
+    const versionId = currentVersionIdRef.current;
+    const currentEntries = entriesRef.current;
+    if (versionId && currentEntries.length > 0) {
+      await saveWorkingCopy(versionId, currentEntries);
+    }
+  }, [saveWorkingCopy]);
+
+  useEffect(() => registerBrowserBackupFlush(flushWorkingCopy), [flushWorkingCopy]);
+
+  useEffect(
+    () => () => {
+      void flushWorkingCopy();
+    },
+    [flushWorkingCopy],
   );
 
   useEffect(() => {

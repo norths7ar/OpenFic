@@ -65,7 +65,6 @@ import { useWorldInfoStore } from "../store/use-world-info-store";
 import {
   ENTRY_LIST_ITEM_HEIGHT,
   getAutoScrollSpeed,
-  getDragTargetIndex,
   getEntryDragOffset,
   reorderEntries,
 } from "./entry-list-drag";
@@ -160,6 +159,7 @@ export function EntryList({
   const dragTargetIndexRef = useRef<number | null>(null);
   const draggedEntriesRef = useRef<WorldInfoEntryBrief[] | null>(null);
   const lastDragClientYRef = useRef(0);
+  const dragSlotsRef = useRef<{ index: number; center: number }[]>([]);
   const overlayNodeRef = useRef<HTMLDivElement | null>(null);
   const [, startTransition] = useTransition();
   const scrollContainerRef = useRef<HTMLElement | null>(null);
@@ -228,6 +228,17 @@ export function EntryList({
       return { ...current, targetIndex };
     });
   }, []);
+
+  const updatePointerTarget = useCallback(() => {
+    const scrollTop = scrollContainerRef.current?.scrollTop ?? 0;
+    const pointer = lastDragClientYRef.current + scrollTop;
+    const closest = dragSlotsRef.current.reduce<{ index: number; center: number } | null>(
+      (best, slot) =>
+        !best || Math.abs(slot.center - pointer) < Math.abs(best.center - pointer) ? slot : best,
+      null,
+    );
+    if (closest) updateDragTargetIndex(closest.index);
+  }, [updateDragTargetIndex]);
 
   const handleSearchChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -375,25 +386,39 @@ export function EntryList({
         onClick: () => onPinEntry(contextMenuEntry),
       },
       {
-        id: "move-root",
-        label: t("projectNavigation.moveToRoot"),
+        id: "move",
+        label: t("projectNavigation.moveTo"),
         icon: FolderInput,
-        disabled: contextMenuEntry.folderId === null,
-        onClick: () => {
-          folderMutations.moveItem.mutate({ itemId: contextMenuEntry.id, folderId: null });
-          setContextMenuPos(null);
-        },
+        disabled: folders.length === 0 && !contextMenuEntry.folderId,
+        onClick: () => undefined,
+        children: [
+          {
+            id: "move-root",
+            label: t("projectNavigation.moveToRoot"),
+            icon: FolderInput,
+            disabled: !contextMenuEntry.folderId,
+            onClick: () => {
+              if (contextMenuEntry.folderId)
+                folderMutations.moveItem.mutate({ itemId: contextMenuEntry.id, folderId: null });
+              setContextMenuPos(null);
+            },
+          },
+          ...folders.map((folder) => ({
+            id: `move-folder-${folder.id}`,
+            label: t("projectNavigation.moveToFolder", { name: folder.title }),
+            icon: FolderInput,
+            disabled: contextMenuEntry.folderId === folder.id,
+            onClick: () => {
+              if (contextMenuEntry.folderId !== folder.id)
+                folderMutations.moveItem.mutate({
+                  itemId: contextMenuEntry.id,
+                  folderId: folder.id,
+                });
+              setContextMenuPos(null);
+            },
+          })),
+        ],
       },
-      ...folders.map((folder) => ({
-        id: `move-folder-${folder.id}`,
-        label: t("projectNavigation.moveToFolder", { name: folder.title }),
-        icon: FolderInput,
-        disabled: contextMenuEntry.folderId === folder.id,
-        onClick: () => {
-          folderMutations.moveItem.mutate({ itemId: contextMenuEntry.id, folderId: folder.id });
-          setContextMenuPos(null);
-        },
-      })),
       {
         id: "delete",
         label: t("common.delete"),
@@ -451,22 +476,12 @@ export function EntryList({
       }
 
       scrollContainer.scrollTop = clampedScrollTop;
-      updateDragTargetIndex(
-        getDragTargetIndex({
-          containerTop:
-            scrollContainer.getBoundingClientRect().top +
-            (scrollContainer.querySelector(".project-nav-group-header")?.getBoundingClientRect()
-              .height ?? 0),
-          scrollTop: clampedScrollTop,
-          clientY: lastDragClientYRef.current,
-          itemCount: draggedEntriesRef.current?.length ?? sortedEntries.length,
-        }),
-      );
+      updatePointerTarget();
       autoScrollFrameRef.current = requestAnimationFrame(step);
     };
 
     autoScrollFrameRef.current = requestAnimationFrame(step);
-  }, [sortedEntries.length, updateDragTargetIndex]);
+  }, [updatePointerTarget]);
 
   const handleDragEnd = useCallback(
     (event: DragEndEvent) => {
@@ -486,11 +501,11 @@ export function EntryList({
       }
 
       const scrollContainer = scrollContainerRef.current;
-      const slotTop = scrollContainer
-        ? scrollContainer.getBoundingClientRect().top +
-          newIndex * ENTRY_LIST_ITEM_HEIGHT -
-          scrollContainer.scrollTop
-        : undefined;
+      const targetSlot = dragSlotsRef.current.find((slot) => slot.index === newIndex);
+      const slotTop =
+        targetSlot && scrollContainer
+          ? targetSlot.center - ENTRY_LIST_ITEM_HEIGHT / 2 - scrollContainer.scrollTop
+          : undefined;
       const pointerTop = lastDragClientYRef.current - ENTRY_LIST_ITEM_HEIGHT / 2;
       const dy = slotTop != null ? pointerTop - slotTop : 0;
 
@@ -518,6 +533,15 @@ export function EntryList({
       clearDragState();
       setActiveEntryId(String(event.active.id));
       draggedEntriesRef.current = sortedEntries;
+      const activeEntry = sortedEntries.find((entry) => entry.id === event.active.id);
+      const container = scrollContainerRef.current;
+      dragSlotsRef.current = sortedEntries.flatMap((entry, index) => {
+        if (entry.folderId !== activeEntry?.folderId) return [];
+        const node = container?.querySelector<HTMLElement>(`[data-entry-id="${entry.id}"]`);
+        if (!node) return [];
+        const rect = node.getBoundingClientRect();
+        return [{ index, center: rect.top + rect.height / 2 + (container?.scrollTop ?? 0) }];
+      });
       const activeIndex = sortedEntries.findIndex((entry) => entry.id === event.active.id);
       dragTargetIndexRef.current = activeIndex;
       setDragState({ activeIndex, targetIndex: activeIndex });
@@ -536,7 +560,13 @@ export function EntryList({
       if (!shouldShowDragHandle) return;
 
       const currentIndex = sortedEntries.findIndex((entry) => entry.id === entryId);
-      const newIndex = Math.max(0, Math.min(sortedEntries.length - 1, currentIndex + direction));
+      const current = sortedEntries[currentIndex];
+      if (!current) return;
+      const siblings = sortedEntries.filter((entry) => entry.folderId === current.folderId);
+      const siblingIndex = siblings.findIndex((entry) => entry.id === entryId);
+      const target = siblings[siblingIndex + direction];
+      if (!target) return;
+      const newIndex = sortedEntries.findIndex((entry) => entry.id === target.id);
       const reordered = reorderEntries(sortedEntries, entryId, newIndex);
       if (!reordered) return;
 
@@ -569,17 +599,7 @@ export function EntryList({
 
       const containerRect = scrollContainer.getBoundingClientRect();
       lastDragClientYRef.current = translatedRect.top + translatedRect.height / 2;
-      updateDragTargetIndex(
-        getDragTargetIndex({
-          containerTop:
-            containerRect.top +
-            (scrollContainer.querySelector(".project-nav-group-header")?.getBoundingClientRect()
-              .height ?? 0),
-          scrollTop: scrollContainer.scrollTop,
-          clientY: lastDragClientYRef.current,
-          itemCount: draggedEntriesRef.current?.length ?? sortedEntries.length,
-        }),
-      );
+      updatePointerTarget();
       const speed = getAutoScrollSpeed({
         containerTop: containerRect.top,
         containerBottom: containerRect.bottom,
@@ -593,13 +613,7 @@ export function EntryList({
       }
       startAutoScroll();
     },
-    [
-      shouldShowDragHandle,
-      sortedEntries.length,
-      startAutoScroll,
-      stopAutoScroll,
-      updateDragTargetIndex,
-    ],
+    [shouldShowDragHandle, startAutoScroll, stopAutoScroll, updatePointerTarget],
   );
 
   useEffect(() => {
@@ -725,138 +739,150 @@ export function EntryList({
                 </Box>
               }
               sort={
-                <DropdownMenu.Root>
-                  <DropdownMenu.Trigger>
+                searchExpanded ? null : isMultiSelect ? (
+                  <Tooltip
+                    content={
+                      selectedIds.size > 0 ? t("worldInfo.deselectAll") : t("worldInfo.selectAll")
+                    }
+                  >
                     <IconButton
                       variant="ghost"
                       size="2"
-                      aria-label={t("worldInfo.sort")}
+                      onClick={selectedIds.size > 0 ? handleDeselectAll : handleSelectAll}
                     >
-                      <ArrowUpDown size={16} />
+                      <CheckSquare size={16} />
                     </IconButton>
-                  </DropdownMenu.Trigger>
-                  <DropdownMenu.Content align="end">
-                    <DropdownMenu.Item onClick={() => onSortChange("order")}>
-                      <Flex
-                        align="center"
-                        justify="between"
-                        width="100%"
+                  </Tooltip>
+                ) : (
+                  <DropdownMenu.Root>
+                    <DropdownMenu.Trigger>
+                      <IconButton
+                        variant="ghost"
+                        size="2"
+                        aria-label={t("worldInfo.sort")}
                       >
-                        <Text>{t("worldInfo.sortByOrder")}</Text>
-                        {getSortIcon("order")}
-                      </Flex>
-                    </DropdownMenu.Item>
-                    <DropdownMenu.Item onClick={() => onSortChange("uid")}>
-                      <Flex
-                        align="center"
-                        justify="between"
-                        width="100%"
-                      >
-                        <Text>{t("worldInfo.sortByUid")}</Text>
-                        {getSortIcon("uid")}
-                      </Flex>
-                    </DropdownMenu.Item>
-                    <DropdownMenu.Item onClick={() => onSortChange("tokenCount")}>
-                      <Flex
-                        align="center"
-                        justify="between"
-                        width="100%"
-                      >
-                        <Text>{t("worldInfo.sortByTokens")}</Text>
-                        {getSortIcon("tokenCount")}
-                      </Flex>
-                    </DropdownMenu.Item>
-                    <DropdownMenu.Item onClick={() => onSortChange("name")}>
-                      <Flex
-                        align="center"
-                        justify="between"
-                        width="100%"
-                      >
-                        <Text>{t("worldInfo.sortByName")}</Text>
-                        {getSortIcon("name")}
-                      </Flex>
-                    </DropdownMenu.Item>
-                  </DropdownMenu.Content>
-                </DropdownMenu.Root>
+                        <ArrowUpDown size={16} />
+                      </IconButton>
+                    </DropdownMenu.Trigger>
+                    <DropdownMenu.Content align="end">
+                      <DropdownMenu.Item onClick={() => onSortChange("order")}>
+                        <Flex
+                          align="center"
+                          justify="between"
+                          width="100%"
+                        >
+                          <Text>{t("worldInfo.sortByOrder")}</Text>
+                          {getSortIcon("order")}
+                        </Flex>
+                      </DropdownMenu.Item>
+                      <DropdownMenu.Item onClick={() => onSortChange("uid")}>
+                        <Flex
+                          align="center"
+                          justify="between"
+                          width="100%"
+                        >
+                          <Text>{t("worldInfo.sortByUid")}</Text>
+                          {getSortIcon("uid")}
+                        </Flex>
+                      </DropdownMenu.Item>
+                      <DropdownMenu.Item onClick={() => onSortChange("tokenCount")}>
+                        <Flex
+                          align="center"
+                          justify="between"
+                          width="100%"
+                        >
+                          <Text>{t("worldInfo.sortByTokens")}</Text>
+                          {getSortIcon("tokenCount")}
+                        </Flex>
+                      </DropdownMenu.Item>
+                      <DropdownMenu.Item onClick={() => onSortChange("name")}>
+                        <Flex
+                          align="center"
+                          justify="between"
+                          width="100%"
+                        >
+                          <Text>{t("worldInfo.sortByName")}</Text>
+                          {getSortIcon("name")}
+                        </Flex>
+                      </DropdownMenu.Item>
+                    </DropdownMenu.Content>
+                  </DropdownMenu.Root>
+                )
               }
               create={
-                <>
-                  {isMultiSelect ? (
-                    <Tooltip
-                      content={
-                        selectedIds.size > 0 ? t("worldInfo.deselectAll") : t("worldInfo.selectAll")
-                      }
-                    >
-                      <IconButton
-                        variant="ghost"
-                        size="2"
-                        onClick={selectedIds.size > 0 ? handleDeselectAll : handleSelectAll}
-                      >
-                        <CheckSquare size={16} />
-                      </IconButton>
-                    </Tooltip>
-                  ) : null}
-                  {isMultiSelect ? (
-                    <Tooltip content={t("worldInfo.deleteSelectedTooltip")}>
-                      <IconButton
-                        variant="ghost"
-                        color="red"
-                        size="2"
-                        disabled={selectedIds.size === 0}
-                        onClick={handleBatchDeleteClick}
-                      >
-                        <Trash2 size={16} />
-                      </IconButton>
-                    </Tooltip>
-                  ) : (
-                    <Tooltip content={t("worldInfo.newEntry")}>
-                      <IconButton
-                        variant="ghost"
-                        size="2"
-                        onClick={() => onCreateEntry()}
-                      >
-                        <Plus size={16} />
-                      </IconButton>
-                    </Tooltip>
-                  )}
-                </>
+                searchExpanded ? null : (
+                  <>
+                    {isMultiSelect ? (
+                      <Tooltip content={t("worldInfo.deleteSelectedTooltip")}>
+                        <IconButton
+                          variant="ghost"
+                          color="red"
+                          size="2"
+                          disabled={selectedIds.size === 0}
+                          onClick={handleBatchDeleteClick}
+                        >
+                          <Trash2 size={16} />
+                        </IconButton>
+                      </Tooltip>
+                    ) : (
+                      <DropdownMenu.Root>
+                        <DropdownMenu.Trigger>
+                          <IconButton
+                            variant="ghost"
+                            size="2"
+                            aria-label={t("worldInfo.newEntry")}
+                          >
+                            <Plus size={16} />
+                          </IconButton>
+                        </DropdownMenu.Trigger>
+                        <DropdownMenu.Content align="end">
+                          <DropdownMenu.Item onClick={() => onCreateEntry()}>
+                            {t("worldInfo.newEntry")}
+                          </DropdownMenu.Item>
+                          <DropdownMenu.Item
+                            onClick={() => {
+                              setFolderTitle("");
+                              setFolderDescription("");
+                              setFolderDialog({ mode: "create" });
+                            }}
+                          >
+                            <FolderPlus size={16} />
+                            {t("projectNavigation.newFolder")}
+                          </DropdownMenu.Item>
+                        </DropdownMenu.Content>
+                      </DropdownMenu.Root>
+                    )}
+                  </>
+                )
               }
               more={
-                <DropdownMenu.Root>
-                  <DropdownMenu.Trigger>
-                    <IconButton
-                      variant="ghost"
-                      size="2"
-                      aria-label={t("common.more")}
-                    >
-                      <MoreHorizontal size={16} />
-                    </IconButton>
-                  </DropdownMenu.Trigger>
-                  <DropdownMenu.Content align="end">
-                    {!isMultiSelect ? (
-                      <DropdownMenu.Item
-                        onClick={() => {
-                          setFolderTitle("");
-                          setFolderDescription("");
-                          setFolderDialog({ mode: "create" });
-                        }}
+                searchExpanded ? null : (
+                  <DropdownMenu.Root>
+                    <DropdownMenu.Trigger>
+                      <IconButton
+                        variant="ghost"
+                        size="2"
+                        aria-label={t("common.more")}
                       >
-                        <FolderPlus size={16} />
-                        {t("projectNavigation.newFolder")}
+                        <MoreHorizontal size={16} />
+                      </IconButton>
+                    </DropdownMenu.Trigger>
+                    <DropdownMenu.Content align="end">
+                      <DropdownMenu.Item onClick={onImport}>
+                        <Upload size={16} />
+                        {t("common.import")}
                       </DropdownMenu.Item>
-                    ) : null}
-                    <DropdownMenu.Item onClick={onImport}>
-                      <Upload size={16} />
-                      {t("common.import")}
-                    </DropdownMenu.Item>
-                    <DropdownMenu.Item onClick={handleToggleMultiSelect}>
-                      <ListChecks size={16} />
-                      {t(
-                        isMultiSelect ? "worldInfo.multiselectExit" : "worldInfo.multiselectEnter",
-                      )}
-                    </DropdownMenu.Item>
-                  </DropdownMenu.Content>
-                </DropdownMenu.Root>
+                      <DropdownMenu.Item onClick={handleToggleMultiSelect}>
+                        <ListChecks size={16} />
+                        {t(
+                          isMultiSelect
+                            ? "worldInfo.multiselectExit"
+                            : "worldInfo.multiselectEnter",
+                        )}
+                      </DropdownMenu.Item>
+                    </DropdownMenu.Content>
+                  </DropdownMenu.Root>
+                )
               }
             />
           </Flex>
@@ -982,12 +1008,12 @@ export function EntryList({
                     key={entry.id}
                     entry={entry}
                     isSelected={currentEntryId === entry.id}
-                    showDragHandle={shouldShowDragHandle && folders.length === 0}
+                    showDragHandle={shouldShowDragHandle}
                     isDragSource={activeEntryId === entry.id}
                     isDragActive={dragState !== null}
                     isLanding={landingEntryId === entry.id}
                     dragOffset={
-                      dragState
+                      dragState && entry.folderId === activeEntry?.folderId
                         ? getEntryDragOffset({
                             entryIndex: sortedEntries.findIndex((item) => item.id === entry.id),
                             activeIndex: dragState.activeIndex,

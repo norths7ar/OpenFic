@@ -12,7 +12,6 @@ import {
   useCreateChapter,
   useUpdateChapter,
   useDeleteChapter,
-  useReorderChapters,
   useMoveChapterToVolume,
 } from "../hooks/use-chapters";
 import {
@@ -31,7 +30,6 @@ import {
   getInitialCurrentChapterVolumeIdToExpand,
   type GroupedVolumeListScrollRequest,
 } from "./grouped-volume-list-focus";
-import { MoveChapterToVolumeDialog } from "./move-chapter-to-volume-dialog";
 import { SidebarToolbar } from "./sidebar-toolbar";
 import { VolumeList } from "./volume-list";
 
@@ -60,7 +58,6 @@ export function ChapterSidebar({
   const createChapterMutation = useCreateChapter(projectId);
   const updateChapterMutation = useUpdateChapter();
   const deleteChapterMutation = useDeleteChapter(projectId);
-  const reorderChaptersMutation = useReorderChapters(projectId);
   const moveChapterToVolumeMutation = useMoveChapterToVolume(projectId);
   const createVolumeMutation = useCreateVolume(projectId);
   const updateVolumeMutation = useUpdateVolume();
@@ -71,9 +68,6 @@ export function ChapterSidebar({
   const MAX_TABS = 10;
 
   const {
-    hasUnsavedDragChanges,
-    dragOrderMap,
-    exitDragMode,
     currentChapterId,
     setCurrentChapter,
     expandedVolumeIds,
@@ -84,9 +78,6 @@ export function ChapterSidebar({
     toggleVolumeExpanded,
   } = useWritingStore(
     useShallow((state) => ({
-      hasUnsavedDragChanges: state.hasUnsavedDragChanges,
-      dragOrderMap: state.dragOrderMap,
-      exitDragMode: state.exitDragMode,
       currentChapterId: state.currentChapterId,
       setCurrentChapter: state.setCurrentChapter,
       expandedVolumeIds: state.expandedVolumeIds,
@@ -101,10 +92,6 @@ export function ChapterSidebar({
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletingChapter, setDeletingChapter] = useState<ChapterListItem | null>(null);
   const [deletingVolume, setDeletingVolume] = useState<VolumeWithChapters | null>(null);
-  const [saveOrderDialogOpen, setSaveOrderDialogOpen] = useState(false);
-  const [cancelOrderDialogOpen, setCancelOrderDialogOpen] = useState(false);
-  const [moveDialogOpen, setMoveDialogOpen] = useState(false);
-  const [movingChapter, setMovingChapter] = useState<ChapterListItem | null>(null);
   const [renamingVolumeId, setRenamingVolumeId] = useState<string | null>(null);
   const [editingVolume, setEditingVolume] = useState<VolumeWithChapters | null>(null);
   const [editingVolumeDescription, setEditingVolumeDescription] = useState("");
@@ -398,60 +385,6 @@ export function ChapterSidebar({
     t,
   ]);
 
-  const handleSaveOrder = useCallback(() => {
-    if (isAgentLocked) {
-      showLockedToast();
-      return;
-    }
-
-    if (hasUnsavedDragChanges) {
-      setSaveOrderDialogOpen(true);
-    }
-  }, [hasUnsavedDragChanges, isAgentLocked, showLockedToast]);
-
-  const handleConfirmSaveOrder = useCallback(async () => {
-    try {
-      for (const volume of volumes) {
-        const hasChanges = volume.chapters.some(
-          (chapter) =>
-            dragOrderMap[chapter.id] !== undefined && dragOrderMap[chapter.id] !== chapter.order,
-        );
-        if (!hasChanges) continue;
-
-        const sortedChapterIds = [...volume.chapters]
-          .sort((a, b) => (dragOrderMap[a.id] ?? a.order) - (dragOrderMap[b.id] ?? b.order))
-          .map((c) => c.id);
-
-        await reorderChaptersMutation.mutateAsync({
-          volumeId: volume.id,
-          chapterIds: sortedChapterIds,
-        });
-      }
-      exitDragMode();
-      setSaveOrderDialogOpen(false);
-    } catch {
-      // 错误处理由 mutation 处理
-    }
-  }, [dragOrderMap, exitDragMode, reorderChaptersMutation, volumes]);
-
-  const handleCancelOrder = useCallback(() => {
-    if (isAgentLocked) {
-      showLockedToast();
-      return;
-    }
-
-    if (hasUnsavedDragChanges) {
-      setCancelOrderDialogOpen(true);
-    } else {
-      exitDragMode();
-    }
-  }, [exitDragMode, hasUnsavedDragChanges, isAgentLocked, showLockedToast]);
-
-  const handleConfirmCancelOrder = useCallback(() => {
-    exitDragMode();
-    setCancelOrderDialogOpen(false);
-  }, [exitDragMode]);
-
   const handleRenameVolume = useCallback(
     async (volumeId: string, title: string) => {
       if (isAgentLocked) {
@@ -501,30 +434,17 @@ export function ChapterSidebar({
     [isAgentLocked, moveVolumeMutation, showLockedToast, volumes],
   );
 
-  const handleOpenMoveChapter = useCallback(
-    (chapter: ChapterListItem) => {
+  const handleMoveChapter = useCallback(
+    (chapter: ChapterListItem, volumeId: string) => {
       if (isAgentLocked) {
         showLockedToast();
         return;
       }
-      setMovingChapter(chapter);
-      setMoveDialogOpen(true);
-    },
-    [isAgentLocked, showLockedToast],
-  );
-
-  const handleConfirmMoveChapter = useCallback(
-    async (volumeId: string) => {
-      if (!movingChapter) return;
-      await moveChapterToVolumeMutation.mutateAsync({
-        chapterId: movingChapter.id,
-        volumeId,
-      });
+      if (volumeId === chapter.volumeId) return;
+      moveChapterToVolumeMutation.mutate({ chapterId: chapter.id, volumeId });
       setVolumeExpanded(volumeId, true);
-      setMoveDialogOpen(false);
-      setMovingChapter(null);
     },
-    [moveChapterToVolumeMutation, movingChapter, setVolumeExpanded],
+    [isAgentLocked, showLockedToast, moveChapterToVolumeMutation, setVolumeExpanded],
   );
 
   return (
@@ -539,14 +459,10 @@ export function ChapterSidebar({
       <SidebarToolbar
         onOpenSummary={onOpenSummary}
         projectId={projectId}
-        chapters={allChapters}
         onChapterSelect={handleChapterSelect}
         onCreateChapter={handleCreateChapter}
         onCreateVolume={handleCreateVolume}
         onExport={() => setChapterExportOpen(true)}
-        onSaveOrder={handleSaveOrder}
-        onCancelOrder={handleCancelOrder}
-        isSavingOrder={reorderChaptersMutation.isPending}
         isAgentLocked={isAgentLocked}
         onLockedAction={showLockedToast}
       />
@@ -574,7 +490,7 @@ export function ChapterSidebar({
         onOpenInNewTab={handleOpenInNewTab}
         onDuplicate={handleDuplicate}
         onRenameChapter={handleRenameChapter}
-        onMoveChapterToVolume={handleOpenMoveChapter}
+        onMoveChapterToVolume={handleMoveChapter}
         onDeleteChapter={handleOpenDeleteChapter}
         onAddToConversation={onAddToConversation}
         onLockedAction={showLockedToast}
@@ -593,34 +509,6 @@ export function ChapterSidebar({
         }
         onConfirm={handleConfirmDelete}
         loading={deleteChapterMutation.isPending || deleteVolumeMutation.isPending}
-      />
-
-      <ConfirmDialog
-        open={saveOrderDialogOpen}
-        onOpenChange={setSaveOrderDialogOpen}
-        title={t("writing.saveOrder")}
-        description={t("writing.saveOrderConfirm")}
-        onConfirm={handleConfirmSaveOrder}
-      />
-
-      <ConfirmDialog
-        open={cancelOrderDialogOpen}
-        onOpenChange={setCancelOrderDialogOpen}
-        title={t("writing.cancelOrder")}
-        description={t("writing.cancelOrderConfirm")}
-        onConfirm={handleConfirmCancelOrder}
-      />
-
-      <MoveChapterToVolumeDialog
-        open={moveDialogOpen}
-        chapter={movingChapter}
-        volumes={volumes}
-        onOpenChange={(open) => {
-          setMoveDialogOpen(open);
-          if (!open) setMovingChapter(null);
-        }}
-        onConfirm={handleConfirmMoveChapter}
-        loading={moveChapterToVolumeMutation.isPending}
       />
 
       <ChapterExportDialog

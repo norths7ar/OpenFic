@@ -12,7 +12,15 @@ export interface RemoteWritingEntity extends WritingWorkingCopyDraft {
 }
 
 export interface LocalWritingWorkingCopy extends WritingWorkingCopyDraft {
+  baseUpdatedAt: string;
+  baseTitle?: string;
+  baseContent?: string;
   updatedAt: Date;
+}
+
+export interface WritingWorkingCopyConflict {
+  local: LocalWritingWorkingCopy;
+  remote: RemoteWritingEntity;
 }
 
 function getTimestamp(value: string): number {
@@ -62,15 +70,43 @@ export function areWritingWorkingCopyDraftsEqual(
 export function resolveWritingWorkingCopy(
   remote: RemoteWritingEntity,
   workingCopy: LocalWritingWorkingCopy | null,
-): { draft: WritingWorkingCopyDraft; shouldDelete: boolean } {
-  if (
-    workingCopy &&
-    isWritingWorkingCopyNewer(workingCopy, remote.updatedAt) &&
-    !areWritingWorkingCopyDraftsEqual(workingCopy, remote)
-  ) {
+): {
+  draft: WritingWorkingCopyDraft;
+  shouldDelete: boolean;
+  conflict?: WritingWorkingCopyConflict;
+} {
+  if (workingCopy && !areWritingWorkingCopyDraftsEqual(workingCopy, remote)) {
+    const hasContentBase =
+      typeof workingCopy.baseTitle === "string" && typeof workingCopy.baseContent === "string";
+    const remoteMatchesBase =
+      hasContentBase &&
+      workingCopy.baseTitle === remote.title &&
+      workingCopy.baseContent === remote.content;
+    const hasUnchangedTimestamp = workingCopy.baseUpdatedAt === remote.updatedAt;
+
+    if (
+      hasContentBase &&
+      areWritingWorkingCopyDraftsEqual(workingCopy, {
+        title: workingCopy.baseTitle!,
+        content: workingCopy.baseContent!,
+      })
+    ) {
+      return { draft: { title: remote.title, content: remote.content }, shouldDelete: true };
+    }
+    if (remoteMatchesBase || (!hasContentBase && hasUnchangedTimestamp)) {
+      return {
+        draft: { title: workingCopy.title, content: workingCopy.content },
+        shouldDelete: false,
+      };
+    }
+
     return {
       draft: { title: workingCopy.title, content: workingCopy.content },
       shouldDelete: false,
+      conflict: {
+        local: workingCopy,
+        remote: { title: remote.title, content: remote.content, updatedAt: remote.updatedAt },
+      },
     };
   }
 

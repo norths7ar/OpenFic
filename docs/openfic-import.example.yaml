@@ -32,6 +32,15 @@ rules:
       item_levels: [2]
     required: false
 
+  # Every Markdown file becomes one chapter. OpenFic chapter exports put the
+  # stable id, volume_id (or null for root), and order in file front matter.
+  - id: chapters
+    target: chapters
+    glob: 正文/*.md
+    split:
+      type: file
+    required: false
+
   # Every matching file becomes one note. Add project-specific rules in the
   # same way for folders such as 讨论记录 or 写作护栏.
   - id: notes

@@ -175,7 +175,11 @@ async def build_chapter_summary_prompt(
         session,
         prompt_id="memory-chapter-summary",
     )
-    chapters = await chapter_repo.list_by_volume(session, chapter.volume_id)
+    chapters = await chapter_repo.list_by_volume(
+        session,
+        chapter.volume_id,
+        project_id=chapter.project_id,
+    )
     previous_chapter = next(
         (item for item in reversed(chapters) if item.order < chapter.order), None
     )

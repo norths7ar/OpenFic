@@ -15,12 +15,10 @@ import { CharactersPage } from "./features/characters";
 import { PendingProjectChangesPage } from "./features/pending-project-changes";
 import { PromptChainsPage } from "./features/prompt-chains";
 import { fetchSettings } from "./features/settings/lib/settings-api";
-import type { Settings } from "./features/settings/lib/settings.types";
 import { WorldInfoPage } from "./features/world-info";
 import { DocumentWorkspacePage, WritingPage } from "./features/writing";
 // 初始化 i18n
-import i18n, { type LanguageCode } from "./i18n";
-import { publishDesktopAppearance, publishDesktopLanguage } from "./lib/desktop-appearance-bridge";
+import i18n from "./i18n";
 import {
   applyBaseFontSize,
   applyCodeFontFamily,
@@ -30,7 +28,6 @@ import {
 } from "./lib/font-utils";
 import { getOrCreateRoot } from "./lib/get-or-create-root";
 import { checkHealth } from "./lib/health-api";
-import { captureException, initErrorTelemetry } from "./lib/posthog";
 import { loadRuntimeConfig } from "./lib/runtime-config";
 import { connectSocket } from "./lib/socket-client";
 import { preloadTiktokenEncoding } from "./lib/tiktoken-utils";
@@ -252,7 +249,6 @@ function AppContent({
 
 function Root() {
   const [appearance, setAppearance] = useState<"light" | "dark">("light");
-  const [settings, setSettings] = useState<Settings | null>(null);
   const [isReady, setIsReady] = useState(false);
   const [requiresAuthentication, setRequiresAuthentication] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -290,8 +286,6 @@ function Root() {
           return;
         }
 
-        void initErrorTelemetry();
-
         const [, settings] = await Promise.all([
           withInitializationStage("health", checkHealth()),
           withInitializationStage(
@@ -319,7 +313,6 @@ function Root() {
 
         if (mounted) {
           setRequiresAuthentication(false);
-          setSettings(settings);
           setAppearance(settings.theme);
           setIsReady(true);
         }
@@ -344,25 +337,6 @@ function Root() {
     };
   }, []);
 
-  useEffect(() => {
-    publishDesktopAppearance({
-      appearance,
-      fontFamily: settings?.fontFamily,
-      codeFontFamily: settings?.codeFontFamily,
-    });
-  }, [appearance, settings?.fontFamily, settings?.codeFontFamily]);
-
-  useEffect(() => {
-    const publishLanguage = (language: string) => {
-      if (language === "zh-CN" || language === "en")
-        publishDesktopLanguage(language as LanguageCode);
-    };
-
-    publishLanguage(i18n.resolvedLanguage ?? i18n.language);
-    i18n.on("languageChanged", publishLanguage);
-    return () => i18n.off("languageChanged", publishLanguage);
-  }, []);
-
   return (
     <StrictMode>
       <QueryClientProvider client={queryClient}>
@@ -384,7 +358,7 @@ function Root() {
             ) : (
               <ErrorBoundary
                 FallbackComponent={AppCrashFallback}
-                onError={(err) => captureException(err, { source: "react-render" })}
+                onError={(err) => console.error("React render failed", err)}
               >
                 <AppContent
                   appearance={appearance}

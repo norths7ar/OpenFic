@@ -8,7 +8,7 @@
 
 import { Box, Flex, Text } from "@radix-ui/themes";
 import type { Editor } from "@tiptap/react";
-import { Scissors, Copy, Clipboard } from "lucide-react";
+import { Scissors, Copy, Clipboard, ChevronLeft, ChevronRight } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useState, useCallback, useEffect, useLayoutEffect, useId, useMemo, useRef } from "react";
@@ -31,6 +31,7 @@ export interface ContextMenuItem {
   disabled?: boolean;
   /** 危险操作（显示红色） */
   danger?: boolean;
+  children?: ContextMenuItem[];
   onClick: () => void;
 }
 
@@ -77,6 +78,7 @@ export function ContextMenu({
 }: ContextMenuProps) {
   const { t } = useTranslation();
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
+  const [menuPath, setMenuPath] = useState<ContextMenuItem[]>([]);
   const [internalPosition, setInternalPosition] = useState<ContextMenuPosition | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const themeWrapperRef = useRef<HTMLDivElement | null>(null);
@@ -104,6 +106,9 @@ export function ContextMenu({
 
   // 使用内部位置（编辑器模式）或外部位置（手动模式）
   const position = isEditorMode ? internalPosition : (externalPosition ?? null);
+  useEffect(() => {
+    setMenuPath([]);
+  }, [position]);
   const onClose = useCallback(() => {
     if (isEditorMode) {
       setInternalPosition(null);
@@ -389,13 +394,17 @@ export function ContextMenu({
   })();
 
   // 使用编辑器菜单项或外部菜单项
-  const items = isEditorMode ? editorItems : (externalItems ?? []);
+  const rootItems = isEditorMode ? editorItems : (externalItems ?? []);
+  const items = menuPath.at(-1)?.children ?? rootItems;
 
   // 点击外部关闭
   useEffect(() => {
     if (!position) return;
 
-    const handleClick = () => onClose();
+    const handleClick = (event: MouseEvent) => {
+      if (event.target instanceof Node && menuRef.current?.contains(event.target)) return;
+      onClose();
+    };
     const handleScroll = () => onClose();
     let clickListenerAttached = false;
 
@@ -434,6 +443,10 @@ export function ContextMenu({
     (item: ContextMenuItem, event: { stopPropagation: () => void }) => {
       event.stopPropagation();
       if (item.disabled) return;
+      if (item.children) {
+        setMenuPath((path) => [...path, item]);
+        return;
+      }
       try {
         item.onClick();
       } finally {
@@ -449,7 +462,7 @@ export function ContextMenu({
 
     const rect = menuRef.current.getBoundingClientRect();
     setMenuSize({ width: rect.width, height: rect.height });
-  }, [items.length, position]);
+  }, [items.length, menuPath, position]);
 
   useLayoutEffect(() => {
     const themeRoot = document.querySelector(".radix-themes");
@@ -515,6 +528,7 @@ export function ContextMenu({
           onPointerDown={(event) => event.preventDefault()}
         >
           <Box
+            role="menu"
             style={{
               minWidth: 160,
               padding: 2,
@@ -525,19 +539,47 @@ export function ContextMenu({
             }}
           >
             <Flex direction="column">
+              {menuPath.length > 0 && (
+                <button
+                  type="button"
+                  style={{
+                    ...menuItemStyle,
+                    border: 0,
+                    background: "transparent",
+                    color: "inherit",
+                  }}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setMenuPath((path) => path.slice(0, -1));
+                  }}
+                >
+                  <ChevronLeft size={14} /> {t("common.back")}
+                </button>
+              )}
               {items.map((item) => (
                 <Box
                   key={item.id}
+                  role="menuitem"
+                  tabIndex={item.disabled ? -1 : 0}
+                  aria-disabled={item.disabled || undefined}
+                  aria-haspopup={item.children ? "menu" : undefined}
                   style={{
                     ...menuItemStyle,
                     opacity: item.disabled ? 0.4 : 1,
                     cursor: item.disabled ? "not-allowed" : "pointer",
+                    borderTop: item.danger ? "1px solid var(--gray-a4)" : undefined,
                     backgroundColor:
                       hoveredItem === item.id && !item.disabled ? "var(--gray-a3)" : "transparent",
                   }}
                   onMouseEnter={() => !item.disabled && setHoveredItem(item.id)}
                   onMouseLeave={() => setHoveredItem(null)}
                   onPointerUp={(e) => handleItemClick(item, e)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      handleItemClick(item, event);
+                    }
+                  }}
                 >
                   <Flex
                     align="center"
@@ -560,6 +602,7 @@ export function ContextMenu({
                       {item.label}
                     </Text>
                   </Flex>
+                  {item.children && <ChevronRight size={14} />}
                   {item.shortcut && (
                     <Text
                       size="1"

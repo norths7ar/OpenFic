@@ -52,8 +52,19 @@ class ModelValidationService:
                 "该提供商不支持此模型的任务类型，无法验证。",
             )
 
+        install_hint = AdapterRegistry.unavailable_reason(provider.provider_type, model.task_type)
+        if install_hint:
+            return self._failure(
+                "capability_incompatible",
+                f"此提供商的 {model.task_type} 适配未安装，请运行 {install_hint}。",
+            )
+
         api_key = self.provider_service.get_decrypted_api_key(provider)
-        if not provider.is_builtin and not api_key:
+        if (
+            not provider.is_builtin
+            and not api_key
+            and provider.provider_type not in {"openai-compatible", "openai-compatible-responses"}
+        ):
             return self._failure(
                 "authentication_failed",
                 "API Key 未配置或无法解密，请重新保存该提供商的凭据。",

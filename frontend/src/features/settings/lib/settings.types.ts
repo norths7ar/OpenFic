@@ -46,7 +46,6 @@ export interface Settings {
   agentToolPermissions: AgentToolPermission[];
   auditPersistDetails: boolean;
   compressSystemPrompts: boolean;
-  telemetryEnabled: boolean;
   editorAutoIndent: boolean;
   editorAutoConvertPunctuation: boolean;
   editorAutoPairSymbols: boolean;
@@ -78,7 +77,6 @@ export interface SettingsResponse {
   }>;
   audit_persist_details: boolean;
   compress_system_prompts: boolean;
-  telemetry_enabled: boolean;
   editor_auto_indent?: boolean;
   editor_auto_convert_punctuation?: boolean;
   editor_auto_pair_symbols?: boolean;
@@ -110,7 +108,6 @@ export interface SettingsUpdateRequest {
   }>;
   audit_persist_details?: boolean;
   compress_system_prompts?: boolean;
-  telemetry_enabled?: boolean;
   editor_auto_indent?: boolean;
   editor_auto_convert_punctuation?: boolean;
   editor_auto_pair_symbols?: boolean;

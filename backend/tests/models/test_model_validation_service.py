@@ -151,3 +151,21 @@ async def test_validation_rejects_unsupported_task_type(monkeypatch):
 
     assert result.success is False
     assert result.error_code == "capability_incompatible"
+
+
+@pytest.mark.asyncio
+async def test_validation_explains_missing_provider_extra(monkeypatch):
+    encryption_service = _encryption_service()
+    provider = _provider(encryption_service)
+    model = _llm_model(provider)
+    monkeypatch.setattr(
+        AdapterRegistry,
+        "unavailable_reason",
+        classmethod(lambda cls, *_: "uv sync --extra deepseek"),
+    )
+
+    result = await ModelValidationService(encryption_service).validate(model, provider)
+
+    assert result.success is False
+    assert result.error_code == "capability_incompatible"
+    assert result.message == "此提供商的 llm 适配未安装，请运行 uv sync --extra deepseek。"

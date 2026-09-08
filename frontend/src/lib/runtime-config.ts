@@ -50,9 +50,6 @@ export function getRuntimeConfig(): RuntimeConfig | null {
  * may resolve to `::1` first, while the service is only listening on
  * `127.0.0.1`. Keep the page's port so custom backend ports continue to work.
  *
- * The desktop shell is intentionally excluded: its local backend uses a free
- * port and supplies the exact URL through runtime-config.json. Guessing a fixed port
- * when that config is unavailable could connect to an unrelated process.
  */
 export function getFallbackBackendBaseUrl(): string | null {
   if (import.meta.env.DEV || typeof window === "undefined") return null;

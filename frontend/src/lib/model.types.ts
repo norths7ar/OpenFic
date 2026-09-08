@@ -18,6 +18,7 @@ export interface ModelProvider {
   providerType: ProviderType;
   customHeaderNames: string[];
   supportedTaskTypes: TaskType[];
+  unavailableTaskTypes: TaskType[];
   iconPath: string | null;
   isBuiltin: boolean;
   catalogMatch: ModelProviderCatalogMatch | null;
@@ -45,6 +46,7 @@ export interface ModelProviderResponse {
   provider_type: string;
   custom_header_names?: string[];
   supported_task_types: string[];
+  unavailable_task_types?: string[];
   icon_path: string | null;
   is_builtin?: boolean;
   catalog_match?: {

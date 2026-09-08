@@ -283,6 +283,7 @@
     "justNow": "片刻之前"
   },
   "projectNavigation": {
+    "moveTo": "移动到…",
     "deleteFolderConfirm": "删除文件夹后，其中的条目会移回根目录，内容不会删除。",
     "moveFailed": "移动失败，条目保留在根目录，请重试移动。",
     "expand": "展开",
@@ -970,8 +971,6 @@
     "advancedPersistDetailsTooltipStorage": "记录调用详情会导致数据库占用更多存储空间；",
     "advancedPersistDetailsTooltipRecommendation": "建议仅在调试时开启。",
     "advancedPersistDetailsHint": "关闭后仅影响新的调用记录，已保存详情不会自动清除。",
-    "advancedTelemetry": "错误遥测",
-    "advancedTelemetryHint": "将崩溃与未处理异常匿名上报给开发者，用于改进稳定性。",
     "advancedStorage": "LLM 调用详情存储",
     "advancedStorageValue": "约 {{size}}，{{count}} 条调用记录",
     "advancedClear": "清空详情",
@@ -1107,6 +1106,7 @@
     "urlRequired": "请输入服务 URL",
     "apiKey": "API Key",
     "apiKeyPlaceholder": "输入 API Key",
+    "apiKeyOptionalPlaceholder": "无需认证时可留空",
     "apiKeyRequired": "请输入 API Key",
     "providerType": "提供商类型",
     "providerTypePlaceholder": "选择提供商类型",
@@ -1135,6 +1135,7 @@
     "deleteSuccess": "连接已删除",
     "createFailed": "创建失败",
     "updateFailed": "更新失败",
+    "optionalSdkRequired": "需安装可选 SDK",
     "deleteFailed": "删除失败"
   },
   "models": {
@@ -1155,6 +1156,7 @@
     "modelDisabled": "模型已停用",
     "toggleModel": "启用或停用 {{model}}",
     "notDetectedRemotely": "远端未返回",
+    "optionalSdkRequired": "此任务类型需要对应的可选 SDK；已有模型配置已保留。安装后即可使用。",
     "contextWindowTooltip": "上下文窗口：{{value}}",
     "capabilities": {
       "text": "支持文本输入",
@@ -1216,7 +1218,7 @@
     "metadata": "元数据",
     "metadataTooltipLabel": "元数据信息",
     "metadataTooltipBasic": "模型的基本信息；",
-    "metadataTooltipDefault": "如果所选模型在内置目录中无匹配，元数据会使用默认值，建议手动填写完整以获得完整体验；",
+    "metadataTooltipDefault": "如果所选模型在内置目录中无匹配，未知元数据会保留为空值或 0，请按实际能力手动填写；",
     "metadataTooltipContext": "上下文长度除显示用量外，还作为压缩过程使用的基准值；",
     "metadataTooltipPricing": "价格则用于在会话数据中显示计费",
     "temperature": "Temperature",
@@ -1443,6 +1445,7 @@
     "resetConfirm": "确认重置"
   },
   "pendingProjectChanges": {
+    "navStatus": "待审",
     "navLabel": "待审变更",
     "projectScope": "当前项目范围内的 AI 长期资料变更。候审内容不会自动写入正式资料。",
     "trigger": "待审变更 {{count}}",

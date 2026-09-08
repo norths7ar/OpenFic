@@ -19,6 +19,7 @@ from app.project_bundle.importer import (
     parse_project_bundle,
     preview_project_bundle,
 )
+from app.storage.models.chapter import Chapter
 from app.storage.models.character import Character
 from app.storage.models.note import Note
 from app.storage.models.project import Project
@@ -26,6 +27,7 @@ from app.storage.models.project_folder import ProjectFolder
 from app.storage.models.task import Task
 from app.storage.models.world_info import WorldInfo
 from app.storage.models.world_info_entry import WorldInfoEntry
+from app.storage.services.chapter_service import _count_words
 
 
 class BundleApplyConflictError(Exception):
@@ -287,6 +289,42 @@ async def _apply_note(
     session.add(current)
 
 
+async def _apply_chapter(
+    session: AsyncSession,
+    document: ParsedBundleDocument,
+    action: str,
+    now: datetime,
+) -> None:
+    if action == "unchanged":
+        return
+    fields = document.semantic_fields
+    if action == "create":
+        session.add(
+            Chapter(
+                id=document.id,
+                project_id=fields["project_id"],
+                volume_id=fields["volume_id"],
+                title=document.title,
+                order=fields["order"],
+                content=document.body,
+                word_count=_count_words(document.body),
+                created_at=now,
+                updated_at=now,
+            )
+        )
+        return
+    current = await session.get(Chapter, document.id)
+    if current is None:
+        raise BundleFormatError("chapter disappeared during apply")
+    current.volume_id = fields["volume_id"]
+    current.title = document.title
+    current.order = fields["order"]
+    current.content = document.body
+    current.word_count = _count_words(document.body)
+    current.updated_at = now
+    session.add(current)
+
+
 async def _apply_discussion(
     session: AsyncSession,
     document: ParsedBundleDocument,
@@ -411,7 +449,31 @@ async def apply_project_bundle(
             await _apply_character(session, document, action, now)
         elif document.kind == "note":
             await _apply_note(session, document, action, now)
+        elif document.kind == "chapter":
+            await _apply_chapter(session, document, action, now)
     await session.flush()
+
+    changed_chapter_ids = [
+        document.id
+        for document in bundle.documents
+        if document.kind == "chapter"
+        and actions[(document.kind, document.id)] in {"create", "update"}
+    ]
+    if changed_chapter_ids:
+        from app.retrieval.chapter_index import (
+            ChapterIndexIntegrationService,
+            safe_maybe_enqueue_auto_index,
+        )
+        from app.retrieval.index_status import schedule_emit_index_status
+
+        integration = ChapterIndexIntegrationService()
+        for chapter_id in changed_chapter_ids:
+            chapter = await session.get(Chapter, chapter_id)
+            if chapter is None:
+                raise BundleFormatError("chapter disappeared during indexing")
+            await integration.mark_chapter_stale_if_changed(session, chapter)
+        await safe_maybe_enqueue_auto_index(session, project_id=target_project_id)
+        schedule_emit_index_status(session, target_project_id)
 
     for document in bundle.documents:
         if document.kind == "discussion":

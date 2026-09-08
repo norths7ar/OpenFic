@@ -1,6 +1,8 @@
 from dataclasses import dataclass
+from importlib import import_module
 from typing import Any
 
+import httpx
 from langchain_core.language_models import LanguageModelInput
 from langchain_core.messages import BaseMessage
 from langchain_core.runnables import Runnable
@@ -25,6 +27,7 @@ from app.models.helpers.openrouter_attribution import (
     OPENROUTER_APP_TITLE,
     OPENROUTER_APP_URL,
 )
+from app.models.optional_dependencies import install_hint
 
 
 @dataclass
@@ -61,6 +64,11 @@ def _compact_kwargs(**kwargs: Any) -> dict[str, Any]:
     return {key: value for key, value in kwargs.items() if value is not None}
 
 
+def _optional_symbol(module_name: str, symbol_name: str) -> Any:
+    """Load a specialized SDK symbol only after its optional dependency check."""
+    return getattr(import_module(module_name), symbol_name)
+
+
 def _non_default(value: Any, default: Any) -> Any | None:
     return value if is_non_default(value, default) else None
 
@@ -87,6 +95,41 @@ def _stream_chunk_timeout() -> float | None:
     from app.settings import settings
 
     return settings.llm_chunk_timeout
+
+
+_ANONYMOUS_API_KEY = "openfic-anonymous-placeholder"
+_ANONYMOUS_AUTHORIZATION = f"Bearer {_ANONYMOUS_API_KEY}"
+
+
+def _remove_anonymous_authorization_header(request: httpx.Request) -> None:
+    """Remove only the SDK-generated anonymous placeholder authorization."""
+    if request.headers.get("Authorization") == _ANONYMOUS_AUTHORIZATION:
+        request.headers.pop("Authorization", None)
+
+
+async def _remove_anonymous_authorization_header_async(request: httpx.Request) -> None:
+    """AsyncClient request hooks must themselves be awaitable."""
+    _remove_anonymous_authorization_header(request)
+
+
+def _anonymous_openai_client_kwargs(config: ModelConfig) -> dict[str, Any]:
+    """Create SDK clients for a no-auth OpenAI-compatible endpoint.
+
+    The OpenAI SDK requires a nonempty constructor key. Its value only satisfies
+    that constructor requirement; request hooks remove its Authorization header
+    immediately before transport.
+    """
+    if config.api_key:
+        return {}
+    return {
+        "api_key": _ANONYMOUS_API_KEY,
+        "http_client": httpx.Client(
+            event_hooks={"request": [_remove_anonymous_authorization_header]}
+        ),
+        "http_async_client": httpx.AsyncClient(
+            event_hooks={"request": [_remove_anonymous_authorization_header_async]}
+        ),
+    }
 
 
 def _openai_compatible_kwargs(config: ModelConfig) -> dict[str, Any]:
@@ -118,6 +161,7 @@ def _openai_compatible_kwargs(config: ModelConfig) -> dict[str, Any]:
     }
     if extra_body:
         kwargs["extra_body"] = extra_body
+    kwargs.update(_anonymous_openai_client_kwargs(config))
     return kwargs
 
 
@@ -126,8 +170,12 @@ def create_chat_model(config: ModelConfig) -> Runnable[LanguageModelInput, BaseM
     provider = config.provider_type
     reasoning_effort = _enabled_reasoning_effort(config)
 
+    hint = install_hint(provider, "llm")
+    if hint:
+        raise ImportError(f"此提供商的 LLM 适配未安装。请运行 {hint}")
+
     if provider in {"anthropic", "anthropic-compatible"}:
-        from langchain_anthropic import ChatAnthropic
+        ChatAnthropic = _optional_symbol("langchain_anthropic", "ChatAnthropic")
 
         return ChatAnthropic(
             **_compact_kwargs(
@@ -146,7 +194,9 @@ def create_chat_model(config: ModelConfig) -> Runnable[LanguageModelInput, BaseM
         )
 
     if provider == "google-genai":
-        from langchain_google_genai import ChatGoogleGenerativeAI
+        ChatGoogleGenerativeAI = _optional_symbol(
+            "langchain_google_genai", "ChatGoogleGenerativeAI"
+        )
 
         google_kwargs = _compact_kwargs(
             model=config.model_id,
@@ -163,7 +213,7 @@ def create_chat_model(config: ModelConfig) -> Runnable[LanguageModelInput, BaseM
         return ChatGoogleGenerativeAI(**google_kwargs)
 
     if provider == "deepseek":
-        from langchain_deepseek import ChatDeepSeek
+        ChatDeepSeek = _optional_symbol("langchain_deepseek", "ChatDeepSeek")
 
         class ChatDeepSeekWithReasoningPayload(ChatDeepSeek):
             def _get_request_payload(
@@ -193,7 +243,7 @@ def create_chat_model(config: ModelConfig) -> Runnable[LanguageModelInput, BaseM
         )
 
     if provider == "mistral":
-        from langchain_mistralai import ChatMistralAI
+        ChatMistralAI = _optional_symbol("langchain_mistralai", "ChatMistralAI")
 
         mistral_kwargs = _compact_kwargs(
             model=config.model_id,
@@ -210,7 +260,7 @@ def create_chat_model(config: ModelConfig) -> Runnable[LanguageModelInput, BaseM
         return ChatMistralAI(**mistral_kwargs)
 
     if provider == "openrouter":
-        from langchain_openrouter import ChatOpenRouter
+        ChatOpenRouter = _optional_symbol("langchain_openrouter", "ChatOpenRouter")
 
         return ChatOpenRouter(
             **_compact_kwargs(
@@ -232,7 +282,7 @@ def create_chat_model(config: ModelConfig) -> Runnable[LanguageModelInput, BaseM
         )
 
     if provider == "groq":
-        from langchain_groq import ChatGroq
+        ChatGroq = _optional_symbol("langchain_groq", "ChatGroq")
 
         groq_kwargs = _compact_kwargs(
             model=config.model_id,
@@ -249,7 +299,7 @@ def create_chat_model(config: ModelConfig) -> Runnable[LanguageModelInput, BaseM
         return ChatGroq(**groq_kwargs)
 
     if provider == "cohere":
-        from langchain_cohere import ChatCohere
+        ChatCohere = _optional_symbol("langchain_cohere", "ChatCohere")
 
         class ChatCohereWithThinking(ChatCohere):
             @property
@@ -279,7 +329,7 @@ def create_chat_model(config: ModelConfig) -> Runnable[LanguageModelInput, BaseM
         return ChatCohereWithThinking(**cohere_kwargs)
 
     if provider == "amazon-nova":
-        from langchain_amazon_nova import ChatAmazonNova
+        ChatAmazonNova = _optional_symbol("langchain_amazon_nova", "ChatAmazonNova")
 
         return ChatAmazonNova(
             **_compact_kwargs(
@@ -303,7 +353,7 @@ def create_chat_model(config: ModelConfig) -> Runnable[LanguageModelInput, BaseM
         )
 
     if provider == "nvidia-ai-endpoints":
-        from langchain_nvidia_ai_endpoints import ChatNVIDIA
+        ChatNVIDIA = _optional_symbol("langchain_nvidia_ai_endpoints", "ChatNVIDIA")
 
         nvidia_kwargs = _compact_kwargs(
             model=config.model_id,

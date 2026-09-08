@@ -34,7 +34,7 @@ interface VolumeListProps {
   onOpenInNewTab: (chapterId: string, title: string) => void;
   onDuplicate: (chapterId: string, title: string) => void;
   onRenameChapter: (chapterId: string, title: string) => void;
-  onMoveChapterToVolume: (chapter: ChapterListItem) => void;
+  onMoveChapterToVolume: (chapter: ChapterListItem, volumeId: string) => void;
   onDeleteChapter: (chapter: ChapterListItem) => void;
   onLockedAction?: () => void;
 }

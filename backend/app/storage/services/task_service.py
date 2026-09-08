@@ -3,7 +3,6 @@ Task Service - 任务业务逻辑层。
 """
 
 from dataclasses import dataclass
-from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import delete, select
@@ -123,6 +122,14 @@ async def update_task(
     if task is None:
         raise NotFoundError(f"任务不存在：{task_id}")
 
+    original = (
+        task.title,
+        task.is_favorited,
+        task.is_running,
+        task.current_revision_id,
+        task.current_message_id,
+        task.agent_session_id,
+    )
     if title is not None:
         task.title = title
 
@@ -141,8 +148,15 @@ async def update_task(
     if agent_session_id is not None:
         task.agent_session_id = agent_session_id
 
-    task.updated_at = datetime.now(UTC)
-
+    if original == (
+        task.title,
+        task.is_favorited,
+        task.is_running,
+        task.current_revision_id,
+        task.current_message_id,
+        task.agent_session_id,
+    ):
+        return task
     return await task_repo.update_task(session, task)
 
 
@@ -367,7 +381,10 @@ async def append_task_message(
         created_at=message["created_at"],
         updated_at=message.get("updated_at", message["created_at"]),
     )
-    return await task_message_repo.create(session, task_message)
+    result = await task_message_repo.create(session, task_message)
+    if task_message.role in {"user", "assistant"}:
+        await task_repo.record_message_time(session, task_id, task_message.created_at)
+    return result
 
 
 def _dump_json(value: Any, default: str) -> str:

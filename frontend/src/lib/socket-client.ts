@@ -2,7 +2,6 @@ import { io, type Socket } from "socket.io-client";
 
 import i18n from "../i18n";
 import { handleAuthenticationFailure } from "./auth-failure";
-import { publishSocketDiagnostic, type SocketDiagnosticPayload } from "./desktop-appearance-bridge";
 import { getConfiguredBackendBaseUrl, getRuntimeConfig } from "./runtime-config";
 
 export type SocketConnectionStatus = "connected" | "disconnected";
@@ -108,12 +107,29 @@ async function probeSocketIoEndpoint(baseUrl: string): Promise<string | null> {
   }
 }
 
+interface SocketDiagnosticPayload {
+  event:
+    | "connect-start"
+    | "connect-error"
+    | "reconnect-attempt"
+    | "reconnect-failed"
+    | "connected"
+    | "disconnected"
+    | "connection-timeout";
+  active?: boolean;
+  attempt?: number;
+  durationMs?: number;
+  message?: string;
+  transport?: string;
+  url?: string;
+}
+
 function reportSocketDiagnostic(
   event: SocketDiagnosticPayload["event"],
   socket: Socket,
   details: Omit<SocketDiagnosticPayload, "event" | "transport" | "url"> = {},
 ): void {
-  publishSocketDiagnostic({
+  console.debug("OpenFic socket", {
     event,
     url: getSocketState().socketUrl ?? window.location.origin,
     transport: getSocketTransport(socket),

@@ -139,10 +139,16 @@ export async function createNote(projectId: string, data: NoteCreate): Promise<N
 }
 
 export async function updateNote(noteId: string, data: NoteUpdate): Promise<Note> {
+  const contentBase =
+    data.baseTitle !== undefined && data.baseContent !== undefined
+      ? { base_title: data.baseTitle, base_content: data.baseContent }
+      : {};
   const response = await apiClient.patch(`/notes/${noteId}`, {
     title: data.title,
     content: data.content,
     agent_visibility: data.agentVisibility,
+    base_updated_at: data.baseUpdatedAt,
+    ...contentBase,
   });
   return transformNote(response.data);
 }

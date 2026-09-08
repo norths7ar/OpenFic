@@ -1,3 +1,5 @@
+from importlib.util import find_spec
+
 import httpx
 import pytest
 import respx
@@ -14,6 +16,10 @@ _APP_ATTRIBUTION_HEADERS = {
 }
 
 
+@pytest.mark.skipif(
+    find_spec("langchain_openrouter") is None,
+    reason="optional provider SDK missing: langchain_openrouter",
+)
 def test_create_chat_model_openrouter_adds_app_attribution() -> None:
     model = create_chat_model(
         ModelConfig(

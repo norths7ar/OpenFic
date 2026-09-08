@@ -78,6 +78,19 @@ class ModelProviderService:
             catalog_match,
         )
 
+    async def get_unavailable_task_types(
+        self,
+        provider: ModelProvider,
+        catalog_match: CatalogMatch | None = None,
+    ) -> list[str]:
+        """List supported tasks whose native provider SDK is not installed."""
+        task_types = await self.get_supported_task_types(provider, catalog_match)
+        return [
+            task_type
+            for task_type in task_types
+            if not AdapterRegistry.is_available(provider.provider_type, task_type)
+        ]
+
     async def get_effective_icon_path(
         self,
         provider: ModelProvider,
@@ -438,8 +451,8 @@ class ModelProviderService:
         # 获取Adapter
         adapter = AdapterRegistry.get_adapter(runtime_provider_type)
 
-        # 解密API Key
-        api_key = self.encryption_service.decrypt(provider.api_key_encrypted)
+        # 空密钥是无认证通用连接的合法配置，且不得尝试解密空字符串。
+        api_key = self.get_decrypted_api_key(provider) or ""
         request_headers = self.get_decrypted_custom_headers(provider)
 
         # 创建HTTP客户端并执行请求

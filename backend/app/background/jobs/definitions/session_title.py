@@ -1,7 +1,6 @@
 """Session title background job definition."""
 
 import re
-from datetime import UTC, datetime
 
 from loguru import logger
 from pydantic import BaseModel, Field
@@ -139,7 +138,6 @@ async def handle_session_title(context: JobContext) -> dict[str, str] | None:
             return None
 
         task.title = title
-        task.updated_at = datetime.now(UTC)
         await task_repo.update_task(session, task)
         await job_service.append_event(
             session,

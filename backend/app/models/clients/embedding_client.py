@@ -5,6 +5,7 @@ Embedding Client - Embedding模型调用客户端。
 """
 
 from dataclasses import dataclass
+from importlib import import_module
 from typing import Any, Protocol, cast
 
 from langchain_core.embeddings import Embeddings
@@ -12,6 +13,12 @@ from loguru import logger
 from pydantic import SecretStr
 
 from app.models.helpers.openrouter_attribution import get_openrouter_attribution_headers
+from app.models.optional_dependencies import install_hint
+
+
+def _optional_symbol(module_name: str, symbol_name: str) -> Any:
+    """Load an SDK class only after its optional dependency check."""
+    return getattr(import_module(module_name), symbol_name)
 
 
 @dataclass
@@ -87,8 +94,14 @@ class EmbeddingClient:
             self._embeddings = FastEmbedEmbeddings(model_name=config.model_id)
             return self._embeddings
 
+        hint = install_hint(provider, "embedding")
+        if hint:
+            raise ImportError(f"此提供商的 Embedding 适配未安装。请运行 {hint}")
+
         if provider == "google-genai":
-            from langchain_google_genai import GoogleGenerativeAIEmbeddings
+            GoogleGenerativeAIEmbeddings = _optional_symbol(
+                "langchain_google_genai", "GoogleGenerativeAIEmbeddings"
+            )
 
             self._embeddings = GoogleGenerativeAIEmbeddings(
                 model=config.model_id,
@@ -96,14 +109,14 @@ class EmbeddingClient:
                 base_url=config.base_url or None,
             )
         elif provider == "mistral":
-            from langchain_mistralai import MistralAIEmbeddings
+            MistralAIEmbeddings = _optional_symbol("langchain_mistralai", "MistralAIEmbeddings")
 
             self._embeddings = MistralAIEmbeddings(
                 model=config.model_id,
                 api_key=cast(Any, config.api_key),
             )
         elif provider == "cohere":
-            from langchain_cohere import CohereEmbeddings
+            CohereEmbeddings = _optional_symbol("langchain_cohere", "CohereEmbeddings")
 
             cohere_kwargs: dict[str, Any] = {
                 "model": config.model_id,
@@ -114,7 +127,7 @@ class EmbeddingClient:
             }
             self._embeddings = CohereEmbeddings(**cohere_kwargs)
         elif provider == "nvidia-ai-endpoints":
-            from langchain_nvidia_ai_endpoints import NVIDIAEmbeddings
+            NVIDIAEmbeddings = _optional_symbol("langchain_nvidia_ai_endpoints", "NVIDIAEmbeddings")
 
             self._embeddings = NVIDIAEmbeddings(
                 model=config.model_id,

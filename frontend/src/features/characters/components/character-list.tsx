@@ -1,5 +1,6 @@
 import {
   DndContext,
+  closestCenter,
   DragOverlay,
   PointerSensor,
   useSensor,
@@ -94,6 +95,7 @@ function CharacterListRow({
       tabIndex={0}
       onClick={isMultiSelect ? onCheck : onSelect}
       onKeyDown={(event) => {
+        if (event.target !== event.currentTarget) return;
         if (event.key !== "Enter" && event.key !== " ") return;
         event.preventDefault();
         (isMultiSelect ? onCheck : onSelect)();
@@ -109,14 +111,7 @@ function CharacterListRow({
         selected={isSelected}
         dragging={isDragging}
         title={character.name}
-        metadata={
-          <>
-            <span>
-              {character.tokenCount} {t("characters.tokenCount")}
-            </span>
-            <span>· {formatRelativeTime(character.updatedAt)}</span>
-          </>
-        }
+        metadata={formatRelativeTime(character.updatedAt)}
         leading={
           isMultiSelect ? (
             <Flex
@@ -146,10 +141,25 @@ function CharacterListRow({
           ) : null
         }
         actions={
-          <AgentVisibilityButton
-            value={character.agentVisibility}
-            onChange={onSetAgentVisibility}
-          />
+          <>
+            <AgentVisibilityButton
+              value={character.agentVisibility}
+              onChange={onSetAgentVisibility}
+            />
+            <IconButton
+              className="project-nav-item-more"
+              variant="ghost"
+              size="1"
+              aria-label={t("common.more")}
+              onPointerDown={(event) => event.stopPropagation()}
+              onClick={(event) => {
+                event.stopPropagation();
+                onContextMenu(event);
+              }}
+            >
+              <MoreHorizontal size={16} />
+            </IconButton>
+          </>
         }
       />
     </Box>
@@ -208,8 +218,7 @@ export function CharacterList({
   const searchContainerRef = useRef<HTMLDivElement | null>(null);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
   const { data: folders = [] } = useProjectFolders(projectId, "character");
-  const shouldShowDragHandle =
-    folders.length === 0 && !isMultiSelect && sortField === "order" && sortDirection === "asc";
+  const shouldShowDragHandle = !isMultiSelect && sortField === "order" && sortDirection === "asc";
   const folderMutations = useProjectFolderMutations(projectId, "character");
   const [folderDialog, setFolderDialog] = useState<{
     mode: "create" | "rename";
@@ -360,6 +369,7 @@ export function CharacterList({
       const from = sortedCharacters.findIndex((character) => character.id === event.active.id);
       const to = sortedCharacters.findIndex((character) => character.id === event.over?.id);
       if (from < 0 || to < 0) return;
+      if (sortedCharacters[from].folderId !== sortedCharacters[to].folderId) return;
       const next = [...sortedCharacters];
       const [moved] = next.splice(from, 1);
       next.splice(to, 0, moved);
@@ -372,7 +382,13 @@ export function CharacterList({
     (direction: -1 | 1) => {
       if (!menuCharacter || sortField !== "order") return;
       const index = sortedCharacters.findIndex((character) => character.id === menuCharacter.id);
-      const targetIndex = index + direction;
+      const siblings = sortedCharacters.filter(
+        (character) => character.folderId === menuCharacter.folderId,
+      );
+      const siblingIndex = siblings.findIndex((character) => character.id === menuCharacter.id);
+      const target = siblings[siblingIndex + direction];
+      if (!target) return;
+      const targetIndex = sortedCharacters.findIndex((character) => character.id === target.id);
       if (index < 0 || targetIndex < 0 || targetIndex >= sortedCharacters.length) return;
       const next = [...sortedCharacters];
       const [moved] = next.splice(index, 1);
@@ -398,9 +414,10 @@ export function CharacterList({
 
     if (!menuCharacter) return [];
 
-    const manualIndex = sortedCharacters.findIndex(
-      (character) => character.id === menuCharacter.id,
+    const siblings = sortedCharacters.filter(
+      (character) => character.folderId === menuCharacter.folderId,
     );
+    const manualIndex = siblings.findIndex((character) => character.id === menuCharacter.id);
     const items: ContextMenuItem[] = [
       {
         id: "edit-profile",
@@ -413,44 +430,61 @@ export function CharacterList({
       },
     ];
     if (sortField === "order") {
-      items.push(
-        {
-          id: "move-up",
-          label: t("chapterMenu.moveUp"),
-          icon: ArrowUp,
-          disabled: manualIndex <= 0,
-          onClick: () => handleManualMove(-1),
-        },
-        {
-          id: "move-down",
-          label: t("chapterMenu.moveDown"),
-          icon: ArrowDown,
-          disabled: manualIndex < 0 || manualIndex >= sortedCharacters.length - 1,
-          onClick: () => handleManualMove(1),
-        },
-      );
+      items.push({
+        id: "sort",
+        label: t("characters.sort"),
+        icon: ArrowUpDown,
+        onClick: () => undefined,
+        children: [
+          {
+            id: "move-up",
+            label: t("chapterMenu.moveUp"),
+            icon: ArrowUp,
+            disabled: manualIndex <= 0,
+            onClick: () => handleManualMove(-1),
+          },
+          {
+            id: "move-down",
+            label: t("chapterMenu.moveDown"),
+            icon: ArrowDown,
+            disabled: manualIndex < 0 || manualIndex >= siblings.length - 1,
+            onClick: () => handleManualMove(1),
+          },
+        ],
+      });
     }
     items.push(
       {
-        id: "move-root",
-        label: t("projectNavigation.moveToRoot"),
+        id: "move",
+        label: t("projectNavigation.moveTo"),
         icon: FolderInput,
-        disabled: menuCharacter.folderId === null,
-        onClick: () => {
-          handleCloseContextMenu();
-          folderMutations.moveItem.mutate({ itemId: menuCharacter.id, folderId: null });
-        },
+        disabled: folders.length === 0 && !menuCharacter.folderId,
+        onClick: () => undefined,
+        children: [
+          {
+            id: "move-root",
+            label: t("projectNavigation.moveToRoot"),
+            icon: FolderInput,
+            disabled: !menuCharacter.folderId,
+            onClick: () => {
+              handleCloseContextMenu();
+              if (menuCharacter.folderId)
+                folderMutations.moveItem.mutate({ itemId: menuCharacter.id, folderId: null });
+            },
+          },
+          ...folders.map((folder) => ({
+            id: `move-folder-${folder.id}`,
+            label: t("projectNavigation.moveToFolder", { name: folder.title }),
+            icon: FolderInput,
+            disabled: menuCharacter.folderId === folder.id,
+            onClick: () => {
+              handleCloseContextMenu();
+              if (menuCharacter.folderId !== folder.id)
+                folderMutations.moveItem.mutate({ itemId: menuCharacter.id, folderId: folder.id });
+            },
+          })),
+        ],
       },
-      ...folders.map((folder) => ({
-        id: `move-folder-${folder.id}`,
-        label: t("projectNavigation.moveToFolder", { name: folder.title }),
-        icon: FolderInput,
-        disabled: menuCharacter.folderId === folder.id,
-        onClick: () => {
-          handleCloseContextMenu();
-          folderMutations.moveItem.mutate({ itemId: menuCharacter.id, folderId: folder.id });
-        },
-      })),
       {
         id: "delete",
         label: t("characters.deleteCharacter"),
@@ -567,7 +601,7 @@ export function CharacterList({
                 </Box>
               }
               sort={
-                isMultiSelect ? (
+                searchExpanded ? null : isMultiSelect ? (
                   <Tooltip
                     content={
                       selectedIds.size > 0 ? t("characters.deselectAll") : t("characters.selectAll")
@@ -638,67 +672,78 @@ export function CharacterList({
                 )
               }
               create={
-                <>
-                  {isMultiSelect ? (
-                    <Tooltip content={t("characters.deleteSelectedTooltip")}>
-                      <IconButton
-                        variant="ghost"
-                        color="red"
-                        size="2"
-                        disabled={selectedIds.size === 0}
-                        onClick={() => setBatchDeleteDialogOpen(true)}
-                      >
-                        <Trash2 size={16} />
-                      </IconButton>
-                    </Tooltip>
-                  ) : (
-                    <Tooltip content={t("characters.newCharacter")}>
-                      <IconButton
-                        variant="ghost"
-                        size="2"
-                        disabled={isCreating}
-                        onClick={() => onCreateCharacter()}
-                      >
-                        <Plus size={16} />
-                      </IconButton>
-                    </Tooltip>
-                  )}
-                </>
+                searchExpanded ? null : (
+                  <>
+                    {isMultiSelect ? (
+                      <Tooltip content={t("characters.deleteSelectedTooltip")}>
+                        <IconButton
+                          variant="ghost"
+                          color="red"
+                          size="2"
+                          disabled={selectedIds.size === 0}
+                          onClick={() => setBatchDeleteDialogOpen(true)}
+                        >
+                          <Trash2 size={16} />
+                        </IconButton>
+                      </Tooltip>
+                    ) : (
+                      <DropdownMenu.Root>
+                        <DropdownMenu.Trigger>
+                          <IconButton
+                            variant="ghost"
+                            size="2"
+                            aria-label={t("characters.newCharacter")}
+                          >
+                            <Plus size={16} />
+                          </IconButton>
+                        </DropdownMenu.Trigger>
+                        <DropdownMenu.Content align="end">
+                          <DropdownMenu.Item
+                            onClick={() => onCreateCharacter()}
+                            disabled={isCreating}
+                          >
+                            {t("characters.newCharacter")}
+                          </DropdownMenu.Item>
+                          <DropdownMenu.Item
+                            onClick={() => {
+                              setFolderTitle("");
+                              setFolderDescription("");
+                              setFolderDialog({ mode: "create" });
+                            }}
+                          >
+                            <FolderPlus size={16} />
+                            {t("projectNavigation.newFolder")}
+                          </DropdownMenu.Item>
+                        </DropdownMenu.Content>
+                      </DropdownMenu.Root>
+                    )}
+                  </>
+                )
               }
               more={
-                <DropdownMenu.Root>
-                  <DropdownMenu.Trigger>
-                    <IconButton
-                      variant="ghost"
-                      size="2"
-                      aria-label={t("common.more")}
-                    >
-                      <MoreHorizontal size={16} />
-                    </IconButton>
-                  </DropdownMenu.Trigger>
-                  <DropdownMenu.Content align="end">
-                    {!isMultiSelect ? (
-                      <DropdownMenu.Item
-                        onClick={() => {
-                          setFolderTitle("");
-                          setFolderDescription("");
-                          setFolderDialog({ mode: "create" });
-                        }}
+                searchExpanded ? null : (
+                  <DropdownMenu.Root>
+                    <DropdownMenu.Trigger>
+                      <IconButton
+                        variant="ghost"
+                        size="2"
+                        aria-label={t("common.more")}
                       >
-                        <FolderPlus size={16} />
-                        {t("projectNavigation.newFolder")}
+                        <MoreHorizontal size={16} />
+                      </IconButton>
+                    </DropdownMenu.Trigger>
+                    <DropdownMenu.Content align="end">
+                      <DropdownMenu.Item onClick={handleToggleMultiSelect}>
+                        <ListChecks size={16} />
+                        {t(
+                          isMultiSelect
+                            ? "characters.multiselectExit"
+                            : "characters.multiselectEnter",
+                        )}
                       </DropdownMenu.Item>
-                    ) : null}
-                    <DropdownMenu.Item onClick={handleToggleMultiSelect}>
-                      <ListChecks size={16} />
-                      {t(
-                        isMultiSelect
-                          ? "characters.multiselectExit"
-                          : "characters.multiselectEnter",
-                      )}
-                    </DropdownMenu.Item>
-                  </DropdownMenu.Content>
-                </DropdownMenu.Root>
+                    </DropdownMenu.Content>
+                  </DropdownMenu.Root>
+                )
               }
             />
           </Flex>
@@ -782,72 +827,89 @@ export function CharacterList({
             >
               <DndContext
                 sensors={sensors}
+                collisionDetection={(args) => {
+                  const active = characters.find((character) => character.id === args.active.id);
+                  return closestCenter({
+                    ...args,
+                    droppableContainers: args.droppableContainers.filter((container) =>
+                      characters.some(
+                        (character) =>
+                          character.id === container.id && character.folderId === active?.folderId,
+                      ),
+                    ),
+                  });
+                }}
                 modifiers={[restrictToVerticalAxis]}
                 onDragStart={(event) => setActiveCharacterId(String(event.active.id))}
                 onDragCancel={() => setActiveCharacterId(null)}
                 onDragEnd={handleDragEnd}
               >
-                <SortableContext
-                  items={sortedCharacters.map((character) => character.id)}
-                  strategy={verticalListSortingStrategy}
-                >
-                  <ProjectFolderGroups
-                    folders={folders}
-                    items={sortedCharacters}
-                    renderFolderMenu={(folder) => (
-                      <DropdownMenu.Root>
-                        <DropdownMenu.Trigger>
-                          <IconButton
-                            variant="ghost"
-                            size="1"
-                            aria-label={t("common.more")}
-                          >
-                            <MoreHorizontal size={14} />
-                          </IconButton>
-                        </DropdownMenu.Trigger>
-                        <DropdownMenu.Content align="end">
-                          <DropdownMenu.Item onClick={() => onCreateCharacter(folder.id)}>
-                            {t("characters.newCharacter")}
-                          </DropdownMenu.Item>
-                          <DropdownMenu.Item
-                            onClick={() => {
-                              setFolderTitle(folder.title);
-                              setFolderDescription(folder.description ?? "");
-                              setFolderDialog({ mode: "rename", folder });
-                            }}
-                          >
-                            {t("common.rename")}
-                          </DropdownMenu.Item>
-                          <DropdownMenu.Item
-                            color="red"
-                            onClick={() => setDeletingFolderId(folder.id)}
-                          >
-                            {t("common.delete")}
-                          </DropdownMenu.Item>
-                        </DropdownMenu.Content>
-                      </DropdownMenu.Root>
-                    )}
-                    renderItem={(character) => {
-                      const isSelected = character.id === selectedCharacterId;
-                      const isChecked = selectedIds.has(character.id);
-                      return (
-                        <CharacterListRow
-                          key={character.id}
-                          character={character}
-                          isSelected={isSelected}
-                          isChecked={isChecked}
-                          isMultiSelect={isMultiSelect}
-                          showDragHandle={shouldShowDragHandle}
-                          onSelect={() => onSelectCharacter(character.id)}
-                          onCheck={() => handleCheckCharacter(character.id)}
-                          onSetAgentVisibility={(value) => onSetAgentVisibility(character, value)}
-                          onContextMenu={(event) => handleContextMenu(event, character)}
-                          t={t}
-                        />
-                      );
-                    }}
-                  />
-                </SortableContext>
+                <ProjectFolderGroups
+                  folders={folders}
+                  items={sortedCharacters}
+                  renderGroup={(folderId, content) => (
+                    <SortableContext
+                      items={sortedCharacters
+                        .filter((character) => character.folderId === folderId)
+                        .map((character) => character.id)}
+                      strategy={verticalListSortingStrategy}
+                    >
+                      {content}
+                    </SortableContext>
+                  )}
+                  renderFolderMenu={(folder) => (
+                    <DropdownMenu.Root>
+                      <DropdownMenu.Trigger>
+                        <IconButton
+                          variant="ghost"
+                          size="1"
+                          aria-label={t("common.more")}
+                        >
+                          <MoreHorizontal size={14} />
+                        </IconButton>
+                      </DropdownMenu.Trigger>
+                      <DropdownMenu.Content align="end">
+                        <DropdownMenu.Item onClick={() => onCreateCharacter(folder.id)}>
+                          {t("characters.newCharacter")}
+                        </DropdownMenu.Item>
+                        <DropdownMenu.Item
+                          onClick={() => {
+                            setFolderTitle(folder.title);
+                            setFolderDescription(folder.description ?? "");
+                            setFolderDialog({ mode: "rename", folder });
+                          }}
+                        >
+                          {t("common.rename")}
+                        </DropdownMenu.Item>
+                        <DropdownMenu.Item
+                          color="red"
+                          onClick={() => setDeletingFolderId(folder.id)}
+                        >
+                          {t("common.delete")}
+                        </DropdownMenu.Item>
+                      </DropdownMenu.Content>
+                    </DropdownMenu.Root>
+                  )}
+                  renderItem={(character) => {
+                    const isSelected = character.id === selectedCharacterId;
+                    const isChecked = selectedIds.has(character.id);
+                    return (
+                      <CharacterListRow
+                        key={character.id}
+                        character={character}
+                        isSelected={isSelected}
+                        isChecked={isChecked}
+                        isMultiSelect={isMultiSelect}
+                        showDragHandle={shouldShowDragHandle}
+                        onSelect={() => onSelectCharacter(character.id)}
+                        onCheck={() => handleCheckCharacter(character.id)}
+                        onSetAgentVisibility={(value) => onSetAgentVisibility(character, value)}
+                        onContextMenu={(event) => handleContextMenu(event, character)}
+                        t={t}
+                      />
+                    );
+                  }}
+                />
                 <DragOverlay>
                   {activeCharacterId ? (
                     <Box className="characters-list-item">

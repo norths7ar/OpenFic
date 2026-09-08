@@ -60,10 +60,13 @@ async def resolve_model_config(
         raise NotFoundError(f"模型提供商不存在：{model.provider_id}")
 
     encryption_service = EncryptionService(settings.encryption_key)
-    try:
-        api_key = encryption_service.decrypt(provider.api_key_encrypted)
-    except Exception as exc:
-        raise ValueError("API密钥解密失败") from exc
+    if not provider.api_key_encrypted or not provider.api_key_encrypted.strip():
+        api_key = ""
+    else:
+        try:
+            api_key = encryption_service.decrypt(provider.api_key_encrypted)
+        except Exception as exc:
+            raise ValueError("API密钥解密失败") from exc
 
     custom_headers = ModelProviderService(encryption_service).get_decrypted_custom_headers(provider)
     return await build_model_config(

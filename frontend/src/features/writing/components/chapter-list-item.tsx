@@ -3,7 +3,7 @@ import { useSortable } from "@dnd-kit/sortable";
  * Chapter List Item
  *
  * 章节列表项组件，显示章节名、字数和编辑时间。
- * 普通滚动路径不接入 dnd-kit，只在拖拽模式下启用 sortable。
+ * 抓手直接调整章节顺序，条目保留菜单及编辑操作。
  */
 import { CSS } from "@dnd-kit/utilities";
 import { Box, Flex, Tooltip } from "@radix-ui/themes";
@@ -104,6 +104,7 @@ interface ChapterListItemBaseProps {
   summaryStatus?: SummaryStatus;
   summaryIsStale?: boolean;
   onOpenSummary?: () => void;
+  dragHandle?: React.ReactNode;
 }
 
 interface ChapterRowContentProps {
@@ -116,7 +117,6 @@ interface ChapterRowContentProps {
   summaryStatus?: SummaryStatus;
   summaryIsStale: boolean;
   onOpenSummary?: () => void;
-  isMenuButtonVisible?: boolean;
   onOpenMenu?: (triggerElement: HTMLElement) => void;
   textColor?: string;
   dragHandle?: React.ReactNode;
@@ -132,7 +132,6 @@ function ChapterRowContent({
   summaryStatus,
   summaryIsStale,
   onOpenSummary,
-  isMenuButtonVisible = false,
   onOpenMenu,
   textColor,
   dragHandle,
@@ -170,14 +169,19 @@ function ChapterRowContent({
         showMenuTrigger ? (
           <Flex
             align="center"
-            gap="4"
+            gap="2"
             style={{ flexShrink: 0 }}
           >
+            <SummaryStatusDot
+              status={summaryStatus}
+              isStale={summaryIsStale}
+              onOpenSummary={onOpenSummary}
+            />
             <Tooltip content={t("chapterMenu.moreActions")}>
               <button
                 type="button"
                 aria-label={t("chapterMenu.moreActions")}
-                tabIndex={isMenuButtonVisible ? 0 : -1}
+                className="project-nav-item-more"
                 onPointerDown={(event) => event.stopPropagation()}
                 onClick={(event) => {
                   event.stopPropagation();
@@ -194,22 +198,14 @@ function ChapterRowContent({
                   borderRadius: 6,
                   background: "transparent",
                   color: textColor ?? "var(--gray-10)",
-                  opacity: isMenuButtonVisible ? 1 : 0,
-                  pointerEvents: isMenuButtonVisible ? "auto" : "none",
-                  transform: isMenuButtonVisible ? "scale(1)" : "scale(0.72)",
                   transformOrigin: "center",
                   transition: "opacity 0.16s ease, transform 0.16s ease, color 0.16s ease",
                   cursor: "pointer",
                 }}
               >
-                <MoreHorizontal size={14} />
+                <MoreHorizontal size={16} />
               </button>
             </Tooltip>
-            <SummaryStatusDot
-              status={summaryStatus}
-              isStale={summaryIsStale}
-              onOpenSummary={onOpenSummary}
-            />
           </Flex>
         ) : (
           <SummaryStatusDot
@@ -230,14 +226,13 @@ function ChapterListItemComponent({
   onSelectChapter,
   onLongPressStart,
   onRequestContextMenu,
-  isMenuOpen = false,
   onRenameChapter,
   onRenameCancel,
   summaryStatus,
   summaryIsStale = false,
   onOpenSummary,
+  dragHandle,
 }: ChapterListItemBaseProps) {
-  const [isHovered, setIsHovered] = useState(false);
   const [isLongPressPending, setIsLongPressPending] = useState(false);
   const [isLongPressActive, setIsLongPressActive] = useState(false);
   const longPressTimeoutRef = useRef<number | null>(null);
@@ -249,8 +244,6 @@ function ChapterListItemComponent({
   const isDarkPressed = isLongPressActive;
   const isPendingPressed = isLongPressPending && !isLongPressActive;
   const textColor = isDarkPressed ? "var(--gray-1)" : undefined;
-  const isMenuButtonVisible =
-    Boolean(onRequestContextMenu) && !isRenaming && (isHovered || isMenuOpen);
 
   const style = useMemo(
     () => ({
@@ -435,14 +428,13 @@ function ChapterListItemComponent({
     <Box
       className="chapter-list-item-row"
       style={style}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
       onClick={isRenaming ? undefined : handleSelect}
       onContextMenu={handleContextMenu}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
     >
       <ChapterRowContent
+        dragHandle={dragHandle}
         selected={isActive}
         chapter={chapter}
         isRenaming={isRenaming}
@@ -451,7 +443,6 @@ function ChapterListItemComponent({
         summaryStatus={summaryStatus}
         summaryIsStale={summaryIsStale}
         onOpenSummary={onOpenSummary}
-        isMenuButtonVisible={isMenuButtonVisible}
         onOpenMenu={onRequestContextMenu ? handleOpenMenuFromButton : undefined}
         textColor={textColor}
       />
@@ -459,89 +450,45 @@ function ChapterListItemComponent({
   );
 }
 
-interface SortableChapterListItemProps {
-  chapter: ChapterListItemType;
-  isActive: boolean;
-  onSelectChapter: (chapterId: string) => void;
-  summaryStatus?: SummaryStatus;
-  summaryIsStale?: boolean;
-  onOpenSummary?: () => void;
+interface SortableChapterListItemProps extends ChapterListItemBaseProps {
+  disabled?: boolean;
 }
 
-function SortableChapterListItemComponent({
-  chapter,
-  isActive,
-  onSelectChapter,
-  summaryStatus,
-  summaryIsStale = false,
-  onOpenSummary,
-}: SortableChapterListItemProps) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-    id: chapter.id,
+function SortableChapterListItemComponent({ disabled, ...props }: SortableChapterListItemProps) {
+  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({
+    id: props.chapter.id,
+    disabled,
   });
-
-  const style = useMemo(
-    () => ({
-      transform: CSS.Transform.toString(transform),
-      transition: transition
-        ? `${transition}, background-color 0.08s ease, opacity 0.08s ease`
-        : "background-color 0.08s ease, opacity 0.08s ease",
-      opacity: isDragging ? 0.5 : 1,
-      background: "transparent",
-      cursor: "grab",
-      width: "100%",
-      minWidth: 0,
-      overflow: "hidden",
-      position: "relative" as const,
-      contain: "layout style" as const,
-      touchAction: isDragging ? "none" : "pan-y",
-      userSelect: "none" as const,
-      WebkitUserSelect: "none" as const,
-      WebkitTouchCallout: "none" as const,
-      WebkitTapHighlightColor: "transparent",
-    }),
-    [isDragging, transform, transition],
-  );
-
-  const handleSelect = useCallback(() => {
-    onSelectChapter(chapter.id);
-  }, [chapter.id, onSelectChapter]);
-
-  const handleDragHandlePointerDown = useCallback(
-    (event: React.PointerEvent<HTMLDivElement>) => {
-      listeners?.onPointerDown?.(event);
-    },
-    [listeners],
-  );
-
   return (
     <Box
       ref={setNodeRef}
-      className="chapter-list-item-row"
-      style={style}
-      onClick={handleSelect}
-      {...attributes}
+      style={{ transform: CSS.Transform.toString(transform), transition }}
     >
-      <ChapterRowContent
-        selected={isActive}
-        chapter={chapter}
-        dragging={isDragging}
-        isRenaming={false}
-        summaryStatus={summaryStatus}
-        summaryIsStale={summaryIsStale}
-        onOpenSummary={onOpenSummary}
+      <ChapterListItemComponent
+        {...props}
         dragHandle={
-          <Box
-            style={{
-              color: "var(--gray-9)",
-              flexShrink: 0,
-              touchAction: "none",
+          <button
+            type="button"
+            {...attributes}
+            {...listeners}
+            disabled={disabled}
+            onPointerDown={(event) => {
+              event.stopPropagation();
+              listeners?.onPointerDown?.(event);
             }}
-            onPointerDown={handleDragHandlePointerDown}
+            style={{
+              display: "flex",
+              border: 0,
+              padding: 0,
+              background: "transparent",
+              color: "var(--gray-9)",
+              touchAction: "none",
+              cursor: disabled ? "default" : "grab",
+            }}
             onClick={(event) => event.stopPropagation()}
           >
             <GripVertical size={16} />
-          </Box>
+          </button>
         }
       />
     </Box>
@@ -569,26 +516,5 @@ function areBaseRowPropsEqual(prev: ChapterListItemBaseProps, next: ChapterListI
   );
 }
 
-function areSortableRowPropsEqual(
-  prev: SortableChapterListItemProps,
-  next: SortableChapterListItemProps,
-) {
-  return (
-    prev.chapter.id === next.chapter.id &&
-    prev.chapter.title === next.chapter.title &&
-    prev.chapter.order === next.chapter.order &&
-    prev.chapter.wordCount === next.chapter.wordCount &&
-    prev.chapter.updatedAt === next.chapter.updatedAt &&
-    prev.isActive === next.isActive &&
-    prev.summaryStatus === next.summaryStatus &&
-    prev.summaryIsStale === next.summaryIsStale &&
-    prev.onOpenSummary === next.onOpenSummary &&
-    prev.onSelectChapter === next.onSelectChapter
-  );
-}
-
 export const ChapterListItem = memo(ChapterListItemComponent, areBaseRowPropsEqual);
-export const SortableChapterListItem = memo(
-  SortableChapterListItemComponent,
-  areSortableRowPropsEqual,
-);
+export const SortableChapterListItem = memo(SortableChapterListItemComponent);

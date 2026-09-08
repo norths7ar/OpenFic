@@ -1,16 +1,16 @@
 import {
+  closestCenter,
   DndContext,
   PointerSensor,
   useSensor,
   useSensors,
-  useDroppable,
   type DragEndEvent,
 } from "@dnd-kit/core";
 import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { IconButton } from "@radix-ui/themes";
 import { GripVertical, Lock, MoreHorizontal } from "lucide-react";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { AgentVisibilityButton } from "@/components/agent-visibility-button";
@@ -46,20 +46,6 @@ interface NoteFolderListProps {
   isAgentLocked: boolean;
   sortMode: NoteSortMode;
 }
-function FolderDrop({ id, children }: { id: string | null; children: ReactNode }) {
-  const { setNodeRef, isOver } = useDroppable({
-    id: `folder:${id ?? "root"}`,
-    data: { folderId: id },
-  });
-  return (
-    <div
-      ref={setNodeRef}
-      style={{ outline: isOver ? "1px solid var(--accent-a7)" : undefined }}
-    >
-      {children}
-    </div>
-  );
-}
 function NoteRow({ note, options }: { note: NoteListItem; options: NoteFolderListProps }) {
   const { t } = useTranslation();
   const [title, setTitle] = useState(note.title);
@@ -91,7 +77,7 @@ function NoteRow({ note, options }: { note: NoteListItem; options: NoteFolderLis
             style={{ display: "flex", touchAction: "none" }}
             onClick={(e) => e.stopPropagation()}
           >
-            <GripVertical size={14} />
+            <GripVertical size={16} />
           </span>
         )
       }
@@ -133,6 +119,7 @@ function NoteRow({ note, options }: { note: NoteListItem; options: NoteFolderLis
             onChange={(value) => options.onSetAgentVisibility(note.id, value)}
           />
           <IconButton
+            className="project-nav-item-more"
             variant="ghost"
             size="1"
             aria-label={t("common.more")}
@@ -177,15 +164,12 @@ export function NoteFolderList(options: NoteFolderListProps) {
     .map((note) => ({ ...note, folderId: note.categoryId }))
     .sort(compare);
   const onDragEnd = async ({ active, over }: DragEndEvent) => {
-    if (!over || options.isAgentLocked) return;
+    if (!over || options.isAgentLocked || options.sortMode !== "manual") return;
     const item = items.find((item) => item.id === active.id);
-    if (!item) return;
+    if (!item || item.isLocked) return;
     const target = items.find((item) => item.id === over.id);
     const folderId = target?.folderId ?? over.data.current?.folderId ?? null;
-    if (item.folderId !== folderId) {
-      await options.onMove(item.id, "note", folderId);
-      return;
-    }
+    if (item.folderId !== folderId) return;
     if (!target || item.id === target.id) return;
     const siblings = items.filter((item) => item.folderId === folderId);
     const from = siblings.findIndex((n) => n.id === item.id);
@@ -203,66 +187,77 @@ export function NoteFolderList(options: NoteFolderListProps) {
     <div style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
       <DndContext
         sensors={sensors}
+        collisionDetection={(args) => {
+          const activeItem = items.find((item) => item.id === args.active.id);
+          if (!activeItem) return [];
+          const ids = new Set(
+            items.filter((item) => item.folderId === activeItem.folderId).map((item) => item.id),
+          );
+          return closestCenter({
+            ...args,
+            droppableContainers: args.droppableContainers.filter((container) =>
+              ids.has(String(container.id)),
+            ),
+          });
+        }}
         onDragEnd={(event) => void onDragEnd(event)}
       >
-        <FolderDrop id={null}>
-          <SortableContext
-            items={items.map((item) => item.id)}
-            strategy={verticalListSortingStrategy}
-          >
-            <ProjectFolderGroups
-              folders={folders}
-              items={items}
-              onFolderSelect={options.onCategorySelect}
-              renderGroup={(id, content) =>
-                id === null ? content : <FolderDrop id={id}>{content}</FolderDrop>
-              }
-              getFolderHeaderProps={(folder) => ({
-                isRenaming: options.renamingId === folder.id,
-                onRenameConfirm: (title) => options.onRenameConfirm(folder.id, "category", title),
-                onRenameCancel: options.onRenameCancel,
-                onContextMenu: (e) => {
-                  e.preventDefault();
-                  options.onContextMenu(
-                    folder.id,
-                    "category",
-                    { x: e.clientX, y: e.clientY },
-                    folder.title,
-                  );
-                },
-              })}
-              renderFolderMenu={(folder) => (
-                <IconButton
-                  variant="ghost"
-                  size="1"
-                  aria-label={t("common.more")}
-                  onClick={(e) => {
-                    const r = e.currentTarget.getBoundingClientRect();
-                    options.onCategorySelect(folder.id);
-                    options.onContextMenu(
-                      folder.id,
-                      "category",
-                      { x: r.left, y: r.bottom },
-                      folder.title,
-                    );
-                  }}
-                >
-                  <MoreHorizontal size={14} />
-                </IconButton>
-              )}
-              renderItem={(note) => (
-                <NoteRow
-                  key={note.id}
-                  note={note}
-                  options={options}
-                />
-              )}
+        <ProjectFolderGroups
+          folders={folders}
+          items={items}
+          onFolderSelect={options.onCategorySelect}
+          renderGroup={(folderId, content) => (
+            <SortableContext
+              items={items.filter((item) => item.folderId === folderId).map((item) => item.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              {content}
+            </SortableContext>
+          )}
+          getFolderHeaderProps={(folder) => ({
+            isRenaming: options.renamingId === folder.id,
+            onRenameConfirm: (title) => options.onRenameConfirm(folder.id, "category", title),
+            onRenameCancel: options.onRenameCancel,
+            onContextMenu: (e) => {
+              e.preventDefault();
+              options.onContextMenu(
+                folder.id,
+                "category",
+                { x: e.clientX, y: e.clientY },
+                folder.title,
+              );
+            },
+          })}
+          renderFolderMenu={(folder) => (
+            <IconButton
+              variant="ghost"
+              size="1"
+              aria-label={t("common.more")}
+              onClick={(e) => {
+                const r = e.currentTarget.getBoundingClientRect();
+                options.onCategorySelect(folder.id);
+                options.onContextMenu(
+                  folder.id,
+                  "category",
+                  { x: r.left, y: r.bottom },
+                  folder.title,
+                );
+              }}
+            >
+              <MoreHorizontal size={14} />
+            </IconButton>
+          )}
+          renderItem={(note) => (
+            <NoteRow
+              key={note.id}
+              note={note}
+              options={options}
             />
-            {items.length === 0 && folders.length === 0 && (
-              <div style={{ padding: 18, color: "var(--gray-11)" }}>{options.emptyLabel}</div>
-            )}
-          </SortableContext>
-        </FolderDrop>
+          )}
+        />
+        {items.length === 0 && folders.length === 0 && (
+          <div style={{ padding: 18, color: "var(--gray-11)" }}>{options.emptyLabel}</div>
+        )}
       </DndContext>
     </div>
   );

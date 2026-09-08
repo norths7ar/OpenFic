@@ -17,7 +17,8 @@ from sqlmodel import col
 from app.agent_runtime.persistence.model import AgentRunMessage
 from app.project_bundle.archive import BundleFormatError, build_zip
 from app.project_bundle.markdown import render_markdown_document
-from app.project_bundle.names import slugify_filename
+from app.project_bundle.names import chapter_paths, slugify_filename
+from app.storage.models.chapter import Chapter
 from app.storage.models.character import Character
 from app.storage.models.note import Note
 from app.storage.models.project import Project
@@ -73,7 +74,7 @@ async def export_project_bundle(session: AsyncSession, project_id: str) -> bytes
                 select(ProjectFolder)
                 .where(
                     col(ProjectFolder.project_id) == project_id,
-                    col(ProjectFolder.scope).in_(["discussion", "world", "character"]),
+                    col(ProjectFolder.scope).in_(["writing", "discussion", "world", "character"]),
                 )
                 .order_by(col(ProjectFolder.scope), col(ProjectFolder.order), col(ProjectFolder.id))
             )
@@ -125,6 +126,23 @@ async def export_project_bundle(session: AsyncSession, project_id: str) -> bytes
             )
         ).scalars()
     )
+    volumes = {folder.id: folder for folder in project_folders if folder.scope == "writing"}
+    chapters = list(
+        (
+            await session.execute(
+                select(Chapter)
+                .where(col(Chapter.project_id) == project_id)
+                .order_by(col(Chapter.volume_id), col(Chapter.order), col(Chapter.id))
+            )
+        ).scalars()
+    )
+    try:
+        chapter_document_paths = chapter_paths(
+            ((chapter.id, chapter.title, chapter.volume_id) for chapter in chapters),
+            {volume_id: volume.title for volume_id, volume in volumes.items()},
+        )
+    except ValueError as exc:
+        raise BundleFormatError("chapter volume is missing or cross-project") from exc
 
     files: dict[str, str | bytes] = {}
     documents: list[dict[str, Any]] = []
@@ -224,6 +242,24 @@ async def export_project_bundle(session: AsyncSession, project_id: str) -> bytes
             note.content,
         )
         documents.append({"kind": "note", "id": note.id, "path": path, "base_hash": base_hash})
+    for chapter in chapters:
+        fields = {
+            "kind": "chapter",
+            "id": chapter.id,
+            "project_id": project_id,
+            "volume_id": chapter.volume_id,
+            "order": chapter.order,
+        }
+        path = chapter_document_paths[chapter.id]
+        base_hash = document_semantic_hash(fields, chapter.title, chapter.content)
+        files[path] = _doc(
+            {"schema": "openfic.document", "version": 1, **fields, "base_hash": base_hash},
+            chapter.title,
+            chapter.content,
+        )
+        documents.append(
+            {"kind": "chapter", "id": chapter.id, "path": path, "base_hash": base_hash}
+        )
 
     tasks = list(
         (

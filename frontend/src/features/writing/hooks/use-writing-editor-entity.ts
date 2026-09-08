@@ -6,7 +6,10 @@ import {
   type WritingWorkingCopyType,
 } from "@/lib/local-db";
 
-import { resolveWritingWorkingCopy } from "../lib/writing-working-copy";
+import {
+  resolveWritingWorkingCopy,
+  type WritingWorkingCopyConflict,
+} from "../lib/writing-working-copy";
 import type { WritingDraft } from "./use-writing-working-copy";
 
 export async function loadWritingEditorEntity<TEntity extends WritingEditorEntity>(
@@ -31,7 +34,16 @@ export async function loadWritingEditorEntity<TEntity extends WritingEditorEntit
       !resolved.shouldDelete && workingCopy !== null
         ? workingCopy.updatedAt
         : new Date(entity.updatedAt),
+    baseUpdatedAt:
+      !resolved.shouldDelete && workingCopy !== null ? workingCopy.baseUpdatedAt : entity.updatedAt,
+    baseDraft:
+      !resolved.shouldDelete && workingCopy !== null
+        ? workingCopy.baseTitle !== undefined && workingCopy.baseContent !== undefined
+          ? { title: workingCopy.baseTitle, content: workingCopy.baseContent }
+          : undefined
+        : { title: entity.title, content: entity.content },
     isWorkingCopyRecovered: !resolved.shouldDelete && workingCopy !== null,
+    conflict: resolved.conflict,
   };
 }
 
@@ -46,7 +58,10 @@ interface WritingEditorEntityResult<TEntity> {
   entity: TEntity;
   draft: WritingDraft;
   draftUpdatedAt: Date;
+  baseUpdatedAt: string;
+  baseDraft?: WritingDraft;
   isWorkingCopyRecovered: boolean;
+  conflict?: WritingWorkingCopyConflict;
 }
 
 interface UseWritingEditorEntityOptions<TEntity extends WritingEditorEntity> {

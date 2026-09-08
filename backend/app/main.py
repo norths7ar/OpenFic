@@ -32,8 +32,6 @@ from app.agent_runtime.runner.checkpointer import (
     full_vacuum_checkpoint_database,
     get_checkpointer,
     init_checkpointer,
-    migrate_checkpoint_database_to_incremental,
-    needs_incremental_auto_vacuum_migration,
     prune_reachable_checkpoints,
 )
 from app.agent_runtime.runner.run_registry import get_agent_run_registry
@@ -66,7 +64,6 @@ from app.api.routers import (
     projects,
     prompt_chains,
     retrieval_index,
-    runtime_config,
     settings,
     skill_reference_docs,
     skills,
@@ -90,19 +87,9 @@ from app.models.catalog import ModelProviderCatalogService
 from app.settings import settings as app_settings
 from app.socket import init_socketio
 from app.storage.database import close_db, create_session, init_db, vacuum_database_if_needed
-from app.storage.repos import revision_repo, setting_repo
+from app.storage.repos import revision_repo
 from app.storage.services import task_service
-from app.storage.services.revision_content_backfill import backfill_revision_content_blobs
 from app.storage.services.revision_service import cleanup_orphaned_revision_data
-from app.telemetry import (
-    SETTING_KEY_TELEMETRY_ENABLED,
-    install_telemetry_sink,
-    parse_telemetry_enabled,
-    set_telemetry_enabled,
-)
-from app.telemetry import (
-    shutdown as shutdown_telemetry,
-)
 
 ANSI_BOLD = "\033[1m"
 ANSI_GREEN = "\033[32m"
@@ -171,15 +158,6 @@ async def _reset_interrupted_child_run_state() -> int:
         await session.close()
 
 
-async def _load_telemetry_enabled() -> None:
-    session = await create_session()
-    try:
-        setting = await setting_repo.get_by_key(session, SETTING_KEY_TELEMETRY_ENABLED)
-        set_telemetry_enabled(parse_telemetry_enabled(setting.value if setting else None))
-    finally:
-        await session.close()
-
-
 async def _seed_builtin_models() -> None:
     session = await create_session()
     try:
@@ -203,8 +181,6 @@ async def _cleanup_unreachable_checkpoints() -> int:
 
 
 _vacuum_started_at: float | None = None
-_migrate_started_at: float | None = None
-_backfill_started_at: float | None = None
 
 
 def _emit_single_line_progress(message: str) -> None:
@@ -219,28 +195,15 @@ def _update_checkpoint_maintenance_progress(
     reclaimed_pages: int,
     total_pages: int,
 ) -> None:
-    global _vacuum_started_at, _migrate_started_at
+    global _vacuum_started_at
     maintenance_state.update(
         phase=phase,
-        message=(
-            "Migrating checkpoint database to incremental auto-vacuum."
-            if phase == "migrating"
-            else "Reclaiming freed checkpoint pages."
-        ),
+        message="Reclaiming freed checkpoint pages.",
         progress=progress,
         reclaimed_pages=reclaimed_pages,
         total_pages=total_pages,
     )
-    if phase == "migrating":
-        if _migrate_started_at is None:
-            _migrate_started_at = time.monotonic()
-        ops_label = f"{reclaimed_pages:,}" if reclaimed_pages else "..."
-        elapsed = time.monotonic() - _migrate_started_at
-        _emit_single_line_progress(
-            f"[maintenance] Migrating checkpoint database: "
-            f"{ops_label} VM ops, {elapsed:.1f}s elapsed"
-        )
-    elif phase == "vacuuming" and progress is None:
+    if phase == "vacuuming" and progress is None:
         if _vacuum_started_at is None:
             _vacuum_started_at = time.monotonic()
         elapsed = time.monotonic() - _vacuum_started_at
@@ -268,7 +231,7 @@ def _update_checkpoint_maintenance_progress(
 
 
 async def _run_startup_maintenance() -> None:
-    global _vacuum_started_at, _migrate_started_at
+    global _vacuum_started_at
     maintenance_state.start()
     logger.info("Local database maintenance started")
     try:
@@ -287,29 +250,7 @@ async def _run_startup_maintenance() -> None:
 
         await close_checkpointer()
 
-        # 阶段 1：必要时迁移到 INCREMENTAL（普通 VACUUM，set_progress_handler 监控 VM 操作数）
-        if await needs_incremental_auto_vacuum_migration():
-            maintenance_state.update(
-                phase="migrating",
-                message="Migrating checkpoint database to incremental auto-vacuum.",
-                progress=None,
-            )
-            logger.info("Migrating checkpoint database to incremental auto-vacuum")
-            _migrate_started_at = time.monotonic()
-            await migrate_checkpoint_database_to_incremental(
-                progress_callback=_update_checkpoint_maintenance_progress,
-            )
-            logger.info(
-                f"Migrated checkpoint database to incremental auto-vacuum in "
-                f"{time.monotonic() - _migrate_started_at:.1f}s"
-            )
-            _migrate_started_at = None
-        else:
-            logger.info(
-                "Checkpoint database already uses incremental auto-vacuum, skipping migration"
-            )
-
-        # 阶段 2：空页达到阈值才执行 VACUUM INTO 回收
+        # 空页达到阈值才执行 VACUUM INTO 回收。
         free_bytes, live_bytes = await checkpoint_free_page_bytes()
         free_ratio = free_bytes / live_bytes if live_bytes > 0 else 0.0
         should_vacuum = free_bytes > 1024**3 or free_ratio > 0.3
@@ -343,7 +284,6 @@ async def _run_startup_maintenance() -> None:
         await _cleanup_orphaned_agent_attachment_files()
         await _cleanup_orphaned_task_data()
         await _cleanup_orphaned_revision_data()
-        await _backfill_revision_content()
         await _vacuum_main_database()
         await start_background_runtime()
         maintenance_state.complete()
@@ -413,46 +353,6 @@ async def _cleanup_orphaned_task_data() -> None:
         await session.close()
 
 
-def _update_backfill_progress(
-    phase: str,
-    progress: float | None,
-    processed: int,
-    total: int,
-) -> None:
-    global _backfill_started_at
-    maintenance_state.update(
-        phase="backfilling",
-        message="Backfilling revision content into compressed blobs.",
-        progress=progress,
-        deleted_rows=processed,
-        total_pages=total,
-    )
-    if progress is None:
-        _backfill_started_at = time.monotonic()
-        _emit_single_line_progress(f"[maintenance] Backfilling revision content: {total:,} rows")
-        return
-    if progress >= 1.0:
-        if _backfill_started_at is None:
-            _backfill_started_at = time.monotonic()
-        elapsed = time.monotonic() - _backfill_started_at
-        _backfill_started_at = None
-        if processed == 0 and total == 0:
-            _emit_single_line_progress("[maintenance] Backfill already completed, skipping.")
-        else:
-            _emit_single_line_progress(
-                f"[maintenance] Backfill completed: {processed:,} rows rewritten in {elapsed:.1f}s"
-            )
-        return
-    if _backfill_started_at is None:
-        _backfill_started_at = time.monotonic()
-    elapsed = time.monotonic() - _backfill_started_at
-    percent = progress * 100
-    _emit_single_line_progress(
-        f"[maintenance] Backfilling revision content: {processed:,}/{total:,} "
-        f"({percent:.1f}%), {elapsed:.1f}s"
-    )
-
-
 async def _cleanup_orphaned_revision_data() -> int:
     session = await create_session()
     try:
@@ -461,17 +361,6 @@ async def _cleanup_orphaned_revision_data() -> int:
         if deleted_rows:
             logger.info(f"Deleted {deleted_rows} orphaned revision rows at startup")
         return deleted_rows
-    finally:
-        await session.close()
-
-
-async def _backfill_revision_content() -> int:
-    session = await create_session()
-    try:
-        return await backfill_revision_content_blobs(
-            session,
-            progress_callback=_update_backfill_progress,
-        )
     finally:
         await session.close()
 
@@ -630,7 +519,6 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Application lifespan manager."""
     logger.info(f"Starting {app_settings.app_name} v{app_settings.app_version}")
     await init_db()
-    await _load_telemetry_enabled()
     cleared_tasks = await _reset_task_running_state()
     if cleared_tasks:
         logger.warning(f"已重置 {cleared_tasks} 个遗留的运行中任务状态")
@@ -671,7 +559,6 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         await app.state.catalog_icon_proxy_service.aclose()
         await close_checkpointer()
         await close_db()
-        shutdown_telemetry()
 
 
 def create_app() -> FastAPI:
@@ -683,8 +570,6 @@ def create_app() -> FastAPI:
     )
     app.state.auth_service = AuthService(app_settings.auth_password)
     app.state.catalog_icon_proxy_service = model_icons.CatalogIconProxyService()
-
-    install_telemetry_sink()
 
     # CORS middleware
     app.add_middleware(
@@ -703,7 +588,6 @@ def create_app() -> FastAPI:
     app.include_router(agent_visibility.router, prefix=app_settings.api_v1_prefix)
     app.include_router(auth.router, prefix=app_settings.api_v1_prefix)
     app.include_router(health.router, prefix=app_settings.api_v1_prefix)
-    app.include_router(runtime_config.router, prefix=app_settings.api_v1_prefix)
     app.include_router(projects.router, prefix=app_settings.api_v1_prefix)
     app.include_router(volumes.router, prefix=app_settings.api_v1_prefix)
     app.include_router(chapters.router, prefix=app_settings.api_v1_prefix)

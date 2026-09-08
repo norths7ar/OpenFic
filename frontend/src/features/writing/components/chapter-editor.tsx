@@ -1,5 +1,5 @@
 import { Box, Flex, Text, IconButton } from "@radix-ui/themes";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEditor, EditorContent } from "@tiptap/react";
 import { AtSign, FilePenLine, Globe } from "lucide-react";
 import { AnimatePresence } from "motion/react";
@@ -34,6 +34,7 @@ import { createToastThrottler } from "@/lib/ui-utils";
 import { useAutoSave } from "../hooks/use-auto-save";
 import { useUpdateChapter } from "../hooks/use-chapters";
 import {
+  invalidateWritingEditorEntityQueries,
   shouldShowWritingEditorLoading,
   useWritingEditorEntity,
 } from "../hooks/use-writing-editor-entity";
@@ -48,10 +49,12 @@ import { createEditorExtensions } from "../lib/editor-config";
 import {
   getNextWritingWorkingCopyTimestamp,
   isRemoteWritingEntityNewer,
+  type WritingWorkingCopyConflict,
 } from "../lib/writing-working-copy";
 import { useTabsStore } from "../store/use-tabs-store";
 import { FindReplacePanel } from "./find-replace-panel";
 import { SceneDraftDialog } from "./scene-draft-dialog";
+import { WritingConflictDialog } from "./writing-conflict-dialog";
 
 const MANUAL_SAVE_EVENT = "openfic:chapter-editor-manual-save";
 
@@ -86,6 +89,9 @@ interface ChapterEditorContentProps {
   scrollTop: number;
   initialDraft: WritingDraft;
   initialDraftUpdatedAt: Date;
+  baseUpdatedAt: string;
+  baseDraft?: WritingDraft;
+  conflict?: WritingWorkingCopyConflict;
   workingCopy: WritingWorkingCopyController;
   onChapterUpdate?: (chapter: Chapter) => void;
   onScrollPositionChange?: (chapterId: string, scrollTop: number) => void;
@@ -105,6 +111,9 @@ function ChapterEditorContent({
   scrollTop,
   initialDraft,
   initialDraftUpdatedAt,
+  baseUpdatedAt,
+  baseDraft,
+  conflict,
   workingCopy,
   onChapterUpdate,
   onScrollPositionChange,
@@ -118,6 +127,7 @@ function ChapterEditorContent({
 }: ChapterEditorContentProps) {
   const { t } = useTranslation();
   const updateMutation = useUpdateChapter();
+  const queryClient = useQueryClient();
   const { containerRef, scrollbarProps } = useScrollbarAutoHide();
   const editorContentRef = useRef<HTMLDivElement>(null);
   const initialScrollTopRef = useRef(scrollTop);
@@ -125,7 +135,7 @@ function ChapterEditorContent({
   const scrollPositionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { updateTabTitle } = useTabsStore();
   const navigate = useNavigate();
-  const { clearWorkingCopy, persistWorkingCopy } = workingCopy;
+  const { clearWorkingCopy, discardWorkingCopy, persistWorkingCopy } = workingCopy;
 
   const { data: settings } = useQuery({
     queryKey: ["settings"],
@@ -166,7 +176,11 @@ function ChapterEditorContent({
   const latestDraftRef = useRef(initialDraft);
   const latestDraftUpdatedAtRef = useRef(initialDraftUpdatedAt);
   const hasChangesRef = useRef(isChapterEditorDraftDirty(lastSavedDraftRef.current, initialDraft));
-  const baseUpdatedAtRef = useRef(chapter.updatedAt);
+  const baseDraftRef = useRef({
+    title: baseDraft?.title,
+    content: baseDraft?.content,
+    updatedAt: baseUpdatedAt,
+  });
 
   const showLockedToast = useMemo(
     () => createToastThrottler(t("writing.agentLockedChapterEdit")),
@@ -286,7 +300,7 @@ function ChapterEditorContent({
       latestDraftUpdatedAtRef.current = getNextWritingWorkingCopyTimestamp(
         latestDraftUpdatedAtRef.current,
       );
-      persistWorkingCopy(draft, baseUpdatedAtRef.current, latestDraftUpdatedAtRef.current);
+      persistWorkingCopy(draft, baseDraftRef.current, latestDraftUpdatedAtRef.current);
     },
     [persistWorkingCopy],
   );
@@ -385,7 +399,7 @@ function ChapterEditorContent({
       const draftUpdatedAt = latestDraftUpdatedAtRef.current;
       const contentLimit = getEditorContentLimit(draftToSave.content);
       if (!contentLimit.isWithinLimit) {
-        persistWorkingCopy(draftToSave, baseUpdatedAtRef.current, draftUpdatedAt);
+        persistWorkingCopy(draftToSave, baseDraftRef.current, draftUpdatedAt);
         hasChangesRef.current = true;
         setHasChanges(true);
         showContentLimitToast(draftToSave.content);
@@ -396,20 +410,32 @@ function ChapterEditorContent({
 
       setIsSaving(true);
       try {
-        persistWorkingCopy(draftToSave, baseUpdatedAtRef.current, draftUpdatedAt);
+        persistWorkingCopy(draftToSave, baseDraftRef.current, draftUpdatedAt);
         const updatedChapter = await updateMutation.mutateAsync({
           chapterId: chapter.id,
           data: {
             title: draftToSave.title,
             content: draftToSave.content,
             wordCount: currentWordCount,
+            baseUpdatedAt: baseDraftRef.current.updatedAt,
+            ...(baseDraftRef.current.title !== undefined &&
+            baseDraftRef.current.content !== undefined
+              ? {
+                  baseTitle: baseDraftRef.current.title,
+                  baseContent: baseDraftRef.current.content,
+                }
+              : {}),
           },
         });
         lastSavedDraftRef.current = createChapterEditorDraft({
           title: updatedChapter.title,
           content: updatedChapter.content,
         });
-        baseUpdatedAtRef.current = updatedChapter.updatedAt;
+        baseDraftRef.current = {
+          title: updatedChapter.title,
+          content: updatedChapter.content,
+          updatedAt: updatedChapter.updatedAt,
+        };
         void clearWorkingCopy(draftToSave, draftUpdatedAt);
         syncDirtyStateFromEditor(editor);
         onChapterUpdate?.(updatedChapter);
@@ -418,6 +444,8 @@ function ChapterEditorContent({
           toast.success(t("writing.saved"));
         }
       } catch {
+        await persistWorkingCopy(draftToSave, baseDraftRef.current, draftUpdatedAt);
+        invalidateWritingEditorEntityQueries(queryClient, "chapter", chapter.id);
         syncDirtyStateFromEditor(editor);
       } finally {
         setIsSaving(false);
@@ -435,6 +463,7 @@ function ChapterEditorContent({
       clearWorkingCopy,
       persistWorkingCopy,
       showContentLimitToast,
+      queryClient,
     ],
   );
 
@@ -461,7 +490,7 @@ function ChapterEditorContent({
       if (hasChangesRef.current) {
         persistWorkingCopy(
           latestDraftRef.current,
-          baseUpdatedAtRef.current,
+          baseDraftRef.current,
           latestDraftUpdatedAtRef.current,
         );
       }
@@ -472,7 +501,7 @@ function ChapterEditorContent({
     if (
       !editor ||
       hasChanges ||
-      !isRemoteWritingEntityNewer(chapter.updatedAt, baseUpdatedAtRef.current)
+      !isRemoteWritingEntityNewer(chapter.updatedAt, baseDraftRef.current.updatedAt)
     ) {
       return;
     }
@@ -486,7 +515,11 @@ function ChapterEditorContent({
     });
     latestDraftRef.current = lastSavedDraftRef.current;
     latestDraftUpdatedAtRef.current = new Date(chapter.updatedAt);
-    baseUpdatedAtRef.current = chapter.updatedAt;
+    baseDraftRef.current = {
+      title: nextTitle,
+      content: chapter.content,
+      updatedAt: chapter.updatedAt,
+    };
 
     if (title !== nextTitle) {
       titleRef.current = nextTitle;
@@ -646,7 +679,7 @@ function ChapterEditorContent({
       if (
         isAgentLocked ||
         hasChangesRef.current ||
-        request.baseUpdatedAt !== baseUpdatedAtRef.current
+        request.baseUpdatedAt !== baseDraftRef.current.updatedAt
       ) {
         toast.error(t("writing.sceneDraft.chapterChanged"));
         return false;
@@ -718,6 +751,52 @@ function ChapterEditorContent({
         flexDirection: "column",
       }}
     >
+      {conflict ? (
+        <WritingConflictDialog
+          conflict={conflict}
+          onAdoptLocal={async () => {
+            const saved = createChapterEditorDraft({
+              title: chapter.title,
+              content: chapter.content,
+            });
+            lastSavedDraftRef.current = saved;
+            baseDraftRef.current = {
+              ...saved,
+              updatedAt: chapter.updatedAt,
+            };
+            const isDirty = isChapterEditorDraftDirty(saved, latestDraftRef.current);
+            hasChangesRef.current = isDirty;
+            setHasChanges(isDirty);
+            if (isDirty) {
+              await persistWorkingCopy(
+                latestDraftRef.current,
+                baseDraftRef.current,
+                latestDraftUpdatedAtRef.current,
+              );
+            }
+          }}
+          onUseSaved={async () => {
+            await discardWorkingCopy();
+            const saved = createChapterEditorDraft({
+              title: chapter.title,
+              content: chapter.content,
+            });
+            latestDraftRef.current = saved;
+            lastSavedDraftRef.current = saved;
+            baseDraftRef.current = { ...saved, updatedAt: chapter.updatedAt };
+            titleRef.current = saved.title;
+            setTitle(saved.title);
+            updateTabTitle(chapter.id, saved.title);
+            if (editor) {
+              editor.commands.setContent(newlinesToHtml(saved.content), { emitUpdate: false });
+              setLineNumberDigits(getLineNumberDigits(editor.state.doc.childCount));
+              setWordCount(wordsCount(editor.getText()));
+            }
+            setHasChanges(false);
+            hasChangesRef.current = false;
+          }}
+        />
+      ) : null}
       <EditorToolbar
         editor={editor}
         onSave={handleSave}
@@ -793,7 +872,7 @@ function ChapterEditorContent({
         <SceneDraftDialog
           chapterId={chapter.id}
           chapterTitle={chapter.title}
-          baseUpdatedAt={baseUpdatedAtRef.current}
+          baseUpdatedAt={baseDraftRef.current.updatedAt}
           open={isSceneDraftDialogOpen}
           onOpenChange={setIsSceneDraftDialogOpen}
           onPrepare={onPrepareSceneDraft}
@@ -885,6 +964,9 @@ export function ChapterEditor({
       scrollTop={scrollTop}
       initialDraft={data.draft}
       initialDraftUpdatedAt={data.draftUpdatedAt}
+      baseUpdatedAt={data.baseUpdatedAt}
+      baseDraft={data.baseDraft}
+      conflict={data.conflict}
       onChapterUpdate={onChapterUpdate}
       onScrollPositionChange={onScrollPositionChange}
       onAddToConversation={onAddToConversation}
@@ -903,6 +985,9 @@ function ChapterEditorWorkingCopy({
   scrollTop,
   initialDraft,
   initialDraftUpdatedAt,
+  baseUpdatedAt,
+  baseDraft,
+  conflict,
   onChapterUpdate,
   onScrollPositionChange,
   onAddToConversation,
@@ -925,6 +1010,9 @@ function ChapterEditorWorkingCopy({
       scrollTop={scrollTop}
       initialDraft={initialDraft}
       initialDraftUpdatedAt={initialDraftUpdatedAt}
+      baseUpdatedAt={baseUpdatedAt}
+      baseDraft={baseDraft}
+      conflict={conflict}
       workingCopy={workingCopy}
       onChapterUpdate={onChapterUpdate}
       onScrollPositionChange={onScrollPositionChange}

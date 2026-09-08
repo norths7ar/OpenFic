@@ -127,7 +127,9 @@ async def preview_world_info_import(
 
     return WorldInfoImportPreviewResponse(
         entry_count=len(preview.entries),
-        enabled_count=sum(1 for entry in preview.entries if entry.agent_visibility == AgentVisibility.ALL),
+        enabled_count=sum(
+            1 for entry in preview.entries if entry.agent_visibility == AgentVisibility.ALL
+        ),
         entries=[_preview_entry_to_response(entry) for entry in preview.entries],
     )
 

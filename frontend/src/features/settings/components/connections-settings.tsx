@@ -4,7 +4,7 @@
  * 外部连接设置面板，管理模型服务提供商连接。
  */
 
-import { Box, Flex, Text, Button, IconButton, Tooltip } from "@radix-ui/themes";
+import { Box, Flex, Text, Button, IconButton, Tooltip, Badge } from "@radix-ui/themes";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Trash2, Edit, ListFilter } from "lucide-react";
 import { useState, useCallback, useEffect, useMemo } from "react";
@@ -268,6 +268,14 @@ export function ConnectionsSettings({
                           {connection.catalogMatch?.displayName ||
                             getProviderDisplayName(connection.providerType)}
                         </Text>
+                        {connection.unavailableTaskTypes.length > 0 && (
+                          <Badge
+                            color="amber"
+                            variant="soft"
+                          >
+                            {t("connections.optionalSdkRequired")}
+                          </Badge>
+                        )}
                         {isCustomProviderType(connection.providerType) &&
                           !connection.catalogMatch && (
                             <>

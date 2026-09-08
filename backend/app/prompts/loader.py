@@ -135,9 +135,7 @@ def get_prompt_chains_metadata(
         agent_name = definition.prompt_id.removeprefix("builtin-agent--")
         agent = DEFAULT_AGENT_DEFINITIONS.get(agent_name)
         is_primary = (
-            agent is not None
-            and agent.kind == "primary"
-            and not agent.capabilities.workflow_only
+            agent is not None and agent.kind == "primary" and not agent.capabilities.workflow_only
         )
         return ("user", True) if is_primary else ("internal", False)
 

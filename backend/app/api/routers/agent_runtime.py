@@ -974,7 +974,6 @@ async def update_agent_knowledge_scope(
             supports_global=supports_global_context(definition),
         )
         task.context_mode = body.context_mode
-        task.updated_at = datetime.now(UTC)
         session.add(task)
         # Persist the monotonic floor first: an interrupted checkpoint write must
         # not allow a later restore to forget the scope upgrade.

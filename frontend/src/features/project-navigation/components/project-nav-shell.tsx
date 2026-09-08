@@ -27,7 +27,11 @@ export function ProjectNavShell({
   const [resizing, setResizing] = useState(false);
 
   return (
-    <aside className={`project-nav-shell ${className}`} style={{ width }} aria-label={label}>
+    <aside
+      className={`project-nav-shell ${className}`}
+      style={{ width }}
+      aria-label={label}
+    >
       {toolbar}
       <div className="project-nav-shell-content">{children}</div>
       <div

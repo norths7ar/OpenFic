@@ -41,7 +41,9 @@ class WorldInfoEntryCreate(BaseModel):
     section: str = Field(default="", max_length=500, description="条目分区")
     content: str = Field(default="", description="条目内容")
     token_count: int = Field(default=0, ge=0, description="Token 数量")
-    agent_visibility: AgentVisibility = Field(default=AgentVisibility.ALL, description="Agent 可见范围")
+    agent_visibility: AgentVisibility = Field(
+        default=AgentVisibility.ALL, description="Agent 可见范围"
+    )
 
 
 class WorldInfoEntryUpdate(BaseModel):

@@ -19,6 +19,7 @@ from app.core.errors import NotFoundError
 from app.project_bundle.archive import BundleFormatError, read_zip
 from app.project_bundle.export import document_semantic_hash, semantic_hash
 from app.project_bundle.markdown import parse_markdown_document
+from app.storage.models.chapter import Chapter
 from app.storage.models.character import Character
 from app.storage.models.note import Note
 from app.storage.models.project import Project
@@ -28,7 +29,7 @@ from app.storage.models.world_info import WorldInfo
 from app.storage.models.world_info_entry import WorldInfoEntry
 
 ImportMode = Literal["append", "update", "merge"]
-_KINDS = {"world_entry", "character", "note", "discussion", "discussion_message"}
+_KINDS = {"world_entry", "character", "chapter", "note", "discussion", "discussion_message"}
 _HASH = re.compile(r"^sha256:[0-9a-f]{64}$")
 
 
@@ -174,6 +175,11 @@ def _document_fields(frontmatter: dict[str, Any], kind: str, project_id: str) ->
             is_locked=_bool(frontmatter.get("is_locked"), "is_locked"),
             document_type=document_type,
         )
+    elif kind == "chapter":
+        fields.update(
+            volume_id=_nullable_text(frontmatter.get("volume_id"), "volume_id"),
+            order=_nonnegative_int(frontmatter.get("order"), "order"),
+        )
     elif kind == "discussion":
         context_mode = frontmatter.get("context_mode")
         if context_mode not in {"global", "local"}:
@@ -273,7 +279,7 @@ def parse_project_bundle(data: bytes, target_project_id: str) -> ParsedProjectBu
                 raise BundleFormatError("uid must be positive")
             if len(fields["section"]) > 500:
                 raise BundleFormatError("section exceeds 500 characters")
-        if kind in {"world_entry", "character", "note", "discussion_message"}:
+        if kind in {"world_entry", "character", "chapter", "note", "discussion_message"}:
             try:
                 validate_editor_content(parsed_doc.body)
             except ValueError as exc:
@@ -389,6 +395,13 @@ def parse_project_bundle(data: bytes, target_project_id: str) -> ParsedProjectBu
             and doc.semantic_fields["category_id"] not in category_ids
         ):
             raise BundleFormatError("note category is missing")
+        if doc.kind == "chapter" and doc.semantic_fields["volume_id"] is not None:
+            folder = next(
+                (value for value in parsed_folders if value.id == doc.semantic_fields["volume_id"]),
+                None,
+            )
+            if folder is None or folder.semantic_fields["scope"] != "writing":
+                raise BundleFormatError("chapter volume is missing or has the wrong scope")
         if doc.kind == "note" and doc.semantic_fields["category_id"] is not None:
             category = next(
                 c for c in parsed_categories if c.id == doc.semantic_fields["category_id"]
@@ -770,6 +783,20 @@ async def _current_hash(
             "order": current.order,
             "agent_visibility": current.agent_visibility,
             "is_locked": current.is_locked,
+        }
+        return document_semantic_hash(fields, current.title, current.content), True
+    if doc.kind == "chapter":
+        current = await session.get(Chapter, doc.id)
+        if current is None:
+            return None, True
+        if current.project_id != project_id:
+            return None, False
+        fields = {
+            "kind": "chapter",
+            "id": current.id,
+            "project_id": project_id,
+            "volume_id": current.volume_id,
+            "order": current.order,
         }
         return document_semantic_hash(fields, current.title, current.content), True
     if doc.kind == "discussion":

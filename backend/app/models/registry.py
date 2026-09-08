@@ -25,6 +25,7 @@ from app.models.adapters.openai_responses_compatible import (
     OpenAIResponsesCompatibleAdapter,
 )
 from app.models.adapters.openrouter import OpenRouterAdapter
+from app.models.optional_dependencies import install_hint, is_available
 
 
 class AdapterRegistry:
@@ -94,6 +95,16 @@ class AdapterRegistry:
         elif task_type == "rerank":
             return adapter.supports_rerank()
         return False
+
+    @classmethod
+    def is_available(cls, provider_type: str, task_type: str) -> bool:
+        """Whether the supported task can run with installed optional SDKs."""
+        return cls.is_supported(provider_type, task_type) and is_available(provider_type, task_type)
+
+    @classmethod
+    def unavailable_reason(cls, provider_type: str, task_type: str) -> str | None:
+        """Return a user-actionable install hint for an unavailable native SDK."""
+        return install_hint(provider_type, task_type)
 
     @classmethod
     def list_providers(cls) -> list[str]:

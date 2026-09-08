@@ -127,6 +127,35 @@ async def test_build_chapter_summary_prompt_omits_previous_chapter_part_for_firs
 
 
 @pytest.mark.asyncio
+async def test_build_chapter_summary_prompt_uses_previous_root_chapter(
+    session: AsyncSession,
+) -> None:
+    project = Project(title="项目", description="")
+    session.add(project)
+    await session.flush()
+    previous = Chapter(
+        project_id=project.id,
+        volume_id=None,
+        title="根目录第一章",
+        content="上一章正文",
+        order=1,
+    )
+    target = Chapter(
+        project_id=project.id,
+        volume_id=None,
+        title="根目录第二章",
+        content="本章正文",
+        order=2,
+    )
+    session.add_all([previous, target])
+    await session.flush()
+
+    prompt = await build_chapter_summary_prompt(session, target.id)
+
+    assert any("<title>根目录第一章</title>" in message.content for message in prompt.messages)
+
+
+@pytest.mark.asyncio
 async def test_build_long_term_summary_prompt_omits_default_context(session: AsyncSession) -> None:
     project = Project(title="项目", description="")
     session.add(project)

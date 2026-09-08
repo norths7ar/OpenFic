@@ -154,10 +154,16 @@ export async function moveVolume(volumeId: string, data: VolumeMove): Promise<Vo
 }
 
 export async function updateChapter(chapterId: string, data: ChapterUpdate): Promise<Chapter> {
+  const contentBase =
+    data.baseTitle !== undefined && data.baseContent !== undefined
+      ? { base_title: data.baseTitle, base_content: data.baseContent }
+      : {};
   const response = await apiClient.patch(`/chapters/${chapterId}`, {
     title: data.title,
     content: data.content,
     word_count: data.wordCount,
+    base_updated_at: data.baseUpdatedAt,
+    ...contentBase,
   });
   return transformChapter(response.data);
 }

@@ -160,6 +160,7 @@ export function ProviderModelsDialog({
   }, [rows, searchQuery]);
 
   const enabledCount = providerModels.filter((model) => model.isEnabled).length;
+  const isTaskUnavailable = provider?.unavailableTaskTypes.includes(taskType) ?? false;
 
   const toggleMutation = useMutation({
     mutationFn: async ({ row, enabled }: { row: ProviderModelRow; enabled: boolean }) => {
@@ -174,7 +175,7 @@ export function ProviderModelsDialog({
         provider_id: provider.id,
         model_id: row.remote.id,
         task_type: taskType,
-        context_length: row.remote.contextWindow ?? 128000,
+        context_length: row.remote.contextWindow ?? 0,
         input_price: row.remote.inputPricePerMillion ?? 0,
         output_price: row.remote.outputPricePerMillion ?? 0,
         cache_read_price: row.remote.cacheReadPricePerMillion ?? 0,
@@ -244,6 +245,15 @@ export function ProviderModelsDialog({
                 ))}
               </Tabs.List>
             </Tabs.Root>
+          ) : null}
+
+          {isTaskUnavailable ? (
+            <Text
+              size="2"
+              color="amber"
+            >
+              {t("models.optionalSdkRequired")}
+            </Text>
           ) : null}
 
           <Flex
@@ -382,7 +392,8 @@ export function ProviderModelsDialog({
                               disabled={
                                 isAgentSettingsLocked ||
                                 toggleMutation.isPending ||
-                                row.saved?.isBuiltin
+                                row.saved?.isBuiltin ||
+                                (isTaskUnavailable && !row.saved)
                               }
                               aria-label={t("models.toggleModel", { model: row.remote.name })}
                               onCheckedChange={(enabled) => toggleMutation.mutate({ row, enabled })}

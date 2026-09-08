@@ -21,8 +21,9 @@ from app.core.agent_visibility import (
 )
 from app.project_bundle.archive import BundleFormatError, build_zip
 from app.project_bundle.markdown import body_format
-from app.project_bundle.names import slugify_filename
+from app.project_bundle.names import chapter_paths, slugify_filename
 from app.project_bundle.source_mapping import _validate_rule
+from app.storage.models.chapter import Chapter
 from app.storage.models.character import Character
 from app.storage.models.note import Note
 from app.storage.models.project import Project
@@ -69,6 +70,13 @@ def default_source_mapping_config() -> dict[str, Any]:
         "schema": "openfic.import-map",
         "version": 1,
         "rules": [
+            {
+                "id": "chapters",
+                "target": "chapters",
+                "glob": "正文/*.md",
+                "split": {"type": "file"},
+                "required": False,
+            },
             {
                 "id": "background",
                 "target": "worldbook",
@@ -204,6 +212,15 @@ async def _load_documents(
             )
         ).scalars()
     )
+    chapters = list(
+        (
+            await session.execute(
+                select(Chapter)
+                .where(col(Chapter.project_id) == project_id)
+                .order_by(col(Chapter.volume_id), col(Chapter.order), col(Chapter.id))
+            )
+        ).scalars()
+    )
 
     documents: dict[tuple[str, str], _SourceDocument] = {}
     for item in entries:
@@ -250,6 +267,21 @@ async def _load_documents(
             document_type=item.document_type,
             is_locked=item.is_locked,
         )
+    for item in chapters:
+        folder = folders.get(item.volume_id) if item.volume_id else None
+        if item.volume_id is not None and (folder is None or folder.scope != "writing"):
+            raise BundleFormatError("chapter volume is missing or cross-project")
+        documents[("chapter", item.id)] = _SourceDocument(
+            "chapter",
+            item.id,
+            item.title,
+            item.content,
+            DEFAULT_AGENT_VISIBILITY,
+            item.order,
+            category_path=(folder.title,) if folder else (),
+            category_target_ids=(folder.id,) if folder else (),
+            category_orders=(folder.order,) if folder else (),
+        )
     return project, documents
 
 
@@ -278,7 +310,28 @@ def _visible_title(document: _SourceDocument, rule: dict[str, Any]) -> str:
 
 def _render_file_source(document: _SourceDocument, rule: dict[str, Any]) -> str:
     title = _visible_title(document, rule)
-    return f"# {title}\n\n{document.body}".rstrip("\r\n") + "\n"
+    prefix = ""
+    if document.target_kind == "chapter":
+        if len(document.category_target_ids) > 1:
+            raise BundleFormatError("chapter may belong to at most one writing volume")
+        prefix = (
+            "---\n"
+            + _yaml(
+                {
+                    "openfic_chapter": {
+                        "id": document.target_id,
+                        "volume_id": (
+                            document.category_target_ids[0]
+                            if document.category_target_ids
+                            else None
+                        ),
+                        "order": document.order,
+                    }
+                }
+            )
+            + "---\n\n"
+        )
+    return prefix + f"# {title}\n\n{document.body}".rstrip("\r\n") + "\n"
 
 
 def _render_heading_source(
@@ -353,7 +406,7 @@ def _item_metadata(
         metadata["section"] = document.section or ""
     elif document.target_kind == "character":
         metadata["is_favorited"] = document.is_favorited
-    else:
+    elif document.target_kind == "note":
         metadata["is_locked"] = document.is_locked
     return metadata
 
@@ -375,6 +428,7 @@ def _fallback_path(document: _SourceDocument, document_type: str | None) -> str:
         "character": "人物",
         "outline": "提纲",
         "note": "笔记",
+        "chapter": "正文",
     }
     semantic_type = document_type or document.target_kind
     path = PurePosixPath(roots[semantic_type])
@@ -394,6 +448,7 @@ def _fallback_rule(
     target = {
         "world_entry": "worldbook",
         "character": "characters",
+        "chapter": "chapters",
     }.get(document.target_kind, "outlines" if document_type == "outline" else "notes")
     rule: dict[str, Any] = {
         "id": f"openfic-{document.target_kind}-{document.target_id}",
@@ -428,6 +483,17 @@ async def export_markdown_source_bundle(session: AsyncSession, project_id: str) 
         config = dict(config)
         config["rules"] = [_canonical_rule(rule) for rule in config["rules"]]
 
+    if not any(rule.get("target") == "chapters" and "glob" in rule for rule in config["rules"]):
+        config["rules"].append(
+            {
+                "id": "openfic-chapters",
+                "target": "chapters",
+                "glob": "正文/*.md",
+                "split": {"type": "file"},
+                "required": False,
+            }
+        )
+
     rules_by_id = {
         rule.get("id"): rule
         for rule in config["rules"]
@@ -438,7 +504,9 @@ async def export_markdown_source_bundle(session: AsyncSession, project_id: str) 
             await session.execute(
                 select(ProjectImportBinding).where(
                     col(ProjectImportBinding.project_id) == project_id,
-                    col(ProjectImportBinding.target_kind).in_(["world_entry", "character", "note"]),
+                    col(ProjectImportBinding.target_kind).in_(
+                        ["world_entry", "character", "note", "chapter"]
+                    ),
                 )
             )
         ).scalars()
@@ -468,7 +536,9 @@ async def export_markdown_source_bundle(session: AsyncSession, project_id: str) 
                 select(ProjectFolder)
                 .where(
                     col(ProjectFolder.project_id) == project_id,
-                    col(ProjectFolder.scope).in_(["world", "character", "note", "outline"]),
+                    col(ProjectFolder.scope).in_(
+                        ["writing", "world", "character", "note", "outline"]
+                    ),
                 )
                 .order_by(col(ProjectFolder.scope), col(ProjectFolder.order), col(ProjectFolder.id))
             )
@@ -488,6 +558,10 @@ async def export_markdown_source_bundle(session: AsyncSession, project_id: str) 
             raise BundleFormatError("stored import profile has an invalid split")
         rules_with_files.add(rule_id)
         for binding, document in records:
+            if document.target_kind == "chapter":
+                # Chapter identity and folder membership deliberately travel in
+                # the Markdown file so a user may rename that file or its H1.
+                continue
             anchor = (
                 "H1:" + document.title
                 if split.get("type") == "file"
@@ -499,6 +573,24 @@ async def export_markdown_source_bundle(session: AsyncSession, project_id: str) 
         if rule.get("id") not in rules_with_files:
             rule["required"] = False
 
+    fallback_chapters = [
+        document for document in documents.values() if document.target_kind == "chapter"
+    ]
+    chapter_fallback_paths = chapter_paths(
+        (
+            (
+                document.target_id,
+                document.title,
+                document.category_target_ids[0] if document.category_target_ids else None,
+            )
+            for document in fallback_chapters
+        ),
+        {
+            document.category_target_ids[0]: document.category_path[0]
+            for document in fallback_chapters
+            if document.category_target_ids
+        },
+    )
     for key, document in sorted(
         documents.items(),
         key=lambda value: (value[1].target_kind, value[1].order, value[0]),
@@ -506,8 +598,17 @@ async def export_markdown_source_bundle(session: AsyncSession, project_id: str) 
         if key in mapped_targets:
             continue
         document_type = document.document_type
-        source_path = _fallback_path(document, document_type)
+        source_path = (
+            chapter_fallback_paths[document.target_id]
+            if document.target_kind == "chapter"
+            else _fallback_path(document, document_type)
+        )
         files[source_path] = _render_file_source(document, {})
+        if document.target_kind == "chapter":
+            # The portable chapter glob reads the per-file stable metadata.
+            # Do not create an exact-path rule that would turn a rename into a
+            # delete/create operation.
+            continue
         fallback_rule = _fallback_rule(document, source_path, document_type)
         config["rules"].append(fallback_rule)
         config["items"].append(
@@ -519,6 +620,7 @@ async def export_markdown_source_bundle(session: AsyncSession, project_id: str) 
         rule
         for rule in config["rules"]
         if rule.get("id") in rules_with_files
+        or rule.get("target") == "chapters"
         or "glob" not in rule
         or not any(fnmatch.fnmatchcase(path, rule["glob"]) for path in files)
     ]

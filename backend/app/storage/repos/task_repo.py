@@ -2,7 +2,7 @@
 Task Repository - 任务数据访问层。
 """
 
-from datetime import UTC, datetime
+from datetime import datetime
 
 from sqlalchemy import delete as sql_delete
 from sqlalchemy import func, select
@@ -11,6 +11,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col
 
 from app.storage.models.task import Task
+
+
+async def record_message_time(session: AsyncSession, task_id: str, sent_at: datetime) -> None:
+    """Advance conversation activity only when a newer message is persisted."""
+    await session.execute(
+        sql_update(Task)
+        .where(col(Task.id) == task_id, col(Task.updated_at) < sent_at)
+        .values(updated_at=sent_at)
+        .execution_options(synchronize_session=False)
+    )
 
 
 async def add_token_usage(
@@ -174,7 +184,6 @@ async def clear_running_tasks(session: AsyncSession) -> int:
         .where(col(Task.is_running))
         .values(
             is_running=False,
-            updated_at=datetime.now(UTC),
         )
     )
     await session.flush()

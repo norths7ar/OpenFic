@@ -38,6 +38,11 @@ const connectionSchema = z.object({
 type ConnectionFormData = z.infer<typeof connectionSchema>;
 
 const MASKED_CUSTOM_HEADER_VALUE = "••••••••";
+const OPENCODEX_BASE_URL = "http://127.0.0.1:10100/v1";
+
+function allowsAnonymousConnection(providerType: string): boolean {
+  return providerType === "openai-compatible" || providerType === "openai-compatible-responses";
+}
 
 function serializeCustomHeaders(headers: ConnectionFormData["customHeaders"]) {
   return headers
@@ -134,7 +139,7 @@ export function ConnectionFormDialog({
 
     if (requiresProviderUrl(providerType, catalogProviders)) {
       if (!isEditing || connection?.providerType !== providerType) {
-        setValue("url", "");
+        setValue("url", allowsAnonymousConnection(providerType) ? OPENCODEX_BASE_URL : "");
       }
     }
   }, [providerType, catalogProviders, setValue, isEditing, connection]);
@@ -189,7 +194,7 @@ export function ConnectionFormDialog({
     }
 
     // 如果没有apiKey且是新建模式，显示错误
-    if (!isEditing && !formData.apiKey) {
+    if (!isEditing && !formData.apiKey && !allowsAnonymousConnection(formData.providerType)) {
       setValidationStatus("error");
       return;
     }
@@ -275,7 +280,7 @@ export function ConnectionFormDialog({
   const canValidate = useMemo(() => {
     if (!providerType) return false;
     if (requiresProviderUrl(providerType, catalogProviders) && (!url || !url.trim())) return false;
-    if (!isEditing && !apiKey) return false;
+    if (!isEditing && !apiKey && !allowsAnonymousConnection(providerType)) return false;
     return true;
   }, [providerType, catalogProviders, url, isEditing, apiKey]);
 
@@ -450,7 +455,7 @@ export function ConnectionFormDialog({
                 color="gray"
               >
                 {t("connections.apiKey")}
-                {!isEditing && (
+                {!isEditing && !allowsAnonymousConnection(providerType) && (
                   <Text
                     color="red"
                     style={{ display: "inline" }}
@@ -493,7 +498,11 @@ export function ConnectionFormDialog({
                     <TextField.Root
                       {...field}
                       type="password"
-                      placeholder={t("connections.apiKeyPlaceholder")}
+                      placeholder={
+                        allowsAnonymousConnection(providerType)
+                          ? t("connections.apiKeyOptionalPlaceholder")
+                          : t("connections.apiKeyPlaceholder")
+                      }
                       disabled={isAgentSettingsLocked}
                     />
                   )}

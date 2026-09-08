@@ -21,7 +21,7 @@ class ProjectImportBinding(SQLModel, table=True):
     __tablename__ = "project_import_bindings"
     __table_args__ = (
         CheckConstraint(
-            "target_kind IN ('world_entry', 'character', 'note', "
+            "target_kind IN ('world_entry', 'character', 'chapter', 'note', "
             "'note_category', 'project_folder', 'discussion', 'discussion_message')",
             name="ck_project_import_bindings_target_kind",
         ),

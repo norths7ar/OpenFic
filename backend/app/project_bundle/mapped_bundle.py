@@ -76,6 +76,7 @@ def _generated_id(target_kind: str, binding_key: str) -> str:
         "world_entry": "map-we",
         "character": "map-ch",
         "note": "map-no",
+        "chapter": "map-chap",
         "note_category": "map-nc",
         "project_folder": "map-pf",
     }
@@ -487,7 +488,7 @@ async def build_mapped_project_bundle(
             )
         ).scalars()
     )
-    existing_document_flags = {}
+    existing_document_flags: dict[tuple[str, str], dict[str, bool]] = {}
     for model, kind, flag in (
         (Character, "character", "is_favorited"),
         (Note, "note", "is_locked"),
@@ -495,7 +496,9 @@ async def build_mapped_project_bundle(
         rows = (
             await session.execute(select(model).where(col(model.project_id) == target_project_id))
         ).scalars()
-        existing_document_flags.update({(kind, row.id): {flag: getattr(row, flag)} for row in rows})
+        existing_document_flags.update(
+            {(kind, row.id): {flag: bool(getattr(row, flag))} for row in rows}
+        )
     builder = _Builder(
         project=project,
         world_info_id=world_info_id,
@@ -590,6 +593,21 @@ async def build_mapped_project_bundle(
                 title=item.title,
                 body=item.body,
                 path=(f"{item.target}/_mapped/{item.order:06d}-{slug}--{{id}}.md"),
+            )
+        elif item.target == "chapters":
+            volume_id = builder.add_project_folder(
+                item.category_path,
+                "writing",
+                item.category_target_ids,
+                item.category_orders,
+            )
+            builder.add_document(
+                item=item,
+                target_kind="chapter",
+                fields={"volume_id": volume_id, "order": item.order},
+                title=item.title,
+                body=item.body,
+                path=f"正文/_mapped/{item.order:06d}-{slug}--{{id}}.md",
             )
     return builder.finish(source_items)
 

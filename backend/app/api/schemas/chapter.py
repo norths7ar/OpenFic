@@ -23,6 +23,9 @@ class ChapterUpdate(BaseModel):
     title: str | None = Field(default=None, min_length=1, max_length=200, description="章节标题")
     content: str | None = Field(default=None, description="章节内容")
     word_count: int | None = Field(default=None, ge=0, description="章节字数（前端计算）")
+    base_updated_at: datetime | None = Field(default=None, description="编辑开始时的正文版本")
+    base_title: str | None = Field(default=None, description="编辑开始时的标题")
+    base_content: str | None = Field(default=None, description="编辑开始时的正文")
 
 
 class ChapterReorder(BaseModel):

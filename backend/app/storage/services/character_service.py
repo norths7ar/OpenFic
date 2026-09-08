@@ -126,12 +126,12 @@ async def reorder_characters(session: AsyncSession, project_id: str, ordered_ids
     expected = {character.id for character in characters}
     if set(ordered_ids) != expected or len(ordered_ids) != len(expected):
         raise ValueError("ordered_ids 必须完整匹配当前项目角色")
-    now = datetime.now(UTC)
     by_id = {character.id: character for character in characters}
     for index, character_id in enumerate(ordered_ids):
         character = by_id[character_id]
+        if character.order == index:
+            continue
         character.order = index
-        character.updated_at = now
         session.add(character)
     await session.flush()
     return len(ordered_ids)
@@ -194,6 +194,8 @@ async def update_character(
     """更新角色。"""
     character = await get_character(session, character_id)
     old_image_path = character.image_path
+    original_content = (character.name, character.description, character.image_path)
+    original_metadata = (character.is_favorited, character.agent_visibility)
 
     if name is not None:
         next_name = name.strip()
@@ -211,7 +213,14 @@ async def update_character(
         character.agent_visibility = validate_agent_visibility(agent_visibility)
     if image_file is not None:
         character.image_path = await save_character_image(character.id, image_file)
-    character.updated_at = datetime.now(UTC)
+    content_changed = (
+        original_content != (character.name, character.description, character.image_path)
+        or image_file is not None
+    )
+    if content_changed:
+        character.updated_at = datetime.now(UTC)
+    elif original_metadata == (character.is_favorited, character.agent_visibility):
+        return character
     character = await character_repo.update(session, character)
 
     if image_file is not None and old_image_path:

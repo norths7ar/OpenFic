@@ -133,6 +133,27 @@ async def test_compile_canonical_mentions_groups_consecutive_mentions_into_block
 
 
 @pytest.mark.asyncio
+async def test_compile_canonical_mentions_renders_root_chapter_without_volume_prefix(session):
+    project = Project(id="proj_root_mentions", title="根目录提及项目")
+    chapter = Chapter(
+        id="chap_root_mentions",
+        project_id=project.id,
+        volume_id=None,
+        title="根目录章节",
+        content="正文",
+        order=1,
+    )
+    session.add_all([project, chapter])
+    await session.commit()
+
+    compiled = await compile_canonical_mentions(
+        '<of-mention chapter_id="chap_root_mentions" />', session, project_id=project.id
+    )
+
+    assert compiled == " @chapter:根目录章节 "
+
+
+@pytest.mark.asyncio
 async def test_compile_canonical_mentions_flattens_multiline_line_range_snapshot(session):
     await _seed_story_graph(session)
 

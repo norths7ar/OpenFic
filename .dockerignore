@@ -23,6 +23,9 @@
 
 backend/data
 backend/.env
+data
+output
+.env
 tmp
 docs
 *.md
