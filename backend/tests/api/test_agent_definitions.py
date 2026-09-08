@@ -300,3 +300,27 @@ async def test_delete_nonexistent_agent_definition(client: AsyncClient):
 async def test_delete_builtin_agent_definition_rejected(client: AsyncClient):
     response = await client.delete("/api/v1/agent-definitions/build")
     assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "metadata",
+    [
+        {"supports_global_context": "false"},
+        {"workflow_only": 1},
+    ],
+)
+async def test_definition_api_rejects_invalid_capabilities(client: AsyncClient, metadata):
+    response = await client.post(
+        "/api/v1/agent-definitions",
+        json={
+            "key": "custom-validation",
+            "display_name": "Validation",
+            "kind": "primary",
+            "prompt_agent_name": "custom-validation",
+            "metadata": metadata,
+        },
+    )
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+    response = await client.put("/api/v1/agent-definitions/draft", json={"metadata": metadata})
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT

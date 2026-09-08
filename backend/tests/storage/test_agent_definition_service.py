@@ -501,3 +501,31 @@ async def test_delete_removes_delegatable_reference_from_primaries():
             assert "explore" in build.delegatable_agents
     finally:
         await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_invalid_capabilities_do_not_mutate_existing_definition():
+    from app.storage.services import agent_definition_service
+
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:", future=True)
+    factory = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+    async with engine.begin() as conn:
+        await conn.run_sync(SQLModel.metadata.create_all)
+    try:
+        async with factory() as session:
+            record = await agent_definition_service.update_definition(
+                session, key="draft", display_name="Original"
+            )
+            await session.commit()
+            with pytest.raises(ValidationError):
+                await agent_definition_service.update_definition(
+                    session,
+                    key="draft",
+                    display_name="Must not change",
+                    metadata={"supports_global_context": "false"},
+                )
+            assert record.display_name == "Original"
+            assert record.metadata_json["supports_global_context"] is True
+            assert not session.is_modified(record)
+    finally:
+        await engine.dispose()

@@ -4,11 +4,15 @@ AgentDefinition Service - Business logic for agent definitions CRUD.
 
 from typing import Any
 
+from pydantic import TypeAdapter
+from pydantic import ValidationError as PydanticValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agent_runtime.agents.definitions import (
     DEFAULT_AGENT_KEYS,
+    AgentCapabilities,
     AgentDefinition,
+    AgentKind,
     agent_definition_from_record,
     get_default_agent_definition,
     load_agent_definition,
@@ -19,6 +23,17 @@ from app.storage.repos import agent_definition_repo
 
 _BUILTIN_KEYS: tuple[str, ...] = DEFAULT_AGENT_KEYS
 _SUBAGENT_RESTRICTED_TOOL_CATEGORIES = frozenset(("orchestration", "interaction"))
+
+
+def _validate_definition_input(kind: str | None, metadata: dict[str, Any] | None) -> None:
+    # Validate all changed behavior fields before mutating a persisted record.
+    try:
+        if kind is not None:
+            TypeAdapter(AgentKind).validate_python(kind)
+        if metadata is not None:
+            AgentCapabilities.model_validate(metadata)
+    except PydanticValidationError as exc:
+        raise ValidationError(str(exc)) from exc
 
 
 def _normalize_enabled_skills(skill_ids: list[str] | None) -> list[str]:
@@ -94,6 +109,7 @@ async def create_definition(
     color: str | None = None,
     icon: str | None = None,
 ) -> AgentDefinitionRecord:
+    _validate_definition_input(kind, metadata)
     existing = await agent_definition_repo.get_by_key(session, key)
     if existing is not None:
         raise ValidationError(f"智能体 {key} 已存在")
@@ -161,6 +177,7 @@ async def update_definition(
     color: str | None = None,
     icon: str | None = None,
 ) -> AgentDefinitionRecord:
+    _validate_definition_input(kind, metadata)
     if kind is not None and key in _BUILTIN_KEYS:
         default = get_default_agent_definition(key)
         if kind != default.kind:

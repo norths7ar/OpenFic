@@ -1,15 +1,30 @@
 """Default primary and subagent definitions."""
 
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from types import MappingProxyType
-from typing import Any, Literal, cast
+from typing import Any, Literal
 
+from pydantic import BaseModel, ConfigDict, StrictBool, TypeAdapter
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col
 
 from app.agent_runtime.persistence.model import AgentDefinitionRecord
+
+AgentKind = Literal["primary", "subagent"]
+AgentSource = Literal["builtin", "custom"]
+_AGENT_KIND = TypeAdapter(AgentKind)
+_AGENT_SOURCE = TypeAdapter(AgentSource)
+
+
+class AgentCapabilities(BaseModel):
+    """Validated behavior fields; unrelated presentation metadata stays extensible."""
+
+    model_config = ConfigDict(frozen=True)
+
+    supports_global_context: StrictBool = False
+    workflow_only: StrictBool = False
 
 
 @dataclass(frozen=True)
@@ -17,17 +32,30 @@ class AgentDefinition:
     key: str
     display_name: str
     description: str
-    kind: Literal["primary", "subagent"]
+    kind: AgentKind
     prompt_agent_name: str
     model_id: str | None
     enabled_tool_categories: tuple[str, ...]
     enabled_skills: tuple[str, ...]
     metadata: Mapping[str, Any]
     enabled: bool = True
-    source: Literal["builtin", "custom"] = "builtin"
+    source: AgentSource = "builtin"
     color: str | None = None
     icon: str | None = None
     delegatable_agents: tuple[str, ...] = ()
+    capabilities: AgentCapabilities = field(init=False)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "kind", _AGENT_KIND.validate_python(self.kind))
+        object.__setattr__(self, "source", _AGENT_SOURCE.validate_python(self.source))
+        metadata = dict(self.metadata)
+        # Validate supplied capabilities before applying fixed built-in boundaries.
+        capabilities = AgentCapabilities.model_validate(metadata)
+        if self.key in {"build", "plan", "discuss"}:
+            metadata["supports_global_context"] = self.key != "build"
+            capabilities = AgentCapabilities.model_validate(metadata)
+        object.__setattr__(self, "metadata", MappingProxyType(metadata))
+        object.__setattr__(self, "capabilities", capabilities)
 
 
 DEFAULT_AGENT_KEYS: tuple[str, ...] = (
@@ -278,11 +306,7 @@ def get_default_agent_definition(key: str) -> AgentDefinition:
 
 
 def supports_global_context(definition: AgentDefinition) -> bool:
-    if definition.key == "build":
-        return False
-    if definition.key in {"plan", "discuss"}:
-        return True
-    return bool(definition.metadata.get("supports_global_context"))
+    return definition.capabilities.supports_global_context
 
 
 def agent_definition_from_record(record: AgentDefinitionRecord) -> AgentDefinition:
@@ -290,23 +314,14 @@ def agent_definition_from_record(record: AgentDefinitionRecord) -> AgentDefiniti
         key=record.key,
         display_name=record.display_name,
         description=record.description,
-        kind=cast(Literal["primary", "subagent"], record.kind),
+        kind=_AGENT_KIND.validate_python(record.kind),
         prompt_agent_name=record.prompt_agent_name,
         model_id=record.model_id,
         enabled_tool_categories=tuple(record.enabled_tool_categories or ()),
         enabled_skills=tuple(record.enabled_skills or ()),
-        metadata=MappingProxyType(
-            {
-                **dict(record.metadata_json or {}),
-                **(
-                    {"supports_global_context": record.key != "build"}
-                    if record.key in {"build", "plan", "discuss"}
-                    else {}
-                ),
-            }
-        ),
+        metadata=record.metadata_json,
         enabled=record.enabled,
-        source=cast(Literal["builtin", "custom"], record.source),
+        source=_AGENT_SOURCE.validate_python(record.source),
         color=record.color,
         icon=record.icon,
         delegatable_agents=tuple(record.delegatable_agents or ()),

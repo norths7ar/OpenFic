@@ -235,3 +235,53 @@ async def test_load_all_agent_definitions_merges_defaults_and_db_overrides():
         assert definitions["custom-bot"].source == "custom"
     finally:
         await engine.dispose()
+
+
+@pytest.mark.parametrize("field", ["supports_global_context", "workflow_only"])
+@pytest.mark.parametrize("value", ["false", "true", 0, 1, None])
+def test_capabilities_reject_non_boolean_values(field, value):
+    from dataclasses import replace
+
+    from pydantic import ValidationError
+
+    from app.agent_runtime.agents.definitions import get_default_agent_definition
+
+    with pytest.raises(ValidationError):
+        replace(get_default_agent_definition("draft"), metadata={field: value})
+
+
+def test_capabilities_snapshot_metadata_and_preserve_custom_fields():
+    from dataclasses import replace
+
+    from app.agent_runtime.agents.definitions import (
+        get_default_agent_definition,
+        supports_global_context,
+    )
+
+    metadata = {"supports_global_context": False, "display_hint": "custom"}
+    definition = replace(get_default_agent_definition("draft"), metadata=metadata)
+    metadata["supports_global_context"] = True
+    assert supports_global_context(definition) is False
+    assert definition.metadata["supports_global_context"] is False
+    assert definition.metadata["display_hint"] == "custom"
+    with pytest.raises(TypeError):
+        definition.metadata["supports_global_context"] = True
+
+
+@pytest.mark.parametrize("field,value", [("kind", "unknown"), ("source", "unknown")])
+def test_database_definition_validates_closed_domains(field, value):
+    from pydantic import ValidationError
+
+    from app.agent_runtime.agents.definitions import agent_definition_from_record
+    from app.agent_runtime.persistence.model import AgentDefinitionRecord
+
+    record = AgentDefinitionRecord(
+        key="custom",
+        display_name="Custom",
+        kind="primary",
+        prompt_agent_name="custom",
+        source="custom",
+    )
+    setattr(record, field, value)
+    with pytest.raises(ValidationError):
+        agent_definition_from_record(record)

@@ -137,7 +137,7 @@ def get_prompt_chains_metadata(
         is_primary = (
             agent is not None
             and agent.kind == "primary"
-            and not bool(agent.metadata.get("workflow_only"))
+            and not agent.capabilities.workflow_only
         )
         return ("user", True) if is_primary else ("internal", False)
 
