@@ -36,6 +36,7 @@ import {
   Trash2,
   UserRound,
   FolderInput,
+  FilePlus,
   FolderPlus,
   MoreHorizontal,
 } from "lucide-react";
@@ -702,6 +703,7 @@ export function CharacterList({
                             onClick={() => onCreateCharacter()}
                             disabled={isCreating}
                           >
+                            <FilePlus size={16} />
                             {t("characters.newCharacter")}
                           </DropdownMenu.Item>
                           <DropdownMenu.Item

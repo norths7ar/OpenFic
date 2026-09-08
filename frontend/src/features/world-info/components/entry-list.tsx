@@ -39,6 +39,7 @@ import {
   CheckSquare,
   ToggleRight,
   FolderInput,
+  FilePlus,
   FolderPlus,
   MoreHorizontal,
 } from "lucide-react";
@@ -837,6 +838,7 @@ export function EntryList({
                         </DropdownMenu.Trigger>
                         <DropdownMenu.Content align="end">
                           <DropdownMenu.Item onClick={() => onCreateEntry()}>
+                            <FilePlus size={16} />
                             {t("worldInfo.newEntry")}
                           </DropdownMenu.Item>
                           <DropdownMenu.Item

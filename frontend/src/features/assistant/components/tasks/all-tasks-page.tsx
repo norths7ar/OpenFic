@@ -19,6 +19,7 @@ import {
   ArrowLeft,
   ArrowUpDown,
   FolderInput,
+  FilePlus,
   FolderPlus,
   MoreHorizontal,
   Pencil,
@@ -303,6 +304,7 @@ export function AllTasksPage({
             <DropdownMenu.Content align="end">
               {onNew && (
                 <DropdownMenu.Item onSelect={() => onNew()}>
+                  <FilePlus size={16} />
                   {newLabel ?? t("assistant.newTask")}
                 </DropdownMenu.Item>
               )}
