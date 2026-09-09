@@ -4,7 +4,7 @@
  * 悬浮的最近任务卡片组件
  */
 
-import { Box, Flex, Text } from "@radix-ui/themes";
+import { Box, Button, Flex, Text } from "@radix-ui/themes";
 import { useTranslation } from "react-i18next";
 
 import type { TaskListItem } from "@/lib/task.types";
@@ -38,6 +38,7 @@ export function RecentTasksCard({
     >
       {/* 悬浮的最近任务卡片 */}
       <Box
+        className={hasRecentTasks ? "recent-tasks-card" : undefined}
         style={{
           width: "90%",
           maxWidth: "320px",
@@ -49,7 +50,7 @@ export function RecentTasksCard({
             <Flex
               justify="between"
               align="center"
-              mb="3"
+              className="recent-tasks-card-header"
             >
               <Text
                 size="2"
@@ -57,13 +58,13 @@ export function RecentTasksCard({
               >
                 {t("writing.aiSidebar.recentTasks")}
               </Text>
-              <Text
+              <Button
                 size="1"
-                style={{ color: "var(--accent-11)", cursor: "pointer" }}
+                variant="ghost"
                 onClick={onViewAll}
               >
                 {t("writing.aiSidebar.viewAll")}
-              </Text>
+              </Button>
             </Flex>
 
             {/* 任务列表 */}

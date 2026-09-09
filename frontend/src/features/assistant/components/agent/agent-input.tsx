@@ -31,6 +31,7 @@ import { AgentMentionSuggestions } from "./agent-mention-suggestions";
 import { AgentPendingMessageCard } from "./pending-message-card";
 
 interface AgentInputProps {
+  header?: ReactNode;
   projectId: string;
   value: string;
   automaticComposerMarkup?: string | null;
@@ -70,6 +71,7 @@ interface AgentInputProps {
 }
 
 export function AgentInput({
+  header,
   projectId,
   value,
   automaticComposerMarkup = null,
@@ -386,6 +388,7 @@ export function AgentInput({
           }}
           onDrop={handleDrop}
         >
+          {header ? <div className="ai-sidebar-input-header">{header}</div> : null}
           <div
             className="agent-image-drop-overlay"
             aria-hidden="true"

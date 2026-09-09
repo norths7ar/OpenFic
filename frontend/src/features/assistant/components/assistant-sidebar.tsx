@@ -7,6 +7,7 @@ import {
   ArrowDown,
   ArrowLeft,
   ChevronDown,
+  FileClock,
   History,
   Layers2,
   MessageCircle,
@@ -24,6 +25,7 @@ import {
   useImperativeHandle,
 } from "react";
 import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router";
 
 import { useAppShell } from "@/app/app-shell-context";
 import { CircularProgress, ConfirmDialog, Spinner, toast, getModelValue } from "@/components";
@@ -32,7 +34,7 @@ import {
   appendMentionMarkup,
   replaceAutomaticMentionMarkup,
 } from "@/features/assistant/lib/mention-text";
-import { PendingProjectChangesDialog } from "@/features/pending-project-changes/components/pending-project-changes-dialog";
+import { usePendingProjectChangeCount } from "@/features/pending-project-changes/hooks";
 import { moveProjectFolderItem } from "@/features/project-folders/lib/project-folder-api";
 import { ProjectNavShell } from "@/features/project-navigation/components/project-nav-shell";
 import { fetchAgentDefinitions } from "@/features/settings/lib/agent-definitions-api";
@@ -241,6 +243,9 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
     ref,
   ) {
     const { t } = useTranslation();
+    const navigate = useNavigate();
+    const { data: pendingChanges } = usePendingProjectChangeCount(projectId);
+    const pendingCount = pendingChanges?.count ?? 0;
     const { openSettings } = useAppShell();
     const queryClient = useQueryClient();
 
@@ -1436,6 +1441,61 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
         </button>
       </span>
     );
+    const projectActions =
+      primaryAgents.length > 0 || (!discussionWorkspace && pendingCount > 0) ? (
+        <Flex
+          align="center"
+          gap="2"
+          className="ai-sidebar-project-actions"
+        >
+          {primaryAgents.length > 0 ? (
+            <DropdownMenu.Root>
+              <DropdownMenu.Trigger>
+                <Button
+                  size="1"
+                  variant="soft"
+                  color="purple"
+                  disabled={scopeChangeDisabled}
+                  aria-label={t("assistant.knowledgeScope")}
+                >
+                  <MessageCircle size={14} />
+                  {contextMode === "global"
+                    ? t("assistant.globalKnowledge")
+                    : t("assistant.publicKnowledge")}
+                  <ChevronDown size={13} />
+                </Button>
+              </DropdownMenu.Trigger>
+              <DropdownMenu.Content align="end">
+                <DropdownMenu.Label>{t("assistant.knowledgeScope")}</DropdownMenu.Label>
+                <DropdownMenu.Item
+                  disabled={!supportsGlobalScope}
+                  onClick={() => void handleKnowledgeScopeChange("global")}
+                >
+                  {t("assistant.globalKnowledge")}
+                </DropdownMenu.Item>
+                <DropdownMenu.Item
+                  disabled={hasActiveSession && contextMode === "global"}
+                  onClick={() => void handleKnowledgeScopeChange("local")}
+                >
+                  {t("assistant.publicKnowledge")}
+                </DropdownMenu.Item>
+              </DropdownMenu.Content>
+            </DropdownMenu.Root>
+          ) : null}
+          {!discussionWorkspace && pendingCount > 0 ? (
+            <Button
+              size="1"
+              variant="soft"
+              color="amber"
+              style={{ marginLeft: "auto" }}
+              onClick={() => navigate(`/projects/${projectId}/changes`)}
+            >
+              <FileClock size={14} />
+              {t("pendingProjectChanges.trigger", { count: pendingCount })}
+            </Button>
+          ) : null}
+        </Flex>
+      ) : null;
     const headerBackLabel = isViewingSubagent
       ? t("writing.aiSidebar.returnToPrimary")
       : t("common.back");
@@ -1492,49 +1552,7 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
             </Flex>
           )}
 
-          {view !== "allTasks" && (
-            <Flex
-              align="center"
-              gap="2"
-              className="ai-sidebar-project-actions"
-            >
-              {!discussionWorkspace ? <PendingProjectChangesDialog projectId={projectId} /> : null}
-              {primaryAgents.length > 0 ? (
-                <DropdownMenu.Root>
-                  <DropdownMenu.Trigger>
-                    <Button
-                      size="1"
-                      variant="soft"
-                      color="purple"
-                      disabled={scopeChangeDisabled}
-                      aria-label={t("assistant.knowledgeScope")}
-                    >
-                      <MessageCircle size={14} />
-                      {contextMode === "global"
-                        ? t("assistant.globalKnowledge")
-                        : t("assistant.publicKnowledge")}
-                      <ChevronDown size={13} />
-                    </Button>
-                  </DropdownMenu.Trigger>
-                  <DropdownMenu.Content align="end">
-                    <DropdownMenu.Label>{t("assistant.knowledgeScope")}</DropdownMenu.Label>
-                    <DropdownMenu.Item
-                      disabled={!supportsGlobalScope}
-                      onClick={() => void handleKnowledgeScopeChange("global")}
-                    >
-                      {t("assistant.globalKnowledge")}
-                    </DropdownMenu.Item>
-                    <DropdownMenu.Item
-                      disabled={hasActiveSession && contextMode === "global"}
-                      onClick={() => void handleKnowledgeScopeChange("local")}
-                    >
-                      {t("assistant.publicKnowledge")}
-                    </DropdownMenu.Item>
-                  </DropdownMenu.Content>
-                </DropdownMenu.Root>
-              ) : null}
-            </Flex>
-          )}
+          {view !== "allTasks" && discussionWorkspace ? projectActions : null}
 
           {view !== "allTasks" && hasActiveTask && (
             <Box className="ai-sidebar-header">
@@ -1885,6 +1903,7 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
               </div>
 
               <AgentInput
+                header={!discussionWorkspace ? projectActions : undefined}
                 specialPanels={
                   isViewingSubagent ? (
                     <AgentSpecialPanels
