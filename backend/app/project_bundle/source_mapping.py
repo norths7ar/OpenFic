@@ -463,7 +463,7 @@ def _read_source_mapping_manifest(
     configured_project_id = config.get("project_id")
     if (
         config.get("schema") != "openfic.import-map"
-        or config.get("version") != 1
+        or config.get("version") not in {1, 2}
         or (configured_project_id is not None and configured_project_id != target_project_id)
     ):
         _fail("invalid import map identity")
@@ -488,6 +488,7 @@ def _source_metadata(
             "title",
             "order",
             "description",
+            "source",
         }:
             _fail("source folder metadata is invalid")
         if not isinstance(folder.get("id"), str) or not _TARGET_ID.fullmatch(folder["id"]):
@@ -561,6 +562,10 @@ def read_source_mapping_manifest(data: bytes, target_project_id: str) -> tuple[d
 def parse_source_mapping(data: bytes, target_project_id: str) -> list[MappedSourceItem]:
     files = read_zip(data)
     config, _ = _read_source_mapping_manifest(files, target_project_id)
+    if config["version"] == 2:
+        from .directory_mapping import parse_directory_mapping
+
+        return parse_directory_mapping(files, config)
     metadata, folders = _source_metadata(config)
     rules = config["rules"]
     seen_rules: set[str] = set()

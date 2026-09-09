@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-import fnmatch
-import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import PurePosixPath
 from typing import Any
 
@@ -14,15 +12,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col
 
 from app.core.agent_visibility import (
-    AGENT_VISIBILITY_STATES,
     DEFAULT_AGENT_VISIBILITY,
     AgentVisibility,
-    validate_agent_visibility,
 )
 from app.project_bundle.archive import BundleFormatError, build_zip
-from app.project_bundle.markdown import body_format
-from app.project_bundle.names import chapter_paths, slugify_filename
-from app.project_bundle.source_mapping import _validate_rule
+from app.project_bundle.names import slugify_filename
 from app.storage.models.chapter import Chapter
 from app.storage.models.character import Character
 from app.storage.models.note import Note
@@ -32,8 +26,6 @@ from app.storage.models.project_import_binding import ProjectImportBinding
 from app.storage.models.project_import_profile import ProjectImportProfile
 from app.storage.models.world_info import WorldInfo
 from app.storage.models.world_info_entry import WorldInfoEntry
-
-_ANCHOR_PART = re.compile(r"^H([1-6]):(.+)$")
 
 
 @dataclass(frozen=True)
@@ -53,93 +45,26 @@ class _SourceDocument:
     is_favorited: bool = False
 
 
-@dataclass
-class _HeadingNode:
-    key: str
-    level: int
-    title: str
-    order: int
-    body: str = ""
-    children: dict[str, _HeadingNode] = field(default_factory=dict)
-
-
 def default_source_mapping_config() -> dict[str, Any]:
-    """Return a portable starting profile whose major sections are optional."""
-
+    """Version 2 uses independent directory roots for each document type."""
     return {
         "schema": "openfic.import-map",
-        "version": 1,
+        "version": 2,
         "rules": [
-            {
-                "id": "chapters",
-                "target": "chapters",
-                "glob": "正文/*.md",
-                "split": {"type": "file"},
-                "required": False,
-            },
-            {
-                "id": "background",
-                "target": "worldbook",
-                "source": "背景设定.md",
-                "split": {"type": "headings", "item_levels": [2]},
-                "required": False,
-            },
-            {
-                "id": "characters",
-                "target": "characters",
-                "source": "人物.md",
-                "split": {"type": "headings", "item_levels": [2]},
-                "required": False,
-            },
-            {
-                "id": "outlines",
-                "target": "outlines",
-                "source": "提纲.md",
-                "split": {"type": "headings", "item_levels": [2]},
-                "required": False,
-            },
-            {
-                "id": "notes",
-                "target": "notes",
-                "glob": "笔记/*.md",
-                "split": {"type": "file"},
-                "required": False,
-            },
+            {"id": target, "target": target, "source": root, "layout": "files", "required": False}
+            for target, root in (
+                ("chapters", "正文"),
+                ("worldbook", "背景设定"),
+                ("characters", "角色"),
+                ("outlines", "提纲"),
+                ("notes", "笔记"),
+            )
         ],
     }
 
 
 def _yaml(value: dict[str, Any]) -> str:
-    rendered = yaml.safe_dump(value, allow_unicode=True, sort_keys=False)
-    return rendered.rstrip("\n") + "\n"
-
-
-def _canonical_rule(rule: dict[str, Any]) -> dict[str, Any]:
-    """Emit the one-level folder vocabulary while accepting older profiles."""
-
-    result = dict(rule)
-    result["agent_visibility"] = DEFAULT_AGENT_VISIBILITY.value
-    if "folder_level" not in result:
-        legacy_levels = result.pop("category_levels", None)
-        legacy_section = result.pop("section_level", None)
-        if isinstance(legacy_levels, list) and legacy_levels:
-            result["folder_level"] = legacy_levels[0]
-        elif legacy_section is not None:
-            result["folder_level"] = legacy_section
-    else:
-        result.pop("category_levels", None)
-        result.pop("section_level", None)
-    if "folder_path" not in result and "category_path" in result:
-        result["folder_path"] = result.pop("category_path")
-    else:
-        result.pop("category_path", None)
-    legacy_ids = result.pop("category_target_ids", None)
-    if "folder_target_id" not in result and isinstance(legacy_ids, list) and legacy_ids:
-        result["folder_target_id"] = legacy_ids[0]
-    legacy_orders = result.pop("category_orders", None)
-    if "folder_order" not in result and isinstance(legacy_orders, list) and legacy_orders:
-        result["folder_order"] = legacy_orders[0]
-    return _validate_rule(result)
+    return yaml.safe_dump(value, allow_unicode=True, sort_keys=False).rstrip("\n") + "\n"
 
 
 def _category_paths(
@@ -285,344 +210,167 @@ async def _load_documents(
     return project, documents
 
 
-def _anchor_parts(anchor: str) -> list[tuple[int, str]]:
-    parts: list[tuple[int, str]] = []
-    for raw in re.split(r"/(?=H[1-6]:)", anchor):
-        match = _ANCHOR_PART.fullmatch(raw)
-        if match is None:
-            raise BundleFormatError("stored source anchor is invalid")
-        parts.append((int(match.group(1)), match.group(2)))
-    if not parts or parts[0][0] != 1:
-        raise BundleFormatError("stored source anchor must start with H1")
-    return parts
-
-
-def _visible_title(document: _SourceDocument, rule: dict[str, Any]) -> str:
-    try:
-        visibility = validate_agent_visibility(document.agent_visibility)
-    except ValueError as exc:
-        raise BundleFormatError("agent_visibility is invalid") from exc
-    marker = next(
-        state.export_marker for state in AGENT_VISIBILITY_STATES if state.value == visibility
-    )
-    return f"{document.title}{marker}"
-
-
-def _render_file_source(document: _SourceDocument, rule: dict[str, Any]) -> str:
-    title = _visible_title(document, rule)
-    prefix = ""
-    if document.target_kind == "chapter":
-        if len(document.category_target_ids) > 1:
-            raise BundleFormatError("chapter may belong to at most one writing volume")
-        prefix = (
-            "---\n"
-            + _yaml(
-                {
-                    "openfic_chapter": {
-                        "id": document.target_id,
-                        "volume_id": (
-                            document.category_target_ids[0]
-                            if document.category_target_ids
-                            else None
-                        ),
-                        "order": document.order,
-                    }
-                }
-            )
-            + "---\n\n"
-        )
-    return prefix + f"# {title}\n\n{document.body}".rstrip("\r\n") + "\n"
-
-
-def _render_heading_source(
-    records: list[tuple[ProjectImportBinding, _SourceDocument]],
-    rule: dict[str, Any],
-) -> str:
-    roots: dict[str, _HeadingNode] = {}
-    folder_level = rule.get("folder_level")
-    category_levels = list(rule.get("category_levels", []))
-    section_level = rule.get("section_level")
-    for binding, document in sorted(records, key=lambda value: value[1].order):
-        parts = _anchor_parts(binding.source_anchor)
-        effective_levels = [folder_level] if folder_level is not None else category_levels
-        dynamic_categories = (
-            document.category_path[-len(effective_levels) :] if effective_levels else ()
-        )
-        category_titles = dict(zip(effective_levels, dynamic_categories, strict=False))
-        parent: _HeadingNode | None = None
-        for index, (level, anchor_title) in enumerate(parts):
-            title = anchor_title
-            if level == section_level and document.section:
-                title = document.section
-            if level in category_titles:
-                title = category_titles[level]
-            is_leaf = index == len(parts) - 1
-            if is_leaf:
-                title = _visible_title(document, rule)
-            key = f"H{level}:{anchor_title}"
-            siblings = roots if parent is None else parent.children
-            node = siblings.get(key)
-            if node is None:
-                node = _HeadingNode(key, level, title, document.order)
-                siblings[key] = node
-            else:
-                node.order = min(node.order, document.order)
-                if is_leaf:
-                    node.title = title
-            if is_leaf:
-                node.body = document.body
-            parent = node
-
-    lines: list[str] = []
-
-    def emit(node: _HeadingNode) -> None:
-        if lines:
-            lines.append("")
-        lines.append(f"{'#' * node.level} {node.title}")
-        if node.body:
-            lines.extend(("", node.body))
-        children = sorted(node.children.values(), key=lambda value: (value.order, value.key))
-        for child in children:
-            emit(child)
-
-    for root in sorted(roots.values(), key=lambda value: (value.order, value.key)):
-        emit(root)
-    return "\n".join(lines).rstrip("\r\n") + "\n"
-
-
-def _item_metadata(
-    document: _SourceDocument, rule_id: str, source: str, anchor: str
-) -> dict[str, Any]:
-    metadata = {
-        "rule_id": rule_id,
-        "source": source,
-        "anchor": anchor,
-        "target_id": document.target_id,
-        "order": document.order,
-        "folder_id": document.category_target_ids[0] if document.category_target_ids else None,
-        "body_format": body_format(document.body),
-    }
-    if document.target_kind == "world_entry":
-        metadata["section"] = document.section or ""
-    elif document.target_kind == "character":
-        metadata["is_favorited"] = document.is_favorited
-    elif document.target_kind == "note":
-        metadata["is_locked"] = document.is_locked
-    return metadata
-
-
-def _exported_anchor(
-    binding: ProjectImportBinding, document: _SourceDocument, rule: dict[str, Any]
-) -> str:
-    parts = _anchor_parts(binding.source_anchor)
-    folder_level = rule.get("folder_level")
-    return "/".join(
-        f"H{level}:{document.title if index == len(parts) - 1 else document.category_path[0] if level == folder_level and document.category_path else title}"
-        for index, (level, title) in enumerate(parts)
-    )
-
-
-def _fallback_path(document: _SourceDocument, document_type: str | None) -> str:
-    roots = {
-        "world_entry": "背景设定",
-        "character": "人物",
-        "outline": "提纲",
-        "note": "笔记",
-        "chapter": "正文",
-    }
-    semantic_type = document_type or document.target_kind
-    path = PurePosixPath(roots[semantic_type])
-    for category in document.category_path:
-        path /= slugify_filename(category, "未分类")
-    filename = (
-        f"{document.order:06d}-"
-        f"{slugify_filename(document.title, document.target_id)}"
-        f"--{document.target_id}.md"
-    )
-    return str(path / filename)
-
-
-def _fallback_rule(
-    document: _SourceDocument, source_path: str, document_type: str | None
-) -> dict[str, Any]:
-    target = {
+def _document_target(document: _SourceDocument) -> str:
+    return {
         "world_entry": "worldbook",
         "character": "characters",
         "chapter": "chapters",
-    }.get(document.target_kind, "outlines" if document_type == "outline" else "notes")
-    rule: dict[str, Any] = {
-        "id": f"openfic-{document.target_kind}-{document.target_id}",
-        "target": target,
-        "source": source_path,
-        "split": {"type": "file"},
-        "agent_visibility": DEFAULT_AGENT_VISIBILITY.value,
-        "target_id": document.target_id,
-        "order": document.order,
-    }
-    if document.category_path:
-        rule["folder_path"] = list(document.category_path)
-        rule["folder_target_id"] = document.category_target_ids[0]
-        rule["folder_order"] = document.category_orders[0]
-    return rule
+    }.get(document.target_kind, "outlines" if document.document_type == "outline" else "notes")
 
 
 async def export_markdown_source_bundle(session: AsyncSession, project_id: str) -> bytes:
-    """Export mapped documents to their source locations and others by type."""
+    """Write v2 only; legacy profiles remain importable, never constrain content."""
+    from .directory_mapping import TARGET_SCOPES, directory_rules
+    from .item_markers import render_item
 
     _, documents = await _load_documents(session, project_id)
     profile = await session.get(ProjectImportProfile, project_id)
-    if profile is None:
-        config = default_source_mapping_config()
-    else:
+    config = default_source_mapping_config()
+    if profile is not None:
         try:
-            config = yaml.safe_load(profile.mapping_yaml)
+            stored = yaml.safe_load(profile.mapping_yaml)
         except yaml.YAMLError as exc:
             raise BundleFormatError("stored import profile is invalid") from exc
-        if not isinstance(config, dict) or not isinstance(config.get("rules"), list):
+        if not isinstance(stored, dict):
             raise BundleFormatError("stored import profile is invalid")
-        config = dict(config)
-        config["rules"] = [_canonical_rule(rule) for rule in config["rules"]]
-
-    if not any(rule.get("target") == "chapters" and "glob" in rule for rule in config["rules"]):
-        config["rules"].append(
-            {
-                "id": "openfic-chapters",
-                "target": "chapters",
-                "glob": "正文/*.md",
-                "split": {"type": "file"},
-                "required": False,
-            }
-        )
-
-    rules_by_id = {
-        rule.get("id"): rule
-        for rule in config["rules"]
-        if isinstance(rule, dict) and isinstance(rule.get("id"), str)
-    }
+        if stored.get("version") == 2:
+            directory_rules(stored)
+            config = {**stored, "rules": [dict(rule) for rule in stored["rules"]]}
+        # Heading-based v1 mappings cannot express the new directory contract.
+        # Export them into the portable default roots, without mutating profile/data.
+    for default in default_source_mapping_config()["rules"]:
+        if not any(rule["target"] == default["target"] for rule in config["rules"]):
+            # Defaults must never reserve names against user-owned mappings.
+            # Choose a sibling root, not a child of an existing mapped root.
+            roots = [rule["source"].casefold() for rule in config["rules"]]
+            source = default["source"]
+            suffix = 2
+            while any(
+                source.casefold() == root
+                or source.casefold().startswith(root + "/")
+                or root.startswith(source.casefold() + "/")
+                for root in roots
+            ):
+                source = f"{default['source']}-{suffix}"
+                suffix += 1
+            rule_id = "openfic-" + default["id"]
+            existing_ids = {rule["id"] for rule in config["rules"]}
+            suffix = 2
+            while rule_id in existing_ids:
+                rule_id = f"openfic-{default['id']}-{suffix}"
+                suffix += 1
+            config["rules"].append({**default, "id": rule_id, "source": source})
+    rules = directory_rules(config)
     bindings = list(
         (
             await session.execute(
                 select(ProjectImportBinding).where(
-                    col(ProjectImportBinding.project_id) == project_id,
-                    col(ProjectImportBinding.target_kind).in_(
-                        ["world_entry", "character", "note", "chapter"]
-                    ),
+                    col(ProjectImportBinding.project_id) == project_id
                 )
             )
         ).scalars()
     )
-    by_source: dict[tuple[str, str], list[tuple[ProjectImportBinding, _SourceDocument]]] = {}
-    mapped_targets: set[tuple[str, str]] = set()
-    for binding in bindings:
-        rule = rules_by_id.get(binding.rule_id)
-        document = documents.get((binding.target_kind, binding.target_id))
-        if rule is None or document is None:
-            continue
-        by_source.setdefault((binding.rule_id, binding.source_path), []).append((binding, document))
-        mapped_targets.add((binding.target_kind, binding.target_id))
+    bound = {
+        (row.target_kind, row.target_id): row
+        for row in sorted(bindings, key=lambda row: row.updated_at)
+    }
+    rules_by_id = {rule["id"]: rule for rule in rules}
 
-    files: dict[str, str | bytes] = {}
-    config["items"] = []
-    config["folders"] = [
-        {
-            "id": folder.id,
-            "scope": folder.scope,
-            "title": folder.title,
-            "order": folder.order,
-            "description": folder.description,
-        }
-        for folder in (
+    def rule_for(document: _SourceDocument) -> dict[str, Any]:
+        binding = bound.get((document.target_kind, document.target_id))
+        rule = rules_by_id.get(binding.rule_id) if binding else None
+        target = _document_target(document)
+        return (
+            rule
+            if rule is not None and rule["target"] == target
+            else next(candidate for candidate in rules if candidate["target"] == target)
+        )
+
+    folders = list(
+        (
             await session.execute(
                 select(ProjectFolder)
                 .where(
                     col(ProjectFolder.project_id) == project_id,
-                    col(ProjectFolder.scope).in_(
-                        ["writing", "world", "character", "note", "outline"]
-                    ),
+                    col(ProjectFolder.scope).in_(list(TARGET_SCOPES.values())),
                 )
                 .order_by(col(ProjectFolder.scope), col(ProjectFolder.order), col(ProjectFolder.id))
             )
         ).scalars()
-    ]
-    rules_with_files: set[str] = set()
-    for (rule_id, source_path), records in sorted(by_source.items()):
-        rule = rules_by_id[rule_id]
-        split = rule.get("split", {})
-        if split.get("type") == "file":
-            if len(records) != 1:
-                raise BundleFormatError("file source maps to multiple project documents")
-            files[source_path] = _render_file_source(records[0][1], rule)
-        elif split.get("type") == "headings":
-            files[source_path] = _render_heading_source(records, rule)
-        else:
-            raise BundleFormatError("stored import profile has an invalid split")
-        rules_with_files.add(rule_id)
-        for binding, document in records:
-            if document.target_kind == "chapter":
-                # Chapter identity and folder membership deliberately travel in
-                # the Markdown file so a user may rename that file or its H1.
-                continue
-            anchor = (
-                "H1:" + document.title
-                if split.get("type") == "file"
-                else _exported_anchor(binding, document, rule)
-            )
-            config["items"].append(_item_metadata(document, rule_id, source_path, anchor))
-
-    for rule in config["rules"]:
-        if rule.get("id") not in rules_with_files:
-            rule["required"] = False
-
-    fallback_chapters = [
-        document for document in documents.values() if document.target_kind == "chapter"
-    ]
-    chapter_fallback_paths = chapter_paths(
-        (
-            (
-                document.target_id,
-                document.title,
-                document.category_target_ids[0] if document.category_target_ids else None,
-            )
-            for document in fallback_chapters
-        ),
-        {
-            document.category_target_ids[0]: document.category_path[0]
-            for document in fallback_chapters
-            if document.category_target_ids
-        },
     )
-    for key, document in sorted(
-        documents.items(),
-        key=lambda value: (value[1].target_kind, value[1].order, value[0]),
+    folder_sources: dict[str, str] = {}
+    config.pop("items", None)
+    previous_folders = {folder["id"]: folder for folder in config.get("folders", [])}
+    config["folders"] = []
+    used_directories: set[str] = set()
+    for folder in folders:
+        members = [
+            document
+            for document in documents.values()
+            if document.category_target_ids == (folder.id,)
+        ]
+        member_rules = {rule_for(document)["id"] for document in members}
+        previous = previous_folders.get(folder.id, {})
+        if len(member_rules) > 1:
+            raise BundleFormatError("one project folder cannot span multiple mapping roots")
+        rule = (
+            rules_by_id[next(iter(member_rules))]
+            if member_rules
+            else next(
+                (
+                    candidate
+                    for candidate in rules
+                    if previous.get("source", "").startswith(candidate["source"] + "/")
+                ),
+                next(
+                    candidate
+                    for candidate in rules
+                    if TARGET_SCOPES[candidate["target"]] == folder.scope
+                ),
+            )
+        )
+        directory = str(PurePosixPath(rule["source"]) / slugify_filename(folder.title, folder.id))
+        if directory.casefold() in used_directories:
+            directory += "--" + folder.id
+        used_directories.add(directory.casefold())
+        folder_sources[folder.id] = directory
+        config["folders"].append(
+            {
+                "id": folder.id,
+                "scope": folder.scope,
+                "title": folder.title,
+                "order": folder.order,
+                "description": folder.description,
+                "source": directory,
+            }
+        )
+    files: dict[str, str | bytes] = {}
+    for document in sorted(
+        documents.values(), key=lambda item: (_document_target(item), item.order, item.target_id)
     ):
-        if key in mapped_targets:
-            continue
-        document_type = document.document_type
-        source_path = (
-            chapter_fallback_paths[document.target_id]
-            if document.target_kind == "chapter"
-            else _fallback_path(document, document_type)
+        rule = rule_for(document)
+        directory = (
+            folder_sources[document.category_target_ids[0]]
+            if document.category_target_ids
+            else rule["source"]
         )
-        files[source_path] = _render_file_source(document, {})
-        if document.target_kind == "chapter":
-            # The portable chapter glob reads the per-file stable metadata.
-            # Do not create an exact-path rule that would turn a rename into a
-            # delete/create operation.
-            continue
-        fallback_rule = _fallback_rule(document, source_path, document_type)
-        config["rules"].append(fallback_rule)
-        config["items"].append(
-            _item_metadata(document, fallback_rule["id"], source_path, "H1:" + document.title)
-        )
-
-    # A dormant template glob must not also import the explicit fallback documents.
-    config["rules"] = [
-        rule
-        for rule in config["rules"]
-        if rule.get("id") in rules_with_files
-        or rule.get("target") == "chapters"
-        or "glob" not in rule
-        or not any(fnmatch.fnmatchcase(path, rule["glob"]) for path in files)
-    ]
+        if rule.get("layout", "files") == "merged":
+            filename = "条目.md"
+        else:
+            filename = f"{document.order:06d}-{slugify_filename(document.title, document.target_id)}--{document.target_id}.md"
+        path = str(PurePosixPath(directory) / filename)
+        metadata: dict[str, Any] = {
+            "id": document.target_id,
+            "title": document.title,
+            "order": document.order,
+            "agent_visibility": document.agent_visibility.value,
+        }
+        if document.target_kind == "world_entry":
+            metadata["section"] = document.section or ""
+        elif document.target_kind == "character":
+            metadata["is_favorited"] = document.is_favorited
+        elif document.target_kind == "note":
+            metadata["is_locked"] = document.is_locked
+        files[path] = str(files.get(path, "")) + render_item(metadata, document.body)
     files["openfic-import.yaml"] = _yaml(config)
     return build_zip(files)

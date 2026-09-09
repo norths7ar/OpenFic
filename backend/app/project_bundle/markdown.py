@@ -96,23 +96,8 @@ def parse_markdown_document(text: str) -> ParsedMarkdownDocument:
     first_content = next((line for line in content if line.strip()), None)
     if first_content is None or _H1.match(first_content) is None:
         raise BundleFormatError("the first non-empty content line must be the H1")
-    heading_indexes: list[int] = []
-    fenced = False
-    fence_marker = ""
-    for index, line in enumerate(content):
-        stripped = line.lstrip()
-        if stripped.startswith(("```", "~~~")):
-            marker = stripped[:3]
-            if not fenced:
-                fenced, fence_marker = True, marker
-            elif marker == fence_marker:
-                fenced = False
-            continue
-        if not fenced and _H1.match(line):
-            heading_indexes.append(index)
-    if len(heading_indexes) != 1:
-        raise BundleFormatError("Markdown document must contain exactly one file-level H1")
-    heading_index = heading_indexes[0]
+    # Only the leading title is an envelope. All later headings belong to the body.
+    heading_index = next(index for index, line in enumerate(content) if line.strip())
     heading_match = _H1.match(content[heading_index])
     if heading_match is None:
         raise BundleFormatError("Markdown document must contain exactly one file-level H1")

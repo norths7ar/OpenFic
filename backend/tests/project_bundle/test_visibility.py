@@ -106,38 +106,27 @@ def test_visibility_catalog_covers_enum_exactly():
 
 @pytest.mark.parametrize("state", AGENT_VISIBILITY_STATES, ids=lambda state: state.value)
 def test_source_marker_round_trip_uses_enum_catalog(state):
-    document = source_export._SourceDocument("note", "test", "标题", "内容", state.value, 0)
-    rule = source_export._fallback_rule(document, "note.md", "note")
     import yaml
+
+    from app.project_bundle.item_markers import render_item
 
     bundle = build_zip(
         {
             "openfic-import.yaml": yaml.safe_dump(
-                {"schema": "openfic.import-map", "version": 1, "rules": [rule]}
+                {
+                    "schema": "openfic.import-map",
+                    "version": 2,
+                    "rules": [{"id": "notes", "target": "notes", "source": "笔记"}],
+                }
             ),
-            "note.md": source_export._render_file_source(document, rule),
+            "笔记/a.md": render_item(
+                {"id": "n", "title": "标题", "agent_visibility": state.value.value}, "内容"
+            ),
         }
     )
     parsed = source_mapping.parse_source_mapping(bundle, "p")[0]
     assert parsed.title == "标题"
     assert parsed.agent_visibility is state.value
-
-
-def test_exported_public_title_does_not_inherit_a_global_profile_default():
-    rule = source_export._canonical_rule(
-        {
-            "id": "r",
-            "target": "notes",
-            "source": "a.md",
-            "split": {"type": "file"},
-            "agent_visibility": "global",
-        }
-    )
-    document = source_export._SourceDocument("note", "n", "标题", "内容", AgentVisibility.ALL, 0)
-    parsed = source_mapping._mapped_items(
-        "a.md", source_export._render_file_source(document, rule), rule
-    )
-    assert parsed[0].agent_visibility == "all"
 
 
 def test_nested_item_visibility_does_not_change_child_anchor():

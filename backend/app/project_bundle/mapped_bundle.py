@@ -179,6 +179,15 @@ class _Builder:
             target_id_hint is not None and binding.target_id != target_id_hint
         ):
             raise BundleFormatError("stored import target differs from source hint")
+        if binding is None and target_id_hint is not None and source_anchor.startswith("item:"):
+            previous = [
+                row
+                for row in self.existing.values()
+                if row.target_kind == target_kind and row.target_id == target_id_hint
+            ]
+            if previous:
+                # A file/directory move changes the source key, not its baseline.
+                binding = max(previous, key=lambda row: row.updated_at)
         target_id = binding.target_id if binding is not None else target_id_hint
         target_id = target_id or _generated_id(target_kind, key)
         if _TARGET_ID.fullmatch(target_id) is None:
@@ -627,6 +636,17 @@ async def persist_mapped_import_bindings(
         ).scalars()
     )
     current = {row.binding_key: row for row in current_rows}
+    marker_targets = {
+        (spec.target_kind, spec.target_id): spec.binding_key
+        for spec in specs
+        if spec.source_anchor.startswith("item:")
+    }
+    for row in current_rows:
+        replacement = marker_targets.get((row.target_kind, row.target_id))
+        if replacement is not None and replacement != row.binding_key:
+            await session.delete(row)
+    # Release the unique target ownership before inserting its new source key.
+    await session.flush()
     now = datetime.now(UTC)
     for spec in specs:
         row = current.get(spec.binding_key)

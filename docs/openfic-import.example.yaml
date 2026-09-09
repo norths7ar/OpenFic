@@ -1,51 +1,61 @@
-# Copy this file to the root of a Markdown repository ZIP as
-# openfic-import.yaml, then adjust source paths and heading levels.
-# project_id is optional. When present, OpenFic refuses to import the bundle
-# into a different project.
+# 放在 ZIP 根目录，命名为 openfic-import.yaml。
+# source 是相对目录，可改名、改变位置；不同规则的根目录不能重叠。
+# 根目录中的 Markdown 是根级条目，下一层目录是文件夹（正文中为卷）。
+# 当前应用只支持单层文件夹，更深目录会明确报错，不会静默展平。
+# project_id 可选；填写后不允许导入其他项目。
 schema: openfic.import-map
-version: 1
+version: 2
 rules:
-  # Each H2 below the single H1 becomes one background entry.
   - id: background
     target: worldbook
-    source: 背景设定.md
-    split:
-      type: headings
-      item_levels: [2]
+    source: 背景设定
+    layout: merged
     required: false
-
-  # Each H2 below the single H1 becomes one character.
   - id: characters
     target: characters
-    source: 人物.md
-    split:
-      type: headings
-      item_levels: [2]
+    source: 角色
+    layout: files
     required: false
-
-  # Outlines are distinct from general notes inside OpenFic.
   - id: outlines
     target: outlines
-    source: 提纲.md
-    split:
-      type: headings
-      item_levels: [2]
+    source: 提纲
+    layout: merged
     required: false
-
-  # Every Markdown file becomes one chapter. OpenFic chapter exports put the
-  # stable id, volume_id (or null for root), and order in file front matter.
   - id: chapters
     target: chapters
-    glob: 正文/*.md
-    split:
-      type: file
+    source: 正文
+    layout: files
     required: false
-
-  # Every matching file becomes one note. Add project-specific rules in the
-  # same way for folders such as 讨论记录 or 写作护栏.
   - id: notes
     target: notes
-    glob: 笔记/*.md
-    split:
-      type: file
+    source: 笔记
+    layout: files
     required: false
+
+# layout 只控制导出组织：files 每条目一文件；merged 每个目录一份条目.md。
+# 导入两种布局都接受；不会跨目录合并，条目标记不得设置文件夹归属。
+# 导出会补充 folders 列表，记录目录 source、稳定 id、title、scope、order
+# 和 description，保留同名文件夹、空文件夹与排序。
+# 手工重命名整个目录时，同步修改对应 folders.source 可保留文件夹身份。
+# 移动单个文件到另一个目录即可改变条目归属，条目 id 不变。
+#
+# 每个 Markdown 文件以如下标记开始；下一个标记或文件结束即条目结束：
+# <!-- openfic:item
+# id: unique-stable-id
+# title: 条目名称
+# order: 0
+# agent_visibility: all
+# -->
+# 正文从这里开始，任意 # / ## 标题都只是内容。
+#
+# id 必填且稳定（字母、数字、下划线、连字符，最长 64 字符），不要复制重复 ID。
+# title 必填；order 与 agent_visibility 可省略。其他允许属性为：
+# worldbook 的 section、characters 的 is_favorited、notes/outlines 的 is_locked。
+# 导出自动写入 body_format，以保留原有换行与首尾空行。
+# 独占行的 <!-- openfic:item 是保留语法，在代码围栏内也一样。
+# 正文要写这个字面行时加一个反斜杠：\<!-- openfic:item
+# 若本来已有反斜杠，再加一个；导出会自动转义，导入会移除一层。
+# 这种规则不依赖正文代码围栏是否闭合，避免吞掉下一条目。
+#
+# v1 标题拆分包仍可导入；新导出一律为 v2。旧配置导出时使用默认类型目录，
+# 不再回写旧标题组合文件；需要自定义目录时使用本 v2 配置。

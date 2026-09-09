@@ -47,7 +47,7 @@ async def test_source_round_trip_preserves_same_named_folder_ids(client, session
     assert preview.status_code == 200, preview.text
     assert preview.json()["summary"]["conflict"] == 0
     config = yaml.safe_load(read_zip(exported.content)["openfic-import.yaml"])
-    assert {rule["folder_target_id"] for rule in config["rules"] if "folder_target_id" in rule} == {
+    assert {folder["id"] for folder in config["folders"]} == {
         "same-folder-0",
         "same-folder-1",
     }
@@ -95,7 +95,7 @@ def _upload(data: bytes) -> dict:
     return {"file": ("source.zip", data, "application/zip"), "mode": (None, "merge")}
 
 
-async def test_source_export_uses_saved_mapping_and_falls_back_by_semantic_type(
+async def test_legacy_profile_exports_v2_without_heading_constraints(
     client: AsyncClient, session
 ) -> None:
     project = await _create_project(session)
@@ -128,17 +128,14 @@ async def test_source_export_uses_saved_mapping_and_falls_back_by_semantic_type(
     response = await client.get(f"/api/v1/projects/{project.id}/bundle/source/export")
     assert response.status_code == 200
     files = read_zip(response.content)
-    assert {"world.md", "character.md", "outline.md"}.issubset(files)
-    assert "### 第一卷" in files["outline.md"].decode()
+    assert not {"world.md", "character.md", "outline.md"}.intersection(files)
+    assert any(path.startswith("背景设定/") for path in files)
     fallback_path = next(path for path in files if path.startswith("提纲/新增提纲/"))
     assert "OpenFic 中新写的提纲" in files[fallback_path].decode()
 
     config = yaml.safe_load(files["openfic-import.yaml"])
-    fallback_rule = next(
-        rule for rule in config["rules"] if rule["id"] == "openfic-note-new-outline"
-    )
-    assert fallback_rule["target"] == "outlines"
-    assert fallback_rule["folder_path"] == ["新增提纲"]
+    assert config["version"] == 2
+    assert any(folder["source"] == "提纲/新增提纲" for folder in config["folders"])
 
     preview = await client.post(
         f"/api/v1/projects/{project.id}/bundle/source/preview",

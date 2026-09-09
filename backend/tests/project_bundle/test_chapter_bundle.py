@@ -99,11 +99,11 @@ async def test_source_chapter_round_trip_keeps_stable_ids_after_file_and_title_r
     files = read_zip(source)
     config = yaml.safe_load(files["openfic-import.yaml"])
     rule = next(rule for rule in config["rules"] if rule["target"] == "chapters")
-    assert rule["glob"] == "正文/*.md"
+    assert rule["source"] == "正文"
     old_path = next(path for path, value in files.items() if f"id: {nested.id}\n" in value.decode())
     new_path = "正文/第一卷/改名后的文件.md"
     document = files.pop(old_path).decode()
-    files[new_path] = document.replace("# 第一章", "# 改名后的章节", 1).replace(
+    files[new_path] = document.replace("title: 第一章", "title: 改名后的章节", 1).replace(
         "卷内正文", "正文第一行\n\n正文第二行", 1
     )
 
@@ -186,7 +186,7 @@ async def test_chapter_exports_make_same_and_invalid_titles_safe_and_distinct(se
     assert f"正文/第一卷/第一章--{duplicate.id}.md" in native_paths
     source_paths = [path for path in source if path.startswith("正文/")]
     assert len(source_paths) == len(set(source_paths))
-    assert "正文/序章.md" in source_paths
+    assert any("序章--" in path for path in source_paths)
     duplicate_path = next(path for path in source_paths if duplicate.id in path)
     assert "保留第一行\n保留第二行" in source[duplicate_path].decode()
 
@@ -216,8 +216,7 @@ async def test_chapter_source_rejects_missing_or_duplicate_stable_ids_and_separa
 
     files = read_zip(await export_markdown_source_bundle(session, project.id))
     paths = [path for path in files if path.startswith("正文/")]
-    assert f"正文/第一卷--{volume.id}/第一章.md" in paths
-    assert f"正文/第一卷--{second_volume.id}/第一章.md" in paths
+    assert len({path.rsplit("/", 1)[0] for path in paths if "第一章--" in path}) == 2
 
     nested_path = next(
         path for path, value in files.items() if f"id: {nested.id}\n" in value.decode()
@@ -227,8 +226,8 @@ async def test_chapter_source_rejects_missing_or_duplicate_stable_ids_and_separa
         parse_source_mapping(build_zip(files), project.id)
 
     files.pop("正文/复制.md")
-    files[nested_path] = files[nested_path].replace(b"openfic_chapter:", b"other:", 1)
-    with pytest.raises(BundleFormatError, match="chapter source metadata"):
+    files[nested_path] = files[nested_path].replace(b"id:", b"other:", 1)
+    with pytest.raises(BundleFormatError, match="openfic:item"):
         parse_source_mapping(build_zip(files), project.id)
 
 

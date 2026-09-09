@@ -26,20 +26,21 @@ def test_markdown_round_trip_preserves_original_newlines() -> None:
     assert parsed.body == "\r\n## 小节\r\n正文"
 
 
-def test_markdown_ignores_fenced_h1_but_rejects_second_real_h1() -> None:
+def test_markdown_keeps_all_body_headings() -> None:
     parsed = parse_markdown_document("---\na: 1\n---\n# 标题\n```md\n# 代码\n```\n## 小节")
     assert parsed.title == "标题"
-    with pytest.raises(BundleFormatError):
-        parse_markdown_document("---\na: 1\n---\n# 一\n# 二")
+    assert parse_markdown_document("---\na: 1\n---\n# 一\n# 二").body == "# 二"
     with pytest.raises(BundleFormatError):
         parse_markdown_document("---\na: 1\n---\n正文\n# 标题")
 
 
-def test_render_rejects_multiline_title_and_second_h1_body() -> None:
+def test_render_rejects_multiline_title_but_accepts_body_h1() -> None:
     with pytest.raises(BundleFormatError):
         render_markdown_document({}, "一\n二", "")
-    with pytest.raises(BundleFormatError):
-        render_markdown_document({}, "标题", "# 另一个标题")
+    assert (
+        parse_markdown_document(render_markdown_document({}, "标题", "# 另一个标题")).body
+        == "# 另一个标题"
+    )
 
 
 @pytest.mark.parametrize(
