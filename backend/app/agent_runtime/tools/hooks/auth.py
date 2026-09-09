@@ -74,8 +74,6 @@ def _approval_interrupt_payload(
 
 async def auth_hook(context: HookContext) -> HookResult:
     session = _extract_db_session(context.config)
-    if session is not None and await _read_bypass_tool_approval(session):
-        return HookResult(proceed=True)
     user_permissions = await _read_user_permissions(session) if session is not None else {}
 
     mode = user_permissions.get(context.tool_name)
@@ -89,6 +87,10 @@ async def auth_hook(context: HookContext) -> HookResult:
         )
 
     if mode == "allow":
+        return HookResult(proceed=True)
+
+    # Confirmation-free execution never overrides an explicit tool prohibition.
+    if session is not None and await _read_bypass_tool_approval(session):
         return HookResult(proceed=True)
 
     if mode == "ask":

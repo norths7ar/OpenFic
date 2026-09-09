@@ -1,6 +1,8 @@
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
+import pytest
+
 from app.agent_runtime.tools.base import HookContext
 from app.agent_runtime.tools.hooks.auth import auth_hook
 
@@ -77,6 +79,23 @@ async def test_global_bypass_allows_write_without_approval():
         result = await auth_hook(_make_context(tool_name="write_chapter", access_level="write"))
     assert result.proceed is True
     assert result.interrupt_payload is None
+
+
+@pytest.mark.parametrize(
+    ("tool_name", "access_level"),
+    [("write_chapter", "write"), ("read_chapter", "readonly")],
+)
+async def test_confirmation_free_execution_respects_deny(tool_name, access_level):
+    with (
+        patch(
+            "app.agent_runtime.tools.hooks.auth._read_bypass_tool_approval",
+            new=AsyncMock(return_value=True),
+        ),
+        _patch_permissions({tool_name: "deny"}),
+    ):
+        result = await auth_hook(_make_context(tool_name=tool_name, access_level=access_level))
+    assert result.proceed is False
+    assert result.interrupt_payload["denied"] is True
 
 
 async def test_ask_interrupts_readonly():

@@ -60,7 +60,7 @@ class SettingsResponse(BaseModel):
     default_rerank_model: str = Field(default="", description="默认 Rerank 模型 ID")
     agent_bypass_tool_approval: bool = Field(
         default=False,
-        description="是否全局放行 Agent 工具审批",
+        description="是否全局免确认执行 Agent 工具，明确禁止的工具仍被拦截",
     )
     agent_tool_permissions: list[AgentToolPermissionItem] = Field(
         default_factory=list, description="Agent 工具权限设置"
@@ -120,7 +120,7 @@ class SettingsUpdateRequest(BaseModel):
     )
     agent_bypass_tool_approval: bool | None = Field(
         default=None,
-        description="是否全局放行 Agent 工具审批",
+        description="是否全局免确认执行 Agent 工具，明确禁止的工具仍被拦截",
     )
     agent_tool_permissions: list[AgentToolPermissionItem] | None = Field(
         default=None, description="Agent 工具权限设置"
