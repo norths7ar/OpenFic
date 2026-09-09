@@ -18,6 +18,7 @@
 ## 文档分工
 
 - 本文件说明当前可用能力、产品与数据边界、运行方式和统一验证入口。
+- [CHANGELOG.md](./CHANGELOG.md) 归纳已完成的功能与修复；日常变化先积累在 `Unreleased`，阶段稳定后再整理版本并打标签，GitHub Release 按需发布。
 - [backend/README.md](./backend/README.md) 只提供后端子包的最小开发入口，不重复产品和部署说明。
 - [docs/openfic-import.example.yaml](./docs/openfic-import.example.yaml) 只提供 Markdown 源包映射的机器可读示例；实际格式以解析器和测试为准。
 
