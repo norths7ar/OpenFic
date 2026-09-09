@@ -51,6 +51,7 @@ from app.api.routers import (
     characters,
     commands,
     dashboard,
+    document_history,
     health,
     import_router,
     model_icons,
@@ -591,6 +592,7 @@ def create_app() -> FastAPI:
     app.include_router(projects.router, prefix=app_settings.api_v1_prefix)
     app.include_router(volumes.router, prefix=app_settings.api_v1_prefix)
     app.include_router(chapters.router, prefix=app_settings.api_v1_prefix)
+    app.include_router(document_history.router, prefix=app_settings.api_v1_prefix)
     app.include_router(notes.router, prefix=app_settings.api_v1_prefix)
     app.include_router(pending_project_changes.router, prefix=app_settings.api_v1_prefix)
     app.include_router(project_folders.router, prefix=app_settings.api_v1_prefix)

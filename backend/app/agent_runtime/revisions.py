@@ -17,6 +17,7 @@ from app.agent_runtime.persistence.model import AgentRunMessage
 from app.core.agent_visibility import AgentVisibility
 from app.core.editor_content_limits import validate_editor_content
 from app.core.errors import NotFoundError
+from app.storage.history_capture import with_history_source
 from app.storage.models.chapter import Chapter
 from app.storage.models.character import Character
 from app.storage.models.commit import Commit
@@ -885,6 +886,7 @@ async def record_agent_activity_for_change(
     )
 
 
+@with_history_source("restore")
 async def rollback_revision_for_session(
     session: AsyncSession,
     *,

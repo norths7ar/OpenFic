@@ -231,10 +231,7 @@ async def update_character(
 async def delete_character(session: AsyncSession, character_id: str) -> None:
     """删除角色。"""
     character = await get_character(session, character_id)
-    image_path = character.image_path
     await character_repo.delete(session, character)
-    if image_path:
-        delete_character_image(image_path)
 
 
 async def batch_update_favorite(
@@ -262,9 +259,5 @@ async def batch_delete_characters(
     if project is None:
         raise NotFoundError(f"项目不存在: {project_id}")
 
-    characters = await character_repo.list_by_project_and_ids(session, project_id, character_ids)
     deleted_count = await character_repo.batch_delete(session, project_id, character_ids)
-    for character in characters:
-        if character.image_path:
-            delete_character_image(character.image_path)
     return deleted_count

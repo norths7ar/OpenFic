@@ -20,6 +20,7 @@ from app.agent_runtime.tools.errors import (
     serialize_tool_failure,
     tool_failure_from_exception,
 )
+from app.storage.history_capture import with_history_source
 
 _PYDANTIC_HELP_URL = re.compile(
     r"\s*For further information visit https://errors\.pydantic\.dev/\S+"
@@ -203,6 +204,7 @@ class AgentTool(BaseTool):
             payload["tool_result_preview"] = preview
         return payload
 
+    @with_history_source("ai")
     async def _arun(
         self,
         *args: Any,

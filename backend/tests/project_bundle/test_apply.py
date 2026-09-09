@@ -153,6 +153,10 @@ async def test_apply_updates_content_without_deleting_unlisted_rows(session) -> 
     assert result.summary["update"] == 1
     assert note.content == "导入后的内容"
     assert await session.get(Note, extra.id) is extra
+    from app.storage.services.document_history_service import history_list
+
+    history, _ = await history_list(session, project.id, "note", note.id)
+    assert [(item.content, item.source) for item in history] == [("基线", "import")]
 
 
 @pytest.mark.asyncio

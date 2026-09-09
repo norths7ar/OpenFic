@@ -174,6 +174,9 @@ async def delete_project(session: AsyncSession, project_id: str) -> None:
     project = await get_project(session, project_id)
 
     await task_service.delete_all_tasks(session, project_id)
+    from app.storage.services.document_history_service import schedule_project_image_cleanup
+
+    await schedule_project_image_cleanup(session, project_id)
     await delete_revision_data_by_project(session, project_id)
     await pending_project_change_repo.delete_by_project(session, project_id)
 

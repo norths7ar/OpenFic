@@ -19,6 +19,7 @@ from app.project_bundle.importer import (
     parse_project_bundle,
     preview_project_bundle,
 )
+from app.storage.history_capture import with_history_source
 from app.storage.models.chapter import Chapter
 from app.storage.models.character import Character
 from app.storage.models.note import Note
@@ -419,6 +420,7 @@ async def _apply_discussion_message(
     session.add(current)
 
 
+@with_history_source("import")
 async def apply_project_bundle(
     session: AsyncSession,
     target_project_id: str,

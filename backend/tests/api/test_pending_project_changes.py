@@ -408,6 +408,10 @@ async def test_apply_update_is_one_time_and_applied_change_cannot_be_rejected(
     assert reject.status_code == 409
     assert note.json()["title"] == "采用后的标题"
     assert note.json()["content"] == "采用后的正文"
+    history = await client.get(f"/api/v1/projects/{project_id}/documents/note/{note_id}/history")
+    assert [(item["title"], item["source"]) for item in history.json()["items"]] == [
+        ("原笔记", "ai")
+    ]
 
 
 @pytest.mark.asyncio

@@ -14,6 +14,7 @@ from app.storage.models.chapter import Chapter
 from app.storage.models.chapter_summary import ChapterSummary
 from app.storage.models.character import Character
 from app.storage.models.commit import Commit
+from app.storage.models.document_history import DocumentHistory, DocumentTrash
 from app.storage.models.llm_audit_log import LLMAuditLog
 from app.storage.models.note import Note
 from app.storage.models.pending_project_change import PendingProjectChange
@@ -56,6 +57,8 @@ __all__ = [
     "Chapter",
     "ChapterSummary",
     "Commit",
+    "DocumentHistory",
+    "DocumentTrash",
     "LLMAuditLog",
     "Model",
     "ModelProvider",

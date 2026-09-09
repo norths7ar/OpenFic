@@ -16,6 +16,7 @@ from sqlalchemy.orm import sessionmaker
 
 from app.core.pinyin import to_pinyin, to_pinyin_initials
 from app.settings import settings
+from app.storage import history_capture as history_capture
 
 _engine = None
 _async_session_factory = None

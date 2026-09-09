@@ -31,6 +31,7 @@ from app.api.routers import (
     characters,
     commands,
     dashboard,
+    document_history,
     health,
     import_router,
     model_icons,
@@ -94,6 +95,7 @@ def _create_test_app() -> FastAPI:
     test_app.include_router(projects.router, prefix="/api/v1")
     test_app.include_router(volumes.router, prefix="/api/v1")
     test_app.include_router(chapters.router, prefix="/api/v1")
+    test_app.include_router(document_history.router, prefix="/api/v1")
     test_app.include_router(notes.router, prefix="/api/v1")
     test_app.include_router(pending_project_changes.router, prefix="/api/v1")
     test_app.include_router(commands.router, prefix="/api/v1")

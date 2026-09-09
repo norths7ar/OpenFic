@@ -357,7 +357,7 @@ async def test_replace_character_image_deletes_old_file(
 
 
 @pytest.mark.asyncio
-async def test_delete_character_deletes_image_file(
+async def test_delete_character_preserves_image_until_permanent_delete(
     client: AsyncClient,
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -374,6 +374,11 @@ async def test_delete_character_deletes_image_file(
     response = await client.delete(f"/api/v1/characters/{character['id']}")
 
     assert response.status_code == 204
+    assert image_file.exists()
+    trash = await client.get(f"/api/v1/projects/{project_id}/trash")
+    trash_id = trash.json()["items"][0]["id"]
+    permanent = await client.delete(f"/api/v1/projects/{project_id}/trash/{trash_id}")
+    assert permanent.status_code == 204
     assert not image_file.exists()
 
 

@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.agent_visibility import AgentVisibility
 from app.core.errors import ConflictError, NotFoundError, ValidationError
 from app.project_bundle.export import semantic_hash
+from app.storage.history_capture import with_history_source
 from app.storage.models.character import Character
 from app.storage.models.note import Note
 from app.storage.models.pending_project_change import PendingProjectChange
@@ -590,6 +591,7 @@ async def assess_pending_change(
         return PendingChangeApplicability(False, str(exc))
 
 
+@with_history_source("ai")
 async def apply_pending_change(
     session: AsyncSession,
     change: PendingProjectChange,
