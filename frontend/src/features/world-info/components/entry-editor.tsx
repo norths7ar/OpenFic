@@ -29,6 +29,8 @@ import { updateWorldInfoEntry } from "../lib/world-info-api";
 import { resolveRemoteEntryEditorState } from "./entry-editor-state";
 
 interface EntryEditorProps {
+  scrollTop?: number;
+  onScrollPositionChange?: (top: number) => void;
   /** 条目数据 */
   entry: WorldInfoEntry;
   /** 世界书 ID（用于刷新缓存） */
@@ -47,6 +49,8 @@ interface EntryEditorProps {
 const AUTO_SAVE_DELAY = 1500;
 
 export function EntryEditor({
+  scrollTop,
+  onScrollPositionChange,
   entry,
   worldInfoId,
   entries,
@@ -261,6 +265,8 @@ export function EntryEditor({
 
   return (
     <MarkdownEditor
+      scrollTop={scrollTop}
+      onScrollPositionChange={onScrollPositionChange}
       title={name}
       onTitleChange={handleTitleChange}
       content={entry.content}

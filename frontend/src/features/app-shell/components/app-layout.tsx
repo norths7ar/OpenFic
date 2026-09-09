@@ -174,6 +174,8 @@ export function AppLayout({ appearance, version, onAppearanceChange }: AppLayout
               data-active={isAssistantSidebarVisible}
               data-mobile-overlay={String(assistantSidebarHost.isMobileOverlay)}
               data-open={String(assistantSidebarHost.isOpen)}
+              inert={!isAssistantSidebarVisible || !assistantSidebarHost.isOpen}
+              aria-hidden={!isAssistantSidebarVisible || !assistantSidebarHost.isOpen}
             >
               <AssistantSidebar
                 key={assistantSidebarHost.projectId}

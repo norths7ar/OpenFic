@@ -1,14 +1,15 @@
-import { Box, Flex, Text } from "@radix-ui/themes";
+import type { Transaction } from "@tiptap/pm/state";
 import { useEditor, EditorContent } from "@tiptap/react";
 import type { Editor } from "@tiptap/react";
-import { useCallback, useRef, useEffect } from "react";
+import { useCallback, useRef, useEffect, useState } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 import { useTranslation } from "react-i18next";
 
 import { ContextMenu } from "./context-menu";
-import { EditorToolbar, type EditorToolbarExtraAction } from "./editor-toolbar";
+import { EditorDraftHistory } from "./editor-draft-history";
+import { EditorFrame } from "./editor-frame";
+import type { EditorToolbarExtraAction } from "./editor-toolbar";
 import { createMarkdownEditorExtensions } from "./markdown-editor-config";
-import { TitleInput } from "./title-input";
 
 export interface MarkdownEditorProps {
   title: string;
@@ -58,12 +59,19 @@ export function MarkdownEditor({
   onScrollPositionChange,
 }: MarkdownEditorProps) {
   const { t } = useTranslation();
+  const [mode, setMode] = useState<"visual" | "source">("visual");
+  const [rawContent, setRawContent] = useState(content);
+  const historyRef = useRef(new EditorDraftHistory(content));
   const contentSyncedRef = useRef(content);
   const editorContentRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const initialScrollTopRef = useRef(scrollTop);
   const latestScrollTopRef = useRef(scrollTop);
   const scrollPositionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scrollCallbackRef = useRef(onScrollPositionChange);
+  useEffect(() => {
+    scrollCallbackRef.current = onScrollPositionChange;
+  }, [onScrollPositionChange]);
 
   const editor = useEditor({
     extensions: createMarkdownEditorExtensions({
@@ -93,11 +101,15 @@ export function MarkdownEditor({
 
   useEffect(() => {
     if (!editor) return;
-    contentSyncedRef.current = editor.getMarkdown();
-    const onUpdate = () => {
+    const onUpdate = ({ transaction }: { transaction: Transaction }) => {
+      // setEditable and trailing-node normalization can emit updates without a user edit.
+      // Keep the original Markdown until the originating transaction changes content.
+      if (!transaction.docChanged) return;
       const markdown = editorRef.current?.getMarkdown();
       if (markdown !== undefined && markdown !== contentSyncedRef.current) {
         contentSyncedRef.current = markdown;
+        historyRef.current.record(markdown);
+        setRawContent(markdown);
         onContentChange(markdown);
       }
     };
@@ -120,6 +132,8 @@ export function MarkdownEditor({
     const { from, to } = currentEditor.state.selection;
     const wasFocused = currentEditor.isFocused;
     contentSyncedRef.current = content;
+    historyRef.current = new EditorDraftHistory(content);
+    setRawContent(content);
     currentEditor.commands.setContent(content, { contentType: "markdown", emitUpdate: false });
     if (!wasFocused) return;
 
@@ -130,6 +144,37 @@ export function MarkdownEditor({
     });
   }, [content]);
 
+  const changeSource = (value: string) => {
+    if (isLocked) return;
+    contentSyncedRef.current = value;
+    historyRef.current.record(value);
+    setRawContent(value);
+    onContentChange(value);
+  };
+
+  const restoreHistory = (direction: "undo" | "redo") => {
+    if (isLocked) {
+      onLockedAction?.();
+      return;
+    }
+    const value = historyRef.current[direction]();
+    contentSyncedRef.current = value;
+    setRawContent(value);
+    editor?.commands.setContent(value, { contentType: "markdown", emitUpdate: false });
+    onContentChange(value);
+  };
+
+  const changeMode = (nextMode: "visual" | "source") => {
+    historyRef.current.breakGroup();
+    if (nextMode === "visual" && mode === "source") {
+      editor?.commands.setContent(contentSyncedRef.current, {
+        contentType: "markdown",
+        emitUpdate: false,
+      });
+    }
+    setMode(nextMode);
+  };
+
   const flushScrollPosition = useCallback(() => {
     if (scrollPositionTimerRef.current) {
       clearTimeout(scrollPositionTimerRef.current);
@@ -137,11 +182,11 @@ export function MarkdownEditor({
     }
     const scrollPosition = scrollContainerRef.current?.scrollTop ?? latestScrollTopRef.current;
     latestScrollTopRef.current = scrollPosition;
-    onScrollPositionChange?.(scrollPosition);
-  }, [onScrollPositionChange]);
+    scrollCallbackRef.current?.(scrollPosition);
+  }, []);
 
   const handleEditorScroll = useCallback(() => {
-    if (!onScrollPositionChange) return;
+    if (!scrollCallbackRef.current) return;
 
     const scrollPosition = scrollContainerRef.current?.scrollTop;
     if (scrollPosition === undefined) return;
@@ -151,18 +196,16 @@ export function MarkdownEditor({
 
     scrollPositionTimerRef.current = setTimeout(() => {
       scrollPositionTimerRef.current = null;
-      onScrollPositionChange?.(latestScrollTopRef.current);
+      scrollCallbackRef.current?.(latestScrollTopRef.current);
     }, 250);
-  }, [onScrollPositionChange]);
+  }, []);
 
   useEffect(() => {
-    if (!onScrollPositionChange) return;
-
     return flushScrollPosition;
-  }, [flushScrollPosition, onScrollPositionChange]);
+  }, [flushScrollPosition]);
 
   useEffect(() => {
-    if (!editor || !onScrollPositionChange) return;
+    if (!editor || !scrollCallbackRef.current) return;
 
     let restoreFrameId: number | null = null;
     const frameId = window.requestAnimationFrame(() => {
@@ -175,7 +218,7 @@ export function MarkdownEditor({
         container.scrollTop = restoredScrollTop;
         latestScrollTopRef.current = restoredScrollTop;
         if (restoredScrollTop !== initialScrollTopRef.current) {
-          onScrollPositionChange?.(restoredScrollTop);
+          scrollCallbackRef.current?.(restoredScrollTop);
         }
       });
     });
@@ -184,7 +227,7 @@ export function MarkdownEditor({
       window.cancelAnimationFrame(frameId);
       if (restoreFrameId !== null) window.cancelAnimationFrame(restoreFrameId);
     };
-  }, [editor, onScrollPositionChange]);
+  }, [editor]);
 
   useHotkeys(
     "mod+s",
@@ -206,96 +249,104 @@ export function MarkdownEditor({
   }, [hasChanges, isLocked, onSave]);
 
   const saveStatus = isSaving ? "saving" : hasChanges ? "unsaved" : "saved";
-  const wordCount = externalWordCount ?? editor?.storage.characterCount?.characters() ?? 0;
+  const wordCount =
+    externalWordCount ??
+    (mode === "source" ? rawContent.length : (editor?.storage.characterCount?.characters() ?? 0));
 
   return (
-    <Box
-      style={{
-        height: "100%",
-        minHeight: 0,
-        display: "flex",
-        flexDirection: "column",
+    <EditorFrame
+      banner={lockedBanner}
+      toolbar={{
+        editor,
+        onSave,
+        isSaving,
+        hasChanges,
+        isAgentLocked: isLocked,
+        onLockedAction,
+        extraActions: extraToolbarActions,
+        toolbarPrefix,
+        mode,
+        onModeChange: changeMode,
+        history: {
+          canUndo: historyRef.current.canUndo,
+          canRedo: historyRef.current.canRedo,
+          undo: () => restoreHistory("undo"),
+          redo: () => restoreHistory("redo"),
+        },
       }}
-    >
-      {lockedBanner}
-
-      <EditorToolbar
-        editor={editor}
-        onSave={onSave}
-        isSaving={isSaving}
-        hasChanges={hasChanges}
-        isAgentLocked={isLocked}
-        onLockedAction={onLockedAction}
-        extraActions={extraToolbarActions}
-        toolbarPrefix={toolbarPrefix}
-      />
-
-      <Box
-        ref={scrollContainerRef}
-        style={{ flex: 1, minHeight: 0, overflow: "auto" }}
-        className="tiptap-editor-wrapper"
-        onScroll={handleEditorScroll}
-      >
-        <Box
-          style={{
-            maxWidth,
-            margin: "0 auto",
-            padding: "0 24px",
-          }}
-        >
-          <TitleInput
-            value={title}
-            onChange={onTitleChange}
-            onBlur={handleTitleBlur}
-            disabled={isLocked}
-            onDisabledClick={onLockedAction}
-            placeholder={titlePlaceholder}
+      title={{
+        value: title,
+        onChange: onTitleChange,
+        onBlur: handleTitleBlur,
+        disabled: isLocked,
+        onDisabledClick: onLockedAction,
+        placeholder: titlePlaceholder,
+      }}
+      scrollRef={scrollContainerRef}
+      scrollProps={{ onScroll: handleEditorScroll }}
+      maxWidth={maxWidth}
+      bodyRef={editorContentRef}
+      onBodyKeyDownCapture={(event) => {
+        if (event.nativeEvent.isComposing || !(event.ctrlKey || event.metaKey) || event.altKey)
+          return;
+        const key = event.key.toLowerCase();
+        if (key !== "z" && key !== "y") return;
+        event.preventDefault();
+        event.stopPropagation();
+        restoreHistory(key === "y" || event.shiftKey ? "redo" : "undo");
+      }}
+      statistics={
+        <>
+          {wordCount} {wordCountLabel ?? t("writing.words")}
+        </>
+      }
+      saveStatus={
+        saveStatus === "saving"
+          ? (saveStatusText?.saving ?? t("writing.saving"))
+          : saveStatus === "saved"
+            ? (saveStatusText?.saved ?? t("writing.saved"))
+            : (saveStatusText?.unsaved ?? t("writing.unsavedChanges"))
+      }
+      overlays={
+        !isLocked &&
+        mode === "visual" && (
+          <ContextMenu
+            editor={editor}
+            containerRef={editorContentRef}
           />
-          <Box style={{ borderBottom: "1px solid var(--gray-a4)" }} />
-          <Box
-            py="5"
-            ref={editorContentRef}
-          >
-            <EditorContent
-              editor={editor}
-              className="tiptap-editor"
-            />
-          </Box>
-        </Box>
-      </Box>
-
-      {!isLocked && (
-        <ContextMenu
+        )
+      }
+    >
+      {mode === "source" ? (
+        <textarea
+          aria-label={t("editor.sourceMode", "源码")}
+          value={rawContent}
+          onChange={(event) => changeSource(event.target.value)}
+          readOnly={isLocked}
+          placeholder={placeholder}
+          spellCheck={false}
+          style={{
+            display: "block",
+            width: "100%",
+            minHeight: "60vh",
+            fieldSizing: "content",
+            resize: "none",
+            border: 0,
+            outline: 0,
+            padding: 0,
+            background: "transparent",
+            color: "inherit",
+            fontFamily: "var(--code-font-family)",
+            fontSize: "inherit",
+            lineHeight: 1.8,
+          }}
+        />
+      ) : (
+        <EditorContent
           editor={editor}
-          containerRef={editorContentRef}
+          className="tiptap-editor"
         />
       )}
-
-      <Flex
-        px="6"
-        py="3"
-        justify="between"
-        align="center"
-        style={{
-          borderTop: "1px solid var(--gray-a4)",
-          background: "var(--gray-a2)",
-        }}
-      >
-        <Text
-          size="1"
-          color="gray"
-        >
-          {wordCount} {wordCountLabel ?? t("writing.words")}
-        </Text>
-        <Text
-          size="1"
-          color="gray"
-        >
-          {saveStatus === "saving" && (saveStatusText?.saving ?? t("writing.saving"))}
-          {saveStatus === "saved" && (saveStatusText?.saved ?? t("writing.saved"))}
-          {saveStatus === "unsaved" && (saveStatusText?.unsaved ?? t("writing.unsavedChanges"))}
-        </Text>
-      </Flex>
-    </Box>
+    </EditorFrame>
   );
 }

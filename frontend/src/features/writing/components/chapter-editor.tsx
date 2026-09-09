@@ -1,17 +1,17 @@
-import { Box, Flex, Text, IconButton } from "@radix-ui/themes";
+import { Flex, Text, IconButton } from "@radix-ui/themes";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEditor, EditorContent } from "@tiptap/react";
-import { AtSign, FilePenLine, Globe } from "lucide-react";
+import { AtSign, FilePenLine } from "lucide-react";
 import { AnimatePresence } from "motion/react";
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 import { useTranslation } from "react-i18next";
-import { useNavigate } from "react-router";
 import wordsCountModule from "words-count";
 
 import { toast } from "@/components";
-import { TitleInput, EditorToolbar, Spinner, type EditorToolbarExtraAction } from "@/components";
+import { Spinner } from "@/components";
 import { ContextMenu } from "@/components";
+import { EditorFrame } from "@/components/editor-frame";
 import {
   buildChapterMentionTag,
   buildLineRangeMentionTag,
@@ -134,7 +134,8 @@ function ChapterEditorContent({
   const latestScrollTopRef = useRef(scrollTop);
   const scrollPositionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { updateTabTitle } = useTabsStore();
-  const navigate = useNavigate();
+  const [mode, setMode] = useState<"visual" | "source">("visual");
+  const sourceModeRef = useRef(false);
   const { clearWorkingCopy, discardWorkingCopy, persistWorkingCopy } = workingCopy;
 
   const { data: settings } = useQuery({
@@ -205,27 +206,6 @@ function ChapterEditorContent({
     },
     [t],
   );
-
-  const handleWorldInfoClick = useCallback(() => {
-    if (projectId) {
-      navigate(`/projects/${projectId}/world-info?from=writing`);
-    }
-  }, [navigate, projectId]);
-
-  const extraActions: EditorToolbarExtraAction[] = useMemo(() => {
-    const actions: EditorToolbarExtraAction[] = [];
-
-    if (projectId) {
-      actions.push({
-        id: "worldInfo",
-        icon: <Globe size={18} />,
-        label: t("editor.worldInfo"),
-        onClick: handleWorldInfoClick,
-      });
-    }
-
-    return actions;
-  }, [projectId, t, handleWorldInfoClick]);
 
   const toolbarPrefix = useMemo(() => {
     if (!projectId || !chapter.id) return null;
@@ -333,9 +313,9 @@ function ChapterEditorContent({
   const editor = useEditor({
     extensions: createEditorExtensions({
       placeholder: t("writing.contentPlaceholder"),
-      autoIndent: () => autoIndentRef.current,
-      autoConvertPunctuation: () => autoConvertPunctuationRef.current,
-      autoPairSymbols: () => autoPairSymbolsRef.current,
+      autoIndent: () => !sourceModeRef.current && autoIndentRef.current,
+      autoConvertPunctuation: () => !sourceModeRef.current && autoConvertPunctuationRef.current,
+      autoPairSymbols: () => !sourceModeRef.current && autoPairSymbolsRef.current,
       shortcuts: {
         onFind: openFind,
         onReplace: openReplace,
@@ -743,168 +723,142 @@ function ChapterEditorContent({
     : undefined;
 
   return (
-    <Box
-      style={{
-        height: "100%",
-        minHeight: 0,
-        display: "flex",
-        flexDirection: "column",
-      }}
-    >
-      {conflict ? (
-        <WritingConflictDialog
-          conflict={conflict}
-          onAdoptLocal={async () => {
-            const saved = createChapterEditorDraft({
-              title: chapter.title,
-              content: chapter.content,
-            });
-            lastSavedDraftRef.current = saved;
-            baseDraftRef.current = {
-              ...saved,
-              updatedAt: chapter.updatedAt,
-            };
-            const isDirty = isChapterEditorDraftDirty(saved, latestDraftRef.current);
-            hasChangesRef.current = isDirty;
-            setHasChanges(isDirty);
-            if (isDirty) {
-              await persistWorkingCopy(
-                latestDraftRef.current,
-                baseDraftRef.current,
-                latestDraftUpdatedAtRef.current,
-              );
-            }
-          }}
-          onUseSaved={async () => {
-            await discardWorkingCopy();
-            const saved = createChapterEditorDraft({
-              title: chapter.title,
-              content: chapter.content,
-            });
-            latestDraftRef.current = saved;
-            lastSavedDraftRef.current = saved;
-            baseDraftRef.current = { ...saved, updatedAt: chapter.updatedAt };
-            titleRef.current = saved.title;
-            setTitle(saved.title);
-            updateTabTitle(chapter.id, saved.title);
-            if (editor) {
-              editor.commands.setContent(newlinesToHtml(saved.content), { emitUpdate: false });
-              setLineNumberDigits(getLineNumberDigits(editor.state.doc.childCount));
-              setWordCount(wordsCount(editor.getText()));
-            }
-            setHasChanges(false);
-            hasChangesRef.current = false;
-          }}
-        />
-      ) : null}
-      <EditorToolbar
-        editor={editor}
-        onSave={handleSave}
-        isSaving={saveStatus === "saving"}
-        hasChanges={hasChanges}
-        isAgentLocked={isAgentLocked}
-        onLockedAction={showLockedToast}
-        extraActions={extraActions}
-        toolbarPrefix={toolbarPrefix}
-      />
-
-      <AnimatePresence>
-        {findReplaceMode !== "closed" && editor && !isAgentLocked && (
-          <FindReplacePanel
-            key="find-replace-panel"
-            editor={editor}
-            showReplace={findReplaceMode === "replace"}
-            onClose={() => setFindReplaceMode("closed")}
-          />
-        )}
-      </AnimatePresence>
-
-      <Box
-        ref={containerRef}
-        style={{ flex: 1, minHeight: 0, overflow: "auto" }}
-        className={`tiptap-editor-wrapper${showLineNumbers ? " tiptap-editor-wrapper--line-numbers" : ""} ${scrollbarProps.className}`}
-        onWheel={scrollbarProps.onWheel}
-        onMouseMove={scrollbarProps.onMouseMove}
-        onMouseLeave={scrollbarProps.onMouseLeave}
-        onScroll={handleEditorScroll}
-        onClick={isAgentLocked ? showLockedToast : undefined}
-      >
-        <Box
-          className="chapter-editor-content"
-          style={{
-            maxWidth: editorMaxWidth,
-            ...lineNumberWidthStyle,
-          }}
-        >
-          <TitleInput
-            value={title}
-            onChange={handleTitleChange}
-            onBlur={() => {
-              if (hasChanges && !isAgentLocked) {
-                handleSave();
+    <EditorFrame
+      banner={
+        conflict ? (
+          <WritingConflictDialog
+            conflict={conflict}
+            onAdoptLocal={async () => {
+              const saved = createChapterEditorDraft({
+                title: chapter.title,
+                content: chapter.content,
+              });
+              lastSavedDraftRef.current = saved;
+              baseDraftRef.current = {
+                ...saved,
+                updatedAt: chapter.updatedAt,
+              };
+              const isDirty = isChapterEditorDraftDirty(saved, latestDraftRef.current);
+              hasChangesRef.current = isDirty;
+              setHasChanges(isDirty);
+              if (isDirty) {
+                await persistWorkingCopy(
+                  latestDraftRef.current,
+                  baseDraftRef.current,
+                  latestDraftUpdatedAtRef.current,
+                );
               }
             }}
-            disabled={isAgentLocked}
-            onDisabledClick={showLockedToast}
+            onUseSaved={async () => {
+              await discardWorkingCopy();
+              const saved = createChapterEditorDraft({
+                title: chapter.title,
+                content: chapter.content,
+              });
+              latestDraftRef.current = saved;
+              lastSavedDraftRef.current = saved;
+              baseDraftRef.current = { ...saved, updatedAt: chapter.updatedAt };
+              titleRef.current = saved.title;
+              setTitle(saved.title);
+              updateTabTitle(chapter.id, saved.title);
+              if (editor) {
+                editor.commands.setContent(newlinesToHtml(saved.content), { emitUpdate: false });
+                setLineNumberDigits(getLineNumberDigits(editor.state.doc.childCount));
+                setWordCount(wordsCount(editor.getText()));
+              }
+              setHasChanges(false);
+              hasChangesRef.current = false;
+            }}
           />
-          <Box style={{ borderBottom: "1px solid var(--gray-a4)" }} />
-          <Box
-            py="5"
-            ref={editorContentRef}
-          >
-            <EditorContent
+        ) : null
+      }
+      toolbar={{
+        editor,
+        onSave: handleSave,
+        isSaving: saveStatus === "saving",
+        hasChanges,
+        isAgentLocked,
+        onLockedAction: showLockedToast,
+        toolbarPrefix,
+        mode,
+        onModeChange: (nextMode) => {
+          sourceModeRef.current = nextMode === "source";
+          setMode(nextMode);
+        },
+      }}
+      beforeContent={
+        <AnimatePresence>
+          {findReplaceMode !== "closed" && editor && !isAgentLocked && (
+            <FindReplacePanel
+              key="find-replace-panel"
               editor={editor}
-              className={`tiptap-editor${showLineNumbers ? " tiptap-editor--line-numbers" : ""}`}
+              showReplace={findReplaceMode === "replace"}
+              onClose={() => setFindReplaceMode("closed")}
             />
-          </Box>
-        </Box>
-      </Box>
-
-      {!isAgentLocked && (
-        <ContextMenu
-          editor={editor}
-          containerRef={editorContentRef}
-          editorExtraItems={editorExtraItems}
-        />
-      )}
-
-      {onPrepareSceneDraft ? (
-        <SceneDraftDialog
-          chapterId={chapter.id}
-          chapterTitle={chapter.title}
-          baseUpdatedAt={baseDraftRef.current.updatedAt}
-          open={isSceneDraftDialogOpen}
-          onOpenChange={setIsSceneDraftDialogOpen}
-          onPrepare={onPrepareSceneDraft}
-        />
-      ) : null}
-
-      <Flex
-        px="6"
-        py="3"
-        justify="between"
-        align="center"
-        style={{
-          borderTop: "1px solid var(--gray-a4)",
-          background: "var(--gray-a2)",
-        }}
-      >
-        <Text
-          size="1"
-          color="gray"
-        >
+          )}
+        </AnimatePresence>
+      }
+      scrollRef={containerRef}
+      scrollProps={{
+        className: `${showLineNumbers ? "tiptap-editor-wrapper--line-numbers" : ""} ${scrollbarProps.className}`,
+        onWheel: scrollbarProps.onWheel,
+        onMouseMove: scrollbarProps.onMouseMove,
+        onMouseLeave: scrollbarProps.onMouseLeave,
+        onScroll: handleEditorScroll,
+        onClick: isAgentLocked ? showLockedToast : undefined,
+      }}
+      maxWidth={editorMaxWidth}
+      contentStyle={lineNumberWidthStyle}
+      title={{
+        value: title,
+        onChange: handleTitleChange,
+        onBlur: () => {
+          if (hasChanges && !isAgentLocked) void handleSave();
+        },
+        disabled: isAgentLocked,
+        onDisabledClick: showLockedToast,
+      }}
+      bodyRef={editorContentRef}
+      statistics={
+        <>
           {wordCount} {t("writing.words")}
-        </Text>
-        <Text
-          size="1"
-          color="gray"
-        >
-          {saveStatus === "saving" && t("writing.saving")}
-          {saveStatus === "saved" && t("writing.saved")}
-          {saveStatus === "unsaved" && t("writing.unsavedChanges")}
-        </Text>
-      </Flex>
-    </Box>
+        </>
+      }
+      saveStatus={t(
+        saveStatus === "saving"
+          ? "writing.saving"
+          : saveStatus === "saved"
+            ? "writing.saved"
+            : "writing.unsavedChanges",
+      )}
+      overlays={
+        <>
+          {!isAgentLocked && (
+            <ContextMenu
+              editor={editor}
+              containerRef={editorContentRef}
+              editorExtraItems={editorExtraItems}
+            />
+          )}
+
+          {onPrepareSceneDraft ? (
+            <SceneDraftDialog
+              chapterId={chapter.id}
+              chapterTitle={chapter.title}
+              baseUpdatedAt={baseDraftRef.current.updatedAt}
+              open={isSceneDraftDialogOpen}
+              onOpenChange={setIsSceneDraftDialogOpen}
+              onPrepare={onPrepareSceneDraft}
+            />
+          ) : null}
+        </>
+      }
+    >
+      <EditorContent
+        editor={editor}
+        className={`tiptap-editor${showLineNumbers ? " tiptap-editor--line-numbers" : ""}${mode === "source" ? " tiptap-editor--source" : ""}`}
+      />
+    </EditorFrame>
   );
 }
 

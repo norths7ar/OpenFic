@@ -16,6 +16,8 @@ import { countTokens } from "@/lib/tiktoken-utils";
 const AUTO_SAVE_DELAY = 1500;
 
 interface CharacterEditorProps {
+  scrollTop?: number;
+  onScrollPositionChange?: (top: number) => void;
   character: Character | null;
   isSaving?: boolean;
   isLoading?: boolean;
@@ -24,6 +26,8 @@ interface CharacterEditorProps {
 }
 
 export function CharacterEditor({
+  scrollTop,
+  onScrollPositionChange,
   character,
   isSaving = false,
   isLoading = false,
@@ -43,6 +47,7 @@ export function CharacterEditor({
   });
   const hasChangesRef = useRef(false);
   const isSavingRef = useRef(false);
+  const flushSaveRef = useRef<() => Promise<void>>(async () => {});
   const rejectedContentRef = useRef<string | null>(null);
 
   const showContentLimitToast = useCallback(
@@ -77,8 +82,14 @@ export function CharacterEditor({
     isSavingRef.current = true;
     try {
       await onSave({ name: nextName, description });
-      hasChangesRef.current = false;
-      setHasChanges(false);
+      hasChangesRef.current =
+        latestValueRef.current.name.trim() !== nextName ||
+        latestValueRef.current.description !== description;
+      setHasChanges(hasChangesRef.current);
+      if (hasChangesRef.current) {
+        isSavingRef.current = false;
+        await flushSaveRef.current();
+      }
     } catch {
       hasChangesRef.current = true;
       setHasChanges(true);
@@ -86,6 +97,10 @@ export function CharacterEditor({
       isSavingRef.current = false;
     }
   }, [character, onSave, showContentLimitToast]);
+
+  useEffect(() => {
+    flushSaveRef.current = flushSave;
+  }, [flushSave]);
 
   const scheduleSave = useCallback(() => {
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
@@ -154,6 +169,7 @@ export function CharacterEditor({
   useEffect(() => {
     return () => {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+      void flushSaveRef.current();
     };
   }, []);
 
@@ -195,6 +211,8 @@ export function CharacterEditor({
 
   return (
     <MarkdownEditor
+      scrollTop={scrollTop}
+      onScrollPositionChange={onScrollPositionChange}
       title={name}
       onTitleChange={handleTitleChange}
       content={description}

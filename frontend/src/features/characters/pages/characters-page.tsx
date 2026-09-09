@@ -1,10 +1,9 @@
 import { AlertDialog, Box, Button, Flex, IconButton, Tooltip, Text } from "@radix-ui/themes";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Bot, List } from "lucide-react";
+import { List } from "lucide-react";
 import { motion } from "motion/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Group, Panel, Separator } from "react-resizable-panels";
 import { useParams, useSearchParams } from "react-router";
 
 import { useAppShell } from "@/app/app-shell-context";
@@ -17,7 +16,9 @@ import { buildCharacterMentionTag } from "@/features/assistant/lib/mention-text"
 import { moveProjectFolderItem } from "@/features/project-folders/lib/project-folder-api";
 import { ProjectNavShell } from "@/features/project-navigation/components/project-nav-shell";
 import { fetchProjects } from "@/features/projects/lib/project-api";
-import { usePersistedPanelLayout } from "@/hooks/use-persisted-panel-layout";
+import { WorkspaceLayout } from "@/features/workspace/components/workspace-layout";
+import { WorkspaceShell } from "@/features/workspace/components/workspace-shell";
+import { useWorkspace } from "@/features/workspace/hooks/use-workspace";
 import type { Character, CharacterListItem, CharacterListResponse } from "@/lib/character.types";
 import { getPreference, setPreference } from "@/lib/local-db";
 import { projectDataQueryKeys } from "@/lib/project-data-query-keys";
@@ -41,9 +42,6 @@ import { shouldShowCharacterEditorLoading } from "./character-editor-loading-sta
 import "./characters-page.css";
 
 const LAST_PROJECT_KEY = "characters.lastProjectId";
-const LAST_CHARACTER_KEY = "characters.lastCharacterId";
-const PANEL_LAYOUT_KEY = "panel-layout.project-editor";
-const PANEL_IDS = ["editor", "right-sidebar"];
 const MotionBox = motion.create(Box);
 const MOBILE_SIDEBAR_WIDTH = 320;
 
@@ -72,15 +70,30 @@ export function CharactersPage() {
   const { projectId: projectIdFromRoute } = useParams<{ projectId: string }>();
   const [searchParams] = useSearchParams();
   const queryClient = useQueryClient();
-  const { isMobile, openAssistantSidebar } = useAppShell();
+  const { isMobile } = useAppShell();
   const {
     currentProjectId,
-    currentCharacterId,
     isListOpen,
     setCurrentProject,
-    setCurrentCharacter,
+    setCurrentCharacter: setLegacyCharacter,
     setListOpen,
   } = useCharactersStore();
+  const workspace = useWorkspace(currentProjectId, "character");
+  const currentCharacterId = workspace.selectedId;
+  const setCurrentCharacter = workspace.select;
+  const activeWorkspaceTabId = workspace.activeTab?.id;
+  const workspaceStore = workspace.store;
+  const handleWorkspaceScroll = useCallback(
+    (top: number) => {
+      if (activeWorkspaceTabId)
+        workspaceStore.getState().updateTabScrollPosition(activeWorkspaceTabId, top);
+    },
+    [activeWorkspaceTabId, workspaceStore],
+  );
+  useEffect(() => {
+    setLegacyCharacter(currentCharacterId);
+  }, [currentCharacterId, setLegacyCharacter]);
+
   const [profileCharacter, setProfileCharacter] = useState<CharacterListItem | null>(null);
   const [deleteCharacterTarget, setDeleteCharacterTarget] = useState<CharacterListItem | null>(
     null,
@@ -90,9 +103,7 @@ export function CharactersPage() {
     isAgentRunning: false,
   });
   const [selectedCharacterLoadVersion, setSelectedCharacterLoadVersion] = useState(0);
-  const panelLayout = usePersistedPanelLayout(PANEL_LAYOUT_KEY, PANEL_IDS, !isMobile);
   const isCreatingCharacterRef = useRef(false);
-  const skipCharacterRestoreProjectIdRef = useRef<string | null>(null);
 
   const { data: projectsData } = useQuery({
     queryKey: ["projects", "characters-page"],
@@ -134,12 +145,6 @@ export function CharactersPage() {
     if (currentProjectId) void setPreference(LAST_PROJECT_KEY, currentProjectId);
   }, [currentProjectId]);
 
-  useEffect(() => {
-    if (skipCharacterRestoreProjectIdRef.current !== currentProjectId) {
-      skipCharacterRestoreProjectIdRef.current = null;
-    }
-  }, [currentProjectId]);
-
   const { data: charactersData, isLoading: isCharactersLoading } = useQuery({
     queryKey: projectDataQueryKeys.characters.list(currentProjectId),
     queryFn: () => fetchCharactersByProject(currentProjectId!),
@@ -150,35 +155,12 @@ export function CharactersPage() {
   const characters = useMemo(() => charactersData?.items ?? [], [charactersData?.items]);
 
   useEffect(() => {
-    const restoreCharacter = async () => {
-      if (
-        !currentProjectId ||
-        currentCharacterId ||
-        characters.length === 0 ||
-        skipCharacterRestoreProjectIdRef.current === currentProjectId
-      )
-        return;
-      const cachedCharacterId = await getPreference(LAST_CHARACTER_KEY);
-      const nextCharacterId =
-        (cachedCharacterId && characters.some((character) => character.id === cachedCharacterId)
-          ? cachedCharacterId
-          : null) ?? characters[0].id;
-      setCurrentCharacter(nextCharacterId);
-    };
-
-    void restoreCharacter();
-  }, [characters, currentCharacterId, currentProjectId, setCurrentCharacter]);
-
-  useEffect(() => {
-    if (currentCharacterId) void setPreference(LAST_CHARACTER_KEY, currentCharacterId);
-  }, [currentCharacterId]);
-
-  useEffect(() => {
-    if (!currentCharacterId || characters.length === 0) return;
-    if (!characters.some((character) => character.id === currentCharacterId)) {
-      setCurrentCharacter(characters[0]?.id ?? null);
-    }
-  }, [characters, currentCharacterId, setCurrentCharacter]);
+    if (!workspace.ready || !charactersData) return;
+    workspace.store.getState().syncTabs(
+      characters.map((item) => ({ id: item.id, title: item.name })),
+      "note",
+    );
+  }, [characters, charactersData, workspace.ready, workspace.store, workspace.tabs]);
 
   const { data: selectedCharacter, isLoading: isCharacterLoading } = useQuery({
     queryKey: projectDataQueryKeys.characters.loadedDetail(
@@ -338,10 +320,7 @@ export function CharactersPage() {
     mutationFn: (characterId: string) => deleteCharacter(characterId),
     onSuccess: async (_data, characterId) => {
       if (!currentProjectId) return;
-      if (useCharactersStore.getState().currentCharacterId === characterId) {
-        skipCharacterRestoreProjectIdRef.current = currentProjectId;
-        setCurrentCharacter(null);
-      }
+      workspaceStore.getState().removeTabsByReference("note", characterId);
       await removeCharacterCaches(currentProjectId, [characterId]);
       queryClient.invalidateQueries({
         queryKey: projectDataQueryKeys.characters.list(currentProjectId),
@@ -355,11 +334,7 @@ export function CharactersPage() {
     mutationFn: (characterIds: string[]) => batchDeleteCharacters(currentProjectId!, characterIds),
     onSuccess: async (_deletedCount, characterIds) => {
       if (!currentProjectId) return;
-      const currentCharacterId = useCharactersStore.getState().currentCharacterId;
-      if (currentCharacterId && characterIds.includes(currentCharacterId)) {
-        skipCharacterRestoreProjectIdRef.current = currentProjectId;
-        setCurrentCharacter(null);
-      }
+      characterIds.forEach((id) => workspaceStore.getState().removeTabsByReference("note", id));
       await removeCharacterCaches(currentProjectId, characterIds);
       queryClient.invalidateQueries({
         queryKey: projectDataQueryKeys.characters.list(currentProjectId),
@@ -442,8 +417,10 @@ export function CharactersPage() {
     />
   );
 
-  const editorContent = (
+  const rawEditorContent = (
     <CharacterEditor
+      scrollTop={workspace.activeTab?.scrollTop ?? 0}
+      onScrollPositionChange={handleWorkspaceScroll}
       key={selectedCharacter?.id ?? "empty"}
       character={selectedCharacter ?? null}
       isSaving={updateMutation.isPending}
@@ -456,6 +433,15 @@ export function CharactersPage() {
     />
   );
 
+  const editorContent = (
+    <WorkspaceShell
+      store={workspace.store}
+      emptyLabel="从左侧选择或新建条目"
+    >
+      {rawEditorContent}
+    </WorkspaceShell>
+  );
+
   return (
     <Flex
       className="characters-page"
@@ -464,59 +450,36 @@ export function CharactersPage() {
       {currentProjectId && !isMobile ? (
         <Flex style={{ height: "100%", minWidth: 0 }}>
           <ProjectNavShell>{list}</ProjectNavShell>
-          {panelLayout.isLoaded ? (
-            <Group
-              style={{ flex: 1, minWidth: 0 }}
-              orientation="horizontal"
-              className="characters-page-body"
-              defaultLayout={panelLayout.defaultLayout}
-              onLayoutChanged={panelLayout.onLayoutChanged}
-            >
-              <Panel
-                id="editor"
-                minSize={30}
-              >
-                <Box className="characters-panel characters-editor-shell">{editorContent}</Box>
-              </Panel>
-
-              <Separator className="resize-handle characters-page-separator" />
-
-              <Panel
-                id="right-sidebar"
-                defaultSize={500}
-                minSize={300}
-                maxSize={600}
-                collapsible={false}
-              >
-                <Box className="characters-panel">
-                  {selectedCharacter ? (
-                    <AssistantSidebarHost
-                      projectId={currentProjectId}
-                      preferredAgentKey="discuss"
-                      initialComposerMarkup={buildCharacterMentionTag({
-                        characterId: selectedCharacter.id,
-                        label: selectedCharacter.name,
-                      })}
-                      replaceComposerWithInitialMarkup
-                      onStateChange={setAssistantState}
-                      isMobileOverlay={false}
-                    />
-                  ) : (
-                    <Flex
-                      height="100%"
-                      align="center"
-                      justify="center"
-                      p="4"
-                    >
-                      <Text color="gray">{t("characters.selectCharacterToDiscuss")}</Text>
-                    </Flex>
-                  )}
-                </Box>
-              </Panel>
-            </Group>
-          ) : (
-            <PanelLayoutLoading />
-          )}
+          <WorkspaceLayout
+            assistant={
+              <>
+                {selectedCharacter ? (
+                  <AssistantSidebarHost
+                    projectId={currentProjectId}
+                    preferredAgentKey="discuss"
+                    initialComposerMarkup={buildCharacterMentionTag({
+                      characterId: selectedCharacter.id,
+                      label: selectedCharacter.name,
+                    })}
+                    replaceComposerWithInitialMarkup
+                    onStateChange={setAssistantState}
+                    isMobileOverlay={false}
+                  />
+                ) : (
+                  <Flex
+                    height="100%"
+                    align="center"
+                    justify="center"
+                    p="4"
+                  >
+                    <Text color="gray">{t("characters.selectCharacterToDiscuss")}</Text>
+                  </Flex>
+                )}
+              </>
+            }
+          >
+            {editorContent}
+          </WorkspaceLayout>
         </Flex>
       ) : currentProjectId && isMobile ? (
         <Box className="characters-page-body characters-page-body--mobile">
@@ -544,18 +507,6 @@ export function CharactersPage() {
                   </IconButton>
                 </Tooltip>
               </Flex>
-
-              <Tooltip content={t("assistant.mobileTitle")}>
-                <IconButton
-                  variant="ghost"
-                  size="2"
-                  aria-label={t("assistant.mobileTitle")}
-                  onClick={openAssistantSidebar}
-                  disabled={!selectedCharacter}
-                >
-                  <Bot size={18} />
-                </IconButton>
-              </Tooltip>
             </Flex>
 
             <Box className="characters-page-content-fill">{editorContent}</Box>
@@ -609,14 +560,18 @@ export function CharactersPage() {
         </Flex>
       )}
 
-      {isMobile && currentProjectId && selectedCharacter && (
+      {isMobile && currentProjectId && (
         <AssistantSidebarHost
           projectId={currentProjectId}
           preferredAgentKey="discuss"
-          initialComposerMarkup={buildCharacterMentionTag({
-            characterId: selectedCharacter.id,
-            label: selectedCharacter.name,
-          })}
+          initialComposerMarkup={
+            selectedCharacter
+              ? buildCharacterMentionTag({
+                  characterId: selectedCharacter.id,
+                  label: selectedCharacter.name,
+                })
+              : undefined
+          }
           replaceComposerWithInitialMarkup
           onStateChange={setAssistantState}
           isMobileOverlay

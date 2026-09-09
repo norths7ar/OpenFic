@@ -1,6 +1,7 @@
 import { Flex, Text } from "@radix-ui/themes";
 import { useQueryClient } from "@tanstack/react-query";
 import { Lock } from "lucide-react";
+import type { ReactNode } from "react";
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -37,6 +38,7 @@ import { useTabsStore } from "../store/use-tabs-store";
 import { WritingConflictDialog } from "./writing-conflict-dialog";
 
 interface NoteEditorProps {
+  toolbarPrefix?: ReactNode;
   noteId: string | null;
   scrollTop?: number;
   projectId?: string;
@@ -46,6 +48,7 @@ interface NoteEditorProps {
 }
 
 interface NoteEditorContentProps {
+  toolbarPrefix?: ReactNode;
   note: Note;
   scrollTop: number;
   initialDraft: WritingDraft;
@@ -69,6 +72,7 @@ function NoteEditorContent({
   workingCopy,
   isAgentLocked = false,
   onScrollPositionChange,
+  toolbarPrefix,
 }: NoteEditorContentProps) {
   const { t } = useTranslation();
   const updateMutation = useUpdateNote(note.projectId, note.documentType);
@@ -350,6 +354,7 @@ function NoteEditorContent({
         />
       ) : null}
       <MarkdownEditor
+        toolbarPrefix={toolbarPrefix}
         title={title}
         onTitleChange={handleTitleChange}
         content={editorContent}
@@ -420,6 +425,7 @@ export function NoteEditor(props: NoteEditorProps) {
       baseDraft={data.baseDraft}
       conflict={data.conflict}
       isAgentLocked={props.isAgentLocked ?? false}
+      toolbarPrefix={props.toolbarPrefix}
       onScrollPositionChange={props.onScrollPositionChange}
     />
   );
@@ -435,6 +441,7 @@ function NoteEditorWorkingCopy({
   conflict,
   isAgentLocked,
   onScrollPositionChange,
+  toolbarPrefix,
 }: Omit<NoteEditorContentProps, "workingCopy">) {
   const workingCopy = useWritingWorkingCopy({
     type: "note",
@@ -453,6 +460,7 @@ function NoteEditorWorkingCopy({
       conflict={conflict}
       workingCopy={workingCopy}
       isAgentLocked={isAgentLocked}
+      toolbarPrefix={toolbarPrefix}
       onScrollPositionChange={onScrollPositionChange}
     />
   );

@@ -23,18 +23,8 @@ import {
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Box, Flex, Text, IconButton, Button } from "@radix-ui/themes";
-import {
-  AtSign,
-  FilePlus,
-  FileText,
-  Lock,
-  Plus,
-  NotebookText,
-  Unlock,
-  X,
-  XCircle,
-} from "lucide-react";
+import { Box, Flex, Text, IconButton } from "@radix-ui/themes";
+import { AtSign, FileText, Lock, Plus, NotebookText, Unlock, X, XCircle } from "lucide-react";
 import { memo, useCallback, useState, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -43,7 +33,7 @@ import { buildChapterMentionTag, buildNoteMentionTag } from "@/features/assistan
 
 import { isEmptyTab } from "../lib/tab.types";
 import type { EditorTab } from "../lib/tab.types";
-import { useTabs, useActiveTabId, useTabsStore } from "../store/use-tabs-store";
+import { useTabsStore } from "../store/use-tabs-store";
 
 /** 标签页尺寸配置 */
 const TAB_MIN_WIDTH = 80;
@@ -163,57 +153,21 @@ const SortableTabItem = memo(function SortableTabItem({
   );
 });
 
-/** 空标签页内容 */
-interface EmptyTabContentProps {
-  onCreateNew: () => void;
-  onClose: () => void;
-}
-
-export function EmptyTabContent({ onCreateNew, onClose }: EmptyTabContentProps) {
-  const { t } = useTranslation();
-
-  return (
-    <Flex
-      align="center"
-      justify="center"
-      direction="column"
-      gap="4"
-      style={{ height: "100%", minHeight: 400 }}
-    >
-      <Flex gap="3">
-        <Button
-          variant="soft"
-          size="2"
-          onClick={onCreateNew}
-        >
-          <FilePlus size={16} />
-          {t("tabs.createNewFile")}
-        </Button>
-        <Button
-          variant="soft"
-          color="gray"
-          size="2"
-          onClick={onClose}
-        >
-          <XCircle size={16} />
-          {t("tabs.closeFile")}
-        </Button>
-      </Flex>
-    </Flex>
-  );
-}
-
 interface EditorTabsProps {
+  store?: typeof useTabsStore;
   onAddTab?: () => void;
   onAddToConversation?: (markup: string) => void;
 }
 
-export function EditorTabs({ onAddTab, onAddToConversation }: EditorTabsProps) {
+export function EditorTabs({
+  onAddTab,
+  onAddToConversation,
+  store = useTabsStore,
+}: EditorTabsProps) {
   const { t } = useTranslation();
-  const tabs = useTabs();
-  const activeTabId = useActiveTabId();
-  const { setActiveTab, closeTab, reorderTabs, closeOtherTabs, closeAllTabs, toggleLock } =
-    useTabsStore();
+  const tabs = store((s) => s.tabs);
+  const activeTabId = store((s) => s.activeTabId);
+  const { setActiveTab, closeTab, reorderTabs, closeOtherTabs, closeAllTabs, toggleLock } = store();
 
   // 拖拽传感器
   const sensors = useSensors(
@@ -352,6 +306,8 @@ export function EditorTabs({ onAddTab, onAddToConversation }: EditorTabsProps) {
     toggleLock,
   ]);
 
+  if (tabs.length === 0) return null;
+
   return (
     <>
       <Box
@@ -422,19 +378,21 @@ export function EditorTabs({ onAddTab, onAddToConversation }: EditorTabsProps) {
             </Flex>
 
             {/* 添加按钮 - 紧跟在标签页后方 */}
-            <IconButton
-              variant="ghost"
-              size="1"
-              onClick={handleAddTab}
-              style={{
-                width: 28,
-                height: 28,
-                marginBottom: 2,
-                flexShrink: 0,
-              }}
-            >
-              <Plus size={16} />
-            </IconButton>
+            {onAddTab && (
+              <IconButton
+                variant="ghost"
+                size="1"
+                onClick={handleAddTab}
+                style={{
+                  width: 28,
+                  height: 28,
+                  marginBottom: 2,
+                  flexShrink: 0,
+                }}
+              >
+                <Plus size={16} />
+              </IconButton>
+            )}
           </Flex>
         </Flex>
       </Box>

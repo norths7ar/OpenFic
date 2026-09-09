@@ -1,0 +1,27 @@
+.workspace-discussion-separator {
+  position: relative;
+  width: 1px;
+  flex-shrink: 0;
+  background: var(--gray-a5);
+  cursor: col-resize;
+  overflow: visible;
+  z-index: 12;
+}
+
+.workspace-discussion-separator::before {
+  content: "";
+  position: absolute;
+  inset: 0 -4px;
+}
+
+.workspace-discussion-separator::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+
+.workspace-discussion-separator:hover::after,
+.workspace-discussion-separator:focus-visible::after {
+  inset-inline: -1px;
+  background: var(--gray-a7);
+}

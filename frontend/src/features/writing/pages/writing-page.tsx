@@ -1,31 +1,27 @@
 import { Box, Flex, IconButton, Tooltip } from "@radix-ui/themes";
-import { Bot, List, MessageSquareQuote } from "lucide-react";
+import { List, MessageSquareQuote } from "lucide-react";
 import { motion } from "motion/react";
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Panel, Group, Separator } from "react-resizable-panels";
 import { useParams } from "react-router";
 
 import { useAppShell } from "@/app/app-shell-context";
+import { PanelLayoutLoading } from "@/components";
+import { AssistantSidebarHost } from "@/features/app-shell/components/assistant-sidebar-host";
 
 import "./writing-page.css";
 
-import { PanelLayoutLoading } from "@/components";
-import { AssistantSidebarHost } from "@/features/app-shell/components/assistant-sidebar-host";
 import { MobileAppSidebarTrigger } from "@/features/app-shell/components/mobile-app-sidebar-trigger";
 import type { AssistantSidebarState } from "@/features/assistant";
 import type { SceneDraftApplyRequest } from "@/features/assistant";
 import { ProjectNavShell } from "@/features/project-navigation/components/project-nav-shell";
-import { PROJECT_NAV_ROOT_ID } from "@/features/project-navigation/lib/project-nav-groups";
-import { usePersistedPanelLayout } from "@/hooks/use-persisted-panel-layout";
-import { getLastChapterId, setLastChapterId } from "@/lib/local-db";
+import { WorkspaceLayout } from "@/features/workspace/components/workspace-layout";
+import { WorkspaceShell } from "@/features/workspace/components/workspace-shell";
 
 import { ChapterEditor } from "../components/chapter-editor";
-import { EditorTabs, EmptyTabContent } from "../components/editor-tabs";
 import { NoteEditor } from "../components/note-editor";
 import { PageLoadingOverlay } from "../components/page-loading-overlay";
 import { WritingSidebar } from "../components/writing-sidebar";
-import { useCreateChapter } from "../hooks/use-chapters";
 import { useNoteTree } from "../hooks/use-notes";
 import { useVolumeTree } from "../hooks/use-volumes";
 import { isEmptyTab } from "../lib/tab.types";
@@ -34,8 +30,6 @@ import { useWritingStore } from "../store/use-writing-store";
 
 const MotionBox = motion.create(Box);
 const MOBILE_SIDEBAR_WIDTH = 320;
-const PANEL_LAYOUT_KEY = "panel-layout.project-editor";
-const PANEL_IDS = ["editor", "right-sidebar"];
 const SummaryPanel = lazy(() =>
   import("../components/summary-panel").then((module) => ({ default: module.SummaryPanel })),
 );
@@ -58,20 +52,11 @@ export function WritingPage({ workspaceView = "write" }: WritingPageProps) {
   } = useAppShell();
 
   const { setCurrentChapter, hydrateSidebarView, setSidebarView } = useWritingStore();
-  const {
-    openTab,
-    openSingleTab,
-    syncTabsWithChapters,
-    syncTabs,
-    closeAllTabs,
-    showEmptyTab,
-    setCurrentProject,
-    updateTabScrollPosition,
-  } = useTabsStore();
+  const { openTab, syncTabsWithChapters, syncTabs, setCurrentProject, updateTabScrollPosition } =
+    useTabsStore();
   const activeTabId = useActiveTabId();
   const tabs = useTabs();
   const isTabsLoaded = useTabsLoaded();
-  const panelLayout = usePersistedPanelLayout(PANEL_LAYOUT_KEY, PANEL_IDS, !isMobile);
 
   const activeTab = useMemo(() => tabs.find((t) => t.id === activeTabId), [tabs, activeTabId]);
   const activeRefId = useMemo(() => activeTab?.refId ?? null, [activeTab]);
@@ -82,8 +67,6 @@ export function WritingPage({ workspaceView = "write" }: WritingPageProps) {
     [activeTab],
   );
   const activeEditorScrollTop = activeTab?.scrollTop ?? 0;
-
-  const createMutation = useCreateChapter(projectId ?? "");
 
   const { data: chaptersData, isLoading: isChaptersLoading } = useVolumeTree(projectId ?? "");
 
@@ -149,7 +132,6 @@ export function WritingPage({ workspaceView = "write" }: WritingPageProps) {
     return notes;
   }, [noteTreeData]);
 
-  const hasInitialized = useRef(false);
   const initialChapterNavigationSequenceRef = useRef(0);
   const prevProjectIdRef = useRef<string | null>(null);
   const [initialCurrentChapterNavigationKey, setInitialCurrentChapterNavigationKey] = useState<
@@ -160,7 +142,6 @@ export function WritingPage({ workspaceView = "write" }: WritingPageProps) {
     if (!projectId) return;
 
     if (prevProjectIdRef.current !== projectId) {
-      hasInitialized.current = false;
       prevProjectIdRef.current = projectId;
       initialChapterNavigationSequenceRef.current += 1;
       setInitialCurrentChapterNavigationKey(
@@ -184,72 +165,6 @@ export function WritingPage({ workspaceView = "write" }: WritingPageProps) {
     if (!isTabsLoaded || !noteTreeData) return;
     syncTabs(allNotes, "note");
   }, [allNotes, noteTreeData, syncTabs, isTabsLoaded]);
-
-  useEffect(() => {
-    if (!isMobile || !isTabsLoaded || tabs.length <= 1) return;
-
-    const activeTab = tabs.find((tab) => tab.id === activeTabId) ?? tabs[0];
-    if (activeTab.refId) {
-      openSingleTab(activeTab.refId, activeTab.title, activeTab.type);
-    } else {
-      closeAllTabs();
-    }
-  }, [activeTabId, closeAllTabs, isMobile, isTabsLoaded, openSingleTab, tabs]);
-
-  useEffect(() => {
-    if (!projectId || !isTabsLoaded || hasInitialized.current) return;
-
-    const loadLastChapter = async () => {
-      if (tabs.length > 0) {
-        if (!activeTabId || isEmptyTab(activeTabId)) {
-          setInitialCurrentChapterNavigationKey(null);
-        }
-        hasInitialized.current = true;
-        return;
-      }
-
-      const lastChapterId = await getLastChapterId(projectId);
-      if (lastChapterId) {
-        const chapter = allChapters.find((c) => c.id === lastChapterId);
-        if (chapter) {
-          if (isMobile) {
-            openSingleTab(lastChapterId, chapter.title);
-          } else {
-            openTab(lastChapterId, chapter.title);
-          }
-          hasInitialized.current = true;
-          return;
-        }
-      }
-
-      if (isMobile && allChapters.length > 0) {
-        const firstChapter = allChapters[0];
-        openSingleTab(firstChapter.id, firstChapter.title);
-        hasInitialized.current = true;
-        return;
-      }
-
-      setInitialCurrentChapterNavigationKey(null);
-      hasInitialized.current = true;
-    };
-
-    loadLastChapter();
-  }, [
-    activeTabId,
-    allChapters,
-    isMobile,
-    isTabsLoaded,
-    openSingleTab,
-    openTab,
-    projectId,
-    tabs.length,
-  ]);
-
-  useEffect(() => {
-    if (projectId && activeTabId) {
-      setLastChapterId(projectId, activeTabId);
-    }
-  }, [projectId, activeTabId]);
 
   useEffect(() => {
     setCurrentChapter(currentChapterId);
@@ -276,15 +191,10 @@ export function WritingPage({ workspaceView = "write" }: WritingPageProps) {
 
   const handleSelectItem = useCallback(
     (refId: string, title: string, type: "chapter" | "note" = "chapter") => {
-      if (isMobile) {
-        openSingleTab(refId, title, type);
-        setIsSidebarOpen(false);
-        return;
-      }
-
+      if (isMobile) setIsSidebarOpen(false);
       openTab(refId, title, type);
     },
-    [openSingleTab, openTab, isMobile],
+    [openTab, isMobile],
   );
 
   const handleChapterSelect = useCallback(
@@ -321,30 +231,6 @@ export function WritingPage({ workspaceView = "write" }: WritingPageProps) {
     },
     [handleSelectItem],
   );
-
-  const handleShowEmptyTab = useCallback(() => {
-    showEmptyTab();
-  }, [showEmptyTab]);
-
-  const handleCreateNewChapter = useCallback(async () => {
-    try {
-      const newChapter = await createMutation.mutateAsync({
-        volumeId: PROJECT_NAV_ROOT_ID,
-        title: t("writing.untitledChapter"),
-      });
-      if (isMobile) {
-        openSingleTab(newChapter.id, newChapter.title);
-      } else {
-        openTab(newChapter.id, newChapter.title);
-      }
-    } catch {
-      // 错误处理由 mutation 处理
-    }
-  }, [createMutation, isMobile, t, openSingleTab, openTab]);
-
-  const handleCloseAllTabs = useCallback(() => {
-    closeAllTabs();
-  }, [closeAllTabs]);
 
   const handleAddToConversation = useCallback(
     (markup: string) => {
@@ -398,82 +284,52 @@ export function WritingPage({ workspaceView = "write" }: WritingPageProps) {
         {!isMobile ? (
           <Flex style={{ height: "100%", minWidth: 0 }}>
             <ProjectNavShell>{sidebarContent}</ProjectNavShell>
-            {panelLayout.isLoaded ? (
-              <Group
-                style={{ flex: 1, minWidth: 0 }}
-                orientation="horizontal"
-                className="writing-page-group"
-                defaultLayout={panelLayout.defaultLayout}
-                onLayoutChanged={panelLayout.onLayoutChanged}
+            <WorkspaceLayout
+              assistant={
+                <>
+                  <AssistantSidebarHost
+                    projectId={projectId}
+                    preferredAgentKey={workspaceView === "discuss" ? "discuss" : undefined}
+                    onStateChange={setAssistantState}
+                    onOpenMentionChapter={handleChapterSelect}
+                    onApplySceneDraft={handleApplySceneDraft}
+                    isMobileOverlay={false}
+                  />
+                </>
+              }
+            >
+              <WorkspaceShell
+                emptyLabel="从左侧选择或新建章节"
+                onAddToConversation={isViewingSubagent ? undefined : handleAddToConversation}
               >
-                <Panel
-                  id="editor"
-                  minSize={30}
-                >
-                  <div className="writing-page-editor-shell">
-                    <EditorTabs
-                      onAddTab={handleShowEmptyTab}
-                      onAddToConversation={isViewingSubagent ? undefined : handleAddToConversation}
-                    />
-
-                    <Box className="writing-page-content-fill">
-                      {activeTabId && !isEmptyTab(activeTabId) ? (
-                        activeType === "note" ? (
-                          <NoteEditor
-                            noteId={activeRefId}
-                            scrollTop={activeEditorScrollTop}
-                            projectId={projectId}
-                            isAgentLocked={isAgentLocked}
-                            onScrollPositionChange={handleNoteScrollPositionChange}
-                          />
-                        ) : (
-                          <ChapterEditor
-                            chapterId={activeRefId}
-                            scrollTop={activeEditorScrollTop}
-                            projectId={projectId}
-                            isAgentLocked={isAgentLocked}
-                            onScrollPositionChange={handleChapterScrollPositionChange}
-                            onAddToConversation={
-                              isViewingSubagent ? undefined : handleAddToConversation
-                            }
-                            onPrepareSceneDraft={prepareSceneDraft}
-                            applySceneDraftRef={applySceneDraftRef}
-                          />
-                        )
-                      ) : (
-                        <EmptyTabContent
-                          onCreateNew={handleCreateNewChapter}
-                          onClose={handleCloseAllTabs}
-                        />
-                      )}
-                    </Box>
-                  </div>
-                </Panel>
-
-                <Separator className="resize-handle writing-page-separator" />
-
-                <Panel
-                  id="right-sidebar"
-                  defaultSize={500}
-                  minSize={300}
-                  maxSize={600}
-                  collapsible={false}
-                >
-                  <Box className="writing-page-sidebar writing-page-sidebar--right">
-                    <AssistantSidebarHost
-                      projectId={projectId}
-                      preferredAgentKey={workspaceView === "discuss" ? "discuss" : undefined}
-                      onStateChange={setAssistantState}
-                      onOpenMentionChapter={handleChapterSelect}
-                      onApplySceneDraft={handleApplySceneDraft}
-                      isMobileOverlay={false}
-                    />
-                  </Box>
-                </Panel>
-              </Group>
-            ) : (
-              <PanelLayoutLoading />
-            )}
+                <Box className="writing-page-content-fill">
+                  {activeTabId && !isEmptyTab(activeTabId) ? (
+                    activeType === "note" ? (
+                      <NoteEditor
+                        noteId={activeRefId}
+                        scrollTop={activeEditorScrollTop}
+                        projectId={projectId}
+                        isAgentLocked={isAgentLocked}
+                        onScrollPositionChange={handleNoteScrollPositionChange}
+                      />
+                    ) : (
+                      <ChapterEditor
+                        chapterId={activeRefId}
+                        scrollTop={activeEditorScrollTop}
+                        projectId={projectId}
+                        isAgentLocked={isAgentLocked}
+                        onScrollPositionChange={handleChapterScrollPositionChange}
+                        onAddToConversation={
+                          isViewingSubagent ? undefined : handleAddToConversation
+                        }
+                        onPrepareSceneDraft={prepareSceneDraft}
+                        applySceneDraftRef={applySceneDraftRef}
+                      />
+                    )
+                  ) : null}
+                </Box>
+              </WorkspaceShell>
+            </WorkspaceLayout>
           </Flex>
         ) : isMobile ? (
           <Flex className="writing-page-mobile-layout">
@@ -518,20 +374,13 @@ export function WritingPage({ workspaceView = "write" }: WritingPageProps) {
                       </IconButton>
                     </Tooltip>
                   )}
-                  <Tooltip content={t("assistant.mobileTitle")}>
-                    <IconButton
-                      variant="ghost"
-                      size="2"
-                      aria-label={t("assistant.mobileTitle")}
-                      onClick={openAssistantSidebar}
-                    >
-                      <Bot size={18} />
-                    </IconButton>
-                  </Tooltip>
                 </Flex>
               </Flex>
 
-              <Box className="writing-page-content-fill">
+              <WorkspaceShell
+                emptyLabel="从左侧选择或新建章节"
+                onAddToConversation={isViewingSubagent ? undefined : handleAddToConversation}
+              >
                 {activeTabId && !isEmptyTab(activeTabId) ? (
                   activeType === "note" ? (
                     <NoteEditor
@@ -555,13 +404,8 @@ export function WritingPage({ workspaceView = "write" }: WritingPageProps) {
                       applySceneDraftRef={applySceneDraftRef}
                     />
                   )
-                ) : (
-                  <EmptyTabContent
-                    onCreateNew={handleCreateNewChapter}
-                    onClose={handleCloseAllTabs}
-                  />
-                )}
-              </Box>
+                ) : null}
+              </WorkspaceShell>
 
               <motion.div
                 initial={false}

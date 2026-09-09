@@ -5,27 +5,28 @@ import { Box, Flex, Text, Dialog, Button, Skeleton, IconButton, Tooltip } from "
  * 世界书主页面，按项目展示对应世界书条目与编辑器。
  */
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Bot, List } from "lucide-react";
+import { List } from "lucide-react";
 import { motion } from "motion/react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Panel, Group, Separator } from "react-resizable-panels";
 import { useParams, useSearchParams } from "react-router";
 
 import { useAppShell } from "@/app/app-shell-context";
-
-import "./world-info-page.css";
-
 import { PanelLayoutLoading } from "@/components";
 import { toast } from "@/components/toast";
 import { AssistantSidebarHost } from "@/features/app-shell/components/assistant-sidebar-host";
+
+import "./world-info-page.css";
+
 import { MobileAppSidebarTrigger } from "@/features/app-shell/components/mobile-app-sidebar-trigger";
 import type { AssistantSidebarState } from "@/features/assistant";
 import { buildWorldInfoEntryMentionTag } from "@/features/assistant/lib/mention-text";
 import { moveProjectFolderItem } from "@/features/project-folders/lib/project-folder-api";
 import { ProjectNavShell } from "@/features/project-navigation/components/project-nav-shell";
 import { fetchProjects } from "@/features/projects/lib/project-api";
-import { usePersistedPanelLayout } from "@/hooks/use-persisted-panel-layout";
+import { WorkspaceLayout } from "@/features/workspace/components/workspace-layout";
+import { WorkspaceShell } from "@/features/workspace/components/workspace-shell";
+import { useWorkspace } from "@/features/workspace/hooks/use-workspace";
 import { getPreference, setPreference } from "@/lib/local-db";
 import { projectDataQueryKeys } from "@/lib/project-data-query-keys";
 import type {
@@ -56,9 +57,6 @@ import {
 } from "./world-info-entry-cache";
 
 const LAST_PROJECT_KEY = "worldInfo.lastProjectId";
-const LAST_ENTRY_KEY = "worldInfo.lastEntryId";
-const PANEL_LAYOUT_KEY = "panel-layout.project-editor";
-const PANEL_IDS = ["editor", "right-sidebar"];
 const MotionBox = motion.create(Box);
 const MOBILE_SIDEBAR_WIDTH = 320;
 
@@ -79,24 +77,38 @@ export function WorldInfoPage() {
   const { projectId: projectIdFromRoute } = useParams<{ projectId: string }>();
   const [searchParams] = useSearchParams();
   const queryClient = useQueryClient();
-  const { isMobile, openAssistantSidebar } = useAppShell();
+  const { isMobile } = useAppShell();
 
   const {
     currentWorldInfoId,
     currentProjectId,
     setCurrentProject,
     setCurrentWorldInfo,
-    currentEntryId,
-    setCurrentEntry,
+    setCurrentEntry: setLegacyEntry,
     sidebarOpen,
     setSidebarOpen,
     setFromWriting,
   } = useWorldInfoStore();
 
+  const workspace = useWorkspace(currentProjectId, "world");
+  const currentEntryId = workspace.selectedId;
+  const setCurrentEntry = workspace.select;
+  const activeWorkspaceTabId = workspace.activeTab?.id;
+  const workspaceStore = workspace.store;
+  const handleWorkspaceScroll = useCallback(
+    (top: number) => {
+      if (activeWorkspaceTabId)
+        workspaceStore.getState().updateTabScrollPosition(activeWorkspaceTabId, top);
+    },
+    [activeWorkspaceTabId, workspaceStore],
+  );
+  useEffect(() => {
+    setLegacyEntry(currentEntryId);
+  }, [currentEntryId, setLegacyEntry]);
+
   // 删除确认对话框状态
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [entryToDelete, setEntryToDelete] = useState<WorldInfoEntryBrief | null>(null);
-  const panelLayout = usePersistedPanelLayout(PANEL_LAYOUT_KEY, PANEL_IDS, !isMobile);
 
   // 排序状态
   type SortField = "order" | "uid" | "tokenCount" | "name";
@@ -105,7 +117,6 @@ export function WorldInfoPage() {
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const [isCreatingEntry, setIsCreatingEntry] = useState(false);
   const [scrollToLine, setScrollToLine] = useState<number | null>(null);
-  const skipEntryRestoreWorldInfoIdRef = useRef<string | null>(null);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [assistantState, setAssistantState] = useState<AssistantSidebarState>({
     agentStatus: "idle",
@@ -179,16 +190,6 @@ export function WorldInfoPage() {
     }
   }, [currentProjectId, setCurrentEntry, setCurrentWorldInfo]);
 
-  useEffect(() => {
-    if (skipEntryRestoreWorldInfoIdRef.current !== currentWorldInfoId) {
-      skipEntryRestoreWorldInfoIdRef.current = null;
-    }
-  }, [currentWorldInfoId]);
-
-  useEffect(() => {
-    if (currentEntryId) void setPreference(LAST_ENTRY_KEY, currentEntryId);
-  }, [currentEntryId]);
-
   // 获取条目列表（轻量，不含 content）
   const { data: entriesData, isLoading: entriesLoading } = useQuery({
     queryKey: projectDataQueryKeys.worldInfo.entries(currentWorldInfoId),
@@ -208,29 +209,26 @@ export function WorldInfoPage() {
   const entries = useMemo(() => entriesData?.items ?? [], [entriesData?.items]);
 
   useEffect(() => {
-    const restoreEntry = async () => {
-      if (
-        !currentWorldInfoId ||
-        currentEntryId ||
-        entries.length === 0 ||
-        skipEntryRestoreWorldInfoIdRef.current === currentWorldInfoId
-      )
-        return;
-      const cachedEntryId = await getPreference(LAST_ENTRY_KEY);
-      if (cachedEntryId && entries.some((entry) => entry.id === cachedEntryId)) {
-        setCurrentEntry(cachedEntryId);
-      }
-    };
-
-    void restoreEntry();
-  }, [currentEntryId, currentWorldInfoId, entries, setCurrentEntry]);
-
-  useEffect(() => {
-    if (!currentEntryId || !entriesData) return;
-    if (!entries.some((entry) => entry.id === currentEntryId)) {
-      setCurrentEntry(null);
-    }
-  }, [currentEntryId, entries, entriesData, setCurrentEntry]);
+    if (
+      !workspace.ready ||
+      !entriesData ||
+      !projectWorldInfo ||
+      projectWorldInfo.id !== currentWorldInfoId
+    )
+      return;
+    workspace.store.getState().syncTabs(
+      entries.map((item) => ({ id: item.id, title: item.name })),
+      "note",
+    );
+  }, [
+    entries,
+    entriesData,
+    workspace.ready,
+    workspace.store,
+    workspace.tabs,
+    projectWorldInfo,
+    currentWorldInfoId,
+  ]);
 
   /** 从完整条目提取轻量字段，用于更新列表缓存 */
   const extractBrief = useCallback(
@@ -377,10 +375,7 @@ export function WorldInfoPage() {
     mutationFn: (entryId: string) => deleteWorldInfoEntry(entryId),
     onSuccess: async (_data, entryId) => {
       if (!currentWorldInfoId) return;
-      if (useWorldInfoStore.getState().currentEntryId === entryId) {
-        skipEntryRestoreWorldInfoIdRef.current = currentWorldInfoId;
-        setCurrentEntry(null);
-      }
+      workspaceStore.getState().removeTabsByReference("note", entryId);
       await removeEntryCaches(currentWorldInfoId, [entryId]);
       queryClient.invalidateQueries({
         queryKey: projectDataQueryKeys.worldInfo.entries(currentWorldInfoId),
@@ -518,11 +513,7 @@ export function WorldInfoPage() {
       if (!currentWorldInfoId) return;
       try {
         const count = await batchDeleteWorldInfoEntries(currentWorldInfoId, entryIds);
-        const currentEntryId = useWorldInfoStore.getState().currentEntryId;
-        if (currentEntryId && entryIds.includes(currentEntryId)) {
-          skipEntryRestoreWorldInfoIdRef.current = currentWorldInfoId;
-          setCurrentEntry(null);
-        }
+        entryIds.forEach((id) => workspaceStore.getState().removeTabsByReference("note", id));
         await removeEntryCaches(currentWorldInfoId, entryIds);
         queryClient.invalidateQueries({
           queryKey: projectDataQueryKeys.worldInfo.entries(currentWorldInfoId),
@@ -532,7 +523,7 @@ export function WorldInfoPage() {
         toast.error(t("worldInfo.deleteFailed"));
       }
     },
-    [currentWorldInfoId, queryClient, removeEntryCaches, setCurrentEntry, t],
+    [currentWorldInfoId, queryClient, removeEntryCaches, workspaceStore, t],
   );
 
   const batchToggleMutation = useMutation({
@@ -631,14 +622,18 @@ export function WorldInfoPage() {
   );
 
   const agentSidebarContent =
-    currentProjectId && selectedEntry ? (
+    currentProjectId && (selectedEntry || isMobile) ? (
       <AssistantSidebarHost
         projectId={currentProjectId}
         preferredAgentKey="discuss"
-        initialComposerMarkup={buildWorldInfoEntryMentionTag({
-          worldInfoEntryId: selectedEntry.id,
-          label: selectedEntry.name,
-        })}
+        initialComposerMarkup={
+          selectedEntry
+            ? buildWorldInfoEntryMentionTag({
+                worldInfoEntryId: selectedEntry.id,
+                label: selectedEntry.name,
+              })
+            : undefined
+        }
         replaceComposerWithInitialMarkup
         onStateChange={setAssistantState}
         isMobileOverlay={isMobile}
@@ -660,7 +655,7 @@ export function WorldInfoPage() {
       </Flex>
     );
 
-  const editorContent = isCreatingEntry ? (
+  const rawEditorContent = isCreatingEntry ? (
     <Box p="4">
       <Flex
         direction="column"
@@ -697,6 +692,8 @@ export function WorldInfoPage() {
     </Box>
   ) : currentEntryId && selectedEntry ? (
     <EntryEditor
+      scrollTop={workspace.activeTab?.scrollTop ?? 0}
+      onScrollPositionChange={handleWorkspaceScroll}
       key={selectedEntry.id}
       entry={selectedEntry}
       worldInfoId={currentWorldInfoId!}
@@ -757,6 +754,15 @@ export function WorldInfoPage() {
     </Flex>
   );
 
+  const editorContent = (
+    <WorkspaceShell
+      store={workspace.store}
+      emptyLabel="从左侧选择或新建条目"
+    >
+      {rawEditorContent}
+    </WorkspaceShell>
+  );
+
   return (
     <Flex
       direction="column"
@@ -781,43 +787,9 @@ export function WorldInfoPage() {
           {!isMobile && currentProjectId ? (
             <Flex style={{ height: "100%", minWidth: 0 }}>
               <ProjectNavShell>{sidebarContent}</ProjectNavShell>
-              {panelLayout.isLoaded ? (
-                <Group
-                  style={{ flex: 1, minWidth: 0 }}
-                  orientation="horizontal"
-                  className="world-info-page-group"
-                  defaultLayout={panelLayout.defaultLayout}
-                  onLayoutChanged={panelLayout.onLayoutChanged}
-                >
-                  <Panel
-                    id="editor"
-                    minSize={30}
-                  >
-                    <Box
-                      data-scroll-container
-                      className="world-info-page-editor-shell"
-                    >
-                      {editorContent}
-                    </Box>
-                  </Panel>
-
-                  <Separator className="resize-handle world-info-page-separator" />
-
-                  <Panel
-                    id="right-sidebar"
-                    defaultSize={500}
-                    minSize={300}
-                    maxSize={600}
-                    collapsible={false}
-                  >
-                    <Box className="world-info-page-sidebar world-info-page-sidebar--right">
-                      {agentSidebarContent}
-                    </Box>
-                  </Panel>
-                </Group>
-              ) : (
-                <PanelLayoutLoading />
-              )}
+              <WorkspaceLayout assistant={<>{agentSidebarContent}</>}>
+                {editorContent}
+              </WorkspaceLayout>
             </Flex>
           ) : currentProjectId && isMobile ? (
             <Flex className="world-info-page-mobile-layout">
@@ -845,18 +817,6 @@ export function WorldInfoPage() {
                       </IconButton>
                     </Tooltip>
                   </Flex>
-
-                  <Tooltip content={t("assistant.mobileTitle")}>
-                    <IconButton
-                      variant="ghost"
-                      size="2"
-                      aria-label={t("assistant.mobileTitle")}
-                      onClick={openAssistantSidebar}
-                      disabled={!selectedEntry}
-                    >
-                      <Bot size={18} />
-                    </IconButton>
-                  </Tooltip>
                 </Flex>
 
                 <Box
@@ -917,7 +877,7 @@ export function WorldInfoPage() {
         </Flex>
       </Flex>
 
-      {isMobile && currentProjectId && selectedEntry ? agentSidebarContent : null}
+      {isMobile && currentProjectId ? agentSidebarContent : null}
 
       <ImportWorldInfoDialog
         open={importDialogOpen}

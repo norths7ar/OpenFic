@@ -14,7 +14,3 @@ export const EMPTY_TAB_PREFIX = "__empty__";
 export function isEmptyTab(tabId: string): boolean {
   return tabId.startsWith(EMPTY_TAB_PREFIX);
 }
-
-export function generateEmptyTabId(): string {
-  return `${EMPTY_TAB_PREFIX}${Date.now()}`;
-}

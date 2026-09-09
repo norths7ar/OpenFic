@@ -1,17 +1,21 @@
-import { Box, Flex, IconButton, Text, Tooltip } from "@radix-ui/themes";
-import { FileText, ListTree, PanelRightClose, PanelRightOpen } from "lucide-react";
-import { useState } from "react";
+import { Flex, Text } from "@radix-ui/themes";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useParams } from "react-router";
 
+import { useAppShell } from "@/app/app-shell-context";
 import { AssistantSidebarHost } from "@/features/app-shell/components/assistant-sidebar-host";
 import type { AssistantSidebarState } from "@/features/assistant";
 import { buildNoteMentionTag } from "@/features/assistant/lib/mention-text";
 import { ProjectNavShell } from "@/features/project-navigation/components/project-nav-shell";
+import { WorkspaceLayout } from "@/features/workspace/components/workspace-layout";
+import { WorkspaceShell } from "@/features/workspace/components/workspace-shell";
+import { useWorkspace } from "@/features/workspace/hooks/use-workspace";
 import type { DocumentType } from "@/lib/note.types";
 
 import { NoteEditor } from "../components/note-editor";
 import { NoteSidebar } from "../components/note-sidebar";
+import { useNoteTree } from "../hooks/use-notes";
 
 import "./writing-page.css";
 
@@ -22,20 +26,66 @@ interface DocumentWorkspacePageProps {
 export function DocumentWorkspacePage({ documentType }: DocumentWorkspacePageProps) {
   const { projectId } = useParams<{ projectId: string }>();
   const { t } = useTranslation();
-  const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
-  const [selectedTitle, setSelectedTitle] = useState("");
-  const [assistantOpen, setAssistantOpen] = useState(false);
+  const workspace = useWorkspace(projectId, documentType);
+  const selectedNoteId = workspace.selectedId;
+  const selectedTitle = workspace.activeTab?.title ?? "";
+  const { data: tree } = useNoteTree(projectId ?? "", documentType);
+  useEffect(() => {
+    if (!tree || !workspace.ready) return;
+    workspace.store
+      .getState()
+      .syncTabs([...tree.rootNotes, ...tree.categories.flatMap((folder) => folder.notes)], "note");
+  }, [tree, workspace.ready, workspace.store]);
+  const { isMobile } = useAppShell();
   const [assistantState, setAssistantState] = useState<AssistantSidebarState>({
     agentStatus: "idle",
     isAgentRunning: false,
   });
 
-  const Icon = documentType === "outline" ? ListTree : FileText;
   const emptyLabel = t(
     documentType === "outline" ? "writing.selectOrCreateOutline" : "writing.selectOrCreateNote",
   );
 
   if (!projectId) return null;
+
+  const editor = (
+    <WorkspaceShell
+      store={workspace.store}
+      emptyLabel={emptyLabel}
+    >
+      <NoteEditor
+        noteId={selectedNoteId}
+        projectId={projectId}
+        scrollTop={workspace.activeTab?.scrollTop ?? 0}
+        onScrollPositionChange={(id, top) =>
+          workspace.store.getState().updateTabScrollPosition(`note:${id}`, top)
+        }
+        isAgentLocked={assistantState.isAgentRunning}
+      />
+    </WorkspaceShell>
+  );
+  const assistant = selectedNoteId ? (
+    <AssistantSidebarHost
+      projectId={projectId}
+      preferredAgentKey="discuss"
+      initialComposerMarkup={buildNoteMentionTag({
+        noteId: selectedNoteId,
+        label: selectedTitle,
+      })}
+      replaceComposerWithInitialMarkup
+      onStateChange={setAssistantState}
+      isMobileOverlay={false}
+    />
+  ) : (
+    <Flex
+      height="100%"
+      align="center"
+      justify="center"
+      p="4"
+    >
+      <Text color="gray">{emptyLabel}</Text>
+    </Flex>
+  );
 
   return (
     <Flex
@@ -46,92 +96,27 @@ export function DocumentWorkspacePage({ documentType }: DocumentWorkspacePagePro
         <NoteSidebar
           projectId={projectId}
           documentType={documentType}
-          onNoteSelect={(noteId, title) => {
-            setSelectedNoteId(noteId);
-            setSelectedTitle(title);
-          }}
+          selectedNoteId={selectedNoteId}
+          onNoteSelect={workspace.select}
         />
       </ProjectNavShell>
-      <Flex
-        direction="column"
-        flexGrow="1"
-        minWidth="0"
-      >
-        {selectedNoteId ? (
-          <>
-            <Flex
-              align="center"
-              gap="2"
-              px="4"
-              style={{ height: 48, borderBottom: "1px solid var(--gray-a5)" }}
-            >
-              <Icon size={18} />
-              <Text
-                weight="medium"
-                style={{ flex: 1, minWidth: 0 }}
-              >
-                {selectedTitle}
-              </Text>
-              <Tooltip
-                content={t(
-                  assistantOpen
-                    ? "assistant.closeDocumentAssistant"
-                    : "assistant.openDocumentAssistant",
-                )}
-              >
-                <IconButton
-                  variant="ghost"
-                  color="gray"
-                  onClick={() => setAssistantOpen((open) => !open)}
-                  aria-label={t(
-                    assistantOpen
-                      ? "assistant.closeDocumentAssistant"
-                      : "assistant.openDocumentAssistant",
-                  )}
-                >
-                  {assistantOpen ? <PanelRightClose size={18} /> : <PanelRightOpen size={18} />}
-                </IconButton>
-              </Tooltip>
-            </Flex>
-            <Box style={{ flex: 1, minHeight: 0 }}>
-              <NoteEditor
-                noteId={selectedNoteId}
-                projectId={projectId}
-                isAgentLocked={assistantState.isAgentRunning}
-              />
-            </Box>
-          </>
-        ) : (
-          <Flex
-            direction="column"
-            align="center"
-            justify="center"
-            gap="3"
-            height="100%"
-            style={{ color: "var(--gray-9)" }}
-          >
-            <Icon
-              size={40}
-              strokeWidth={1.4}
-            />
-            <Text size="2">{emptyLabel}</Text>
-          </Flex>
-        )}
-      </Flex>
-      {selectedNoteId && assistantOpen && (
-        <Box style={{ width: 420, minWidth: 340, borderLeft: "1px solid var(--gray-a5)" }}>
-          <AssistantSidebarHost
-            projectId={projectId}
-            preferredAgentKey="discuss"
-            initialComposerMarkup={buildNoteMentionTag({
-              noteId: selectedNoteId,
-              label: selectedTitle,
-            })}
-            replaceComposerWithInitialMarkup
-            onStateChange={setAssistantState}
-            isMobileOverlay={false}
-          />
-        </Box>
+      {isMobile ? editor : <WorkspaceLayout assistant={assistant}>{editor}</WorkspaceLayout>}
+      {isMobile && (
+        <AssistantSidebarHost
+          projectId={projectId}
+          preferredAgentKey="discuss"
+          initialComposerMarkup={
+            selectedNoteId
+              ? buildNoteMentionTag({
+                  noteId: selectedNoteId,
+                  label: selectedTitle,
+                })
+              : undefined
+          }
+          replaceComposerWithInitialMarkup
+          onStateChange={setAssistantState}
+          isMobileOverlay
+        />
       )}
     </Flex>
   );

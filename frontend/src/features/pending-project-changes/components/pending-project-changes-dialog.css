@@ -200,6 +200,14 @@
   min-height: 320px;
 }
 
+.pending-project-changes-layout > .pending-project-changes-state {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 0;
+  padding: var(--space-4);
+  text-align: center;
+}
+
 @media (max-width: 640px) {
   .pending-project-changes-layout {
     grid-template-columns: 1fr;

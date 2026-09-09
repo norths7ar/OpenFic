@@ -1,6 +1,7 @@
-import { useId, useLayoutEffect, useRef } from "react";
+import { useContext, useId, useLayoutEffect, useRef } from "react";
 
 import { useAppShell, type AssistantSidebarHostRegistration } from "@/app/app-shell-context";
+import { WorkspaceDiscussionContext } from "@/features/workspace/hooks/workspace-discussion-context";
 
 interface AssistantSidebarHostProps extends Omit<
   AssistantSidebarHostRegistration,
@@ -22,6 +23,8 @@ export function AssistantSidebarHost({
   projectId,
 }: AssistantSidebarHostProps) {
   const id = useId();
+  const discussion = useContext(WorkspaceDiscussionContext);
+  const desktopOpen = discussion?.open ?? true;
   const hostRef = useRef<HTMLDivElement | null>(null);
   const {
     clearAssistantSidebarHost,
@@ -42,7 +45,7 @@ export function AssistantSidebarHost({
       host: isMobileOverlay ? null : hostRef.current,
       projectId,
       isMobileOverlay,
-      isOpen: isMobileOverlay ? isAssistantSidebarOpen : true,
+      isOpen: isMobileOverlay ? isAssistantSidebarOpen : desktopOpen,
       preferredAgentKey,
       initialComposerMarkup,
       replaceComposerWithInitialMarkup,
@@ -58,6 +61,7 @@ export function AssistantSidebarHost({
     id,
     isMobileOverlay,
     isAssistantSidebarOpen,
+    desktopOpen,
     preferredAgentKey,
     initialComposerMarkup,
     replaceComposerWithInitialMarkup,

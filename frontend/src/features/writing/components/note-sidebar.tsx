@@ -47,6 +47,7 @@ import type { NoteAgentVisibility } from "./note-folder-list";
 import { NoteSearchPopover } from "./note-search-popover";
 
 interface NoteSidebarProps {
+  selectedNoteId?: string | null;
   projectId: string;
   onNoteSelect: (noteId: string, title: string) => void;
   onAddToConversation?: (markup: string) => void;
@@ -56,6 +57,7 @@ interface NoteSidebarProps {
 }
 
 export function NoteSidebar({
+  selectedNoteId,
   projectId,
   onNoteSelect,
   onAddToConversation,
@@ -92,7 +94,8 @@ export function NoteSidebar({
     type: "category" | "note";
     title: string;
   } | null>(null);
-  const [currentNoteId, setCurrentNoteId] = useState<string | null>(null);
+  const [localNoteId, setCurrentNoteId] = useState<string | null>(null);
+  const currentNoteId = selectedNoteId === undefined ? localNoteId : selectedNoteId;
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
 
   const [contentSearchOpen, setContentSearchOpen] = useState(false);

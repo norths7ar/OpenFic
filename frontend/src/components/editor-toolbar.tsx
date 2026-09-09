@@ -1,8 +1,10 @@
 import { Box, Flex, IconButton, Separator, Tooltip } from "@radix-ui/themes";
 import type { Editor } from "@tiptap/react";
-import { Undo, Redo, Save } from "lucide-react";
+import { Undo, Redo, Save, FileText, CodeXml } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
+
+import { WorkspaceDiscussionToggle } from "@/features/workspace/components/workspace-discussion";
 
 import { Spinner } from "./spinner";
 
@@ -22,6 +24,9 @@ export interface EditorToolbarProps {
   onLockedAction?: () => void;
   extraActions?: EditorToolbarExtraAction[];
   toolbarPrefix?: React.ReactNode;
+  mode?: "visual" | "source";
+  onModeChange?: (mode: "visual" | "source") => void;
+  history?: { canUndo: boolean; canRedo: boolean; undo: () => void; redo: () => void };
 }
 
 interface ToolbarButtonProps {
@@ -56,6 +61,9 @@ export function EditorToolbar({
   onLockedAction,
   extraActions,
   toolbarPrefix,
+  mode,
+  onModeChange,
+  history,
 }: EditorToolbarProps) {
   const { t } = useTranslation();
 
@@ -124,17 +132,31 @@ export function EditorToolbar({
           />
         )}
 
+        {mode && onModeChange && (
+          <Box mr="2">
+            <ToolbarButton
+              icon={mode === "visual" ? <FileText size={18} /> : <CodeXml size={18} />}
+              label={t(mode === "visual" ? "editor.switchToSource" : "editor.switchToVisual")}
+              onClick={() => onModeChange(mode === "visual" ? "source" : "visual")}
+            />
+          </Box>
+        )}
+
         <ToolbarButton
           icon={<Undo size={18} />}
           label={t("editor.undo")}
-          disabled={!canUndo}
-          onClick={() => runEditorAction(() => editor.chain().focus().undo().run())}
+          disabled={!(history?.canUndo ?? canUndo)}
+          onClick={() =>
+            runEditorAction(() => (history ? history.undo() : editor.chain().focus().undo().run()))
+          }
         />
         <ToolbarButton
           icon={<Redo size={18} />}
           label={t("editor.redo")}
-          disabled={!canRedo}
-          onClick={() => runEditorAction(() => editor.chain().focus().redo().run())}
+          disabled={!(history?.canRedo ?? canRedo)}
+          onClick={() =>
+            runEditorAction(() => (history ? history.redo() : editor.chain().focus().redo().run()))
+          }
         />
 
         <Separator
@@ -148,6 +170,7 @@ export function EditorToolbar({
           disabled={isSaving || !hasChanges}
           onClick={() => runEditorAction(() => onSave(true))}
         />
+        <WorkspaceDiscussionToggle />
       </Flex>
     </Box>
   );
