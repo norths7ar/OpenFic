@@ -299,6 +299,7 @@ export function WritingPage({ workspaceView = "write" }: WritingPageProps) {
               }
             >
               <WorkspaceShell
+                projectId={projectId}
                 emptyLabel="从左侧选择或新建章节"
                 onAddToConversation={isViewingSubagent ? undefined : handleAddToConversation}
               >
@@ -378,6 +379,7 @@ export function WritingPage({ workspaceView = "write" }: WritingPageProps) {
               </Flex>
 
               <WorkspaceShell
+                projectId={projectId}
                 emptyLabel="从左侧选择或新建章节"
                 onAddToConversation={isViewingSubagent ? undefined : handleAddToConversation}
               >

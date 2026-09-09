@@ -5,14 +5,17 @@ import type { ReactNode } from "react";
 import { EditorTabs } from "@/features/writing/components/editor-tabs";
 import { useTabsStore } from "@/features/writing/store/use-tabs-store";
 
+import { DocumentTrashButton } from "./document-history";
 import { WorkspaceDiscussionProvider, WorkspaceDiscussionToggle } from "./workspace-discussion";
 
 export function WorkspaceShell({
+  projectId,
   store = useTabsStore,
   emptyLabel,
   children,
   onAddToConversation,
 }: {
+  projectId?: string | null;
   store?: typeof useTabsStore;
   emptyLabel: string;
   children: ReactNode;
@@ -25,10 +28,22 @@ export function WorkspaceShell({
         direction="column"
         style={{ height: "100%", minHeight: 0, minWidth: 0, flex: 1 }}
       >
-        <EditorTabs
-          store={store}
-          onAddToConversation={onAddToConversation}
-        />
+        <Flex
+          align="center"
+          style={{ minWidth: 0 }}
+        >
+          <Box style={{ flex: 1, minWidth: 0 }}>
+            <EditorTabs
+              store={store}
+              onAddToConversation={onAddToConversation}
+            />
+          </Box>
+          {projectId && (
+            <Box px="3">
+              <DocumentTrashButton projectId={projectId} />
+            </Box>
+          )}
+        </Flex>
         <Box
           style={{
             flex: 1,

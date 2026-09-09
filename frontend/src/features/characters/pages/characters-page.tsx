@@ -435,6 +435,7 @@ export function CharactersPage() {
 
   const editorContent = (
     <WorkspaceShell
+      projectId={currentProjectId}
       store={workspace.store}
       emptyLabel="从左侧选择或新建条目"
     >

@@ -29,6 +29,7 @@ import { updateWorldInfoEntry } from "../lib/world-info-api";
 import { resolveRemoteEntryEditorState } from "./entry-editor-state";
 
 interface EntryEditorProps {
+  projectId?: string;
   scrollTop?: number;
   onScrollPositionChange?: (top: number) => void;
   /** 条目数据 */
@@ -49,6 +50,7 @@ interface EntryEditorProps {
 const AUTO_SAVE_DELAY = 1500;
 
 export function EntryEditor({
+  projectId,
   scrollTop,
   onScrollPositionChange,
   entry,
@@ -150,8 +152,9 @@ export function EntryEditor({
         tokenCount: newTokenCount,
       });
       updateCaches(updated);
-      hasChangesRef.current = false;
-      setHasChanges(false);
+      hasChangesRef.current =
+        savedContentRef.current !== content || savedNameRef.current.trim() !== newName;
+      setHasChanges(hasChangesRef.current);
     } finally {
       isSavingRef.current = false;
       setIsSaving(false);
@@ -265,6 +268,25 @@ export function EntryEditor({
 
   return (
     <MarkdownEditor
+      documentHistory={
+        projectId
+          ? {
+              projectId,
+              kind: "world_entry",
+              documentId: entry.id,
+              disabled: isAgentLocked,
+              prepare: async () => {
+                if (saveTimerRef.current) {
+                  clearTimeout(saveTimerRef.current);
+                  saveTimerRef.current = null;
+                }
+                if (isAgentLocked || isSavingRef.current) return false;
+                await flushSave();
+                return !hasChangesRef.current && !isSavingRef.current;
+              },
+            }
+          : undefined
+      }
       scrollTop={scrollTop}
       onScrollPositionChange={onScrollPositionChange}
       title={name}

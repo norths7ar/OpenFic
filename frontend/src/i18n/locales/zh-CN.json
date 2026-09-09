@@ -2358,5 +2358,35 @@
         "completeTitle": "导入完成"
       }
     }
+  },
+  "documentArchive": {
+    "stale": "内容、锁定状态或恢复位置已变化，请关闭并重新打开后重试。",
+    "history": "历史版本",
+    "trash": "回收站",
+    "historyHint": "自动保留标题与正文。恢复前会保留当前版本。",
+    "trashHint": "已删除的文档不会自动清空。原文件夹不存在时恢复到根目录。",
+    "saveFirst": "请等待当前保存完成，或先解决未保存的更改后重试。",
+    "failed": "操作失败；文档可能已改变，请关闭后重新打开再试。",
+    "restored": "已恢复",
+    "empty": "暂无记录",
+    "select": "选择记录预览标题与正文",
+    "delete": "永久删除",
+    "deleteHint": "永久删除“{{title}}”？此操作无法撤销。",
+    "close": "关闭",
+    "cancel": "取消",
+    "restore": "恢复",
+    "kinds": {
+      "chapter": "章节",
+      "world_entry": "世界书",
+      "character": "角色",
+      "note": "笔记",
+      "outline": "大纲"
+    },
+    "sources": {
+      "import": "导入前",
+      "manual": "手工编辑",
+      "ai": "AI 修改",
+      "restore": "恢复前"
+    }
   }
 }

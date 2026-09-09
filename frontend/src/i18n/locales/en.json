@@ -2358,5 +2358,35 @@
       "fresh": "Fresh",
       "failed": "Failed"
     }
+  },
+  "documentArchive": {
+    "stale": "The content, lock state, or restore destination has changed. Close and reopen to try again.",
+    "history": "Version history",
+    "trash": "Recycle bin",
+    "historyHint": "Titles and content are saved automatically. Restoring preserves the current version first.",
+    "trashHint": "Deleted documents stay here until you remove them. Missing folders restore to the root.",
+    "saveFirst": "Wait for the current save, or resolve unsaved changes before trying again.",
+    "failed": "The operation failed. The document may have changed; close and reopen to try again.",
+    "restored": "Restored",
+    "empty": "No records yet",
+    "select": "Select a record to preview its title and content",
+    "delete": "Delete permanently",
+    "deleteHint": "Permanently delete “{{title}}”? This cannot be undone.",
+    "close": "Close",
+    "cancel": "Cancel",
+    "restore": "Restore",
+    "kinds": {
+      "chapter": "Chapter",
+      "world_entry": "World entry",
+      "character": "Character",
+      "note": "Note",
+      "outline": "Outline"
+    },
+    "sources": {
+      "import": "Before import",
+      "manual": "Manual edit",
+      "ai": "AI edit",
+      "restore": "Before restore"
+    }
   }
 }

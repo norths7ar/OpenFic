@@ -91,6 +91,7 @@ function NoteEditorContent({
     !areWritingWorkingCopyDraftsEqual(initialDraft, { title: note.title, content: note.content }),
   );
   const [isSaving, setIsSaving] = useState(false);
+  const saveInFlightRef = useRef(false);
   const [editorContent, setEditorContent] = useState(initialDraft.content);
   const savedContentRef = useRef(initialDraft.content);
   const latestDraftRef = useRef(initialDraft);
@@ -142,6 +143,7 @@ function NoteEditorContent({
       return;
     }
 
+    if (saveInFlightRef.current || !hasChangesRef.current) return;
     const draftToSave = latestDraftRef.current;
     const draftUpdatedAt = latestDraftUpdatedAtRef.current;
     const contentLimit = getEditorContentLimit(draftToSave.content);
@@ -154,6 +156,7 @@ function NoteEditorContent({
     }
     rejectedContentRef.current = null;
 
+    saveInFlightRef.current = true;
     setIsSaving(true);
     try {
       persistWorkingCopy(draftToSave, baseDraftRef.current, draftUpdatedAt);
@@ -180,7 +183,7 @@ function NoteEditorContent({
         content: updatedNote.content,
         updatedAt: updatedNote.updatedAt,
       };
-      void clearWorkingCopy(draftToSave, draftUpdatedAt);
+      await clearWorkingCopy(draftToSave, draftUpdatedAt);
       updateTabTitle(`note:${updatedNote.id}`, latestDraftRef.current.title);
       const isDirty = !areWritingWorkingCopyDraftsEqual(
         latestDraftRef.current,
@@ -194,6 +197,7 @@ function NoteEditorContent({
       hasChangesRef.current = true;
       setHasChanges(true);
     } finally {
+      saveInFlightRef.current = false;
       setIsSaving(false);
     }
   }, [
@@ -354,6 +358,17 @@ function NoteEditorContent({
         />
       ) : null}
       <MarkdownEditor
+        documentHistory={{
+          projectId: note.projectId,
+          kind: note.documentType,
+          documentId: note.id,
+          disabled: isAgentLocked,
+          prepare: async () => {
+            if (isAgentLocked || saveInFlightRef.current) return false;
+            if (hasChangesRef.current) await handleSave();
+            return !hasChangesRef.current && !saveInFlightRef.current;
+          },
+        }}
         toolbarPrefix={toolbarPrefix}
         title={title}
         onTitleChange={handleTitleChange}

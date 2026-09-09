@@ -169,6 +169,7 @@ function ChapterEditorContent({
     isChapterEditorDraftDirty(lastSavedDraftRef.current, initialDraft),
   );
   const [isSaving, setIsSaving] = useState(false);
+  const saveInFlightRef = useRef(false);
   const [findReplaceMode, setFindReplaceMode] = useState<"closed" | "find" | "replace">("closed");
   const [isSceneDraftDialogOpen, setIsSceneDraftDialogOpen] = useState(false);
   const [wordCount, setWordCount] = useState(() => wordsCount(initialDraft.content));
@@ -375,6 +376,7 @@ function ChapterEditorContent({
         return;
       }
 
+      if (saveInFlightRef.current || !hasChangesRef.current) return;
       const draftToSave = latestDraftRef.current;
       const draftUpdatedAt = latestDraftUpdatedAtRef.current;
       const contentLimit = getEditorContentLimit(draftToSave.content);
@@ -388,6 +390,7 @@ function ChapterEditorContent({
       rejectedContentRef.current = null;
       const currentWordCount = wordsCount(draftToSave.content);
 
+      saveInFlightRef.current = true;
       setIsSaving(true);
       try {
         persistWorkingCopy(draftToSave, baseDraftRef.current, draftUpdatedAt);
@@ -416,7 +419,7 @@ function ChapterEditorContent({
           content: updatedChapter.content,
           updatedAt: updatedChapter.updatedAt,
         };
-        void clearWorkingCopy(draftToSave, draftUpdatedAt);
+        await clearWorkingCopy(draftToSave, draftUpdatedAt);
         syncDirtyStateFromEditor(editor);
         onChapterUpdate?.(updatedChapter);
 
@@ -428,6 +431,7 @@ function ChapterEditorContent({
         invalidateWritingEditorEntityQueries(queryClient, "chapter", chapter.id);
         syncDirtyStateFromEditor(editor);
       } finally {
+        saveInFlightRef.current = false;
         setIsSaving(false);
       }
     },
@@ -773,6 +777,17 @@ function ChapterEditorContent({
         ) : null
       }
       toolbar={{
+        documentHistory: {
+          projectId: chapter.projectId,
+          kind: "chapter",
+          documentId: chapter.id,
+          disabled: isAgentLocked,
+          prepare: async () => {
+            if (isAgentLocked || saveInFlightRef.current) return false;
+            if (hasChangesRef.current) await handleSave();
+            return !hasChangesRef.current && !saveInFlightRef.current;
+          },
+        },
         editor,
         onSave: handleSave,
         isSaving: saveStatus === "saving",

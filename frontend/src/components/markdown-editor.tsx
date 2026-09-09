@@ -5,6 +5,8 @@ import { useCallback, useRef, useEffect, useState } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 import { useTranslation } from "react-i18next";
 
+import type { DocumentHistoryConfig } from "@/features/workspace/components/document-history";
+
 import { ContextMenu } from "./context-menu";
 import { EditorDraftHistory } from "./editor-draft-history";
 import { EditorFrame } from "./editor-frame";
@@ -12,6 +14,7 @@ import type { EditorToolbarExtraAction } from "./editor-toolbar";
 import { createMarkdownEditorExtensions } from "./markdown-editor-config";
 
 export interface MarkdownEditorProps {
+  documentHistory?: DocumentHistoryConfig;
   title: string;
   onTitleChange: (title: string) => void;
   content: string;
@@ -37,6 +40,7 @@ export interface MarkdownEditorProps {
 
 export function MarkdownEditor({
   title,
+  documentHistory,
   onTitleChange,
   content,
   onContentChange,
@@ -257,6 +261,7 @@ export function MarkdownEditor({
     <EditorFrame
       banner={lockedBanner}
       toolbar={{
+        documentHistory,
         editor,
         onSave,
         isSaving,

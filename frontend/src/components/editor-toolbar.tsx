@@ -4,6 +4,10 @@ import { Undo, Redo, Save, FileText, CodeXml } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 
+import {
+  DocumentHistoryButton,
+  type DocumentHistoryConfig,
+} from "@/features/workspace/components/document-history";
 import { WorkspaceDiscussionToggle } from "@/features/workspace/components/workspace-discussion";
 
 import { Spinner } from "./spinner";
@@ -16,6 +20,7 @@ export interface EditorToolbarExtraAction {
 }
 
 export interface EditorToolbarProps {
+  documentHistory?: DocumentHistoryConfig;
   editor: Editor | null;
   onSave: (isManualSave?: boolean) => void;
   isSaving?: boolean;
@@ -54,6 +59,7 @@ function ToolbarButton({ icon, label, disabled = false, onClick }: ToolbarButton
 
 export function EditorToolbar({
   editor,
+  documentHistory,
   onSave,
   isSaving,
   hasChanges,
@@ -115,6 +121,7 @@ export function EditorToolbar({
         justify="end"
       >
         {toolbarPrefix}
+        {documentHistory && <DocumentHistoryButton config={documentHistory} />}
 
         {extraActions?.map((action) => (
           <ToolbarButton

@@ -50,6 +50,7 @@ export function DocumentWorkspacePage({ documentType }: DocumentWorkspacePagePro
 
   const editor = (
     <WorkspaceShell
+      projectId={projectId}
       store={workspace.store}
       emptyLabel={emptyLabel}
     >

@@ -211,6 +211,21 @@ export function CharacterEditor({
 
   return (
     <MarkdownEditor
+      documentHistory={{
+        projectId: character.projectId,
+        kind: "character",
+        documentId: character.id,
+        disabled: isAgentLocked,
+        prepare: async () => {
+          if (saveTimerRef.current) {
+            clearTimeout(saveTimerRef.current);
+            saveTimerRef.current = null;
+          }
+          if (isAgentLocked || isSavingRef.current) return false;
+          await flushSave();
+          return !hasChangesRef.current && !isSavingRef.current;
+        },
+      }}
       scrollTop={scrollTop}
       onScrollPositionChange={onScrollPositionChange}
       title={name}
