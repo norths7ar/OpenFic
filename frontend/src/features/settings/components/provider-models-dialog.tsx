@@ -140,7 +140,7 @@ export function ProviderModelsDialog({
     const remoteIds = new Set(remoteModels.map((model) => model.id));
     result.push(
       ...providerModels
-        .filter((model) => !remoteIds.has(model.modelId))
+        .filter((model) => model.isEnabled && !remoteIds.has(model.modelId))
         .map((model) => ({
           remote: toAvailableModel(model),
           saved: model,
