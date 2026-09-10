@@ -6,6 +6,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.encryption import EncryptionService
 from app.core.errors import NotFoundError
+from app.models.clients.reasoning_capabilities import (
+    refresh_advertised_efforts,
+    resolve_reasoning_effort,
+)
 from app.models.repos import model_provider_repo, model_repo
 from app.models.services.model_provider_service import ModelProviderService
 from app.settings import settings
@@ -39,8 +43,12 @@ async def build_model_config(
         "presence_penalty": model.presence_penalty,
         "repetition_penalty": model.repetition_penalty,
     }
-    if reasoning_effort and reasoning_effort != "off":
-        model_config["reasoning_effort"] = reasoning_effort
+    await refresh_advertised_efforts(provider.provider_type, provider.url, api_key, custom_headers)
+    resolved_effort = resolve_reasoning_effort(
+        provider.provider_type, model.model_id, provider.url, reasoning_effort
+    )
+    if resolved_effort is not None:
+        model_config["reasoning_effort"] = resolved_effort
     if custom_headers:
         model_config["custom_headers"] = custom_headers
     return model_config

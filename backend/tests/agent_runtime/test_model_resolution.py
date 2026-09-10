@@ -13,7 +13,7 @@ def _model() -> SimpleNamespace:
     return SimpleNamespace(
         id="model-record",
         provider_id="provider-record",
-        model_id="test-model",
+        model_id="gpt-5",
         context_length=128000,
         temperature=1.0,
         top_p=1.0,
@@ -38,7 +38,7 @@ async def test_build_model_config_handles_reasoning_effort(
 ) -> None:
     config = await model_resolution.build_model_config(
         _model(),
-        SimpleNamespace(provider_type="openai-compatible", url="https://api.example/v1"),
+        SimpleNamespace(provider_type="openai", url="https://api.openai.com/v1"),
         "sk-test",
         reasoning_effort,
         {"X-Provider-Key": "header-secret"},

@@ -82,7 +82,7 @@ def test_create_chat_model_anthropic_compatible_uses_anthropic_client_with_custo
         base_url="https://gateway.example/v1",
         api_key="test-key",
         model_id="custom-claude",
-        reasoning_effort="high",
+        reasoning_effort="off",
     )
 
     model = create_chat_model(config)
@@ -91,7 +91,7 @@ def test_create_chat_model_anthropic_compatible_uses_anthropic_client_with_custo
 
     assert isinstance(model, ChatAnthropic)
     assert model.anthropic_api_url == "https://gateway.example/v1"
-    assert model.effort == "high"
+    assert model.effort is None
     assert model.max_retries == 0
 
 
@@ -171,7 +171,6 @@ def test_create_chat_model_sends_non_default_advanced_params():
             repetition_penalty=1.1,
             min_p=0.05,
             top_a=0.1,
-            reasoning_effort="high",
         )
     )
 
@@ -182,7 +181,6 @@ def test_create_chat_model_sends_non_default_advanced_params():
         "top_p": 0.9,
         "frequency_penalty": 0.2,
         "presence_penalty": 0.1,
-        "reasoning_effort": "high",
         "extra_body": {
             "top_k": 32,
             "repetition_penalty": 1.1,
@@ -232,136 +230,40 @@ def test_create_chat_model_maps_anthropic_reasoning_effort():
             base_url="",
             api_key="sk-ant-test",
             model_id="claude-sonnet-4-6",
-            reasoning_effort="xhigh",
-        )
-    )
-
-    assert model.effort == "xhigh"
-
-
-@requires_extra("langchain_google_genai")
-def test_create_chat_model_maps_google_reasoning_effort():
-    model = create_chat_model(
-        ModelConfig(
-            provider_type="google-genai",
-            base_url="",
-            api_key="sk-google-test",
-            model_id="gemini-3-pro-preview",
-            reasoning_effort="max",
-        )
-    )
-
-    assert model.thinking_level == "high"
-
-
-@requires_extra("langchain_openrouter")
-def test_create_chat_model_maps_openrouter_reasoning_effort():
-    model = create_chat_model(
-        ModelConfig(
-            provider_type="openrouter",
-            base_url="https://openrouter.ai/api/v1",
-            api_key="sk-or-test",
-            model_id="openai/gpt-5.2",
             reasoning_effort="high",
         )
     )
 
-    assert model._default_params["reasoning"] == {"effort": "high"}  # type: ignore[attr-defined]
+    assert model.effort == "high"
 
 
-@requires_extra("langchain_groq")
-def test_create_chat_model_maps_groq_reasoning_effort():
-    model = create_chat_model(
-        ModelConfig(
-            provider_type="groq",
-            base_url="https://api.groq.com/openai/v1",
-            api_key="gsk_test",
-            model_id="openai/gpt-oss-120b",
-            reasoning_effort="max",
+@pytest.mark.parametrize(
+    "provider,model,url",
+    [
+        ("openai-compatible", "gpt-5", "http://localhost:8080/v1"),
+        ("groq", "openai/gpt-oss-120b", "https://api.groq.com/openai/v1"),
+        ("cohere", "command-a-reasoning-08-2025", "https://api.cohere.com/v2"),
+        ("mistral", "magistral-medium", "https://api.mistral.ai"),
+        (
+            "nvidia-ai-endpoints",
+            "deepseek-ai/deepseek-v4-pro",
+            "https://integrate.api.nvidia.com/v1",
+        ),
+    ],
+)
+def test_unknown_connection_rejects_unverified_effort(provider, model, url):
+    from app.core.errors import ValidationError
+
+    with pytest.raises(ValidationError, match="不支持推理档位"):
+        create_chat_model(
+            ModelConfig(
+                provider_type=provider,
+                base_url=url,
+                api_key="test",
+                model_id=model,
+                reasoning_effort="max",
+            )
         )
-    )
-
-    assert model._default_params["reasoning_effort"] == "high"  # type: ignore[attr-defined]
-
-
-@requires_extra("langchain_cohere")
-def test_create_chat_model_maps_cohere_reasoning_effort():
-    model = create_chat_model(
-        ModelConfig(
-            provider_type="cohere",
-            base_url="https://api.cohere.com/v2",
-            api_key="cohere-test",
-            model_id="command-a-reasoning-08-2025",
-            reasoning_effort="medium",
-        )
-    )
-
-    assert model._default_params["thinking"] == {  # type: ignore[attr-defined]
-        "type": "enabled",
-        "token_budget": 4096,
-    }
-
-
-@requires_extra("langchain_amazon_nova")
-def test_create_chat_model_maps_amazon_nova_reasoning_effort():
-    model = create_chat_model(
-        ModelConfig(
-            provider_type="amazon-nova",
-            base_url="https://api.nova.amazon.com/v1",
-            api_key="nova-test",
-            model_id="nova-2-pro-v1",
-            reasoning_effort="max",
-        )
-    )
-
-    assert model._default_params["reasoning_effort"] == "high"  # type: ignore[attr-defined]
-
-
-@requires_extra("langchain_mistralai")
-def test_create_chat_model_passes_reasoning_effort_to_mistral():
-    mistral_model = create_chat_model(
-        ModelConfig(
-            provider_type="mistral",
-            base_url="https://api.mistral.ai",
-            api_key="sk-mistral-test",
-            model_id="magistral-medium",
-            reasoning_effort="high",
-        )
-    )
-    assert mistral_model._default_params["reasoning_effort"] == "high"  # type: ignore[attr-defined]
-
-
-@requires_extra("langchain_nvidia_ai_endpoints")
-def test_create_chat_model_enables_nvidia_thinking_mode():
-    nvidia_model = create_chat_model(
-        ModelConfig(
-            provider_type="nvidia-ai-endpoints",
-            base_url="https://integrate.api.nvidia.com/v1",
-            api_key="nvapi-test",
-            model_id="deepseek-ai/deepseek-v4-pro",
-            reasoning_effort="high",
-        )
-    )
-
-    assert nvidia_model.kwargs == {"thinking_mode": True}
-    bound_model = nvidia_model.bound
-    payload = bound_model._get_payload(  # type: ignore[no-untyped-call]
-        [{"role": "user", "content": "test"}],
-        stop=None,
-        **nvidia_model.kwargs,
-    )
-    assert payload["chat_template_kwargs"] == {"thinking": True}
-
-
-def test_create_chat_model_disables_provider_internal_retries_for_openai_like_models():
-    config = ModelConfig(
-        provider_type="openai",
-        base_url="https://api.openai.com/v1",
-        api_key="sk-test",
-        model_id="gpt-4o",
-    )
-    model = create_chat_model(config)
-    assert model.max_retries == 0
 
 
 @requires_extra("langchain_anthropic")

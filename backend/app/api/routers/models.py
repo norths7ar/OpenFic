@@ -2,6 +2,7 @@
 Model Router - 模型 API。
 """
 
+import asyncio
 from typing import Annotated, cast
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -18,8 +19,13 @@ from app.api.schemas.model import (
 )
 from app.core.encryption import EncryptionService
 from app.core.errors import NotFoundError
+from app.models.clients.reasoning_capabilities import (
+    refresh_advertised_efforts,
+    supported_reasoning_efforts,
+)
 from app.models.repos import model_provider_repo
 from app.models.services import ModelService
+from app.models.services.model_provider_service import ModelProviderService
 from app.models.services.model_validation_service import ModelValidationService
 from app.settings import settings
 from app.storage.database import get_session
@@ -43,7 +49,33 @@ def _require_task_type(task_type: str) -> TaskType:
     return cast(TaskType, task_type)
 
 
-def _to_response(m) -> ModelResponse:
+async def _warm_reasoning_capabilities(provider) -> None:
+    if provider is None or provider.provider_type not in {
+        "openai-compatible",
+        "openai-compatible-responses",
+    }:
+        return
+    try:
+        service = ModelProviderService(EncryptionService(settings.encryption_key))
+        await refresh_advertised_efforts(
+            provider.provider_type,
+            provider.url,
+            service.get_decrypted_api_key(provider) or "",
+            service.get_decrypted_custom_headers(provider),
+        )
+    except Exception:
+        # Model listing must remain readable if saved credentials cannot decrypt.
+        # Actual generation still validates credentials in model_resolution.
+        return
+
+
+async def _model_response(session: AsyncSession, model) -> ModelResponse:
+    provider = await model_provider_repo.get_by_id(session, model.provider_id)
+    await _warm_reasoning_capabilities(provider)
+    return _to_response(model, provider)
+
+
+def _to_response(m, provider=None) -> ModelResponse:
     return ModelResponse(
         id=m.id,
         name=m.name,
@@ -66,6 +98,11 @@ def _to_response(m) -> ModelResponse:
         cache_read_price=m.cache_read_price,
         cache_write_price=m.cache_write_price,
         dimensions=m.dimensions,
+        reasoning_effort_levels=list(
+            supported_reasoning_efforts(provider.provider_type, m.model_id, provider.url)
+        )
+        if provider is not None and m.task_type == "llm"
+        else [],
         is_builtin=m.is_builtin,
         is_enabled=m.is_enabled,
         created_at=m.created_at.isoformat(),
@@ -112,7 +149,16 @@ async def get_models(
         else:
             models = all_models
 
-    return [_to_response(m) for m in models]
+    providers = {provider.id: provider for provider in await model_provider_repo.get_all(session)}
+    used = {m.provider_id for m in models if m.task_type == "llm"}
+    await asyncio.gather(
+        *(
+            _warm_reasoning_capabilities(provider)
+            for key, provider in providers.items()
+            if key in used
+        )
+    )
+    return [_to_response(m, providers.get(m.provider_id)) for m in models]
 
 
 @router.get(
@@ -141,7 +187,7 @@ async def get_model(
     """
     try:
         model = await service.get_model_by_id(session, model_id)
-        return _to_response(model)
+        return await _model_response(session, model)
     except NotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
 
@@ -232,7 +278,7 @@ async def create_model(
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
 
-    return _to_response(model)
+    return await _model_response(session, model)
 
 
 @router.put(
@@ -291,7 +337,7 @@ async def update_model(
             is_enabled=request.is_enabled,
         )
 
-        return _to_response(model)
+        return await _model_response(session, model)
     except NotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
     except ValueError as e:

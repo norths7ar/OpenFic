@@ -22,6 +22,7 @@ from app.models.clients.model_params import (
     is_non_default,
     with_default,
 )
+from app.models.clients.reasoning_capabilities import resolve_reasoning_effort
 from app.models.helpers.openrouter_attribution import (
     OPENROUTER_APP_CATEGORIES,
     OPENROUTER_APP_TITLE,
@@ -74,15 +75,9 @@ def _non_default(value: Any, default: Any) -> Any | None:
 
 
 def _enabled_reasoning_effort(config: ModelConfig) -> ReasoningEffort | None:
-    return config.reasoning_effort if config.reasoning_effort != "off" else None
-
-
-def _three_level_reasoning_effort(
-    reasoning_effort: ReasoningEffort | None,
-) -> str | None:
-    if reasoning_effort is None:
-        return None
-    return "high" if reasoning_effort in {"xhigh", "max"} else reasoning_effort
+    return resolve_reasoning_effort(
+        config.provider_type, config.model_id, config.base_url, config.reasoning_effort
+    )
 
 
 def _request_timeout() -> tuple[float, float]:
@@ -205,7 +200,7 @@ def create_chat_model(config: ModelConfig) -> Runnable[LanguageModelInput, BaseM
             top_p=_non_default(config.top_p, DEFAULT_TOP_P),
             top_k=_non_default(config.top_k, DEFAULT_TOP_K),
             max_output_tokens=config.max_tokens,
-            thinking_level=_three_level_reasoning_effort(reasoning_effort),
+            thinking_level=reasoning_effort,
             max_retries=1,
         )
         if config.base_url:
@@ -290,7 +285,7 @@ def create_chat_model(config: ModelConfig) -> Runnable[LanguageModelInput, BaseM
             base_url=config.base_url or None,
             temperature=_non_default(config.temperature, DEFAULT_TEMPERATURE),
             max_tokens=config.max_tokens,
-            reasoning_effort=_three_level_reasoning_effort(reasoning_effort),
+            reasoning_effort=reasoning_effort,
             max_retries=0,
             timeout=_request_timeout(),
         )
@@ -339,7 +334,7 @@ def create_chat_model(config: ModelConfig) -> Runnable[LanguageModelInput, BaseM
                 temperature=_non_default(config.temperature, DEFAULT_TEMPERATURE),
                 top_p=_non_default(config.top_p, DEFAULT_TOP_P),
                 max_tokens=config.max_tokens,
-                reasoning_effort=_three_level_reasoning_effort(reasoning_effort),
+                reasoning_effort=reasoning_effort,
                 max_retries=0,
             )
         )

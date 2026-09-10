@@ -11,6 +11,7 @@ import httpx
 from loguru import logger
 
 from app.models.adapters.base import BaseAdapter
+from app.models.clients.reasoning_capabilities import remember_advertised_efforts
 
 
 class OpenAICompatibleAdapter(BaseAdapter):
@@ -74,6 +75,7 @@ class OpenAICompatibleAdapter(BaseAdapter):
             response.raise_for_status()
             data = response.json()
 
+            remember_advertised_efforts(base_url, data.get("data", []))
             models = []
             for model in data.get("data", []):
                 model_id = model.get("id", "")

@@ -56,6 +56,10 @@ class ModelResponse(BaseModel):
     cache_read_price: float = Field(description="缓存读取价格（美元/百万 token）")
     cache_write_price: float = Field(description="缓存写入价格（美元/百万 token）")
     dimensions: int | None = Field(description="Embedding 维度（Embedding 专用）")
+    reasoning_effort_levels: list[str] = Field(
+        default_factory=list,
+        description="当前连接已确认支持的推理档位；空列表表示仅使用提供商默认值",
+    )
     is_builtin: bool = Field(default=False, description="是否为内置模型")
     is_enabled: bool = Field(default=True, description="是否启用模型")
     created_at: str = Field(description="创建时间")

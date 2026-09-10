@@ -522,3 +522,56 @@ async def test_delete_model(client: AsyncClient, session: AsyncSession):
     # 验证已删除
     deleted_model = await model_repo.get_by_id(session, model.id)
     assert deleted_model is None
+
+
+@pytest.mark.asyncio
+async def test_model_api_exposes_endpoint_specific_reasoning_levels(client, session):
+    provider = await model_provider_repo.create(
+        session,
+        name="Official",
+        url="https://api.openai.com/v1",
+        api_key_encrypted="",
+        provider_type="openai",
+    )
+    model = await model_repo.create(
+        session, name="Reasoning", provider_id=provider.id, model_id="gpt-5.1"
+    )
+    await session.commit()
+    expected = ["none", "low", "medium", "high"]
+    detail = await client.get(f"/api/v1/models/{model.id}")
+    assert detail.json()["reasoning_effort_levels"] == expected
+    listed = await client.get("/api/v1/models")
+    assert (
+        next(item for item in listed.json() if item["id"] == model.id)["reasoning_effort_levels"]
+        == expected
+    )
+    provider.url = "http://localhost:4000/v1"
+    session.add(provider)
+    await session.commit()
+    detail = await client.get(f"/api/v1/models/{model.id}")
+    assert detail.json()["reasoning_effort_levels"] == []
+
+
+@pytest.mark.asyncio
+async def test_model_listing_survives_capability_credential_error(client, session, monkeypatch):
+    from app.models.services.model_provider_service import ModelProviderService
+
+    provider = await model_provider_repo.create(
+        session,
+        name="Broken credentials",
+        url="http://broken.test/v1",
+        api_key_encrypted="invalid",
+        provider_type="openai-compatible",
+    )
+    model = await model_repo.create(
+        session, name="Unknown", provider_id=provider.id, model_id="unknown"
+    )
+    await session.commit()
+
+    def fail(*_):
+        raise ValueError("cannot decrypt")
+
+    monkeypatch.setattr(ModelProviderService, "get_decrypted_api_key", fail)
+    response = await client.get(f"/api/v1/models/{model.id}")
+    assert response.status_code == 200
+    assert response.json()["reasoning_effort_levels"] == []
