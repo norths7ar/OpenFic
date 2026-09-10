@@ -128,7 +128,15 @@ def test_create_input_rejects_target_incompatible_fields(payload: dict) -> None:
 
 
 @pytest.mark.asyncio
-async def test_project_update_sends_only_requested_patch_fields() -> None:
+@pytest.mark.parametrize(
+    "placeholders",
+    [
+        {},
+        {"title": None, "agent_visibility": None, "section": None},
+        {"title": None, "agent_visibility": None, "section": ""},
+    ],
+)
+async def test_project_update_sends_only_requested_patch_fields(placeholders: dict) -> None:
     tool = ProposeProjectUpdateTool(_state=_state())
     db_session = AsyncMock()
     change = _change()
@@ -152,6 +160,7 @@ async def test_project_update_sends_only_requested_patch_fields() -> None:
                 "target_type": "note",
                 "target_id": "note-1",
                 "body": "新正文",
+                **placeholders,
             }
         )
 
@@ -170,6 +179,29 @@ async def test_project_update_sends_only_requested_patch_fields() -> None:
     )
     db_session.commit.assert_awaited_once()
     db_session.close.assert_awaited_once()
+
+
+@pytest.mark.parametrize("target_type", ["character", "note", "world_entry", "note_category"])
+def test_update_null_placeholders_preserve_target_rules(target_type: str) -> None:
+    payload = {
+        "target_type": target_type,
+        "target_id": "item-1",
+        "title": "新标题",
+        "body": None,
+        "section": None,
+        "agent_visibility": None,
+    }
+    assert ProposeProjectUpdateInput.model_validate(payload).title == "新标题"
+    with pytest.raises(ValidationError, match="至少要提供"):
+        ProposeProjectUpdateInput.model_validate({**payload, "title": None})
+
+
+def test_world_update_preserves_explicit_empty_body_and_section() -> None:
+    proposal = ProposeProjectUpdateInput.model_validate(
+        {"target_type": "world_entry", "target_id": "entry-1", "body": "", "section": ""}
+    )
+    assert proposal.body == ""
+    assert proposal.section == ""
 
 
 @pytest.mark.asyncio

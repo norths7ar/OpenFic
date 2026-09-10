@@ -68,29 +68,36 @@ class ProposeProjectUpdateInput(_ProposalInput):
     target_id: str = Field(description="要更新的资料 ID", min_length=1, max_length=200)
     title: str | None = Field(
         default=None,
-        description="新标题；不修改时不要填写",
+        description="新标题；省略或 null 表示不修改",
         min_length=1,
         max_length=200,
     )
-    body: str | None = Field(default=None, description="新正文；不修改时不要填写")
+    body: str | None = Field(
+        default=None, description="新正文；省略或 null 表示不修改，空字符串表示清空"
+    )
     agent_visibility: AgentVisibility | None = Field(
         default=None,
-        description="新的 Agent 可见范围；不修改时不要填写",
+        description="新的 Agent 可见范围；省略或 null 表示不修改",
     )
     section: str | None = Field(
         default=None,
         max_length=500,
-        description="新的背景设定分区；仅 world_entry 可填写",
+        description="新的背景设定分区；仅 world_entry 可填写，省略或 null 表示不修改，空字符串表示清空",
     )
 
     @model_validator(mode="after")
     def validate_patch(self) -> ProposeProjectUpdateInput:
-        patch_fields = self.model_fields_set - {"target_type", "target_id"}
+        # Some tool callers fill unused string fields with an empty placeholder.
+        # Only world entries have a section; do not forward that placeholder.
+        if self.target_type != "world_entry" and self.section == "":
+            self.section = None
+        patch_fields = {
+            name
+            for name in self.model_fields_set - {"target_type", "target_id"}
+            if getattr(self, name) is not None
+        }
         if not patch_fields:
             raise ValueError("update 至少要提供一个需要修改的字段")
-        for field_name in patch_fields:
-            if getattr(self, field_name) is None:
-                raise ValueError(f"{field_name} 不允许为 null；不修改时请省略")
         if self.target_type == "note_category" and patch_fields != {"title"}:
             raise ValueError("笔记分类只能修改标题")
         if self.target_type != "world_entry" and "section" in patch_fields:
