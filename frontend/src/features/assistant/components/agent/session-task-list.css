@@ -1,19 +1,26 @@
 .agent-session-task-list-rail {
-  display: flex;
-  justify-content: center;
+  position: relative;
+  height: 0;
   flex-shrink: 0;
   min-width: 0;
+  z-index: 11;
+  pointer-events: none;
   /* Symmetric gutters clear the right-hand jump button without shifting the list. */
-  margin: 0 60px var(--space-2);
+  margin: 0 60px;
 }
 .agent-session-task-list {
+  position: absolute;
+  bottom: var(--space-2);
+  left: 50%;
+  transform: translateX(-50%);
+  pointer-events: auto;
   box-sizing: border-box;
   width: max-content;
   max-width: 100%;
   overflow: hidden;
   border: 1px solid var(--gray-a5);
   border-radius: var(--radius-3);
-  background: var(--color-panel);
+  background: var(--color-background);
   font-size: var(--font-size-sm);
 }
 .agent-session-task-list > button {
