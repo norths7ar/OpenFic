@@ -1,0 +1,41 @@
+.recent-tasks-container {
+  height: 100%;
+  position: relative;
+}
+.recent-tasks-content {
+  width: 90%;
+  max-width: 320px;
+}
+.recent-tasks-empty {
+  padding: 20px 0;
+  color: var(--gray-9);
+}
+
+.recent-tasks-card {
+  border: 1px solid var(--gray-a5);
+  border-radius: 12px;
+  background: var(--color-background);
+  overflow: hidden;
+  box-shadow: 0 2px 8px var(--gray-a2);
+}
+
+.recent-tasks-card-header {
+  padding: 12px 14px;
+  background: var(--gray-a2);
+  border-bottom: 1px solid var(--gray-a4);
+}
+
+.recent-tasks-card .task-list-item {
+  padding: 12px 14px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.recent-tasks-card .task-list-item + .task-list-item {
+  border-top: 1px solid var(--gray-a4);
+}
+
+.recent-tasks-card .task-list-item:hover,
+.recent-tasks-card .task-list-item:focus-within {
+  background: var(--gray-a2);
+}

@@ -1,20 +1,6 @@
-import NumberFlow from "@number-flow/react";
-import { Box, Button, DropdownMenu, Flex, IconButton, Text, Tooltip } from "@radix-ui/themes";
+import { Box, Flex, IconButton, Text } from "@radix-ui/themes";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  ArrowBigDown,
-  ArrowBigUp,
-  ArrowDown,
-  ArrowLeft,
-  ChevronDown,
-  FileClock,
-  History,
-  Layers2,
-  MessageCircle,
-  ListChevronsDownUp,
-  SquareArrowOutUpRight,
-  SquarePen,
-} from "lucide-react";
+import { ArrowDown, ArrowLeft, SquareArrowOutUpRight } from "lucide-react";
 import {
   forwardRef,
   useState,
@@ -25,10 +11,9 @@ import {
   useImperativeHandle,
 } from "react";
 import { useTranslation } from "react-i18next";
-import { useNavigate } from "react-router";
 
 import { useAppShell } from "@/app/app-shell-context";
-import { CircularProgress, ConfirmDialog, Spinner, toast, getModelValue } from "@/components";
+import { ConfirmDialog, Spinner, toast, getModelValue } from "@/components";
 import { AgentBrandIcon } from "@/components/agent-brand-icon";
 import {
   appendMentionMarkup,
@@ -39,8 +24,6 @@ import { moveProjectFolderItem } from "@/features/project-folders/lib/project-fo
 import { ProjectNavShell } from "@/features/project-navigation/components/project-nav-shell";
 import { fetchAgentDefinitions } from "@/features/settings/lib/agent-definitions-api";
 import { fetchSettings, updateSettings } from "@/features/settings/lib/settings-api";
-import { useSummaryPanel } from "@/features/writing/hooks/use-summaries";
-import { useVolumeTree } from "@/features/writing/hooks/use-volumes";
 import { getAgentDisplayDescription, getAgentIconColor } from "@/lib/agent-branding";
 import type {
   ActiveSubagentState,
@@ -53,20 +36,21 @@ import type {
 import type { TaskListItem } from "@/lib/task.types";
 import { useLlmModelOptions } from "@/lib/use-llm-model-options";
 
+import { useAssistantTaskEvents } from "../hooks/use-assistant-task-events";
 import { useSubagentSession } from "../hooks/use-subagent-session";
-
-import "./assistant-sidebar.css";
-
+import { useSummarySendGuard } from "../hooks/use-summary-send-guard";
 import { useTasks, useUpdateTask } from "../hooks/use-tasks";
 import {
   createRestoredPendingAgentAttachments,
   type PendingAgentImageAttachment,
 } from "../lib/agent-image-attachments";
+
+import "./assistant-sidebar.css";
+
 import {
   fetchActiveSubagents,
   fetchAgentSessionState,
   fetchTask,
-  subscribeBackgroundEvents,
   updateAgentKnowledgeScope,
 } from "../lib/agent-runtime-api";
 import { loadAgentTaskBundle } from "../lib/agent-task-bundle";
@@ -97,7 +81,6 @@ import {
   createSessionTotalUsageState,
   createTokenUsageState,
   DEFAULT_CONTEXT_LENGTH,
-  getContextUsagePercent,
   selectConversationUsage,
   type SessionTotalUsageState,
   type TaskUsagePayload,
@@ -117,6 +100,8 @@ import { ActiveSubagentList } from "./agent/active-subagent-list";
 import { AgentSpecialPanels } from "./agent/agent-special-panels";
 import { getAgentSpecialPanels } from "./agent/agent-special-panels-state";
 import { SessionTaskList } from "./agent/session-task-list";
+import { AssistantProjectActions } from "./assistant-project-actions";
+import { AssistantSessionHeader } from "./assistant-session-header";
 import { AllTasksPage } from "./tasks/all-tasks-page";
 import { RecentTasksCard } from "./tasks/recent-tasks-card";
 
@@ -138,9 +123,6 @@ export interface AssistantSidebarHandle {
   prepareSceneDraft: (request: SceneDraftRequest) => void;
 }
 
-const CONTEXT_MID_FIELD_CHAPTER_COUNT = 10;
-const CONTEXT_NEAR_FIELD_CHAPTER_COUNT = 9;
-
 function upsertActiveSubagent(
   items: ActiveSubagentState[],
   nextItem: ActiveSubagentState,
@@ -149,13 +131,6 @@ function upsertActiveSubagent(
   if (!nextItem.isActive) return remaining;
   return [...remaining, nextItem].sort((left, right) =>
     left.agentKey.localeCompare(right.agentKey),
-  );
-}
-
-function needsContextCompletionWarning(status: string, isStale: boolean): boolean {
-  if (status === "ready" && !isStale) return false;
-  return (
-    status === "not_generated" || status === "failed" || status === "queued" || status === "running"
   );
 }
 
@@ -170,62 +145,6 @@ function getSubagentStatusLabel(
   if (status === "error") return t("writing.aiSidebar.subagentStatusError");
   if (status === "cancelled") return t("writing.aiSidebar.subagentStatusCancelled");
   return t("writing.aiSidebar.subagentInactive");
-}
-
-function formatTokenCount(value: number): string {
-  if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
-  if (value >= 1000) return `${(value / 1000).toFixed(1)}K`;
-  return String(value);
-}
-
-const COST_FORMATTER = new Intl.NumberFormat("en-US", {
-  minimumFractionDigits: 0,
-  maximumFractionDigits: 2,
-});
-const SMALL_COST_FORMATTER = new Intl.NumberFormat("en-US", {
-  minimumFractionDigits: 0,
-  maximumFractionDigits: 3,
-});
-
-function formatCost(value: number): string {
-  return (value < 1 ? SMALL_COST_FORMATTER : COST_FORMATTER).format(value);
-}
-
-function formatDetailedCost(value: number): string {
-  return String(value);
-}
-
-function getAnimatedTokenDisplay(value: number): { value: number; suffix: string } {
-  if (value >= 1000000) {
-    return {
-      value: Number((value / 1000000).toFixed(1)),
-      suffix: "M",
-    };
-  }
-  if (value >= 1000) {
-    return {
-      value: Number((value / 1000).toFixed(1)),
-      suffix: "K",
-    };
-  }
-  return { value, suffix: "" };
-}
-
-function AnimatedTokenCount({ value }: { value: number }) {
-  const display = getAnimatedTokenDisplay(value);
-
-  return (
-    <NumberFlow
-      value={display.value}
-      suffix={display.suffix}
-      locales="en-US"
-      format={{
-        minimumFractionDigits: display.suffix ? 1 : 0,
-        maximumFractionDigits: display.suffix ? 1 : 0,
-      }}
-      className="ai-sidebar-token-number"
-    />
-  );
 }
 
 export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSidebarProps>(
@@ -245,7 +164,6 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
     ref,
   ) {
     const { t } = useTranslation();
-    const navigate = useNavigate();
     const { data: pendingChanges } = usePendingProjectChangeCount(projectId);
     const pendingCount = pendingChanges?.count ?? 0;
     const { openSettings } = useAppShell();
@@ -270,14 +188,12 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
     const [contextMode, setContextMode] = useState<"global" | "local">("local");
     const [isUpdatingScope, setIsUpdatingScope] = useState(false);
     const [sceneDraftTarget, setSceneDraftTarget] = useState<SceneDraftTarget | null>(null);
-    const [summaryWarningOpen, setSummaryWarningOpen] = useState(false);
     const [sessionTotalUsage, setSessionTotalUsage] = useState<SessionTotalUsageState>(() =>
       createSessionTotalUsageState(),
     );
     const [conversationUsageBySession, setConversationUsageBySession] = useState<
       Record<string, TokenUsageState>
     >({});
-    const pendingSendActionRef = useRef<(() => void) | null>(null);
     const [isMessagesAtBottom, setIsMessagesAtBottom] = useState(true);
     const handledPreferredAgentRef = useRef<string | null>(null);
     const handledInitialComposerMarkupRef = useRef<string | null>(null);
@@ -287,8 +203,6 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
 
     const { data: tasksData, refetch: refetchRecentTasks } = useTasks(projectId, { limit: 3 });
     const updateTaskMutation = useUpdateTask();
-    const { data: chaptersData } = useVolumeTree(projectId);
-    const { data: summaryPanelData } = useSummaryPanel(projectId);
 
     const {
       options: llmModelOptions,
@@ -675,27 +589,6 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
       ],
     );
 
-    const sessionTotalDisplay = useMemo(
-      () => ({
-        tokenInput: sessionTotalUsage.tokenInput,
-        tokenOutput: sessionTotalUsage.tokenOutput,
-        tokenCache: sessionTotalUsage.tokenCache,
-        cost: sessionTotalUsage.cost,
-      }),
-      [
-        sessionTotalUsage.cost,
-        sessionTotalUsage.tokenCache,
-        sessionTotalUsage.tokenInput,
-        sessionTotalUsage.tokenOutput,
-      ],
-    );
-
-    const contextUsagePercent = getContextUsagePercent(currentConversationUsage);
-    const contextUsageTooltip = t("assistant.contextUsageTooltip", {
-      used: `${formatTokenCount(currentConversationUsage.contextInputTokens)} (${contextUsagePercent.toFixed(1)}%)`,
-      total: formatTokenCount(currentConversationUsage.contextLength),
-    });
-
     useEffect(() => {
       if (!onStateChange) return;
       onStateChange({
@@ -724,8 +617,6 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
         setIsLoadingTask(false);
         setCurrentTaskId(null);
         setCurrentTaskTitle("");
-        setSummaryWarningOpen(false);
-        pendingSendActionRef.current = null;
         setConversationState(createConversationStackState(""));
         setActiveSubagents([]);
         setSessionTotalUsage(createSessionTotalUsageState());
@@ -807,65 +698,7 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
       };
     }, [parentConversationSessionId]);
 
-    useEffect(() => {
-      if (!projectId) return;
-      const subscription = subscribeBackgroundEvents(
-        projectId,
-        (event) => {
-          if (event.type === "task_title_updated" && event.task_id && event.title) {
-            const taskId = event.task_id;
-            const title = event.title;
-            if (taskId === currentTaskId) setCurrentTaskTitle(title);
-            queryClient.setQueriesData(
-              { queryKey: ["tasks", projectId], exact: false },
-              (current) => {
-                if (!current || typeof current !== "object" || !("items" in current))
-                  return current;
-                const response = current as { items: TaskListItem[]; total: number };
-                return {
-                  ...response,
-                  items: response.items.map((task) =>
-                    task.id === taskId
-                      ? { ...task, title, updatedAt: event.updated_at ?? task.updatedAt }
-                      : task,
-                  ),
-                };
-              },
-            );
-            queryClient.setQueryData(["task", taskId], (current) => {
-              if (!current || typeof current !== "object") return current;
-              return {
-                ...current,
-                title,
-                updatedAt: event.updated_at ?? (current as { updatedAt?: string }).updatedAt,
-              };
-            });
-            return;
-          }
-
-          if (event.type === "task_run_status_updated" && event.task_id) {
-            const taskId = event.task_id;
-            const isRunning = event.is_running === true;
-            queryClient.setQueryData(["task", taskId], (current) => {
-              if (!current || typeof current !== "object") return current;
-              return {
-                ...current,
-                isRunning,
-                updatedAt: event.updated_at ?? (current as { updatedAt?: string }).updatedAt,
-              };
-            });
-            void queryClient.invalidateQueries({
-              queryKey: ["tasks", projectId],
-              exact: false,
-            });
-          }
-        },
-        () => {
-          console.warn("Background event stream disconnected");
-        },
-      );
-      return () => subscription.close();
-    }, [currentTaskId, projectId, queryClient]);
+    useAssistantTaskEvents(projectId, currentTaskId, setCurrentTaskTitle);
 
     const loadTaskById = useCallback(
       async (
@@ -1098,45 +931,6 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
       setView("allTasks");
     }, [projectId, queryClient]);
 
-    const latestChapterOrder = useMemo(
-      () =>
-        Math.max(
-          0,
-          ...(chaptersData?.volumes ?? []).flatMap((volume) =>
-            volume.chapters.map((chapter) => chapter.order),
-          ),
-        ),
-      [chaptersData?.volumes],
-    );
-
-    const hasIncompleteContextSummaries = useMemo(() => {
-      const maintenance = summaryPanelData?.maintenance;
-      if (!maintenance || latestChapterOrder <= 0) return false;
-
-      const midStartOrder = Math.max(
-        1,
-        latestChapterOrder - CONTEXT_NEAR_FIELD_CHAPTER_COUNT - CONTEXT_MID_FIELD_CHAPTER_COUNT,
-      );
-      const midEndOrder = latestChapterOrder - CONTEXT_NEAR_FIELD_CHAPTER_COUNT - 1;
-      const hasIncompleteMidSummaries =
-        midEndOrder >= midStartOrder &&
-        maintenance.missingOrFailedChapterSummaries.some((item) => {
-          if (!needsContextCompletionWarning(item.status, item.isStale)) return false;
-          return item.chapterOrder >= midStartOrder && item.chapterOrder <= midEndOrder;
-        });
-
-      const farMaxEndOrder =
-        latestChapterOrder - CONTEXT_NEAR_FIELD_CHAPTER_COUNT - CONTEXT_MID_FIELD_CHAPTER_COUNT - 1;
-      const hasIncompleteFarSummaries =
-        farMaxEndOrder >= 1 &&
-        maintenance.missingOrFailedLongTermSummaries.some((item) => {
-          if (!needsContextCompletionWarning(item.status, item.isStale)) return false;
-          return item.endOrder <= farMaxEndOrder;
-        });
-
-      return hasIncompleteMidSummaries || hasIncompleteFarSummaries;
-    }, [latestChapterOrder, summaryPanelData?.maintenance]);
-
     const performSend = useCallback(() => {
       const hasCurrentTask = Boolean(agentSidebar.sessionId);
 
@@ -1148,28 +942,16 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
       agentSidebar.onSend();
     }, [inputValue, agentSidebar]);
 
-    const handleSend = useCallback(() => {
-      if (!inputValue.trim() && pendingAttachments.length === 0) return;
-      if (!hasIncompleteContextSummaries) {
-        performSend();
-        return;
-      }
-
-      pendingSendActionRef.current = performSend;
-      setSummaryWarningOpen(true);
-    }, [hasIncompleteContextSummaries, inputValue, pendingAttachments.length, performSend]);
-
-    const handleConfirmSummaryWarning = useCallback(() => {
-      setSummaryWarningOpen(false);
-      const action = pendingSendActionRef.current;
-      pendingSendActionRef.current = null;
-      action?.();
-    }, []);
-
-    const handleSummaryWarningOpenChange = useCallback((open: boolean) => {
-      setSummaryWarningOpen(open);
-      if (!open) pendingSendActionRef.current = null;
-    }, []);
+    const {
+      summaryWarningOpen,
+      handleSend,
+      handleConfirmSummaryWarning,
+      handleSummaryWarningOpenChange,
+    } = useSummarySendGuard(
+      projectId,
+      Boolean(inputValue.trim()) || pendingAttachments.length > 0,
+      performSend,
+    );
 
     const handleAbort = useCallback(() => {
       agentSidebar.onAbort();
@@ -1474,66 +1256,26 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
     );
     const projectActions =
       primaryAgents.length > 0 || (!discussionWorkspace && pendingCount > 0) ? (
-        <Flex
-          align="center"
-          gap="2"
-          className="ai-sidebar-project-actions"
-        >
-          {primaryAgents.length > 0 ? (
-            <DropdownMenu.Root>
-              <DropdownMenu.Trigger>
-                <Button
-                  size="1"
-                  variant="soft"
-                  color="purple"
-                  disabled={scopeChangeDisabled}
-                  aria-label={t("assistant.knowledgeScope")}
-                >
-                  <MessageCircle size={14} />
-                  {contextMode === "global"
-                    ? t("assistant.globalKnowledge")
-                    : t("assistant.publicKnowledge")}
-                  <ChevronDown size={13} />
-                </Button>
-              </DropdownMenu.Trigger>
-              <DropdownMenu.Content align="end">
-                <DropdownMenu.Label>{t("assistant.knowledgeScope")}</DropdownMenu.Label>
-                <DropdownMenu.Item
-                  disabled={!supportsGlobalScope}
-                  onClick={() => void handleKnowledgeScopeChange("global")}
-                >
-                  {t("assistant.globalKnowledge")}
-                </DropdownMenu.Item>
-                <DropdownMenu.Item
-                  disabled={hasActiveSession && contextMode === "global"}
-                  onClick={() => void handleKnowledgeScopeChange("local")}
-                >
-                  {t("assistant.publicKnowledge")}
-                </DropdownMenu.Item>
-              </DropdownMenu.Content>
-            </DropdownMenu.Root>
-          ) : null}
-          {!discussionWorkspace && pendingCount > 0 ? (
-            <Button
-              size="1"
-              variant="soft"
-              color="amber"
-              style={{ marginLeft: "auto" }}
-              onClick={() => navigate(`/projects/${projectId}/changes`)}
-            >
-              <FileClock size={14} />
-              {t("pendingProjectChanges.trigger", { count: pendingCount })}
-            </Button>
-          ) : null}
-        </Flex>
+        <AssistantProjectActions
+          projectId={projectId}
+          hasAgents={primaryAgents.length > 0}
+          discussionWorkspace={discussionWorkspace}
+          pendingCount={pendingCount}
+          contextMode={contextMode}
+          scopeChangeDisabled={scopeChangeDisabled}
+          supportsGlobalScope={supportsGlobalScope}
+          hasActiveSession={hasActiveSession}
+          onKnowledgeScopeChange={handleKnowledgeScopeChange}
+        />
       ) : null;
     const headerBackLabel = isViewingSubagent
       ? t("writing.aiSidebar.returnToPrimary")
       : t("common.back");
     const handleHeaderBack = isViewingSubagent ? handleReturnToPrimary : backToTaskList;
 
+    // Keep the layout sequence here: navigation, header, message viewport, floating controls, composer.
     return (
-      <Flex style={{ height: "100%", minWidth: 0 }}>
+      <Flex className="ai-sidebar-layout">
         {discussionWorkspace && (
           <ProjectNavShell>
             <AllTasksPage
@@ -1558,7 +1300,6 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
           height="100%"
           className="ai-sidebar-shell"
           data-discussion-workspace={discussionWorkspace}
-          style={{ flex: 1, minWidth: 0 }}
         >
           {shouldShowMobileToolbar && (
             <Flex
@@ -1586,235 +1327,25 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
           {view !== "allTasks" && discussionWorkspace ? projectActions : null}
 
           {view !== "allTasks" && hasActiveTask && (
-            <Box className="ai-sidebar-header">
-              <Flex
-                align="center"
-                justify="between"
-                gap="2"
-                className="ai-sidebar-task-header-row"
-              >
-                <Flex
-                  align="center"
-                  gap="2"
-                  className="ai-sidebar-task-title-wrap"
-                >
-                  <IconButton
-                    variant="ghost"
-                    size="1"
-                    onClick={handleHeaderBack}
-                    aria-label={headerBackLabel}
-                  >
-                    <ArrowLeft size={16} />
-                  </IconButton>
-                  {isViewingSubagent ? (
-                    <Flex
-                      align="center"
-                      gap="2"
-                      className="ai-sidebar-task-title-stack"
-                    >
-                      <Text
-                        size="2"
-                        weight="medium"
-                        title={subagentHeaderLabel || t("assistant.subagentFallbackTitle")}
-                        className="ai-sidebar-task-title"
-                      >
-                        {subagentHeaderLabel || t("assistant.subagentFallbackTitle")}
-                      </Text>
-                      <Text
-                        size="1"
-                        color="gray"
-                        className="ai-sidebar-task-subtitle"
-                      >
-                        {subagentStatusLabel}
-                      </Text>
-                    </Flex>
-                  ) : (
-                    <Flex
-                      direction="column"
-                      className="ai-sidebar-task-title-stack"
-                    >
-                      <Text
-                        size="2"
-                        weight="medium"
-                        title={currentTaskTitle || t("assistant.taskFallbackTitle")}
-                        className="ai-sidebar-task-title"
-                      >
-                        {currentTaskTitle || t("assistant.taskFallbackTitle")}
-                      </Text>
-                      {supportsGlobalScope ? (
-                        <Text
-                          size="1"
-                          color="gray"
-                          className="ai-sidebar-task-subtitle"
-                        >
-                          {contextMode === "global"
-                            ? t("assistant.globalContextLocked")
-                            : t("assistant.publicKnowledge")}
-                        </Text>
-                      ) : null}
-                    </Flex>
-                  )}
-                </Flex>
-
-                <Flex
-                  align="center"
-                  gap="1"
-                  className="ai-sidebar-task-actions"
-                >
-                  <Tooltip content={compactionTooltip}>
-                    <IconButton
-                      variant="ghost"
-                      color="gray"
-                      size="1"
-                      onClick={handleCompactSession}
-                      disabled={!canCompactAgentSession}
-                      aria-label={t("assistant.compactContext")}
-                      aria-busy={agentSidebar.isCompacting || undefined}
-                    >
-                      {agentSidebar.isCompacting ? (
-                        <Spinner size={18} />
-                      ) : (
-                        <ListChevronsDownUp size={16} />
-                      )}
-                    </IconButton>
-                  </Tooltip>
-                  {!discussionWorkspace ? (
-                    <IconButton
-                      variant="ghost"
-                      color="gray"
-                      size="1"
-                      onClick={openAllTasks}
-                      aria-label={t("assistant.history")}
-                    >
-                      <History size={16} />
-                    </IconButton>
-                  ) : null}
-                  <IconButton
-                    variant="ghost"
-                    color="gray"
-                    size="1"
-                    onClick={backToTaskList}
-                    aria-label={t("assistant.newTask")}
-                  >
-                    <SquarePen size={16} />
-                  </IconButton>
-                </Flex>
-              </Flex>
-              <Flex
-                align="center"
-                justify="between"
-                gap="3"
-                className="ai-sidebar-token-row"
-              >
-                <Flex
-                  align="center"
-                  gap="2"
-                  className="ai-sidebar-token-metrics"
-                >
-                  <Text
-                    size="1"
-                    weight="medium"
-                    color="gray"
-                  >
-                    {t("assistant.tokens")}
-                  </Text>
-                  <Tooltip
-                    content={t("assistant.totalOutputTokens", {
-                      count: sessionTotalDisplay.tokenOutput,
-                    })}
-                  >
-                    <Flex
-                      align="center"
-                      gap="1"
-                      className="ai-sidebar-token-metric"
-                    >
-                      <ArrowBigUp size={13} />
-                      <Text
-                        as="span"
-                        size="1"
-                      >
-                        <AnimatedTokenCount value={sessionTotalDisplay.tokenOutput} />
-                      </Text>
-                    </Flex>
-                  </Tooltip>
-                  <Tooltip
-                    content={t("assistant.totalInputTokens", {
-                      count: sessionTotalDisplay.tokenInput,
-                    })}
-                  >
-                    <Flex
-                      align="center"
-                      gap="1"
-                      className="ai-sidebar-token-metric"
-                    >
-                      <ArrowBigDown size={13} />
-                      <Text
-                        as="span"
-                        size="1"
-                      >
-                        <AnimatedTokenCount value={sessionTotalDisplay.tokenInput} />
-                      </Text>
-                    </Flex>
-                  </Tooltip>
-                  <Tooltip
-                    content={t("assistant.cachedTokens", { count: sessionTotalDisplay.tokenCache })}
-                  >
-                    <Flex
-                      align="center"
-                      gap="1"
-                      className="ai-sidebar-token-metric"
-                    >
-                      <Layers2 size={13} />
-                      <Text
-                        as="span"
-                        size="1"
-                      >
-                        <AnimatedTokenCount value={sessionTotalDisplay.tokenCache} />
-                      </Text>
-                    </Flex>
-                  </Tooltip>
-                </Flex>
-                {sessionTotalDisplay.cost > 0 ? (
-                  <Tooltip
-                    content={t("assistant.totalCost", {
-                      cost: formatDetailedCost(sessionTotalDisplay.cost),
-                    })}
-                  >
-                    <Flex
-                      align="center"
-                      className="ai-sidebar-cost ai-sidebar-token-metric"
-                    >
-                      <Text
-                        as="span"
-                        size="1"
-                        className="ai-sidebar-token-number"
-                      >
-                        $ {formatCost(sessionTotalDisplay.cost)}
-                      </Text>
-                    </Flex>
-                  </Tooltip>
-                ) : null}
-                <Flex
-                  align="center"
-                  className="ai-sidebar-context-wrap"
-                >
-                  <Tooltip content={contextUsageTooltip}>
-                    <Box
-                      asChild
-                      className="ai-sidebar-context-indicator-hitbox"
-                    >
-                      <CircularProgress
-                        value={currentConversationUsage.contextInputTokens}
-                        max={currentConversationUsage.contextLength}
-                        size={16}
-                        strokeWidth={1.75}
-                        ariaLabel={t("assistant.contextUsage")}
-                      />
-                    </Box>
-                  </Tooltip>
-                </Flex>
-              </Flex>
-            </Box>
+            <AssistantSessionHeader
+              discussionWorkspace={discussionWorkspace}
+              isViewingSubagent={isViewingSubagent}
+              subagentHeaderLabel={subagentHeaderLabel}
+              subagentStatusLabel={subagentStatusLabel}
+              currentTaskTitle={currentTaskTitle}
+              supportsGlobalScope={supportsGlobalScope}
+              contextMode={contextMode}
+              headerBackLabel={headerBackLabel}
+              onBack={handleHeaderBack}
+              onCompact={handleCompactSession}
+              onHistory={openAllTasks}
+              onNewTask={backToTaskList}
+              canCompactAgentSession={canCompactAgentSession}
+              compactionTooltip={compactionTooltip}
+              isCompacting={agentSidebar.isCompacting}
+              sessionTotalDisplay={sessionTotalUsage}
+              currentConversationUsage={currentConversationUsage}
+            />
           )}
 
           {shouldShowParentSubagentStrip ? (

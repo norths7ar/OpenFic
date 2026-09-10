@@ -1,0 +1,14 @@
+.ai-sidebar-project-actions {
+  min-height: 36px;
+  padding: 4px var(--space-2);
+}
+
+.ai-sidebar-input-header .ai-sidebar-project-actions {
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 6px 10px;
+}
+
+.ai-sidebar-project-actions .ai-sidebar-pending-changes {
+  margin-left: auto;
+}

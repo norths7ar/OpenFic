@@ -1,0 +1,32 @@
+.task-list-empty {
+  padding: var(--space-6) var(--space-4);
+  color: var(--gray-9);
+}
+.task-list-rename {
+  flex: 1;
+  min-width: 0;
+  height: 20px;
+}
+.task-list-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.task-list-time {
+  color: var(--gray-10);
+}
+.task-list-item .task-list-action {
+  width: var(--space-5);
+  height: var(--space-5);
+}
+.task-list-action.task-list-favorite {
+  color: var(--gray-9);
+}
+.task-list-favorite[data-favorited="true"] {
+  color: var(--amber-9);
+}
+.task-list-favorite[data-favorited="true"] .task-list-favorite-icon {
+  fill: currentColor;
+}

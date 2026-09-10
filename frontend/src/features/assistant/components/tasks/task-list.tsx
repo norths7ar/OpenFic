@@ -13,6 +13,8 @@ import { useTranslation } from "react-i18next";
 
 import type { TaskListItem } from "@/lib/task.types";
 
+import "./task-list.css";
+
 import { TaskRenameInput } from "./task-rename-input";
 
 interface TaskListProps {
@@ -74,7 +76,7 @@ export function TaskList({ tasks, onTaskClick, onToggleFavorite, onRenameTask }:
       <Flex
         align="center"
         justify="center"
-        style={{ padding: "32px 16px", color: "var(--gray-9)" }}
+        className="task-list-empty"
       >
         <Text size="2">{t("writing.aiSidebar.noTasks")}</Text>
       </Flex>
@@ -94,10 +96,10 @@ export function TaskList({ tasks, onTaskClick, onToggleFavorite, onRenameTask }:
           <Flex
             align="center"
             gap="2"
-            style={{ marginBottom: "8px" }}
+            mb="2"
           >
             {editingTaskId === task.id ? (
-              <Box style={{ flex: 1, minWidth: 0, height: "20px" }}>
+              <Box className="task-list-rename">
                 <TaskRenameInput
                   key={task.id}
                   initialValue={task.title}
@@ -110,13 +112,7 @@ export function TaskList({ tasks, onTaskClick, onToggleFavorite, onRenameTask }:
               <Text
                 size="2"
                 weight="medium"
-                style={{
-                  flex: 1,
-                  minWidth: 0,
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                }}
+                className="task-list-title"
               >
                 {task.title}
               </Text>
@@ -139,7 +135,7 @@ export function TaskList({ tasks, onTaskClick, onToggleFavorite, onRenameTask }:
             <Flex
               align="center"
               gap="1"
-              style={{ color: "var(--gray-10)" }}
+              className="task-list-time"
             >
               <Clock size={12} />
               <Text size="1">{formatTime(task.updatedAt)}</Text>
@@ -156,7 +152,7 @@ export function TaskList({ tasks, onTaskClick, onToggleFavorite, onRenameTask }:
                   size="1"
                   onClick={(e) => handleStartEdit(task, e)}
                   disabled={savingTaskId === task.id}
-                  style={{ width: "24px", height: "24px" }}
+                  className="task-list-action"
                 >
                   <Pencil size={14} />
                 </IconButton>
@@ -172,15 +168,12 @@ export function TaskList({ tasks, onTaskClick, onToggleFavorite, onRenameTask }:
                   variant="ghost"
                   size="1"
                   onClick={(e) => handleToggleFavorite(task, e)}
-                  style={{
-                    width: "24px",
-                    height: "24px",
-                    color: task.isFavorited ? "var(--amber-9)" : "var(--gray-9)",
-                  }}
+                  className="task-list-action task-list-favorite"
+                  data-favorited={task.isFavorited}
                 >
                   <Star
                     size={14}
-                    fill={task.isFavorited ? "currentColor" : "none"}
+                    className="task-list-favorite-icon"
                   />
                 </IconButton>
               </Tooltip>

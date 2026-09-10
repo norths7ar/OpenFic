@@ -165,43 +165,6 @@
   line-height: 1.7;
 }
 
-.ai-sidebar-header {
-  position: relative;
-  z-index: 10;
-  flex: 0 0 auto;
-  padding: 4px 8px;
-  background: var(--color-background);
-  border-bottom: 1px solid var(--gray-a4);
-}
-
-.ai-sidebar-token-row {
-  display: flex;
-  align-items: center;
-  min-height: 22px;
-  color: var(--gray-11);
-}
-
-.ai-sidebar-token-metrics {
-  min-width: 0;
-  flex: 1 1 auto;
-  overflow: hidden;
-}
-
-.ai-sidebar-token-metric {
-  flex: 0 0 auto;
-  color: var(--gray-10);
-}
-
-.ai-sidebar-token-number {
-  line-height: 1;
-  font-variant-numeric: tabular-nums;
-}
-
-.ai-sidebar-cost {
-  flex: 0 0 auto;
-  white-space: nowrap;
-}
-
 .agent-message-card {
   animation: agentCardSlideIn 0.3s ease-out;
 }
@@ -1003,7 +966,14 @@
   }
 }
 
+.ai-sidebar-layout {
+  height: 100%;
+  min-width: 0;
+}
+
 .ai-sidebar-shell {
+  flex: 1;
+  min-width: 0;
   background: var(--color-background);
   position: relative;
   overflow: hidden;
@@ -1021,106 +991,9 @@
   background: var(--color-background);
 }
 
-.ai-sidebar-project-actions {
-  min-height: 36px;
-  padding: 4px var(--space-2);
-}
-
 .ai-sidebar-input-header {
   background: var(--gray-a2);
   border-bottom: 1px solid var(--gray-a4);
-}
-
-.ai-sidebar-input-header .ai-sidebar-project-actions {
-  flex-wrap: wrap;
-  gap: 6px;
-  padding: 6px 10px;
-}
-
-.recent-tasks-card {
-  border: 1px solid var(--gray-a5);
-  border-radius: 12px;
-  background: var(--color-background);
-  overflow: hidden;
-  box-shadow: 0 2px 8px var(--gray-a2);
-}
-
-.recent-tasks-card-header {
-  padding: 12px 14px;
-  background: var(--gray-a2);
-  border-bottom: 1px solid var(--gray-a4);
-}
-
-.recent-tasks-card .task-list-item {
-  padding: 12px 14px;
-  cursor: pointer;
-  transition: background 0.15s ease;
-}
-
-.recent-tasks-card .task-list-item + .task-list-item {
-  border-top: 1px solid var(--gray-a4);
-}
-
-.recent-tasks-card .task-list-item:hover,
-.recent-tasks-card .task-list-item:focus-within {
-  background: var(--gray-a2);
-}
-
-.ai-sidebar-task-header-row {
-  min-height: 36px;
-  min-width: 0;
-}
-
-.ai-sidebar-task-title-wrap {
-  display: flex;
-  align-items: center;
-  min-width: 0;
-  flex: 1 1 auto;
-}
-
-.ai-sidebar-task-title-stack {
-  display: flex;
-  align-items: center;
-  min-width: 0;
-  gap: 6px;
-}
-
-.ai-sidebar-task-title {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--gray-12);
-}
-
-.ai-sidebar-task-subtitle {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.ai-sidebar-task-actions {
-  flex-shrink: 0;
-}
-
-.ai-sidebar-context-wrap {
-  display: flex;
-  flex: 0 0 auto;
-  align-items: center;
-  justify-content: center;
-  min-height: 24px;
-}
-
-.ai-sidebar-context-indicator-hitbox {
-  display: inline-flex;
-  align-self: center;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  flex: 0 0 auto;
-  line-height: 0;
 }
 
 .ai-sidebar-subagent-strip-wrap {

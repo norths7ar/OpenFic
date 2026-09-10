@@ -9,6 +9,8 @@ import { useTranslation } from "react-i18next";
 
 import type { TaskListItem } from "@/lib/task.types";
 
+import "./recent-tasks-card.css";
+
 import { TaskList } from "./task-list";
 
 interface RecentTasksCardProps {
@@ -34,15 +36,13 @@ export function RecentTasksCard({
     <Flex
       align="center"
       justify="center"
-      style={{ height: "100%", position: "relative" }}
+      className="recent-tasks-container"
     >
       {/* 悬浮的最近任务卡片 */}
       <Box
-        className={hasRecentTasks ? "recent-tasks-card" : undefined}
-        style={{
-          width: "90%",
-          maxWidth: "320px",
-        }}
+        className={
+          hasRecentTasks ? "recent-tasks-content recent-tasks-card" : "recent-tasks-content"
+        }
       >
         {hasRecentTasks ? (
           <>
@@ -82,7 +82,7 @@ export function RecentTasksCard({
             justify="center"
             direction="column"
             gap="2"
-            style={{ padding: "20px 0", color: "var(--gray-9)" }}
+            className="recent-tasks-empty"
           >
             <Text size="2">{t("writing.aiSidebar.noTasks")}</Text>
           </Flex>
