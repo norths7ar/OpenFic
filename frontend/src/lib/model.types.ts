@@ -1,3 +1,5 @@
+import type { ReasoningEffort } from "./agent.types";
+
 /**
  * Model and Provider Types
  *
@@ -80,6 +82,7 @@ export interface ModelProviderCustomHeader {
 
 /** 可用模型 */
 export interface AvailableModel {
+  reasoningEffortLevels?: ReasoningEffort[];
   id: string;
   name: string;
   taskType?: TaskType | null;
@@ -123,6 +126,7 @@ export interface ModelValidationResponse {
 
 /** 模型 */
 export interface Model {
+  reasoningEffortLevels?: ReasoningEffort[];
   id: string;
   name: string;
   remark: string;
@@ -152,6 +156,7 @@ export interface Model {
 
 /** 模型响应（后端格式） */
 export interface ModelResponse {
+  reasoning_effort_levels?: ReasoningEffort[];
   id: string;
   name: string;
   remark: string;

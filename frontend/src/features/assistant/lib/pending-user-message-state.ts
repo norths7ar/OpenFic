@@ -5,6 +5,7 @@ export interface PendingUserMessageEvent {
   messageId: string;
   content?: string;
   createdAt?: string;
+  deliveryMode?: "steer" | "queue";
 }
 
 export function createPendingUserMessage(message: AgentPendingMessage): AgentPendingMessage {
@@ -12,6 +13,7 @@ export function createPendingUserMessage(message: AgentPendingMessage): AgentPen
     messageId: message.messageId,
     content: message.content,
     createdAt: message.createdAt,
+    deliveryMode: message.deliveryMode,
   };
 }
 
@@ -22,11 +24,12 @@ export function applyPendingUserMessageEvent(
   if (!event.messageId) return current;
 
   if (event.action === "queued") {
-    if (!event.content || !event.createdAt) return current;
+    if (typeof event.content !== "string" || !event.createdAt) return current;
     return createPendingUserMessage({
       messageId: event.messageId,
       content: event.content,
       createdAt: event.createdAt,
+      deliveryMode: event.deliveryMode,
     });
   }
 

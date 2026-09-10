@@ -80,6 +80,7 @@ export function useLlmModelOptions(): UseLlmModelOptionsResult {
         taskType: "llm",
         releaseDate: catalogModel?.releaseDate ?? null,
         reasoning: catalogModel?.reasoning ?? null,
+        reasoningEffortLevels: model.reasoningEffortLevels ?? [],
         toolCall: catalogModel?.toolCall ?? null,
         inputModalities: catalogModel?.inputModalities ?? [],
         limit: catalogModel?.limit ?? null,

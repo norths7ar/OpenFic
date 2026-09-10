@@ -23,6 +23,7 @@ interface AgentSidebarProps {
   scrollToBottomKey?: string | null;
   modelId: string;
   reasoningEffort?: ReasoningEffort;
+  deliveryMode?: "steer" | "queue";
   agentKey?: string;
   contextMode?: "global" | "local";
   inputValue: string;
@@ -30,7 +31,9 @@ interface AgentSidebarProps {
   onClearInput: () => void;
   onClearAttachments: () => void;
   onRestoreAttachments?: (attachments: AgentImageAttachment[]) => void;
+  onAppendRestoredAttachments?: (attachments: AgentImageAttachment[]) => void;
   onSetInputValue?: (value: string) => void;
+  onAppendRestoredInput?: (content: string) => void;
   onOpenMentionChapter?: (chapterId: string, chapterTitle: string) => void;
   sceneDraftTarget?: SceneDraftTarget | null;
   onApplySceneDraft?: (request: SceneDraftApplyRequest) => Promise<boolean>;
@@ -65,6 +68,7 @@ export function useAgentSidebar({
   scrollToBottomKey,
   modelId,
   reasoningEffort,
+  deliveryMode = "steer",
   agentKey,
   contextMode,
   inputValue,
@@ -72,7 +76,9 @@ export function useAgentSidebar({
   onClearInput,
   onClearAttachments,
   onRestoreAttachments,
+  onAppendRestoredAttachments,
   onSetInputValue,
+  onAppendRestoredInput,
   onOpenMentionChapter,
   sceneDraftTarget,
   onApplySceneDraft,
@@ -90,6 +96,7 @@ export function useAgentSidebar({
   const {
     messages: agentMessages,
     pendingMessage,
+    pendingMessages,
     status: agentStatus,
     isRunning: isAgentRunning,
     isCompacting: isAgentCompacting,
@@ -134,10 +141,6 @@ export function useAgentSidebar({
       );
       return;
     }
-    if (pendingMessage) {
-      toast.error(i18n.t("writing.aiSidebar.cannotSendPendingMessage"));
-      return;
-    }
     if (!inputValue.trim() && attachments.length === 0) return;
     if (!modelId) {
       toast.error(i18n.t("writing.aiSidebar.noModelSelected"));
@@ -149,7 +152,7 @@ export function useAgentSidebar({
     onClearAttachments();
 
     if (agentSessionId) {
-      await sendAgentMessage(messageToSend, attachments);
+      await sendAgentMessage(messageToSend, attachments, deliveryMode);
       return;
     }
 
@@ -162,17 +165,31 @@ export function useAgentSidebar({
     agentSessionId,
     sendAgentMessage,
     startAgentSession,
-    pendingMessage,
+    deliveryMode,
     attachments,
     onClearAttachments,
   ]);
 
-  const handleCancelPendingMessage = useCallback(async (): Promise<void> => {
-    const restored = await cancelPendingMessage();
-    if (restored && onSetInputValue) {
-      onSetInputValue(restored);
-    }
-  }, [cancelPendingMessage, onSetInputValue]);
+  const handleCancelPendingMessage = useCallback(
+    async (messageId?: string): Promise<void> => {
+      const restored = await cancelPendingMessage(messageId);
+      if (restored) {
+        if (restored.content && onAppendRestoredInput) onAppendRestoredInput(restored.content);
+        else if (restored.content)
+          onSetInputValue?.(
+            inputValue.trim() ? `${inputValue}\n\n${restored.content}` : restored.content,
+          );
+        if (restored.attachments.length) onAppendRestoredAttachments?.(restored.attachments);
+      }
+    },
+    [
+      cancelPendingMessage,
+      onSetInputValue,
+      inputValue,
+      onAppendRestoredAttachments,
+      onAppendRestoredInput,
+    ],
+  );
 
   const handleRollback = useCallback(
     async (messageId: string): Promise<string | null> => {
@@ -201,6 +218,7 @@ export function useAgentSidebar({
   return {
     messages: agentMessages,
     pendingMessage,
+    pendingMessages,
     status: agentStatus,
     isRunning: isAgentRunning,
     isCompacting: isAgentCompacting,

@@ -4,7 +4,16 @@ export const ASSISTANT_MODEL_STORAGE_KEY = "openfic.agent.selectedModelId";
 export const ASSISTANT_AGENT_STORAGE_KEY = "openfic.agent.selectedAgentKey";
 export const ASSISTANT_REASONING_EFFORT_STORAGE_KEY = "openfic.agent.reasoningEffort";
 
-const REASONING_EFFORTS: ReasoningEffort[] = ["off", "low", "medium", "high", "xhigh", "max"];
+const REASONING_EFFORTS: ReasoningEffort[] = [
+  "off",
+  "none",
+  "minimal",
+  "low",
+  "medium",
+  "high",
+  "xhigh",
+  "max",
+];
 
 function getStorage(storage?: Storage): Storage | undefined {
   if (storage) return storage;
@@ -87,4 +96,11 @@ export function storeReasoningEffort(
     JSON.stringify({ ...stored, [modelId]: reasoningEffort }),
     storage,
   );
+}
+
+export function constrainReasoningEffort(
+  value: ReasoningEffort,
+  levels?: ReasoningEffort[],
+): ReasoningEffort {
+  return value === "off" || levels?.includes(value) ? value : "off";
 }

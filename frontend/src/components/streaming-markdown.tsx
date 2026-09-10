@@ -10,6 +10,7 @@ import {
   type LinkSafetyConfig,
   type LinkSafetyModalProps,
   type PluginConfig,
+  type StreamdownProps,
 } from "streamdown";
 
 import "katex/dist/katex.min.css";
@@ -24,6 +25,7 @@ interface StreamingMarkdownProps {
   content: string;
   isStreaming?: boolean;
   className?: string;
+  BlockComponent?: StreamdownProps["BlockComponent"];
 }
 
 const STREAMING_ANIMATION: AnimateOptions = {
@@ -178,11 +180,13 @@ export function StreamingMarkdown({
   content,
   isStreaming = false,
   className,
+  BlockComponent,
 }: StreamingMarkdownProps) {
   const markdownClassName = className ? `streaming-markdown ${className}` : "streaming-markdown";
 
   return (
     <Streamdown
+      BlockComponent={BlockComponent}
       animated={STREAMING_ANIMATION}
       className={markdownClassName}
       controls={STREAMDOWN_CONTROLS}
@@ -191,7 +195,7 @@ export function StreamingMarkdown({
       lineNumbers
       linkSafety={STREAMDOWN_LINK_SAFETY}
       mode="streaming"
-      parseIncompleteMarkdown
+      parseIncompleteMarkdown={!BlockComponent}
       plugins={STREAMDOWN_PLUGINS}
       remarkPlugins={STREAMDOWN_REMARK_PLUGINS}
     >

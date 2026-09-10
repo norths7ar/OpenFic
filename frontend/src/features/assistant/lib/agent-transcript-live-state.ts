@@ -28,6 +28,7 @@ export function syncAgentTranscriptLiveState(
   liveState.status = nextState.status;
   liveState.isRunning = nextState.isRunning;
   liveState.currentStage = nextState.currentStage;
+  liveState.discardedRunIds = nextState.discardedRunIds;
   return nextState;
 }
 

@@ -81,3 +81,43 @@ describe("applyAgentTranscriptEvent", () => {
     expect(result.message).toMatchObject({ type: "completed", finalContent: "成稿", wordCount: 2 });
   });
 });
+
+test("retry reset removes only the failed model draft and ignores its late chunks", () => {
+  const first = applyAgentTranscriptEvent(
+    state({
+      messages: [
+        {
+          id: "completed-tool",
+          type: "tool",
+          status: "completed",
+          toolResult: { success: true },
+          timestamp: 1,
+        },
+      ],
+    }),
+    event({
+      id: "attempt-a",
+      content: "unfinished",
+      payload: { is_delta: true, run_id: "attempt-a" },
+    }),
+  );
+  const reset = applyAgentTranscriptEvent(
+    first.state,
+    event({ type: "attempt_reset", payload: { run_ids: ["attempt-a"] } }),
+  );
+  expect(reset.state.messages.map((item) => item.id)).toEqual(["completed-tool"]);
+  const late = applyAgentTranscriptEvent(
+    reset.state,
+    event({ id: "attempt-a", content: "late", payload: { is_delta: true, run_id: "attempt-a" } }),
+  );
+  expect(late.state.messages).toEqual(reset.state.messages);
+  const next = applyAgentTranscriptEvent(
+    late.state,
+    event({
+      id: "attempt-b",
+      content: "replacement",
+      payload: { is_delta: true, run_id: "attempt-b" },
+    }),
+  );
+  expect(next.state.messages.at(-1)?.content).toBe("replacement");
+});

@@ -10,10 +10,11 @@ import {
 } from "@radix-ui/themes";
 import axios from "axios";
 import { ArrowUpDown, CheckCircle2, FileClock, XCircle } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useSearchParams } from "react-router";
 
-import { ConfirmDialog, Spinner, StreamingMarkdown, toast } from "@/components";
+import { ConfirmDialog, Spinner, toast } from "@/components";
 import { ProjectNavItemRow } from "@/features/project-navigation/components/project-nav-item-row";
 import { ProjectNavSearch } from "@/features/project-navigation/components/project-nav-search";
 import { ProjectNavShell } from "@/features/project-navigation/components/project-nav-shell";
@@ -27,6 +28,8 @@ import {
   useRejectPendingProjectChange,
 } from "../hooks";
 import type { JsonValue, PendingProjectChange } from "../types";
+import { compareBodyBlocks } from "./body-diff";
+import { BodyDiffLegend, BodyDiffMarkdown } from "./body-diff-markdown";
 
 import "./pending-project-changes-dialog.css";
 
@@ -172,6 +175,7 @@ function BodyComparison({
   afterLabel: string;
   emptyLabel: string;
 }) {
+  const changes = useMemo(() => compareBodyBlocks(before, after), [before, after]);
   return (
     <section className="pending-project-changes-content-section">
       <Text
@@ -180,6 +184,7 @@ function BodyComparison({
       >
         {label}
       </Text>
+      <BodyDiffLegend />
       <div className="pending-project-changes-body-comparison">
         <article className="pending-project-changes-body-version">
           <Text
@@ -191,7 +196,10 @@ function BodyComparison({
           </Text>
           <Box className="pending-project-changes-body-version-content">
             {before ? (
-              <StreamingMarkdown content={before} />
+              <BodyDiffMarkdown
+                content={before}
+                changes={changes.before}
+              />
             ) : (
               <Text
                 size="2"
@@ -212,7 +220,10 @@ function BodyComparison({
           </Text>
           <Box className="pending-project-changes-body-version-content">
             {after ? (
-              <StreamingMarkdown content={after} />
+              <BodyDiffMarkdown
+                content={after}
+                changes={changes.after}
+              />
             ) : (
               <Text
                 size="2"
@@ -224,40 +235,6 @@ function BodyComparison({
           </Box>
         </article>
       </div>
-    </section>
-  );
-}
-
-function MaterialContent({
-  label,
-  record,
-  emptyLabel,
-}: {
-  label: string;
-  record: ChangeRecord;
-  emptyLabel: string;
-}) {
-  const body = asString(record.body);
-  return (
-    <section className="pending-project-changes-content-section">
-      <Text
-        size="2"
-        weight="medium"
-      >
-        {label}
-      </Text>
-      {body ? (
-        <Box className="pending-project-changes-markdown">
-          <StreamingMarkdown content={body} />
-        </Box>
-      ) : (
-        <Text
-          size="2"
-          color="gray"
-        >
-          {emptyLabel}
-        </Text>
-      )}
     </section>
   );
 }
@@ -274,7 +251,19 @@ export function PendingProjectChangesPanel({
     visibilityCatalog?.states.find((state) => state.value === value)?.label ??
     (typeof value === "string" ? value : "");
   const { t, i18n } = useTranslation();
-  const [selectedChangeId, setSelectedChangeId] = useState<string | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const selectedChangeId = searchParams.get("change");
+  const setSelectedChangeId = (id: string | null) => {
+    setSearchParams(
+      (previous) => {
+        const next = new URLSearchParams(previous);
+        if (id) next.set("change", id);
+        else next.delete("change");
+        return next;
+      },
+      { replace: true },
+    );
+  };
   const [changeToReject, setChangeToReject] = useState<PendingProjectChange | null>(null);
   const [changeToApply, setChangeToApply] = useState<PendingProjectChange | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -305,25 +294,18 @@ export function PendingProjectChangesPanel({
   }, [changes, i18n.language, searchQuery, sortDirection, t]);
   const selectedChange = useMemo(
     () =>
-      displayedChanges.find((change) => change.id === selectedChangeId) ??
-      displayedChanges[0] ??
-      null,
+      selectedChangeId
+        ? (displayedChanges.find((change) => change.id === selectedChangeId) ?? null)
+        : (displayedChanges[0] ?? null),
     [displayedChanges, selectedChangeId],
   );
-
-  useEffect(() => {
-    if (!displayedChanges.length) {
-      setSelectedChangeId(null);
-    } else if (!displayedChanges.some((change) => change.id === selectedChangeId)) {
-      setSelectedChangeId(displayedChanges[0].id);
-    }
-  }, [displayedChanges, selectedChangeId]);
 
   const handleReject = () => {
     if (!changeToReject) return;
     rejectMutation.mutate(changeToReject.id, {
       onSuccess: () => {
         toast.success(t("pendingProjectChanges.rejectSuccess"));
+        setSelectedChangeId(null);
         setChangeToReject(null);
       },
       onError: (error) => {
@@ -341,6 +323,7 @@ export function PendingProjectChangesPanel({
     applyMutation.mutate(changeToApply.id, {
       onSuccess: () => {
         toast.success(t("pendingProjectChanges.applySuccess"));
+        setSelectedChangeId(null);
         setChangeToApply(null);
       },
       onError: (error) => {
@@ -677,16 +660,22 @@ export function PendingProjectChangesPanel({
                       />
                     ) : null}
                     {selectedChange.operation === "create" && selectedAfter ? (
-                      <MaterialContent
+                      <BodyComparison
                         label={t("pendingProjectChanges.proposedContent")}
-                        record={selectedAfter}
+                        before=""
+                        after={asString(selectedAfter.body) ?? ""}
+                        beforeLabel={t("pendingProjectChanges.before")}
+                        afterLabel={t("pendingProjectChanges.proposedVersion")}
                         emptyLabel={t("pendingProjectChanges.noBody")}
                       />
                     ) : null}
                     {selectedChange.operation === "delete" && selectedBefore ? (
-                      <MaterialContent
+                      <BodyComparison
                         label={t("pendingProjectChanges.contentToDelete")}
-                        record={selectedBefore}
+                        before={asString(selectedBefore.body) ?? ""}
+                        after=""
+                        beforeLabel={t("pendingProjectChanges.before")}
+                        afterLabel={t("pendingProjectChanges.proposedVersion")}
                         emptyLabel={t("pendingProjectChanges.noBody")}
                       />
                     ) : null}
@@ -731,9 +720,13 @@ export function PendingProjectChangesPanel({
                   color="gray"
                 >
                   {t(
-                    changes.length
-                      ? "pendingProjectChanges.noSearchResults"
-                      : "pendingProjectChanges.empty",
+                    changesQuery.isLoading
+                      ? "pendingProjectChanges.loading"
+                      : selectedChangeId && !searchQuery
+                        ? "pendingProjectChanges.selectionUnavailable"
+                        : changes.length
+                          ? "pendingProjectChanges.noSearchResults"
+                          : "pendingProjectChanges.empty",
                   )}
                 </Text>
               </Flex>

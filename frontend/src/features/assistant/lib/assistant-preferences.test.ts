@@ -4,6 +4,7 @@ import {
   ASSISTANT_AGENT_STORAGE_KEY,
   ASSISTANT_MODEL_STORAGE_KEY,
   ASSISTANT_REASONING_EFFORT_STORAGE_KEY,
+  constrainReasoningEffort,
   getStoredAgentKey,
   getStoredModelId,
   getStoredReasoningEffort,
@@ -55,7 +56,7 @@ describe("assistant preferences", () => {
 
   test("accepts every valid reasoning effort and rejects invalid values", () => {
     const storage = new FakeStorage();
-    const efforts = ["off", "low", "medium", "high", "xhigh", "max"] as const;
+    const efforts = ["off", "none", "minimal", "low", "medium", "high", "xhigh", "max"] as const;
 
     for (const effort of efforts) {
       storeReasoningEffort("model-a", effort, storage);
@@ -86,4 +87,11 @@ describe("assistant preferences", () => {
     expect(getStoredModelId(storage)).toBe("model-a");
     expect(getStoredAgentKey(storage)).toBe("build");
   });
+});
+
+test("uses model default when a stored effort is unavailable on this connection", () => {
+  expect(constrainReasoningEffort("max", ["low", "medium", "high"])).toBe("off");
+  expect(constrainReasoningEffort("high", ["low", "high"])).toBe("high");
+  expect(constrainReasoningEffort("medium", [])).toBe("off");
+  expect(constrainReasoningEffort("none", ["none", "high"])).toBe("none");
 });

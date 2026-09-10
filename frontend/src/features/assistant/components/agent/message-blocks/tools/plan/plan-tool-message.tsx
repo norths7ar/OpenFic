@@ -7,7 +7,11 @@ import type { AgentMessage } from "@/lib/agent.types";
 import "./plan-tool-message.css";
 
 import { ToolBody, ToolNotice } from "../shared/tool-message-shared";
-import { getPlanTodos, getToolResultMessage } from "../shared/tool-message-utils";
+import {
+  getPlanTodos,
+  getToolResultMessage,
+  type PlanTodoPayload,
+} from "../shared/tool-message-utils";
 import { getPlanTodoMarker } from "./plan-tool-message.utils";
 
 interface PlanToolMessageProps {
@@ -58,45 +62,52 @@ export function PlanToolMessage({ message }: PlanToolMessageProps) {
 
   return (
     <ToolBody>
-      <Box className="agent-plan-panel">
-        <ul className="agent-plan-list">
-          {todos.map((todo, index) => (
-            <li
-              key={`${todo.content}-${index}`}
-              className="agent-plan-row agent-plan-item"
-              data-kind="todo"
-              data-status={todo.status}
-            >
-              <span
-                className="agent-plan-marker"
-                data-status={todo.status}
-                aria-hidden="true"
-              >
-                <span className="agent-plan-marker-glyph">
-                  {getPlanMarkerGlyph(getPlanTodoMarker(todo.status))}
-                </span>
-              </span>
-              <Box className="agent-plan-item-main">
-                <Box className="agent-plan-item-title-row">
-                  <Text className="agent-plan-item-title agent-tool-content-plain-text">
-                    {todo.content}
-                  </Text>
-                  <Tooltip content={i18n.t(`assistant.tools.planPriority.${todo.priority}`)}>
-                    <span
-                      role="img"
-                      className="agent-plan-priority agent-tool-content-plain-text"
-                      data-priority={todo.priority}
-                      aria-label={i18n.t(`assistant.tools.planPriority.${todo.priority}`)}
-                    >
-                      <PlanPriorityIcon priority={todo.priority} />
-                    </span>
-                  </Tooltip>
-                </Box>
-              </Box>
-            </li>
-          ))}
-        </ul>
-      </Box>
+      <PlanTodoList todos={todos} />
     </ToolBody>
+  );
+}
+
+export function PlanTodoList({ todos }: { todos: PlanTodoPayload[] }) {
+  return (
+    <Box className="agent-plan-panel">
+      <ul className="agent-plan-list">
+        {todos.map((todo, index) => (
+          <li
+            key={`${todo.content}-${index}`}
+            className="agent-plan-row agent-plan-item"
+            aria-label={`${i18n.t(`assistant.taskList.status.${todo.status}`)}: ${todo.content}`}
+            data-kind="todo"
+            data-status={todo.status}
+          >
+            <span
+              className="agent-plan-marker"
+              data-status={todo.status}
+              aria-hidden="true"
+            >
+              <span className="agent-plan-marker-glyph">
+                {getPlanMarkerGlyph(getPlanTodoMarker(todo.status))}
+              </span>
+            </span>
+            <Box className="agent-plan-item-main">
+              <Box className="agent-plan-item-title-row">
+                <Text className="agent-plan-item-title agent-tool-content-plain-text">
+                  {todo.content}
+                </Text>
+                <Tooltip content={i18n.t(`assistant.tools.planPriority.${todo.priority}`)}>
+                  <span
+                    role="img"
+                    className="agent-plan-priority agent-tool-content-plain-text"
+                    data-priority={todo.priority}
+                    aria-label={i18n.t(`assistant.tools.planPriority.${todo.priority}`)}
+                  >
+                    <PlanPriorityIcon priority={todo.priority} />
+                  </span>
+                </Tooltip>
+              </Box>
+            </Box>
+          </li>
+        ))}
+      </ul>
+    </Box>
   );
 }

@@ -46,8 +46,15 @@ export function AgentPendingMessageCard({
               aria-hidden="true"
               className="ai-sidebar-pending-clock"
             />
+            <span className="ai-sidebar-pending-status">
+              {t(
+                pendingMessage.deliveryMode === "queue"
+                  ? "assistant.pendingQueue"
+                  : "assistant.pendingSteer",
+              )}
+            </span>
             <InlineMentionText
-              text={pendingMessage.content}
+              text={pendingMessage.content || t("assistant.pendingImageRequest")}
               className="ai-sidebar-pending-content"
               singleLine
               onOpenMentionChapter={onOpenMentionChapter}

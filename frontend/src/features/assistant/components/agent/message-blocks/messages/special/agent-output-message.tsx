@@ -86,6 +86,15 @@ function AgentOutputMessageView({ message, sceneDraft }: AgentOutputMessageProps
   }
   return (
     <MessageCardShell isStreaming={message.isStreaming || undefined}>
+      {message.payload?.interrupted === true ? (
+        <Text
+          as="p"
+          size="1"
+          color="gray"
+        >
+          {t("assistant.generationInterrupted")}
+        </Text>
+      ) : null}
       {message.content ? (
         <Box className="agent-output-content">
           <AgentMarkdownContent

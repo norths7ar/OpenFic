@@ -16,6 +16,7 @@ export interface AgentTranscriptState {
   status: AgentSessionStatus;
   isRunning: boolean;
   currentStage: string;
+  discardedRunIds?: string[];
 }
 
 export interface AgentTranscriptEventOptions {
@@ -536,6 +537,30 @@ export function applyAgentTranscriptEvent(
   event: AgentEvent,
   options: AgentTranscriptEventOptions = {},
 ): AgentTranscriptEventResult {
+  if (event.type === "attempt_reset") {
+    const runIds = Array.isArray(event.payload?.run_ids) ? (event.payload.run_ids as string[]) : [];
+    return {
+      message: null,
+      state: {
+        ...state,
+        discardedRunIds: [...(state.discardedRunIds ?? []), ...runIds],
+        messages: state.messages.filter(
+          (item) =>
+            !(
+              typeof item.payload?.run_id === "string" &&
+              runIds.includes(item.payload.run_id) &&
+              (item.type !== "tool" || item.status === "running")
+            ),
+        ),
+      },
+    };
+  }
+  if (
+    typeof event.payload?.run_id === "string" &&
+    state.discardedRunIds?.includes(event.payload.run_id)
+  ) {
+    return { state, message: null };
+  }
   const message = normalizeTranscriptEvent(event);
   if (!message) {
     return { state, message: null };

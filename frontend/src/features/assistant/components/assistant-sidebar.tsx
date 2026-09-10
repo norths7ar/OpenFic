@@ -80,6 +80,7 @@ import {
   type AssistantConversationStackState,
 } from "../lib/assistant-conversation-state";
 import {
+  constrainReasoningEffort,
   getStoredAgentKey,
   getStoredModelId,
   getStoredReasoningEffort,
@@ -115,6 +116,7 @@ import { AgentInput, AgentMessages, useAgentSidebar } from "./agent";
 import { ActiveSubagentList } from "./agent/active-subagent-list";
 import { AgentSpecialPanels } from "./agent/agent-special-panels";
 import { getAgentSpecialPanels } from "./agent/agent-special-panels-state";
+import { SessionTaskList } from "./agent/session-task-list";
 import { AllTasksPage } from "./tasks/all-tasks-page";
 import { RecentTasksCard } from "./tasks/recent-tasks-card";
 
@@ -358,8 +360,15 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
       () => llmModelOptions.find((model) => getModelValue(model) === effectiveModelId),
       [effectiveModelId, llmModelOptions],
     );
+    const [deliveryMode, setDeliveryMode] = useState<"steer" | "queue">("steer");
     const [reasoningEffort, setReasoningEffort] = useState<ReasoningEffort>(() =>
-      getStoredReasoningEffort(effectiveModelId, currentModel?.reasoning === true),
+      constrainReasoningEffort(
+        getStoredReasoningEffort(
+          effectiveModelId,
+          Boolean(currentModel?.reasoningEffortLevels?.length),
+        ),
+        currentModel?.reasoningEffortLevels,
+      ),
     );
     const isToolApprovalBypassEnabled = settings?.agentBypassToolApproval ?? false;
     const agentSidebarRef = useRef<ReturnType<typeof useAgentSidebar> | null>(null);
@@ -394,9 +403,15 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
 
     useEffect(() => {
       setReasoningEffort(
-        getStoredReasoningEffort(effectiveModelId, currentModel?.reasoning === true),
+        constrainReasoningEffort(
+          getStoredReasoningEffort(
+            effectiveModelId,
+            Boolean(currentModel?.reasoningEffortLevels?.length),
+          ),
+          currentModel?.reasoningEffortLevels,
+        ),
       );
-    }, [currentModel?.reasoning, effectiveModelId]);
+    }, [currentModel?.reasoningEffortLevels, effectiveModelId]);
 
     const newTaskFolderRef = useRef<string | null>(null);
     const handleAgentTaskTitleUpdated = useCallback(
@@ -564,7 +579,11 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
       projectId,
       scrollToBottomKey: currentTaskId,
       modelId: effectiveModelId,
-      reasoningEffort,
+      reasoningEffort: constrainReasoningEffort(
+        reasoningEffort,
+        currentModel?.reasoningEffortLevels,
+      ),
+      deliveryMode,
       agentKey: effectiveAgentKey,
       contextMode,
       inputValue,
@@ -584,6 +603,16 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
           return createRestoredPendingAgentAttachments(attachments);
         });
       },
+      onAppendRestoredAttachments: (attachments) => {
+        setPendingAttachments((current) => [
+          ...current,
+          ...createRestoredPendingAgentAttachments(attachments).filter(
+            (attachment) => !current.some((item) => item.id === attachment.id),
+          ),
+        ]);
+      },
+      onAppendRestoredInput: (content) =>
+        setInputValue((current) => (current.trim() ? `${current}\n\n${content}` : content)),
       onSetInputValue: (value) => setInputValue(value),
       onOpenMentionChapter,
       sceneDraftTarget,
@@ -932,8 +961,10 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
                   | undefined) ?? "off")
               : undefined;
           if (restoredReasoningEffort) {
-            const normalizedReasoningEffort =
-              restoredModel?.reasoning === true ? restoredReasoningEffort : "off";
+            const normalizedReasoningEffort = constrainReasoningEffort(
+              restoredReasoningEffort,
+              restoredModel?.reasoningEffortLevels,
+            );
             if (restoredModelId) {
               storeReasoningEffort(restoredModelId, normalizedReasoningEffort);
             }
@@ -1902,6 +1933,13 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
                 </IconButton>
               </div>
 
+              {!isViewingSubagent && agentSidebar.sessionId ? (
+                <SessionTaskList
+                  key={agentSidebar.sessionId}
+                  sessionId={agentSidebar.sessionId}
+                  isRunning={isSendingMessage}
+                />
+              ) : null}
               <AgentInput
                 header={!discussionWorkspace ? projectActions : undefined}
                 specialPanels={
@@ -1926,7 +1964,9 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
                 reasoningEffort={reasoningEffort}
                 isSending={isSendingMessage}
                 disabled={isViewingSubagent || isLoadingTask}
-                pendingMessage={isViewingSubagent ? null : agentSidebar.pendingMessage}
+                pendingMessages={isViewingSubagent ? [] : agentSidebar.pendingMessages}
+                deliveryMode={deliveryMode}
+                onDeliveryModeChange={setDeliveryMode}
                 isModelsLoading={isModelsLoading}
                 modelsError={!!modelsError}
                 onChange={setInputValue}

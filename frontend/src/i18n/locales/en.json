@@ -763,7 +763,7 @@
         "description": "Ask you for the information needed."
       },
       "writePlan": {
-        "name": "Plan",
+        "name": "Task list",
         "description": "Write a to-do list for the session to organize the work."
       },
       "readChapter": {
@@ -2127,7 +2127,7 @@
       "worldEntryCount": "{{count}} entries",
       "noWorldEntryInfo": "No entry info returned",
       "noWorldEntryInfoDescription": "This tool result does not include displayable world entry info.",
-      "writePlan": "Write plan",
+      "writePlan": "Update task list",
       "targetVolume": "Target volume",
       "cascadeDeleteChapters": "Cascade delete chapters",
       "yes": "Yes",
@@ -2138,8 +2138,49 @@
       "find": "Find",
       "replaceWith": "Replace with",
       "result": "Result",
-      "toolApprovalQuestion": "Allow calling {{toolName}}?"
-    }
+      "toolApprovalQuestion": "Allow calling {{toolName}}?",
+      "proposalStatus": {
+        "failed": "Submission failed",
+        "submitted": "Pending review",
+        "notSubmitted": "Not submitted",
+        "generating": "Generating proposal"
+      },
+      "viewProjectChange": "View change",
+      "proposalFields": {
+        "title": "Title",
+        "body": "Body",
+        "agent_visibility": "Visibility",
+        "section": "Section",
+        "category_id": "Folder",
+        "document_type": "Document type"
+      }
+    },
+    "taskList": {
+      "title": "Task list",
+      "status": {
+        "pending": "Pending",
+        "in_progress": "In progress",
+        "completed": "Completed"
+      }
+    },
+    "deliverySteer": "Steer current task",
+    "deliveryQueue": "Queue message",
+    "deliverySteerHint": "Receive before the next model call; completed actions are not undone",
+    "deliveryQueueHint": "Process after the current task finishes",
+    "pendingSteer": "Awaiting receipt",
+    "pendingQueue": "Queued",
+    "reasoningEffort": {
+      "off": "Default",
+      "none": "None",
+      "minimal": "Minimal",
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High",
+      "xhigh": "Xhigh",
+      "max": "Max"
+    },
+    "generationInterrupted": "Generation interrupted; incomplete tool calls were not submitted.",
+    "pendingImageRequest": "Image message"
   },
   "settingsExtra": {
     "rules": {
@@ -2294,7 +2335,13 @@
     "rejectConfirmDescription": "This change will be marked as rejected and cannot be applied from this inbox.",
     "rejectSuccess": "Pending change rejected",
     "rejectFailed": "Failed to reject pending change: {{error}}",
-    "unknownError": "Unknown error"
+    "unknownError": "Unknown error",
+    "blockChanges": {
+      "added": "Added",
+      "changed": "Modified",
+      "removed": "Removed"
+    },
+    "selectionUnavailable": "This change is no longer pending; it may have been applied or rejected."
   },
   "index": {
     "description": "Configure chapter retrieval indexing: scope, embedding model, chunking and auto-update strategy.",

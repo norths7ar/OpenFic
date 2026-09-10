@@ -3,6 +3,51 @@
   margin: 0;
 }
 
+.pending-body-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  font-size: var(--font-size-1);
+}
+
+.pending-body-legend-item {
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-2);
+}
+
+.pending-body-block {
+  position: relative;
+  min-width: 0;
+  border-radius: var(--radius-2);
+}
+
+.pending-body-block:not(.pending-body-block--unchanged) {
+  padding: var(--space-2) var(--space-3);
+  margin-block: var(--space-2);
+  border-inline-start: 3px solid var(--pending-block-border, var(--gray-a6));
+}
+
+.pending-body-block--added {
+  background: var(--green-a3);
+  --pending-block-border: var(--green-8);
+}
+.pending-body-block--changed {
+  background: var(--amber-a3);
+  --pending-block-border: var(--amber-8);
+}
+.pending-body-block--removed {
+  background: var(--red-a3);
+  --pending-block-border: var(--red-8);
+}
+
+.pending-body-block-label {
+  display: block;
+  margin-bottom: var(--space-1);
+  font-size: var(--font-size-1);
+  color: var(--gray-11);
+}
+
 .pending-project-changes-dialog-content {
   width: min(1180px, calc(100vw - 32px));
   max-width: none;

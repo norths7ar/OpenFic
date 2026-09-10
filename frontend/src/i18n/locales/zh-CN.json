@@ -763,7 +763,7 @@
         "description": "向你提问以获取所需的信息"
       },
       "writePlan": {
-        "name": "计划",
+        "name": "任务清单",
         "description": "为会话写入待办列表以组织完成工作"
       },
       "readChapter": {
@@ -1516,7 +1516,13 @@
     "rejectConfirmDescription": "该变更会被标记为已拒绝，且不能从此收件箱中应用。",
     "rejectSuccess": "已拒绝待审变更",
     "rejectFailed": "拒绝待审变更失败：{{error}}",
-    "unknownError": "未知错误"
+    "unknownError": "未知错误",
+    "blockChanges": {
+      "added": "新增",
+      "changed": "修改",
+      "removed": "删除"
+    },
+    "selectionUnavailable": "此变更已不在待审列表中，可能已被采用或拒绝。"
   },
   "index": {
     "description": "配置章节检索索引的启用范围、嵌入模型、分块参数与自动更新策略。",
@@ -2155,9 +2161,9 @@
       "moveChapterSuccess": "章节已移动到目标卷末尾。",
       "noNoteEditInfo": "未返回笔记编辑信息",
       "noNoteEditInfoDescription": "这次编辑没有返回可显示的笔记信息。",
-      "noPlanSteps": "没有返回计划步骤。",
-      "noPlanContent": "未返回计划内容",
-      "noPlanContentDescription": "这次工具结果没有返回可显示的计划数据。",
+      "noPlanSteps": "没有返回任务清单步骤。",
+      "noPlanContent": "未返回任务清单内容",
+      "noPlanContentDescription": "这次工具结果没有返回可显示的任务清单数据。",
       "dispatchInstruction": "已根据指令委派：",
       "notifyInstruction": "已根据指令通知：",
       "noChapterDiff": "未返回章节差异",
@@ -2259,7 +2265,7 @@
       "worldEntryCount": "{{count}} 个条目",
       "noWorldEntryInfo": "未返回世界书条目信息",
       "noWorldEntryInfoDescription": "这次工具结果没有返回可显示的世界书条目信息。",
-      "writePlan": "写入计划",
+      "writePlan": "更新任务清单",
       "targetVolume": "目标卷",
       "cascadeDeleteChapters": "级联删除章节",
       "yes": "是",
@@ -2270,8 +2276,49 @@
       "find": "查找",
       "replaceWith": "替换为",
       "result": "结果",
-      "toolApprovalQuestion": "是否允许调用 {{toolName}}？"
-    }
+      "toolApprovalQuestion": "是否允许调用 {{toolName}}？",
+      "proposalStatus": {
+        "failed": "提交失败",
+        "submitted": "待审",
+        "notSubmitted": "未提交",
+        "generating": "正在生成提案"
+      },
+      "viewProjectChange": "查看变更",
+      "proposalFields": {
+        "title": "标题",
+        "body": "正文",
+        "agent_visibility": "资料可见范围",
+        "section": "分区",
+        "category_id": "文件夹",
+        "document_type": "资料类型"
+      }
+    },
+    "taskList": {
+      "title": "任务清单",
+      "status": {
+        "pending": "待办",
+        "in_progress": "进行中",
+        "completed": "已完成"
+      }
+    },
+    "deliverySteer": "引导当前任务",
+    "deliveryQueue": "排队发送",
+    "deliverySteerHint": "在下一次模型调用前接收，不撤销已执行操作",
+    "deliveryQueueHint": "当前任务完成后处理",
+    "pendingSteer": "待接收",
+    "pendingQueue": "排队中",
+    "reasoningEffort": {
+      "off": "默认",
+      "none": "关闭",
+      "minimal": "最低",
+      "low": "低",
+      "medium": "中",
+      "high": "高",
+      "xhigh": "更高",
+      "max": "最高"
+    },
+    "generationInterrupted": "生成已中断，未完成的工具未提交。",
+    "pendingImageRequest": "图片消息"
   },
   "settingsExtra": {
     "rules": {

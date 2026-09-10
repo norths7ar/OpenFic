@@ -5,7 +5,6 @@ export type AgentInputBodyMode = "composer" | "special_panels";
 export interface AgentInputLockState {
   disabled: boolean;
   readOnly?: boolean;
-  hasPendingMessage?: boolean;
 }
 
 export interface AgentInputSendState extends AgentInputLockState {
@@ -26,22 +25,17 @@ export function getAgentInputBodyMode(
   return "composer";
 }
 
-export function isAgentInputLocked({
-  disabled,
-  readOnly = false,
-  hasPendingMessage = false,
-}: AgentInputLockState): boolean {
-  return disabled || readOnly || hasPendingMessage;
+export function isAgentInputLocked({ disabled, readOnly = false }: AgentInputLockState): boolean {
+  return disabled || readOnly;
 }
 
 export function canSendAgentInput({
   hasContent,
   disabled,
   readOnly = false,
-  hasPendingMessage = false,
   bodyMode = "composer",
 }: AgentInputSendState): boolean {
   if (!hasContent) return false;
-  if (disabled || readOnly || hasPendingMessage) return false;
+  if (disabled || readOnly) return false;
   return bodyMode === "composer";
 }

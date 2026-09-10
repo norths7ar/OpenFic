@@ -209,11 +209,12 @@ function transformPendingAgentMessage(raw: unknown): AgentPendingMessage | null 
   const messageId = String(raw.message_id ?? "");
   const content = String(raw.content ?? "");
   const createdAt = String(raw.created_at ?? "");
-  if (!messageId || !content || !createdAt) return null;
+  if (!messageId || !createdAt) return null;
   return {
     messageId,
     content,
     createdAt,
+    deliveryMode: raw.delivery_mode === "queue" ? "queue" : "steer",
   };
 }
 
@@ -295,9 +296,11 @@ export async function sendAgentMessage(
   reasoningEffort?: ReasoningEffort,
   agentKey?: string,
   attachments?: AgentImageAttachment[],
+  deliveryMode: "steer" | "queue" = "steer",
 ): Promise<AgentSendMessageResponse> {
   const request: AgentSendMessageRequest = {
     message,
+    delivery_mode: deliveryMode,
     ...(modelId ? { model_id: modelId } : {}),
     ...(reasoningEffort ? { reasoning_effort: reasoningEffort } : {}),
     ...(agentKey ? { agent_key: agentKey } : {}),
@@ -470,4 +473,14 @@ export async function cancelPendingAgentMessage(
     message_id: messageId,
   });
   return response.data;
+}
+
+export async function getPendingAgentMessages(sessionId: string): Promise<AgentPendingMessage[]> {
+  const response = await apiClient.get(`/agent/sessions/${sessionId}/pending-messages`);
+  const items = response.data.items;
+  return Array.isArray(items)
+    ? items
+        .map(transformPendingAgentMessage)
+        .filter((item): item is AgentPendingMessage => item !== null)
+    : [];
 }

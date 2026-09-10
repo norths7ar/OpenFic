@@ -12,6 +12,7 @@ export const AGENT_SOCKET_EVENTS = [
   "agent:tool_result",
   "agent:node",
   "agent:retry",
+  "agent:attempt_reset",
   "agent:interrupt",
   "agent:usage",
   "agent:task_usage_snapshot",
@@ -75,6 +76,14 @@ export function toAgentEvent(
   const data = isRecord(rawData) ? rawData : {};
   if (!matchesSession(sessionId, data)) return null;
 
+  if (eventName === "agent:attempt_reset") {
+    return {
+      type: "attempt_reset",
+      display: "hidden",
+      payload: { run_ids: data.run_ids },
+    } as AgentEvent;
+  }
+
   if (eventName === "agent:text") {
     const content = getContent(data.content);
     if (isHiddenSystemReminderContent(content)) return null;
@@ -106,6 +115,7 @@ export function toAgentEvent(
         message_id: messageId,
         content: getContent(data.content),
         created_at: getString(data.created_at),
+        delivery_mode: isRecord(data.payload) ? data.payload.delivery_mode : "steer",
       },
     };
   }
@@ -120,7 +130,7 @@ export function toAgentEvent(
       status: "running",
       display: "list",
       content: getContent(data.content),
-      payload: { is_delta: true },
+      payload: { is_delta: true, run_id: data.run_id },
     };
   }
 
@@ -134,7 +144,7 @@ export function toAgentEvent(
       status: "running",
       display: "list",
       content: getContent(data.content),
-      payload: { is_delta: true },
+      payload: { is_delta: true, run_id: data.run_id },
     };
   }
 
@@ -154,6 +164,7 @@ export function toAgentEvent(
         tool_call_id: getString(data.tool_call_id),
         tool_name: getString(data.tool) || getString(data.tool_name) || "",
         tool_args: isRecord(input) ? input : undefined,
+        run_id: data.run_id,
         partial_tool_args_text: partialArgsText,
         tool_args_text:
           argsText || (typeof input === "string" ? input : JSON.stringify(input ?? {})),

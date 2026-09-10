@@ -181,7 +181,8 @@ export function cancelStreamingAgentMessages(messages: AgentMessage[]): AgentMes
     changed = true;
     return {
       ...message,
-      status: "completed" as const,
+      status: "error" as const,
+      payload: { ...message.payload, interrupted: true },
       isStreaming: false,
     };
   });

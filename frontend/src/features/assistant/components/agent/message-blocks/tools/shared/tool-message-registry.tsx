@@ -52,6 +52,7 @@ import {
 } from "../orchestration/recycle-subagent-tool-message";
 import { PlanToolMessage } from "../plan/plan-tool-message";
 import { getPlanToolDisplayConfig } from "../plan/plan-tool-message.utils";
+import { getProjectChangeDetail } from "../project-change/project-change-summary";
 import { ProjectChangeToolMessage } from "../project-change/project-change-tool-message";
 import { WorldEntryToolMessage } from "../world-entry/world-entry-tool-message";
 import {
@@ -659,10 +660,7 @@ const TOOL_REGISTRY = {
     contentMode: "expandable",
     icon: FileClock,
     getTitle: () => i18n.t("assistant.tools.projectChangeProposed"),
-    getDetail: (message) => {
-      const args = getStreamingData(message);
-      return asString(args.title) ?? asString(args.target_type);
-    },
+    getDetail: getProjectChangeDetail,
     defaultExpanded: () => true,
     render: (message) => <ProjectChangeToolMessage message={message} />,
   },
@@ -674,10 +672,7 @@ const TOOL_REGISTRY = {
     contentMode: "expandable",
     icon: FileClock,
     getTitle: () => i18n.t("assistant.tools.projectChangeProposed"),
-    getDetail: (message) => {
-      const args = getStreamingData(message);
-      return asString(args.title) ?? asString(args.target_type);
-    },
+    getDetail: getProjectChangeDetail,
     defaultExpanded: () => true,
     render: (message) => <ProjectChangeToolMessage message={message} />,
   },
@@ -689,7 +684,7 @@ const TOOL_REGISTRY = {
     contentMode: "expandable",
     icon: FileClock,
     getTitle: () => i18n.t("assistant.tools.projectChangeProposed"),
-    getDetail: (message) => asString(getStreamingData(message).target_type),
+    getDetail: getProjectChangeDetail,
     defaultExpanded: () => true,
     render: (message) => <ProjectChangeToolMessage message={message} />,
   },

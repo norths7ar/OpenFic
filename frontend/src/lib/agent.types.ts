@@ -265,7 +265,10 @@ export interface AgentSessionStateResponse {
   interrupts: Record<string, unknown>[];
 }
 
+export type AgentDeliveryMode = "steer" | "queue";
+
 export interface AgentSendMessageRequest {
+  delivery_mode?: AgentDeliveryMode;
   message: string;
   attachments?: string[];
   model_id?: string;
@@ -285,11 +288,20 @@ export interface AgentImageAttachment {
   url: string;
 }
 
-export type ReasoningEffort = "off" | "low" | "medium" | "high" | "xhigh" | "max";
+export type ReasoningEffort =
+  | "off"
+  | "none"
+  | "minimal"
+  | "low"
+  | "medium"
+  | "high"
+  | "xhigh"
+  | "max";
 
 export type AgentPendingMessageAction = "queued" | "cancelled" | "consumed";
 
 export interface AgentPendingMessage {
+  deliveryMode?: AgentDeliveryMode;
   messageId: string;
   content: string;
   createdAt: string;
@@ -399,6 +411,7 @@ export interface AgentCancelResponse {
 }
 
 export interface AgentCancelPendingMessageResponse {
+  attachments?: unknown[];
   success: boolean;
   session_id: string;
   message_id: string;

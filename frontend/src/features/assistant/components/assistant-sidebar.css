@@ -1279,3 +1279,23 @@
     0 2px 8px rgba(0, 0, 0, 0.32),
     0 0 0 1px var(--gray-a4);
 }
+
+.ai-sidebar-pending-status {
+  flex: 0 0 auto;
+  white-space: nowrap;
+  color: var(--gray-10);
+  font-size: var(--font-size-xs);
+}
+
+.ai-sidebar-pending-list {
+  max-height: 180px;
+  overflow-y: auto;
+  margin-bottom: var(--space-2);
+}
+
+.ai-sidebar-pending-list:empty {
+  display: none;
+}
+.ai-sidebar-pending-list .ai-sidebar-pending-shell + .ai-sidebar-pending-shell {
+  margin-top: var(--space-1);
+}

@@ -166,6 +166,7 @@ function transformModel(raw: ModelResponse): Model {
     dimensions: raw.dimensions,
     isBuiltin: raw.is_builtin ?? false,
     isEnabled: raw.is_enabled ?? true,
+    reasoningEffortLevels: raw.reasoning_effort_levels ?? [],
     createdAt: raw.created_at,
     updatedAt: raw.updated_at,
   };

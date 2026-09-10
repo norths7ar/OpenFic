@@ -29,7 +29,9 @@ import { projectDataQueryKeys } from "@/lib/project-data-query-keys";
 import type { WorldInfoEntryBriefListResponse } from "@/lib/world-info.types";
 
 import type { ClarificationAnswerItem } from "../components/agent/message-blocks/messages/special/clarification-flow-state";
+import { normalizeAgentImageAttachments } from "../lib/agent-image-attachments";
 import {
+  getPendingAgentMessages,
   cancelPendingAgentMessage,
   compactAgentSession,
   createAgentSession,
@@ -220,6 +222,9 @@ export function useAgentSession({
   const suppressSocketEventsAfterAbortRef = useRef(false);
   const sessionIdRef = useRef<string | null>(null);
   const activeModelIdRef = useRef<string | null>(null);
+  const resolvedPendingMessageIdsRef = useRef(new Set<string>());
+  const pendingMessagesRef = useRef<AgentPendingMessage[]>([]);
+  const [pendingMessages, setPendingMessages] = useState<AgentPendingMessage[]>([]);
   const pendingMessageRef = useRef<AgentPendingMessage | null>(null);
   const isCompactingRef = useRef(false);
   const manualCompactionPreviousStateRef = useRef<Pick<
@@ -361,9 +366,52 @@ export function useAgentSession({
   );
 
   const syncPendingMessageState = useCallback((nextPendingMessage: AgentPendingMessage | null) => {
-    pendingMessageRef.current = nextPendingMessage;
-    setPendingMessage(nextPendingMessage);
+    if (
+      nextPendingMessage &&
+      resolvedPendingMessageIdsRef.current.has(nextPendingMessage.messageId)
+    )
+      return;
+    const items = nextPendingMessage
+      ? [
+          ...pendingMessagesRef.current.filter(
+            (item) => item.messageId !== nextPendingMessage.messageId,
+          ),
+          nextPendingMessage,
+        ]
+      : [];
+    items.sort((left, right) => left.createdAt.localeCompare(right.createdAt));
+    pendingMessagesRef.current = items;
+    setPendingMessages(items);
+    pendingMessageRef.current = items[0] ?? null;
+    setPendingMessage(items[0] ?? null);
   }, []);
+
+  const replacePendingMessages = useCallback((items: AgentPendingMessage[]) => {
+    pendingMessagesRef.current = items;
+    setPendingMessages(items);
+    pendingMessageRef.current = items[0] ?? null;
+    setPendingMessage(items[0] ?? null);
+  }, []);
+
+  useEffect(() => {
+    if (!sessionId) return;
+    let disposed = false;
+    const refresh = async () => {
+      const before = pendingMessagesRef.current;
+      try {
+        const items = await getPendingAgentMessages(sessionId);
+        if (!disposed && pendingMessagesRef.current === before) replacePendingMessages(items);
+      } catch {
+        /* Reconnect polling retries without clearing already received messages. */
+      }
+    };
+    void refresh();
+    const timer = window.setInterval(() => void refresh(), 2000);
+    return () => {
+      disposed = true;
+      window.clearInterval(timer);
+    };
+  }, [sessionId, replacePendingMessages]);
 
   const syncCompactingState = useCallback((nextIsCompacting: boolean) => {
     isCompactingRef.current = nextIsCompacting;
@@ -424,12 +472,20 @@ export function useAgentSession({
         const messageId = typeof payload.message_id === "string" ? payload.message_id : "";
         const content = typeof payload.content === "string" ? payload.content : undefined;
         const createdAt = typeof payload.created_at === "string" ? payload.created_at : undefined;
+        if (action !== "queued") {
+          resolvedPendingMessageIdsRef.current.add(messageId);
+          replacePendingMessages(
+            pendingMessagesRef.current.filter((item) => item.messageId !== messageId),
+          );
+          return;
+        }
         syncPendingMessageState(
           applyPendingUserMessageEvent(pendingMessageRef.current, {
             action: action as "queued" | "cancelled" | "consumed",
             messageId,
             content,
             createdAt,
+            deliveryMode: payload.delivery_mode === "queue" ? "queue" : "steer",
           }),
         );
         return;
@@ -683,6 +739,7 @@ export function useAgentSession({
       queryClient,
       syncCompactingState,
       syncPendingMessageState,
+      replacePendingMessages,
       updateTranscriptState,
     ],
   );
@@ -854,14 +911,11 @@ export function useAgentSession({
     async (
       message: string,
       attachments?: Array<{ file?: File; uploadedAttachment?: AgentImageAttachment }>,
+      deliveryMode: "steer" | "queue" = "steer",
     ) => {
       const activeSessionId = sessionIdRef.current ?? sessionId;
       if (!activeSessionId) {
         toast.error(i18n.t("assistant.sessionNotFound"));
-        return;
-      }
-      if (pendingMessageRef.current) {
-        toast.error(i18n.t("writing.aiSidebar.cannotSendPendingMessage"));
         return;
       }
 
@@ -906,6 +960,7 @@ export function useAgentSession({
           reasoningEffort,
           agentKey,
           messageAttachments.length > 0 ? messageAttachments : undefined,
+          deliveryMode,
         );
         if (response.agent_key) onAgentConfirmed?.(response.agent_key);
         onTaskTitleUpdated?.(response.task_id, response.task_title);
@@ -1200,7 +1255,6 @@ export function useAgentSession({
       messages: [...transcriptStateRef.current.messages],
     };
     const previousInterruptBatch = interruptBatchRef.current;
-    const previousPendingMessage = pendingMessageRef.current;
     const previousIsCompacting = isCompactingRef.current;
     const previousManualCompactionState = manualCompactionPreviousStateRef.current;
     suppressSocketEventsAfterAbortRef.current = true;
@@ -1210,7 +1264,6 @@ export function useAgentSession({
     manualCompactionPreviousStateRef.current = null;
     socketUnsubscribeRef.current?.();
     socketUnsubscribeRef.current = null;
-    syncPendingMessageState(null);
     syncCompactingState(false);
     updateTranscriptState((current) =>
       abortCompactionTranscriptState(
@@ -1232,7 +1285,6 @@ export function useAgentSession({
         interruptBatchRef.current = previousInterruptBatch;
         manualCompactionPreviousStateRef.current = previousManualCompactionState;
         suppressSocketEventsAfterAbortRef.current = false;
-        syncPendingMessageState(previousPendingMessage);
         syncCompactingState(previousIsCompacting);
         commitTranscriptState(previousTranscriptState);
         attachAgentSocket(activeSessionId);
@@ -1246,7 +1298,6 @@ export function useAgentSession({
     commitTranscriptState,
     sessionId,
     syncCompactingState,
-    syncPendingMessageState,
     updateTranscriptState,
   ]);
 
@@ -1350,27 +1401,41 @@ export function useAgentSession({
     ],
   );
 
-  const cancelPendingMessage = useCallback(async (): Promise<string | null> => {
-    const activeSessionId = sessionIdRef.current ?? sessionId;
-    const activePendingMessage = pendingMessageRef.current;
-    if (!activeSessionId || !activePendingMessage) return null;
+  const cancelPendingMessage = useCallback(
+    async (
+      messageId?: string,
+    ): Promise<{ content: string; attachments: AgentImageAttachment[] } | null> => {
+      const activeSessionId = sessionIdRef.current ?? sessionId;
+      const activePendingMessage = messageId
+        ? pendingMessagesRef.current.find((item) => item.messageId === messageId)
+        : pendingMessageRef.current;
+      if (!activeSessionId || !activePendingMessage) return null;
 
-    try {
-      const result = await cancelPendingAgentMessage(
-        activeSessionId,
-        activePendingMessage.messageId,
-      );
-      syncPendingMessageState(null);
-      return result.restored_message_content;
-    } catch (error) {
-      console.error("Failed to cancel pending agent message:", error);
-      if (pendingMessageRef.current?.messageId !== activePendingMessage.messageId) {
+      try {
+        const result = await cancelPendingAgentMessage(
+          activeSessionId,
+          activePendingMessage.messageId,
+        );
+        replacePendingMessages(
+          pendingMessagesRef.current.filter(
+            (item) => item.messageId !== activePendingMessage.messageId,
+          ),
+        );
+        return {
+          content: result.restored_message_content,
+          attachments: normalizeAgentImageAttachments(result.attachments),
+        };
+      } catch (error) {
+        console.error("Failed to cancel pending agent message:", error);
+        if (pendingMessageRef.current?.messageId !== activePendingMessage.messageId) {
+          return null;
+        }
+        toast.error(i18n.t("assistant.cancelPendingFailed"));
         return null;
       }
-      toast.error(i18n.t("assistant.cancelPendingFailed"));
-      return null;
-    }
-  }, [sessionId, syncPendingMessageState]);
+    },
+    [sessionId, replacePendingMessages],
+  );
 
   const rollbackToRevision = useCallback(
     async (messageId: string): Promise<RollbackInputRestore | null> => {
@@ -1479,6 +1544,7 @@ export function useAgentSession({
     sessionId,
     messages,
     pendingMessage,
+    pendingMessages,
     status,
     isRunning,
     isCompacting,

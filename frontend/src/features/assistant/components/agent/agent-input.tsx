@@ -28,6 +28,7 @@ import { AgentComposerEditor, type AgentComposerSuggestionState } from "./agent-
 import { AgentIndexStatusIndicator } from "./agent-index-status-indicator";
 import { canSendAgentInput, getAgentInputBodyMode, isAgentInputLocked } from "./agent-input-state";
 import { AgentMentionSuggestions } from "./agent-mention-suggestions";
+import { DeliveryModeSelect } from "./delivery-mode-select";
 import { AgentPendingMessageCard } from "./pending-message-card";
 
 interface AgentInputProps {
@@ -56,12 +57,14 @@ interface AgentInputProps {
   onAgentChange?: (agentKey: string) => void;
   onGoToSettings: () => void;
   agentStatus?: AgentSessionStatus;
-  pendingMessage?: AgentPendingMessage | null;
+  pendingMessages?: AgentPendingMessage[];
+  deliveryMode?: "steer" | "queue";
+  onDeliveryModeChange?: (mode: "steer" | "queue") => void;
   onOpenMentionChapter?: (chapterId: string, chapterTitle: string) => void;
   toolApprovalBypassEnabled?: boolean;
   toolApprovalBypassDisabled?: boolean;
   onToggleToolApprovalBypass?: () => void;
-  onCancelPendingMessage?: () => void;
+  onCancelPendingMessage?: (messageId?: string) => void;
   specialPanels?: ReactNode;
   forceSpecialPanels?: boolean;
   readOnly?: boolean;
@@ -96,7 +99,9 @@ export function AgentInput({
   onAgentChange,
   onGoToSettings,
   agentStatus,
-  pendingMessage = null,
+  pendingMessages = [],
+  deliveryMode = "steer",
+  onDeliveryModeChange,
   onOpenMentionChapter,
   toolApprovalBypassEnabled = false,
   toolApprovalBypassDisabled = false,
@@ -111,18 +116,16 @@ export function AgentInput({
   const { t } = useTranslation();
   const bodyMode = getAgentInputBodyMode(agentStatus, Boolean(specialPanels), forceSpecialPanels);
   const hasContent = value.trim().length > 0 || attachments.length > 0;
-  const hasPendingMessage = pendingMessage !== null;
+  const hasPendingMessage = pendingMessages.length > 0;
   const isComposerLocked = isAgentInputLocked({
     disabled,
     readOnly,
-    hasPendingMessage,
   });
   const shouldAbort = isSending && !hasContent;
   const canSend = canSendAgentInput({
     hasContent,
     disabled,
     readOnly,
-    hasPendingMessage,
     bodyMode,
   });
   const shouldShowPendingMessage = hasPendingMessage && bodyMode === "composer" && !readOnly;
@@ -161,15 +164,11 @@ export function AgentInput({
       iconPath={selectedModel.providerIconPath}
     />
   ) : null;
-  const shouldShowReasoningEffort = selectedModel?.reasoning === true;
+  const shouldShowReasoningEffort = Boolean(selectedModel?.reasoningEffortLevels?.length);
   const reasoningEffortOptions: SelectOption[] = [
-    { value: "off", label: "Off" },
-    { value: "low", label: "Low" },
-    { value: "medium", label: "Medium" },
-    { value: "high", label: "High" },
-    { value: "xhigh", label: "Xhigh" },
-    { value: "max", label: "Max" },
-  ];
+    "off",
+    ...(selectedModel?.reasoningEffortLevels ?? []),
+  ].map((value) => ({ value, label: t(`assistant.reasoningEffort.${value}`) }));
 
   useEffect(() => {
     if (previousProjectIdRef.current === projectId) return;
@@ -354,17 +353,25 @@ export function AgentInput({
           ) : null}
         </AnimatePresence>
 
-        <AnimatePresence initial={false}>
-          {shouldShowPendingMessage ? (
-            <AgentPendingMessageCard
-              key={`pending-${pendingMessage!.messageId}`}
-              pendingMessage={pendingMessage!}
-              clearanceHeight={pendingClearanceHeight}
-              onCancel={onCancelPendingMessage}
-              onOpenMentionChapter={onOpenMentionChapter}
-            />
-          ) : null}
-        </AnimatePresence>
+        <div className="ai-sidebar-pending-list">
+          <AnimatePresence initial={false}>
+            {shouldShowPendingMessage
+              ? pendingMessages.map((pendingMessage) => (
+                  <AgentPendingMessageCard
+                    key={`pending-${pendingMessage.messageId}`}
+                    pendingMessage={pendingMessage}
+                    clearanceHeight={0}
+                    onCancel={
+                      onCancelPendingMessage
+                        ? () => onCancelPendingMessage(pendingMessage.messageId)
+                        : undefined
+                    }
+                    onOpenMentionChapter={onOpenMentionChapter}
+                  />
+                ))
+              : null}
+          </AnimatePresence>
+        </div>
 
         <div
           ref={inputContainerRef}
@@ -641,6 +648,12 @@ export function AgentInput({
             align="center"
             gap="2"
           >
+            {isSending && onDeliveryModeChange ? (
+              <DeliveryModeSelect
+                value={deliveryMode}
+                onChange={onDeliveryModeChange}
+              />
+            ) : null}
             <AgentIndexStatusIndicator projectId={projectId} />
 
             <Tooltip
