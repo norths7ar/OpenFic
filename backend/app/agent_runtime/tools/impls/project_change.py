@@ -14,6 +14,7 @@ from app.agent_runtime.tools.errors import ToolExecutionError
 from app.agent_runtime.tools.registry import ToolRegistry
 from app.core.agent_visibility import AgentVisibility, visible_in_scope
 from app.storage.database import create_session
+from app.storage.repos import pending_project_change_repo
 from app.storage.services import (
     pending_project_change_apply_service,
     pending_project_change_service,
@@ -69,6 +70,11 @@ class ProposeProjectCreateInput(_ProposalInput):
         return self
 
 
+class ProposalTextEdit(_ProposalInput):
+    old_content: str = Field(min_length=1, description="需要替换的原片段，必须在正文中唯一匹配")
+    new_content: str = Field(description="替换后的片段；空字符串表示删除")
+
+
 class ProposeProjectUpdateInput(_ProposalInput):
     target_type: PendingTargetType = Field(description="要更新的正式资料类型")
     target_id: str = Field(description="要更新的资料 ID", min_length=1, max_length=200)
@@ -80,6 +86,11 @@ class ProposeProjectUpdateInput(_ProposalInput):
     )
     body: str | None = Field(
         default=None, description="新正文；省略或 null 表示不修改，空字符串表示清空"
+    )
+    edits: list[ProposalTextEdit] | None = Field(
+        default=None,
+        min_length=1,
+        description="按顺序执行的局部正文替换；与 body 互斥，小范围修改优先使用",
     )
     agent_visibility: AgentVisibility | None = Field(
         default=None,
@@ -97,6 +108,8 @@ class ProposeProjectUpdateInput(_ProposalInput):
         # Only world entries have a section; do not forward that placeholder.
         if self.target_type != "world_entry" and self.section == "":
             self.section = None
+        if self.body is not None and self.edits is not None:
+            raise ValueError("body 和 edits 不能同时提供")
         patch_fields = {
             name
             for name in self.model_fields_set - {"target_type", "target_id"}
@@ -194,14 +207,22 @@ async def _queue_pending_change(
 
     session = await create_session()
     try:
-        if target_id and target_type != "note_category":
+        existing = None
+        if tool.tool_call_id:
+            execution_id = pending_project_change_service.proposal_execution_id(
+                project_id, tool._state.get("task_id"), _source_message_id(tool), tool.tool_call_id
+            )
+            existing = await pending_project_change_repo.get_by_id(
+                session, project_id, execution_id
+            )
+        if existing is None and target_id and target_type != "note_category":
             _, snapshot = await pending_project_change_apply_service._resolve_snapshot(
                 session, project_id, target_type, target_id
             )
             scope = get_knowledge_scope(tool._state)
             if not visible_in_scope(snapshot["agent_visibility"], scope):
                 raise ToolExecutionError("资料不在当前知识范围内")
-        change = await pending_project_change_service.create_pending_change(
+        change = existing or await pending_project_change_service.create_pending_change(
             session,
             project_id=project_id,
             target_type=target_type,
@@ -211,8 +232,17 @@ async def _queue_pending_change(
             source_task_id=tool._state.get("task_id"),
             source_message_id=_source_message_id(tool),
             model_id=_model_id(tool),
+            tool_call_id=tool.tool_call_id,
         )
         await session.commit()
+        before = change.before if isinstance(change.before, dict) else {}
+        after_snapshot = change.after if isinstance(change.after, dict) else {}
+        snapshot = after_snapshot or before
+        changed_fields = [
+            field
+            for field in ("title", "body", "agent_visibility", "section")
+            if before.get(field) != after_snapshot.get(field)
+        ]
         return json.dumps(
             {
                 "success": True,
@@ -224,14 +254,14 @@ async def _queue_pending_change(
                     "target_id": change.target_id,
                     "operation": change.operation,
                     "status": change.status,
-                    "base_hash": change.base_hash,
-                    "before": change.before,
-                    "after": change.after,
+                    "title": snapshot.get("title", ""),
+                    "document_type": snapshot.get("document_type"),
+                    "changed_fields": changed_fields,
                     "source_task_id": change.source_task_id,
                     "source_message_id": change.source_message_id,
                     "model_id": change.model_id,
                 },
-                "message": "已创建候审变更；正式资料尚未修改，请审核后采用。",
+                "message": "提案已提交。",
             },
             ensure_ascii=False,
         )
@@ -281,6 +311,7 @@ class ProposeProjectUpdateTool(AgentTool):
     name: str = "propose_project_update"
     description: str = (
         "为当前项目提议修改一项正式资料；只填写真正要改的字段，"
+        "小范围正文修改优先使用 edits，仅整体重写使用 body，两者互斥；"
         "分类、文档类型、顺序等未暴露字段由服务端原样保留。"
     )
     access_level: str = "write"
@@ -292,6 +323,7 @@ class ProposeProjectUpdateTool(AgentTool):
         target_id: str,
         title: str | None = None,
         body: str | None = None,
+        edits: list[ProposalTextEdit | dict[str, str]] | None = None,
         agent_visibility: AgentVisibility | None = None,
         section: str | None = None,
     ) -> str:
@@ -300,6 +332,12 @@ class ProposeProjectUpdateTool(AgentTool):
             for key, value in {
                 "title": title,
                 "body": body,
+                "edits": [
+                    edit.model_dump() if isinstance(edit, ProposalTextEdit) else edit
+                    for edit in edits
+                ]
+                if edits is not None
+                else None,
                 "agent_visibility": agent_visibility,
                 "section": section,
             }.items()

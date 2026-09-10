@@ -592,3 +592,98 @@ async def test_pending_change_deleted_with_project(
         select(PendingProjectChange).where(PendingProjectChange.id == change["id"])
     )
     assert result.scalar_one_or_none() is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("target_type", ["note", "character", "world_entry"])
+async def test_partial_proposal_is_atomic_and_preserves_base(client, target_type):
+    project_id = await _create_project(client, "局部替换")
+    change = await _post_change(
+        client,
+        project_id,
+        _create_payload(target_type, after={"title": "原名", "body": "第一段\n\n第二段\n\n第三段"}),
+    )
+    applied = (
+        await client.post(f"/api/v1/projects/{project_id}/pending-changes/{change['id']}/apply")
+    ).json()
+    target_id = applied["target_id"]
+    payload = _update_payload(
+        target_type,
+        target_id,
+        {
+            "edits": [
+                {"old_content": "第一段", "new_content": "首段"},
+                {"old_content": "第三段", "new_content": "末段"},
+            ]
+        },
+    )
+    proposed = await _post_change(client, project_id, payload)
+    assert proposed["after"]["body"] == "首段\n\n第二段\n\n末段"
+    assert proposed["before"]["body"] == "第一段\n\n第二段\n\n第三段"
+    assert proposed["created_at"].endswith("Z")
+    payload["after"]["edits"][1]["old_content"] = "不存在"
+    failed = await client.post(f"/api/v1/projects/{project_id}/pending-changes", json=payload)
+    assert failed.status_code == 422, failed.text
+    listed = (await client.get(f"/api/v1/projects/{project_id}/pending-changes")).json()
+    assert len(listed) == 2
+
+
+@pytest.mark.parametrize(
+    "body,edits",
+    [
+        ("aaa", [{"old_content": "aa", "new_content": "b"}]),
+        ("same same", [{"old_content": "same", "new_content": "b"}]),
+    ],
+)
+def test_partial_proposal_rejects_ambiguous_matches(body, edits):
+    from app.core.errors import ValidationError as DomainValidationError
+    from app.storage.services.pending_project_change_apply_service import _prepare_after
+
+    with pytest.raises(DomainValidationError, match="匹配多处"):
+        _prepare_after(
+            "character", {"edits": edits}, {"title": "人", "body": body, "agent_visibility": "all"}
+        )
+
+
+@pytest.mark.asyncio
+async def test_tool_proposal_redelivery_is_durable(client, session):
+    from app.storage.services.pending_project_change_service import create_pending_change
+
+    project_id = await _create_project(client, "幂等")
+    kwargs = dict(
+        project_id=project_id,
+        target_type="character",
+        target_id=None,
+        operation="create",
+        after={"title": "人", "body": "原文"},
+        source_task_id="t",
+        source_message_id="m",
+        model_id=None,
+        tool_call_id="call-1",
+    )
+    first = await create_pending_change(session, **kwargs)
+    await session.commit()
+    session.expunge_all()
+    second = await create_pending_change(session, **kwargs)
+    assert first.id == second.id
+    third = await create_pending_change(session, **{**kwargs, "tool_call_id": "call-2"})
+    assert third.id != second.id
+
+
+def test_partial_proposal_sequential_insert_and_delete():
+    from app.storage.services.pending_project_change_apply_service import _prepare_after
+
+    current = {"title": "人", "body": "开头\n保留\n删除", "agent_visibility": "all"}
+    result = _prepare_after(
+        "character",
+        {
+            "edits": [
+                {"old_content": "开头", "new_content": "开头\n插入"},
+                {"old_content": "插入", "new_content": "插入两字"},
+                {"old_content": "\n删除", "new_content": ""},
+            ]
+        },
+        current,
+    )
+    assert result["body"] == "开头\n插入两字\n保留"
+    assert current["body"] == "开头\n保留\n删除"

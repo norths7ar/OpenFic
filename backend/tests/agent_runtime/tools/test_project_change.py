@@ -75,6 +75,7 @@ def test_update_schema_exposes_only_mutable_fields() -> None:
         "target_id",
         "title",
         "body",
+        "edits",
         "agent_visibility",
         "section",
     }
@@ -207,6 +208,7 @@ async def test_project_update_sends_only_requested_patch_fields(placeholders: di
         source_task_id="task-1",
         source_message_id="message-1",
         model_id="model-a",
+        tool_call_id=None,
     )
     db_session.commit.assert_awaited_once()
     db_session.close.assert_awaited_once()
@@ -288,6 +290,7 @@ async def test_project_create_builds_target_specific_payload() -> None:
         source_task_id="task-1",
         source_message_id="message-1",
         model_id="model-a",
+        tool_call_id=None,
     )
 
 
@@ -327,3 +330,94 @@ async def test_project_change_rejects_missing_project() -> None:
     assert payload["type"] == "fail"
     assert payload["success"] is False
     assert "缺少当前项目" in payload["message"]
+
+
+@pytest.mark.parametrize("target_type", ["note", "character", "world_entry"])
+def test_partial_edit_schema(target_type):
+    patch = ProposeProjectUpdateInput.model_validate(
+        {
+            "target_type": target_type,
+            "target_id": "x",
+            "body": None,
+            "edits": [{"old_content": "old", "new_content": "new"}],
+        }
+    )
+    assert patch.edits[0].old_content == "old"
+
+
+@pytest.mark.parametrize(
+    "extra",
+    [
+        {"body": "full", "edits": [{"old_content": "x", "new_content": "y"}]},
+        {"edits": []},
+        {"edits": [{"old_content": "", "new_content": "x"}]},
+    ],
+)
+def test_invalid_partial_edit_schema(extra):
+    with pytest.raises(ValidationError):
+        ProposeProjectUpdateInput.model_validate({"target_type": "note", "target_id": "x", **extra})
+
+
+@pytest.mark.asyncio
+async def test_partial_edit_tool_forwards_validated_dicts():
+    tool = ProposeProjectUpdateTool(_state=_state())
+    edits = [{"old_content": "原文", "new_content": "新文"}]
+    with patch(
+        "app.agent_runtime.tools.impls.project_change._queue_pending_change",
+        new=AsyncMock(return_value="ok"),
+    ) as queue:
+        assert await tool.ainvoke({"target_type": "note", "target_id": "n", "edits": edits}) == "ok"
+    assert queue.await_args.kwargs["after"] == {"edits": edits}
+
+
+@pytest.mark.asyncio
+async def test_redelivery_returns_existing_even_if_target_deleted():
+    tool = ProposeProjectDeleteTool(_state=_state())
+    with (
+        patch(
+            "app.agent_runtime.tools.impls.project_change.create_session", return_value=AsyncMock()
+        ),
+        patch(
+            "app.agent_runtime.tools.impls.project_change.pending_project_change_repo.get_by_id",
+            new=AsyncMock(return_value=_change(operation="delete", status="applied")),
+        ),
+        patch(
+            "app.agent_runtime.tools.impls.project_change.pending_project_change_apply_service._resolve_snapshot",
+            new=AsyncMock(),
+        ) as resolve,
+        patch(
+            "app.agent_runtime.tools.impls.project_change.pending_project_change_service.create_pending_change",
+            new=AsyncMock(),
+        ) as create,
+    ):
+        result = await tool.ainvoke(
+            {"target_type": "note", "target_id": "note-1"},
+            config={"metadata": {"tool_call_id": "call-1"}},
+        )
+    assert json.loads(result)["pending_change_id"] == "change-1"
+    resolve.assert_not_awaited()
+    create.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_proposal_receipt_does_not_repeat_document_bodies():
+    tool = ProposeProjectCreateTool(_state=_state())
+    body = "长篇正文不应出现在回执" * 2000
+    change = _change(
+        before={"title": "旧名", "body": body}, after={"title": "新名", "body": body + "尾"}
+    )
+    with (
+        patch(
+            "app.agent_runtime.tools.impls.project_change.create_session", return_value=AsyncMock()
+        ),
+        patch(
+            "app.agent_runtime.tools.impls.project_change.pending_project_change_service.create_pending_change",
+            new=AsyncMock(return_value=change),
+        ),
+    ):
+        result = await tool.ainvoke({"target_type": "note", "title": "新名", "body": body})
+    receipt = json.loads(result)["pending_change"]
+    assert receipt["title"] == "新名"
+    assert receipt["changed_fields"] == ["title", "body"]
+    assert "before" not in receipt and "after" not in receipt
+    assert len(result) < 1500

@@ -1,8 +1,11 @@
 """待审项目变更业务逻辑层。"""
 
+import hashlib
+import json
 from datetime import UTC, datetime
 from typing import Any, cast
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import ConflictError, NotFoundError
@@ -13,6 +16,13 @@ from app.storage.repos import pending_project_change_repo, project_repo
 async def _ensure_project_exists(session: AsyncSession, project_id: str) -> None:
     if await project_repo.get_by_id(session, project_id) is None:
         raise NotFoundError(f"项目不存在: {project_id}")
+
+
+def proposal_execution_id(
+    project_id: str, source_task_id: str | None, source_message_id: str | None, tool_call_id: str
+) -> str:
+    identity = json.dumps([project_id, source_task_id, source_message_id, tool_call_id])
+    return "tool_" + hashlib.sha256(identity.encode()).hexdigest()
 
 
 async def create_pending_change(
@@ -26,9 +36,19 @@ async def create_pending_change(
     source_task_id: str | None,
     source_message_id: str | None,
     model_id: str | None,
+    tool_call_id: str | None = None,
 ) -> PendingProjectChange:
     """创建一条绑定项目、由服务端捕获基础快照的待审变更。"""
     await _ensure_project_exists(session, project_id)
+    # Stable execution identity, not content similarity, makes redelivery durable.
+    change_id = None
+    if tool_call_id:
+        change_id = proposal_execution_id(
+            project_id, source_task_id, source_message_id, tool_call_id
+        )
+        existing = await pending_project_change_repo.get_by_id(session, project_id, change_id)
+        if existing is not None:
+            return existing
     from app.storage.services import pending_project_change_apply_service
 
     prepared = await pending_project_change_apply_service.prepare_pending_change(
@@ -54,7 +74,17 @@ async def create_pending_change(
         source_message_id=source_message_id,
         model_id=model_id,
     )
-    return await pending_project_change_repo.create(session, change)
+    if change_id is None:
+        return await pending_project_change_repo.create(session, change)
+    change.id = change_id
+    try:
+        async with session.begin_nested():
+            return await pending_project_change_repo.create(session, change)
+    except IntegrityError:
+        existing = await pending_project_change_repo.get_by_id(session, project_id, change_id)
+        if existing is None:
+            raise
+        return existing
 
 
 async def list_pending_changes(

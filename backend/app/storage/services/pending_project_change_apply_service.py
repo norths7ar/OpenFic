@@ -260,6 +260,38 @@ def _prepare_after(
     if "kind" in patch_data and patch_data["kind"] != target_type:
         raise ValidationError("after.kind 必须与 target_type 一致")
     editable_patch = {key: value for key, value in patch_data.items() if key != "kind"}
+    edits = editable_patch.pop("edits", None)
+    if edits is not None:
+        if current is None or target_type == "note_category":
+            raise ValidationError("edits 只适用于修改资料正文")
+        if editable_patch.get("body") is not None:
+            raise ValidationError("body 和 edits 不能同时提供")
+        if not isinstance(edits, list) or not edits:
+            raise ValidationError("edits 必须是非空替换列表")
+        body = str(base["body"])
+        for index, edit in enumerate(edits, 1):
+            if not isinstance(edit, dict):
+                raise ValidationError(f"第 {index} 处替换必须是对象")
+            edit = cast(dict[str, Any], edit)
+            if (
+                set(edit) != {"old_content", "new_content"}
+                or not isinstance(edit["old_content"], str)
+                or not edit["old_content"]
+                or not isinstance(edit["new_content"], str)
+            ):
+                raise ValidationError(
+                    f"第 {index} 处替换必须提供非空 old_content 和字符串 new_content"
+                )
+            old = edit["old_content"]
+            count = body.count(old)
+            # Count overlapping occurrences too: 'aa' in 'aaa' is ambiguous.
+            first = body.find(old)
+            if count == 0:
+                raise ValidationError(f"第 {index} 处原片段未找到，请重新读取当前正文")
+            if body.find(old, first + 1) != -1:
+                raise ValidationError(f"第 {index} 处原片段匹配多处，请提供更多上下文")
+            body = body.replace(old, edit["new_content"], 1)
+        editable_patch["body"] = body
     payload = _validate_payload(target_type, {**base, **editable_patch})
     if current is None:
         return {"kind": target_type, **payload}

@@ -1,9 +1,9 @@
 """待审项目变更 API schema。"""
 
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 PendingProjectChangeOperation = Literal["create", "update", "delete"]
 PendingProjectChangeStatus = Literal["pending", "applying", "rejected", "applied"]
@@ -68,5 +68,12 @@ class PendingProjectChangeResponse(BaseModel):
     applied_at: datetime | None
     created_at: datetime
     updated_at: datetime
+
+    @field_validator("applied_at", "created_at", "updated_at", mode="after")
+    @classmethod
+    def ensure_utc(cls, value: datetime | None) -> datetime | None:
+        if value is not None and value.tzinfo is None:
+            return value.replace(tzinfo=UTC)
+        return value
 
     model_config = {"from_attributes": True}
