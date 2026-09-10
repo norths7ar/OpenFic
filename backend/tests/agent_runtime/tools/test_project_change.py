@@ -128,6 +128,37 @@ def test_create_input_rejects_target_incompatible_fields(payload: dict) -> None:
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("target_type", ["world_entry", "character", "note", "note_category"])
+async def test_create_accepts_explicit_defaults_without_leaking_target_fields(
+    target_type: str,
+) -> None:
+    defaults = {
+        "body": "",
+        "agent_visibility": "all",
+        "category_id": None,
+        "document_type": "note",
+        "section": "",
+    }
+    values = {"target_type": target_type, "title": "新资料"}
+    if target_type != "note_category":
+        values.update(body="正文", agent_visibility="global")
+    if target_type == "world_entry":
+        values["section"] = "人外种族"
+    with patch(
+        "app.agent_runtime.tools.impls.project_change._queue_pending_change",
+        new=AsyncMock(return_value='{"success":true}'),
+    ) as queue:
+        tool = ProposeProjectCreateTool(_state=_state())
+        await tool.ainvoke(values)
+        expected = queue.await_args.kwargs
+        queue.reset_mock()
+        result = await tool.ainvoke({**defaults, **values})
+        assert json.loads(result)["success"] is True
+        queue.assert_awaited_once()
+        assert queue.await_args.kwargs == expected
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "placeholders",
     [

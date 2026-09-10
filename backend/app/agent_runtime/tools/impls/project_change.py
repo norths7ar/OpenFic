@@ -51,7 +51,13 @@ class ProposeProjectCreateInput(_ProposalInput):
 
     @model_validator(mode="after")
     def validate_target_fields(self) -> ProposeProjectCreateInput:
-        supplied = self.model_fields_set
+        # Callers may emit every schema default, including fields for other targets.
+        # Explicit defaults have the same meaning as omitted defaults.
+        supplied = {
+            name
+            for name in self.model_fields_set
+            if getattr(self, name) != type(self).model_fields[name].default
+        }
         if self.target_type != "note" and "category_id" in supplied:
             raise ValueError("category_id 只适用于新建笔记")
         if self.target_type not in {"note", "note_category"} and ("document_type" in supplied):
