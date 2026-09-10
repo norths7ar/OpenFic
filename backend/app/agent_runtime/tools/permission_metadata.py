@@ -57,7 +57,7 @@ _PERMISSION_METADATA_BY_TOOL_NAME = {
     "update_index": ToolPermissionMetadata("update_index", "allow"),
     "write_chapter": ToolPermissionMetadata("write_chapter", "ask"),
     "write_note": ToolPermissionMetadata("write_note", "ask"),
-    "write_plan": ToolPermissionMetadata("write_plan", "ask"),
+    "write_plan": ToolPermissionMetadata("write_plan", "allow"),
 }
 
 

@@ -129,6 +129,9 @@ class SessionRunner:
         self.agent_key = agent_key
         self.context_mode = KnowledgeScope(context_mode)
         self._graph: CompiledStateGraph | None = None
+        self.last_run_completed = False
+        self._received_user_message_ids: set[str] = set()
+        self._pending_delivery_modes: dict[str, str] = {}
         self._inject_queue: asyncio.Queue[tuple[str | None, str, str]] = asyncio.Queue()
         self._queued_user_messages: dict[str, tuple[str, datetime]] = {}
         self._queued_user_message_attachments: dict[str, list[dict[str, Any]]] = {}
@@ -233,6 +236,7 @@ class SessionRunner:
                 "message_id": message_id,
                 "content": content,
                 "action": action,
+                "delivery_mode": self._pending_delivery_modes.get(message_id, "steer"),
                 "created_at": created_at or datetime.now(UTC).isoformat(),
                 **({"attachments": attachments} if attachments else {}),
             },
@@ -269,6 +273,20 @@ class SessionRunner:
         await self._emit_agent_event("agent:tool_result", payload)
 
     async def _emit_retry_event(self, payload: dict[str, Any]) -> None:
+        if self._cancel_event.is_set():
+            return
+        discarded = self._persister.discard_incomplete_attempts() if self._persister else []
+        self._translator.discard_model_runs(discarded)
+        for run_id in discarded:
+            await self._clear_replay_run(run_id)
+        if discarded:
+            await self._emit_agent_event(
+                "agent:attempt_reset",
+                {
+                    "session_id": self.session_id,
+                    "run_ids": discarded,
+                },
+            )
         retry_payload = dict(payload)
         retry_payload["session_id"] = self.session_id
         await self._emit_agent_event("agent:retry", retry_payload)
@@ -520,26 +538,34 @@ class SessionRunner:
     async def _mark_injected_user_message_sent(self, message_id: str) -> bool:
         if not isinstance(message_id, str) or not message_id:
             return False
-        if message_id in self._cancelled_user_message_ids:
-            self._cancelled_user_message_ids.discard(message_id)
+        if (
+            message_id in self._cancelled_user_message_ids
+            or message_id in self._received_user_message_ids
+        ):
             return False
         queued = self._queued_user_messages.pop(message_id, None)
         if queued is not None:
             content, created_at = queued
-            attachments = self._queued_user_message_attachments.pop(message_id, [])
+            attachments = self._queued_user_message_attachments.get(message_id, [])
             created_at_iso = _format_utc_iso_datetime(created_at)
+            try:
+                await self._persist_user_message(
+                    content,
+                    message_id=message_id,
+                    attachments=attachments,
+                    created_at=created_at,
+                )
+            except BaseException:
+                self._queued_user_messages = {message_id: queued, **self._queued_user_messages}
+                raise
+            self._received_user_message_ids.add(message_id)
+            self._queued_user_message_attachments.pop(message_id, None)
             await self._emit_pending_user_message(
                 content,
                 attachments=attachments,
                 message_id=message_id,
                 action="consumed",
                 created_at=created_at_iso,
-            )
-            await self._persist_user_message(
-                content,
-                message_id=message_id,
-                attachments=attachments,
-                created_at=created_at,
             )
             await self._emit_runtime_user_message(
                 content,
@@ -771,6 +797,7 @@ class SessionRunner:
             runtime_context=runtime_context,
             audit_context=audit_context,
         )
+        self.last_run_completed = False
         self._cancel_event.clear()
         reason: Literal["done", "cancelled", "error"] = "done"
         revision = None
@@ -828,6 +855,9 @@ class SessionRunner:
                 if ws_events:
                     for ws_event in ws_events if isinstance(ws_events, list) else [ws_events]:
                         payload = ws_event["data"]
+                        if ws_event["name"] == "agent:attempt_reset":
+                            for discarded_run_id in payload["run_ids"]:
+                                await self._clear_replay_run(discarded_run_id)
                         if ws_event["name"] == "agent:usage":
                             await self._emit_persisted_task_usage_events(payload)
                             continue
@@ -912,6 +942,7 @@ class SessionRunner:
             if not finalized:
                 await self._clear_replay_session()
                 return
+            self.last_run_completed = True
             await emit(
                 "agent:done",
                 {
@@ -958,8 +989,10 @@ class SessionRunner:
         content: str,
         *,
         attachments: list[dict[str, Any]] | None = None,
+        delivery_mode: Literal["steer", "queue"] = "steer",
     ) -> dict[str, str]:
         message_id = generate_id()
+        self._pending_delivery_modes[message_id] = delivery_mode
         created_at = datetime.now(UTC)
         self._queued_user_messages[message_id] = (content, created_at)
         self._queued_user_message_attachments[message_id] = attachments or []
@@ -971,14 +1004,16 @@ class SessionRunner:
             attachments=attachments,
             created_at=created_at_iso,
         )
-        await self.inject_message(content, message_id, attachments)
+        if delivery_mode == "steer":
+            await self.inject_message(content, message_id, attachments)
         return {
+            "delivery_mode": delivery_mode,
             "message_id": message_id,
             "content": content,
             "created_at": created_at_iso,
         }
 
-    async def cancel_pending_user_message(self, message_id: str) -> dict[str, str] | None:
+    async def cancel_pending_user_message(self, message_id: str) -> dict[str, Any] | None:
         queued = self._queued_user_messages.pop(message_id, None)
         if queued is None:
             return None
@@ -997,7 +1032,19 @@ class SessionRunner:
             "message_id": message_id,
             "content": content,
             "created_at": created_at_iso,
+            "attachments": attachments,
         }
+
+    def list_pending_user_messages(self) -> list[dict[str, str]]:
+        return [
+            {
+                "message_id": key,
+                "content": content,
+                "created_at": _format_utc_iso_datetime(created_at),
+                "delivery_mode": self._pending_delivery_modes.get(key, "steer"),
+            }
+            for key, (content, created_at) in self._queued_user_messages.items()
+        ]
 
     def peek_next_pending_user_message(self) -> tuple[str, str] | None:
         for message_id, (content, _created_at) in self._queued_user_messages.items():
@@ -1019,23 +1066,24 @@ class SessionRunner:
             return None
 
         message_id, content, created_at = pending
+        self._queued_user_messages.pop(message_id, None)
         attachments = self._queued_user_message_attachments.get(message_id, [])
         created_at_iso = _format_utc_iso_datetime(created_at)
-        if attachments:
-            await self._persist_user_message(
-                content,
-                attachments=attachments,
-                message_id=message_id,
-                created_at=created_at,
-            )
-        else:
+        try:
             await self._persist_user_message(
                 content,
                 message_id=message_id,
                 created_at=created_at,
+                **({"attachments": attachments} if attachments else {}),
             )
-
-        self._queued_user_messages.pop(message_id, None)
+        except BaseException:
+            self._queued_user_messages = {
+                message_id: (content, created_at),
+                **self._queued_user_messages,
+            }
+            raise
+        self._received_user_message_ids.add(message_id)
+        self._queued_user_message_attachments.pop(message_id, None)
         next_queue: asyncio.Queue[tuple[str | None, str, str]] = asyncio.Queue()
         while not self._inject_queue.empty():
             queued_message_id, role, queued_content = self._inject_queue.get_nowait()
@@ -1068,10 +1116,7 @@ class SessionRunner:
 
     def cancel(self) -> None:
         self._cancel_event.set()
-        self._queued_user_messages.clear()
-        self._queued_user_message_attachments.clear()
-        self._injected_user_message_attachments.clear()
-        self._cancelled_user_message_ids.clear()
+        # Unreceived requests remain available to withdraw or send after stopping.
         self._inject_queue = asyncio.Queue()
 
     async def resume_interrupt_batch(self, batch_id: str, responses: list[dict[str, Any]]) -> None:
@@ -1105,6 +1150,7 @@ class SessionRunner:
             runtime_context=runtime_context,
             audit_context=audit_context,
         )
+        self.last_run_completed = False
         self._cancel_event.clear()
         # The cancel endpoint commits this status before it signals in-memory
         # runners. Together with the registry guard, this stops a queued resume
@@ -1185,6 +1231,9 @@ class SessionRunner:
                 if ws_events:
                     for ws_event in ws_events if isinstance(ws_events, list) else [ws_events]:
                         payload = ws_event["data"]
+                        if ws_event["name"] == "agent:attempt_reset":
+                            for discarded_run_id in payload["run_ids"]:
+                                await self._clear_replay_run(discarded_run_id)
                         if ws_event["name"] == "agent:usage":
                             await self._emit_persisted_task_usage_events(payload)
                             continue
@@ -1259,6 +1308,7 @@ class SessionRunner:
             if not finalized:
                 await self._clear_replay_session()
                 return
+            self.last_run_completed = True
             await emit(
                 "agent:done",
                 {

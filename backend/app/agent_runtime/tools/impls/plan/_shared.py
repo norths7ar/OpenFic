@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class PlanTodoInput(BaseModel):
@@ -25,3 +25,9 @@ class WritePlanInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     todos: list[PlanTodoInput] = Field(description="更新后的完整 Todo 列表")
+
+    @model_validator(mode="after")
+    def validate_active_todo(self) -> WritePlanInput:
+        if sum(todo.status == "in_progress" for todo in self.todos) > 1:
+            raise ValueError("同时最多只能有一个进行中的任务")
+        return self

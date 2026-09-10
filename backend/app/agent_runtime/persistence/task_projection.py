@@ -34,7 +34,7 @@ def _message_status(status: str) -> str:
     if status in {"sent", "complete"}:
         return "completed"
     if status == "partial":
-        return "completed"
+        return "error"
     if status == "aborted":
         return "error"
     return status
@@ -332,7 +332,10 @@ def _project_rows(
                         content=row.content,
                         message_type="text",
                         display_channel="list",
-                        payload={"kind": "assistant_output"},
+                        payload={
+                            "kind": "assistant_output",
+                            **({"interrupted": True} if row.status == "partial" else {}),
+                        },
                         tool_calls=[],
                     )
                 )

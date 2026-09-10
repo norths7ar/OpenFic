@@ -52,7 +52,7 @@ def test_runtime_tool_permissions_match_registered_user_tools() -> None:
         {"tool_name": "update_index", "mode": "allow"},
         {"tool_name": "write_chapter", "mode": "ask"},
         {"tool_name": "write_note", "mode": "ask"},
-        {"tool_name": "write_plan", "mode": "ask"},
+        {"tool_name": "write_plan", "mode": "allow"},
     ]
     assert {item["tool_name"] for item in get_default_agent_tool_permissions()} == set(
         ToolRegistry.list_names()
@@ -63,7 +63,7 @@ def test_runtime_tool_permission_helpers_use_tool_names() -> None:
     assert resolve_tool_permission_key("ask_user") == "ask_user"
     assert resolve_tool_permission_key("write_plan") == "write_plan"
     assert resolve_tool_permission_key("unknown_tool") == "unknown_tool"
-    assert get_default_tool_permission_mode("write_plan") == "ask"
+    assert get_default_tool_permission_mode("write_plan") == "allow"
     assert get_default_tool_permission_mode("search_chapters") == "allow"
     assert get_default_tool_permission_mode("write_chapter") == "ask"
     assert get_default_tool_permission_mode("unknown_tool") is None

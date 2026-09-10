@@ -3,6 +3,7 @@ Agent API Schemas。
 """
 
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -78,6 +79,7 @@ class AgentAttachmentResponse(BaseModel):
 class AgentSendMessageRequest(BaseModel):
     """发送用户消息请求。"""
 
+    delivery_mode: Literal["steer", "queue"] = "steer"
     message: str = Field(default="", description="用户消息内容")
     attachments: list[str] = Field(default_factory=list, description="图片附件 ID 列表")
     model_id: str | None = Field(default=None, description="下一轮执行使用的模型ID")
@@ -91,6 +93,7 @@ class AgentSendMessageRequest(BaseModel):
 class AgentPendingMessageResponse(BaseModel):
     """运行中排队的用户消息。"""
 
+    delivery_mode: Literal["steer", "queue"] = "steer"
     message_id: str = Field(..., description="待消费消息ID")
     content: str = Field(..., description="待消费消息内容")
     created_at: str = Field(..., description="进入 pending 的时间")
@@ -126,6 +129,7 @@ class AgentCancelPendingMessageResponse(BaseModel):
     session_id: str = Field(..., description="会话ID")
     message_id: str = Field(..., description="被取消的 pending message ID")
     restored_message_content: str = Field(..., description="恢复到输入框的消息内容")
+    attachments: list[dict] = Field(default_factory=list)
 
 
 class AgentCompactionResponse(BaseModel):

@@ -204,7 +204,7 @@ async def test_discuss_primary_tool_names_never_include_write_plan() -> None:
             agent_key="discuss",
         )
 
-    assert result == ["ask_user"]
+    assert result == ["ask_user", "write_plan"]
 
 
 def test_session_runner_constructor_no_longer_accepts_mode():

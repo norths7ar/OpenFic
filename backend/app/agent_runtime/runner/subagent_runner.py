@@ -441,6 +441,14 @@ class SubagentRunner:
             )
 
         async def retry_event_sink(payload: dict[str, Any]) -> None:
+            discarded = persister.discard_incomplete_attempts()
+            translator.discard_model_runs(discarded)
+            for run_id in discarded:
+                buffer = get_agent_event_replay_buffer()
+                async with buffer.session_lock(row.child_thread_id):
+                    buffer.clear_run_unlocked(row.child_thread_id, run_id)
+            if discarded:
+                await agent_event_sink("agent:attempt_reset", {"run_ids": discarded})
             await agent_event_sink("agent:retry", payload)
 
         async def compaction_usage_sink(payload: dict[str, Any]) -> None:

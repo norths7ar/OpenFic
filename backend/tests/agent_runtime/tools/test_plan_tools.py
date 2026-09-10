@@ -107,3 +107,20 @@ def test_write_plan_is_registered() -> None:
     registered_names = set(ToolRegistry.list_names())
 
     assert "write_plan" in registered_names
+
+
+def test_task_list_allows_finished_list_but_not_multiple_active_steps() -> None:
+    from pydantic import ValidationError
+
+    from app.agent_runtime.tools.impls.plan._shared import WritePlanInput
+    from app.agent_runtime.tools.permission_metadata import get_tool_permission_metadata
+
+    assert get_tool_permission_metadata("write_plan").default_mode == "allow"
+    assert WritePlanInput(todos=[]).todos == []
+    with pytest.raises(ValidationError, match="最多"):
+        WritePlanInput(
+            todos=[
+                {"content": "step 1", "status": "in_progress", "priority": "medium"},
+                {"content": "step 2", "status": "in_progress", "priority": "medium"},
+            ]
+        )

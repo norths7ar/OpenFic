@@ -84,8 +84,6 @@ async def _primary_tool_names(
         list(get_tool_names_for_categories(definition.enabled_tool_categories)),
         db_session,
     )
-    if agent_key == "discuss":
-        names = [name for name in names if name != "write_plan"]
     return names + list(
         await skill_tool_names_for_definition(
             definition,

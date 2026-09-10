@@ -433,6 +433,7 @@ async def test_send_message_queues_when_manual_compaction_running_even_if_interr
     assert response.json()["success"] is True
     assert response.json()["queued"] is True
     assert response.json()["pending_message"] == {
+        "delivery_mode": "steer",
         "message_id": "msg_pending_1",
         "content": "压缩期间追加需求",
         "created_at": "2026-06-12T00:00:00+00:00",

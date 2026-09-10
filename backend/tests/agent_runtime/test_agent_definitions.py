@@ -55,6 +55,7 @@ def test_default_agent_definitions_include_scene_draft_workflow_agent():
     assert discuss.enabled_tool_categories == (
         "interaction",
         "project_change_proposal",
+        "plan",
         "chapter_read",
         "summary_read",
         "world_read",

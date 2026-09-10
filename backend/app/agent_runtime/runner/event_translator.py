@@ -22,13 +22,39 @@ class EventTranslator:
     ):
         self.session_id = session_id
         self._allow_subagent_child_events = allow_subagent_child_events
+        self._open_model_runs: set[str] = set()
+        self._discarded_model_runs: set[str] = set()
         self._streaming_tool_calls: dict[tuple[str, int], dict[str, str]] = {}
+
+    def discard_model_runs(self, run_ids: list[str]) -> None:
+        for run_id in run_ids:
+            self._open_model_runs.discard(run_id)
+            self._discarded_model_runs.add(run_id)
+            self._clear_streaming_tool_calls(run_id)
 
     def translate(self, event: dict) -> dict | list[dict] | None:
         if is_subagent_child_event(event) and not self._allow_subagent_child_events:
             return None
 
         kind = event.get("event")
+        run_id = str(event.get("run_id") or "default")
+        if run_id in self._discarded_model_runs:
+            return None
+        if kind == "on_chat_model_start":
+            discarded = list(self._open_model_runs)
+            self.discard_model_runs(discarded)
+            self._open_model_runs.add(run_id)
+            if discarded:
+                return {
+                    "name": "agent:attempt_reset",
+                    "data": {
+                        "session_id": self.session_id,
+                        "run_ids": discarded,
+                    },
+                }
+            return None
+        if kind == "on_chat_model_end":
+            self._open_model_runs.discard(run_id)
 
         if kind == "on_chat_model_stream":
             chunk = event["data"].get("chunk")

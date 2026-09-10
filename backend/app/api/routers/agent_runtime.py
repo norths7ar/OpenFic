@@ -348,11 +348,18 @@ async def _get_runner(
         runner.model_config = model_config
     elif isinstance(model_record_id, str) and model_record_id:
         restored_reasoning_effort = restored_model_config.get("reasoning_effort")
-        runner.model_config = await _resolve_model_config(
-            session,
-            model_record_id,
-            restored_reasoning_effort if isinstance(restored_reasoning_effort, str) else None,
+        runner.model_config = await _resolve_model_config(session, model_record_id)
+        from app.models.clients.reasoning_capabilities import supported_reasoning_efforts
+
+        supported_efforts = supported_reasoning_efforts(
+            runner.model_config["provider_type"],
+            runner.model_config["model_id"],
+            runner.model_config["base_url"],
         )
+        if restored_reasoning_effort in supported_efforts:
+            runner.model_config["reasoning_effort"] = restored_reasoning_effort
+        # Old saved choices may no longer be supported; resume with provider default.
+        # New explicit requests still pass strict validation in model_resolution.
     else:
         runner.model_config = await _resolve_legacy_model_config(
             session,
@@ -627,6 +634,41 @@ def _make_status_session_factory(session: AsyncSession) -> Callable[[], AsyncSes
     return factory
 
 
+async def _run_pending_continuations(session_id: str, registry) -> None:
+    runner = _SESSION_RUNNERS.get(session_id)
+    while runner is not None and runner.last_run_completed:
+        async with _agent_session_lifecycle_lock(registry, session_id):
+            if await registry.is_cancelled(session_id):
+                break
+            pending = await runner.consume_next_pending_user_message_for_continuation()
+        if pending is None:
+            break
+        message_id, content = pending
+        await runner.run(user_request=content, user_message_id=message_id)
+
+
+async def _launch_pending_after_completion(
+    *, session_id: str, registry, db_session_factory, task_id: str, project_id: str
+) -> None:
+    """Caller holds the lifecycle lock, including the final empty-queue check."""
+    runner = _SESSION_RUNNERS.get(session_id)
+    if runner is None or not runner.last_run_completed or await registry.is_cancelled(session_id):
+        return
+    pending = await runner.consume_next_pending_user_message_for_continuation()
+    if pending is None:
+        return
+    message_id, content = pending
+    await _launch_task(
+        db_session_factory=db_session_factory,
+        session_id=session_id,
+        task_id=task_id,
+        project_id=project_id,
+        coro=runner.run(user_request=content, user_message_id=message_id),
+        clear_cancelled=False,
+        lifecycle_lock_held=True,
+    )
+
+
 async def _launch_task(
     *,
     db_session_factory: Callable[[], AsyncSession],
@@ -642,11 +684,14 @@ async def _launch_task(
     start_gate = asyncio.Event()
 
     async def _run_and_cleanup() -> None:
+        succeeded = False
         started = False
         try:
             await start_gate.wait()
             started = True
             await coro
+            await _run_pending_continuations(session_id, registry)
+            succeeded = True
         except asyncio.CancelledError:
             logger.bind(session_id=session_id).info("Agent task cancelled")
         except Exception:
@@ -664,6 +709,14 @@ async def _launch_task(
                     removed = await registry.unregister(session_id, current_task)
                 if removed:
                     try:
+                        if succeeded:
+                            await _launch_pending_after_completion(
+                                session_id=session_id,
+                                registry=registry,
+                                db_session_factory=db_session_factory,
+                                task_id=task_id,
+                                project_id=project_id,
+                            )
                         if not await registry.is_running(session_id):
                             await _set_task_running_state(
                                 db_session_factory=db_session_factory,
@@ -749,8 +802,11 @@ async def _launch_continuation_task_replacing_current(
     coro,
 ) -> None:
     async def _run_and_cleanup() -> None:
+        succeeded = False
         try:
             await coro
+            await _run_pending_continuations(session_id, registry)
+            succeeded = True
         except asyncio.CancelledError:
             logger.bind(session_id=session_id).info("Agent continuation task cancelled")
         except Exception:
@@ -765,6 +821,14 @@ async def _launch_continuation_task_replacing_current(
                     removed = await registry.unregister(session_id, continuation_task)
                 if removed:
                     try:
+                        if succeeded:
+                            await _launch_pending_after_completion(
+                                session_id=session_id,
+                                registry=registry,
+                                db_session_factory=db_session_factory,
+                                task_id=task_id,
+                                project_id=project_id,
+                            )
                         if not await registry.is_running(session_id):
                             await _set_task_running_state(
                                 db_session_factory=db_session_factory,
@@ -1040,6 +1104,8 @@ async def send_agent_message(
                     detail="当前轮仍在运行，请在回复结束后切换 Agent",
                 )
             queue_kwargs = {"attachments": attachment_metadata} if attachment_metadata else {}
+            if body.delivery_mode != "steer":
+                queue_kwargs["delivery_mode"] = body.delivery_mode
             pending_message = await runner.queue_pending_user_message(body.message, **queue_kwargs)
             return AgentSendMessageResponse(
                 success=True,
@@ -1050,7 +1116,7 @@ async def send_agent_message(
                 model_updated=False,
                 task_id=runner.task_id,
                 task_title=task.title,
-                pending_message=AgentPendingMessageResponse(**pending_message),
+                pending_message=AgentPendingMessageResponse.model_validate(pending_message),
             )
         model_updated = False
         if body.model_id:
@@ -1106,6 +1172,23 @@ async def send_agent_message(
     )
 
 
+@router.get("/sessions/{session_id}/todos")
+async def get_agent_todos(session_id: str, session: AsyncSession = Depends(get_session)) -> dict:
+    from app.agent_runtime.plan.service import get_plan_todos
+
+    await task_service.get_task_by_agent_session_id(session, session_id)
+    return {"todos": await get_plan_todos(session, session_id) or []}
+
+
+@router.get("/sessions/{session_id}/pending-messages")
+async def get_pending_agent_messages(
+    session_id: str, session: AsyncSession = Depends(get_session)
+) -> dict:
+    await task_service.get_task_by_agent_session_id(session, session_id)
+    runner = _SESSION_RUNNERS.get(session_id)
+    return {"items": runner.list_pending_user_messages() if runner else []}
+
+
 @router.post(
     "/sessions/{session_id}/pending-message/cancel",
     response_model=AgentCancelPendingMessageResponse,
@@ -1124,6 +1207,7 @@ async def cancel_agent_pending_message(
         session_id=session_id,
         message_id=restored["message_id"],
         restored_message_content=restored["content"],
+        attachments=restored.get("attachments", []),
     )
 
 

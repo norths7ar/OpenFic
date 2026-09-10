@@ -14,6 +14,7 @@ BUFFERED_AGENT_EVENT_NAMES = {
     "agent:reasoning",
     "agent:tool_call",
     "agent:retry",
+    "agent:attempt_reset",
     "agent:compaction_start",
     "agent:compaction_success",
     "agent:compaction_error",

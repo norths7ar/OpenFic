@@ -94,6 +94,7 @@ class MessagePersister:
         self._allow_subagent_child_events = allow_subagent_child_events
         self._current_agent_id: str | None = None
         self._assistant_buffers: dict[str, _AssistantBuffer] = {}
+        self._discarded_runs: set[str] = set()
         self._pending_tools: dict[str, _PendingTool] = {}
         self._previewed_tool_runs: set[str] = set()
 
@@ -101,6 +102,8 @@ class MessagePersister:
         if is_subagent_child_event(event) and not self._allow_subagent_child_events:
             return
 
+        if event.get("run_id") in self._discarded_runs:
+            return
         kind = event.get("event")
         try:
             if kind == "on_chain_start":
@@ -123,11 +126,19 @@ class MessagePersister:
             logger.exception("MessagePersister.handle failed for event %s", kind)
             raise PersistenceWriteError(f"persister handle failed for event={kind}") from e
 
+    def discard_incomplete_attempts(self) -> list[str]:
+        """Failed model drafts never enter history or become executable tool calls."""
+        run_ids = list(self._assistant_buffers)
+        self._assistant_buffers.clear()
+        self._discarded_runs.update(run_ids)
+        return run_ids
+
     def _on_chain_start(self, event: dict) -> None:
         if self.AGENT_NODE_TAG in event.get("tags", []):
             self._current_agent_id = event.get("name")
 
     def _on_chat_model_start(self, event: dict) -> None:
+        self.discard_incomplete_attempts()
         run_id = event.get("run_id") or "default"
         self._assistant_buffers[run_id] = _AssistantBuffer(
             run_id=run_id, agent_id=self._current_agent_id
