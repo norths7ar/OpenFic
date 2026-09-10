@@ -7,7 +7,7 @@ export interface PlanToolDisplayConfig {
 
 const PLAN_TOOL_DISPLAY_CONFIG: PlanToolDisplayConfig = {
   contentMode: "expandable",
-  defaultExpanded: true,
+  defaultExpanded: false,
 };
 
 const PLAN_TODO_MARKERS: Record<PlanStatus, string> = {
