@@ -35,7 +35,7 @@ async def get_all(session: AsyncSession, *, include_disabled: bool = False) -> l
     Returns:
         模型列表。
     """
-    statement = select(Model)
+    statement = select(Model).join(ModelProvider, col(Model.provider_id) == col(ModelProvider.id))
     if not include_disabled:
         statement = statement.where(col(Model.is_enabled).is_(True))
     result = await session.execute(statement)
@@ -55,7 +55,11 @@ async def get_by_provider_id(
     Returns:
         模型列表。
     """
-    statement = select(Model).where(col(Model.provider_id) == provider_id)
+    statement = (
+        select(Model)
+        .join(ModelProvider, col(Model.provider_id) == col(ModelProvider.id))
+        .where(col(Model.provider_id) == provider_id)
+    )
     if not include_disabled:
         statement = statement.where(col(Model.is_enabled).is_(True))
     result = await session.execute(statement)

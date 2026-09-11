@@ -10,6 +10,7 @@ from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col
 
+from app.models.entities.model import Model
 from app.models.entities.model_provider import ModelProvider
 
 
@@ -133,6 +134,8 @@ async def delete_by_id(session: AsyncSession, provider_id: str) -> bool:
     Returns:
         是否成功删除。
     """
+    # SQLite connections do not enable FK cascades; delete both in one transaction.
+    await session.execute(delete(Model).where(col(Model.provider_id) == provider_id))
     result = await session.execute(
         delete(ModelProvider).where(col(ModelProvider.id) == provider_id)
     )

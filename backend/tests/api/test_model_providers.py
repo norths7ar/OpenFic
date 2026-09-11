@@ -486,3 +486,56 @@ async def test_get_openrouter_provider_models(client: AsyncClient, session: Asyn
     assert "message" in data
     assert "models" in data
     assert isinstance(data["models"], list)
+
+
+@pytest.mark.asyncio
+async def test_delete_provider_removes_enabled_and_disabled_models(client, session):
+    from app.models.entities.model import Model
+
+    provider = await model_provider_repo.create(
+        session=session,
+        name="Cascade",
+        url="https://example.com",
+        api_key_encrypted="",
+        provider_type="openai",
+    )
+    models = [
+        Model(
+            name=f"Cascade {enabled}",
+            model_id="test",
+            provider_id=provider.id,
+            task_type="llm",
+            is_enabled=enabled,
+        )
+        for enabled in (True, False)
+    ]
+    survivor = Model(name="Unrelated", model_id="test", provider_id="other", task_type="llm")
+    session.add_all([*models, survivor])
+    await session.commit()
+    ids = [model.id for model in models]
+    survivor_id = survivor.id
+    response = await client.delete(f"/api/v1/model-providers/{provider.id}")
+    assert response.status_code == 204
+    session.expunge_all()
+    assert all([await session.get(Model, model_id) is None for model_id in ids])
+    assert await session.get(Model, survivor_id) is not None
+
+
+@pytest.mark.asyncio
+async def test_model_lists_exclude_orphaned_providers(session):
+    from app.models.entities.model import Model
+    from app.models.repos import model_repo
+
+    orphan = Model(name="Orphan", model_id="test", provider_id="missing", task_type="llm")
+    session.add(orphan)
+    await session.commit()
+    for include_disabled in (False, True):
+        assert orphan.id not in [
+            m.id for m in await model_repo.get_all(session, include_disabled=include_disabled)
+        ]
+        assert (
+            await model_repo.get_by_provider_id(
+                session, "missing", include_disabled=include_disabled
+            )
+            == []
+        )
