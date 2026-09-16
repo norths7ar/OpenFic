@@ -216,6 +216,7 @@
   flex: 1;
   padding: var(--space-3);
   overflow: auto;
+  overscroll-behavior: contain;
 }
 
 .pending-project-changes-technical-details {

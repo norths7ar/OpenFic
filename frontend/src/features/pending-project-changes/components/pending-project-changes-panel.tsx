@@ -28,6 +28,7 @@ import {
   useRejectPendingProjectChange,
 } from "../hooks";
 import type { JsonValue, PendingProjectChange } from "../types";
+import { useComparisonScroll } from "./use-comparison-scroll";
 import { compareBodyBlocks } from "./body-diff";
 import { BodyDiffLegend, BodyDiffMarkdown } from "./body-diff-markdown";
 
@@ -300,6 +301,8 @@ export function PendingProjectChangesPanel({
     [displayedChanges, selectedChangeId],
   );
 
+  const comparisonRef = useComparisonScroll(selectedChange?.id);
+
   const handleReject = () => {
     if (!changeToReject) return;
     rejectMutation.mutate(changeToReject.id, {
@@ -536,7 +539,11 @@ export function PendingProjectChangesPanel({
               </ScrollArea>
             </ProjectNavShell>
             {selectedChange ? (
-              <div className="pending-project-changes-detail-scroll">
+              <div
+                className="pending-project-changes-detail-scroll"
+                ref={comparisonRef}
+                key={selectedChange.id}
+              >
                 <div className="pending-project-changes-detail">
                   <Flex
                     align="center"
