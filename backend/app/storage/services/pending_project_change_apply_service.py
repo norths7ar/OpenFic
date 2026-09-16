@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.agent_visibility import AgentVisibility
 from app.core.errors import ConflictError, NotFoundError, ValidationError
+from app.core.text_matching import find_unique_quote_equivalent
 from app.project_bundle.export import semantic_hash
 from app.storage.history_capture import with_history_source
 from app.storage.models.character import Character
@@ -283,14 +284,12 @@ def _prepare_after(
                     f"第 {index} 处替换必须提供非空 old_content 和字符串 new_content"
                 )
             old = edit["old_content"]
-            count = body.count(old)
-            # Count overlapping occurrences too: 'aa' in 'aaa' is ambiguous.
-            first = body.find(old)
-            if count == 0:
+            first = find_unique_quote_equivalent(body, old)
+            if first == -1:
                 raise ValidationError(f"第 {index} 处原片段未找到，请重新读取当前正文")
-            if body.find(old, first + 1) != -1:
+            if first == -2:
                 raise ValidationError(f"第 {index} 处原片段匹配多处，请提供更多上下文")
-            body = body.replace(old, edit["new_content"], 1)
+            body = body[:first] + edit["new_content"] + body[first + len(old) :]
         editable_patch["body"] = body
     payload = _validate_payload(target_type, {**base, **editable_patch})
     if current is None:
