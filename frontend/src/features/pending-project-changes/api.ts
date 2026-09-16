@@ -31,9 +31,11 @@ export async function countPendingProjectChanges(
 export async function rejectPendingProjectChange(
   projectId: string,
   changeId: string,
+  expectedUpdatedAt?: string,
 ): Promise<PendingProjectChange> {
   const response = await apiClient.post<PendingProjectChange>(
     `/projects/${projectId}/pending-changes/${changeId}/reject`,
+    expectedUpdatedAt ? { expected_updated_at: expectedUpdatedAt } : undefined,
   );
   return response.data;
 }
@@ -41,9 +43,24 @@ export async function rejectPendingProjectChange(
 export async function applyPendingProjectChange(
   projectId: string,
   changeId: string,
+  expectedUpdatedAt?: string,
 ): Promise<PendingProjectChange> {
   const response = await apiClient.post<PendingProjectChange>(
     `/projects/${projectId}/pending-changes/${changeId}/apply`,
+    expectedUpdatedAt ? { expected_updated_at: expectedUpdatedAt } : undefined,
+  );
+  return response.data;
+}
+
+export async function revisePendingProjectChange(
+  projectId: string,
+  changeId: string,
+  expectedUpdatedAt: string,
+  patch: Record<string, string>,
+): Promise<PendingProjectChange> {
+  const response = await apiClient.patch<PendingProjectChange>(
+    `/projects/${projectId}/pending-changes/${changeId}`,
+    { expected_updated_at: expectedUpdatedAt, patch },
   );
   return response.data;
 }

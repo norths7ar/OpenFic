@@ -435,6 +435,18 @@ class TestAgentAPI:
                 "key": "propose_project_delete",
                 "is_readonly": False,
             },
+            {
+                "key": "list_pending_project_changes",
+                "is_readonly": True,
+            },
+            {
+                "key": "read_pending_project_change",
+                "is_readonly": True,
+            },
+            {
+                "key": "revise_pending_project_change",
+                "is_readonly": False,
+            },
         ]
 
     async def test_create_agent_session_success(self, client: AsyncClient, session) -> None:

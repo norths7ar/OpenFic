@@ -9,6 +9,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.schemas.pending_project_change import (
     PendingProjectChangeCreate,
     PendingProjectChangeResponse,
+    PendingProjectChangeReview,
+    PendingProjectChangeRevise,
     PendingProjectChangeStatus,
 )
 from app.core.errors import ConflictError, NotFoundError, ValidationError
@@ -97,6 +99,7 @@ async def apply_pending_change(
     project_id: str,
     change_id: str,
     session: Annotated[AsyncSession, Depends(get_session)],
+    data: PendingProjectChangeReview | None = None,
 ) -> PendingProjectChangeResponse:
     from app.storage.services import pending_project_change_apply_service
 
@@ -107,7 +110,7 @@ async def apply_pending_change(
         )
         async with session.begin_nested():
             applied = await pending_project_change_apply_service.apply_pending_change(
-                session, change
+                session, change, expected_updated_at=data.expected_updated_at if data else None
             )
         return await _to_response(session, applied)
     except NotFoundError as exc:
@@ -141,6 +144,34 @@ async def apply_pending_change(
             status_code=http_status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=str(exc),
         ) from exc
+
+
+@router.patch(
+    "/projects/{project_id}/pending-changes/{change_id}",
+    response_model=PendingProjectChangeResponse,
+    summary="修订待采用版本",
+)
+async def revise_pending_change(
+    project_id: str,
+    change_id: str,
+    data: PendingProjectChangeRevise,
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> PendingProjectChangeResponse:
+    try:
+        change = await pending_project_change_service.revise_pending_change(
+            session,
+            project_id,
+            change_id,
+            patch=data.patch,
+            expected_updated_at=data.expected_updated_at,
+        )
+        return await _to_response(session, change)
+    except NotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ConflictError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except ValidationError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.get(
@@ -189,10 +220,14 @@ async def reject_pending_change(
     project_id: str,
     change_id: str,
     session: Annotated[AsyncSession, Depends(get_session)],
+    data: PendingProjectChangeReview | None = None,
 ) -> PendingProjectChangeResponse:
     try:
         change = await pending_project_change_service.reject_pending_change(
-            session, project_id, change_id
+            session,
+            project_id,
+            change_id,
+            expected_updated_at=data.expected_updated_at if data else None,
         )
         return await _to_response(session, change)
     except NotFoundError as exc:

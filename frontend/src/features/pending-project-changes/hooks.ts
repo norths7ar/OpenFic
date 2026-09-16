@@ -8,8 +8,9 @@ import {
   countPendingProjectChanges,
   listPendingProjectChanges,
   rejectPendingProjectChange,
+  revisePendingProjectChange,
 } from "./api";
-import type { PendingProjectChangeStatus } from "./types";
+import type { PendingProjectChange, PendingProjectChangeStatus } from "./types";
 
 const PENDING_PROJECT_CHANGES_QUERY_KEY = "pending-project-changes";
 
@@ -47,7 +48,8 @@ export function useRejectPendingProjectChange(projectId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (changeId: string) => rejectPendingProjectChange(projectId, changeId),
+    mutationFn: (change: PendingProjectChange) =>
+      rejectPendingProjectChange(projectId, change.id, change.updated_at),
     onSuccess: () => {
       void queryClient.invalidateQueries({
         queryKey: pendingProjectChangesQueryKeys.listRoot(projectId),
@@ -63,7 +65,8 @@ export function useApplyPendingProjectChange(projectId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (changeId: string) => applyPendingProjectChange(projectId, changeId),
+    mutationFn: (change: PendingProjectChange) =>
+      applyPendingProjectChange(projectId, change.id, change.updated_at),
     onSuccess: (change) => {
       void queryClient.invalidateQueries({
         queryKey: pendingProjectChangesQueryKeys.listRoot(projectId),
@@ -94,6 +97,28 @@ export function useApplyPendingProjectChange(projectId: string) {
       if (change.target_type === "note" || change.target_type === "outline") {
         invalidateWritingEditorEntityQueries(queryClient, "note", change.target_id ?? undefined);
       }
+    },
+  });
+}
+
+export function useRevisePendingProjectChange(projectId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      change,
+      patch,
+    }: {
+      change: PendingProjectChange;
+      patch: Record<string, string>;
+    }) => revisePendingProjectChange(projectId, change.id, change.updated_at, patch),
+    onSuccess: (updated) => {
+      queryClient.setQueriesData<PendingProjectChange[]>(
+        { queryKey: pendingProjectChangesQueryKeys.listRoot(projectId) },
+        (items) => items?.map((item) => (item.id === updated.id ? updated : item)),
+      );
+      void queryClient.invalidateQueries({
+        queryKey: pendingProjectChangesQueryKeys.listRoot(projectId),
+      });
     },
   });
 }

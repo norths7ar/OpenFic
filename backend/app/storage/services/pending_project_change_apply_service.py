@@ -626,15 +626,20 @@ async def assess_pending_change(
 async def apply_pending_change(
     session: AsyncSession,
     change: PendingProjectChange,
+    *,
+    expected_updated_at: datetime | None = None,
 ) -> PendingProjectChange:
     """Apply one pending change atomically after checking its captured base hash."""
+    if expected_updated_at is not None and expected_updated_at.tzinfo is not None:
+        expected_updated_at = expected_updated_at.astimezone(UTC).replace(tzinfo=None)
     claimed = await pending_project_change_repo.claim_for_apply(
         session,
         change.project_id,
         change.id,
+        expected_updated_at=expected_updated_at,
     )
     if not claimed:
-        raise PendingChangeConflictError("只有待审状态的变更可以采用")
+        raise PendingChangeConflictError("提案已变化或不再待审，请重新读取后再采用")
     await session.refresh(change)
     if change.target_type not in {"note", "note_category", "character", "world_entry"}:
         raise ValidationError(f"不支持的待审变更目标: {change.target_type}")

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping
+from datetime import UTC, datetime
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -75,9 +76,7 @@ class ProposalTextEdit(_ProposalInput):
     new_content: str = Field(description="替换后的片段；空字符串表示删除")
 
 
-class ProposeProjectUpdateInput(_ProposalInput):
-    target_type: PendingTargetType = Field(description="要更新的正式资料类型")
-    target_id: str = Field(description="要更新的资料 ID", min_length=1, max_length=200)
+class ProjectChangePatch(_ProposalInput):
     title: str | None = Field(
         default=None,
         description="新标题；省略或 null 表示不修改",
@@ -101,6 +100,11 @@ class ProposeProjectUpdateInput(_ProposalInput):
         max_length=500,
         description="新的背景设定分区；仅 world_entry 可填写，省略或 null 表示不修改，空字符串表示清空",
     )
+
+
+class ProposeProjectUpdateInput(ProjectChangePatch):
+    target_type: PendingTargetType = Field(description="要更新的正式资料类型")
+    target_id: str = Field(description="要更新的资料 ID", min_length=1, max_length=200)
 
     @model_validator(mode="after")
     def validate_patch(self) -> ProposeProjectUpdateInput:
@@ -127,6 +131,18 @@ class ProposeProjectUpdateInput(_ProposalInput):
 class ProposeProjectDeleteInput(_ProposalInput):
     target_type: PendingTargetType = Field(description="要删除的正式资料类型")
     target_id: str = Field(description="要删除的资料 ID", min_length=1, max_length=200)
+
+
+class ReadPendingProjectChangeInput(_ProposalInput):
+    change_id: str = Field(description="待审提案 ID（不是正式资料 ID）", min_length=1)
+
+
+class RevisePendingProjectChangeInput(ReadPendingProjectChangeInput):
+    expected_updated_at: datetime = Field(description="读取提案返回的 updated_at，原样传回")
+    patch: ProjectChangePatch = Field(
+        description="修改当前待采用版本的字段：title、body 或 edits、agent_visibility、section；"
+        "edits 使用 old_content/new_content，原片段来自待采用正文。分类只能修改 title。"
+    )
 
 
 def _source_message_id(tool: AgentTool) -> str | None:
@@ -313,6 +329,7 @@ class ProposeProjectUpdateTool(AgentTool):
         "为当前项目提议修改一项正式资料；只填写真正要改的字段，"
         "小范围正文修改优先使用 edits，仅整体重写使用 body，两者互斥；"
         "分类、文档类型、顺序等未暴露字段由服务端原样保留。"
+        "如需继续修改已有待审提案，使用 revise_pending_project_change。"
     )
     access_level: str = "write"
     args_schema: type[BaseModel] = ProposeProjectUpdateInput
@@ -371,3 +388,152 @@ class ProposeProjectDeleteTool(AgentTool):
             operation="delete",
             after=None,
         )
+
+
+def _pending_project_id(tool: AgentTool) -> str:
+    project_id = tool._state.get("project_id")
+    if not isinstance(project_id, str) or not project_id:
+        raise ToolExecutionError("缺少当前项目")
+    return project_id
+
+
+async def _pending_visible(tool: AgentTool, session: Any, change: Any) -> bool:
+    if change.target_type == "note_category":
+        return True
+    scope = get_knowledge_scope(tool._state)
+    snapshots = [change.before, change.after]
+    if change.target_id:
+        from app.core.errors import NotFoundError
+
+        try:
+            _, current = await pending_project_change_apply_service._resolve_snapshot(
+                session, change.project_id, change.target_type, change.target_id
+            )
+            snapshots.append(current)
+        except NotFoundError:
+            pass
+    return all(
+        visible_in_scope(snapshot.get("agent_visibility", AgentVisibility.ALL), scope)
+        for snapshot in snapshots
+        if isinstance(snapshot, dict)
+    )
+
+
+def _pending_result(change: Any, *, full: bool) -> dict[str, Any]:
+    snapshot = change.after or change.before or {}
+    timestamp = change.updated_at
+    if timestamp.tzinfo is None:
+        timestamp = timestamp.replace(tzinfo=UTC)
+    result = {
+        "id": change.id,
+        "target_type": change.target_type,
+        "target_id": change.target_id,
+        "operation": change.operation,
+        "status": change.status,
+        "title": snapshot.get("title", ""),
+        "document_type": snapshot.get("document_type"),
+        "updated_at": timestamp.isoformat(),
+        "changed_fields": [
+            field
+            for field in ("title", "body", "agent_visibility", "section")
+            if (change.before or {}).get(field) != (change.after or {}).get(field)
+        ],
+    }
+    if full:
+        result.update(before=change.before, after=change.after)
+    return result
+
+
+@ToolRegistry.register
+class ListPendingProjectChangesTool(AgentTool):
+    name: str = "list_pending_project_changes"
+    description: str = "列出当前知识范围内的待审资料提案；继续修改已有提案前先查找其 ID。"
+    access_level: str = "readonly"
+    args_schema: type[BaseModel] = _ProposalInput
+
+    async def _execute(self) -> str:
+        session = await create_session()
+        try:
+            changes = await pending_project_change_service.list_pending_changes(
+                session, _pending_project_id(self), "pending"
+            )
+            visible = [
+                _pending_result(change, full=False)
+                for change in changes
+                if await _pending_visible(self, session, change)
+            ]
+            return json.dumps({"pending_changes": visible}, ensure_ascii=False)
+        finally:
+            await session.close()
+
+
+@ToolRegistry.register
+class ReadPendingProjectChangeTool(AgentTool):
+    name: str = "read_pending_project_change"
+    description: str = (
+        "读取一条资料提案的原始快照 before、当前待采用版本 after 和修订版本 updated_at。"
+    )
+    access_level: str = "readonly"
+    args_schema: type[BaseModel] = ReadPendingProjectChangeInput
+
+    async def _execute(self, change_id: str) -> str:
+        session = await create_session()
+        try:
+            change = await pending_project_change_service.get_pending_change(
+                session, _pending_project_id(self), change_id
+            )
+            if not await _pending_visible(self, session, change):
+                raise ToolExecutionError("提案不在当前知识范围内")
+            return json.dumps(_pending_result(change, full=True), ensure_ascii=False)
+        finally:
+            await session.close()
+
+
+@ToolRegistry.register
+class RevisePendingProjectChangeTool(AgentTool):
+    name: str = "revise_pending_project_change"
+    description: str = (
+        "继续修订同一条待审提案，不新建提案、不写入正式资料、不自动采用。"
+        "先读取提案，以 after 为编辑基础，并传回 updated_at。"
+    )
+    access_level: str = "write"
+    args_schema: type[BaseModel] = RevisePendingProjectChangeInput
+
+    async def _execute(
+        self,
+        change_id: str,
+        expected_updated_at: datetime,
+        patch: ProjectChangePatch | dict[str, Any],
+    ) -> str:
+        session = await create_session()
+        try:
+            project_id = _pending_project_id(self)
+            change = await pending_project_change_service.get_pending_change(
+                session, project_id, change_id
+            )
+            if not await _pending_visible(self, session, change):
+                raise ToolExecutionError("提案不在当前知识范围内")
+            change = await pending_project_change_service.revise_pending_change(
+                session,
+                project_id,
+                change_id,
+                patch=patch.model_dump(exclude_none=True)
+                if isinstance(patch, ProjectChangePatch)
+                else patch,
+                expected_updated_at=expected_updated_at,
+            )
+            await session.commit()
+            return json.dumps(
+                {
+                    "success": True,
+                    "pending_change_id": change.id,
+                    "pending_change": _pending_result(change, full=False),
+                    "message": "待采用版本已修订，仍待审核。",
+                },
+                ensure_ascii=False,
+            )
+        except Exception:
+            await session.rollback()
+            raise
+        finally:
+            await session.close()

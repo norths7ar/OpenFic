@@ -1,4 +1,5 @@
 import json
+from datetime import UTC, datetime
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
@@ -11,11 +12,14 @@ from app.agent_runtime.agents.tool_categories import (
     TOOL_CATEGORY_DISPLAY,
 )
 from app.agent_runtime.tools.impls.project_change import (
+    ListPendingProjectChangesTool,
     ProposeProjectCreateInput,
     ProposeProjectCreateTool,
     ProposeProjectDeleteTool,
     ProposeProjectUpdateInput,
     ProposeProjectUpdateTool,
+    ReadPendingProjectChangeTool,
+    RevisePendingProjectChangeTool,
 )
 from app.agent_runtime.tools.permission_metadata import get_default_tool_permission_mode
 
@@ -23,6 +27,9 @@ PROPOSAL_TOOL_NAMES = (
     "propose_project_create",
     "propose_project_update",
     "propose_project_delete",
+    "list_pending_project_changes",
+    "read_pending_project_change",
+    "revise_pending_project_change",
 )
 
 
@@ -52,6 +59,7 @@ def _change(**overrides: object) -> SimpleNamespace:
         "source_task_id": "task-1",
         "source_message_id": "message-1",
         "model_id": "model-a",
+        "updated_at": datetime(2026, 9, 16, tzinfo=UTC),
     }
     values.update(overrides)
     return SimpleNamespace(**values)
@@ -421,3 +429,77 @@ async def test_proposal_receipt_does_not_repeat_document_bodies():
     assert receipt["changed_fields"] == ["title", "body"]
     assert "before" not in receipt and "after" not in receipt
     assert len(result) < 1500
+
+
+@pytest.mark.asyncio
+async def test_revise_tool_forwards_version_and_current_draft_patch():
+    db = AsyncMock()
+    change = _change()
+    tool = RevisePendingProjectChangeTool(_state=_state())
+    with (
+        patch("app.agent_runtime.tools.impls.project_change.create_session", return_value=db),
+        patch(
+            "app.agent_runtime.tools.impls.project_change.pending_project_change_service.get_pending_change",
+            new=AsyncMock(return_value=change),
+        ),
+        patch(
+            "app.agent_runtime.tools.impls.project_change._pending_visible",
+            new=AsyncMock(return_value=True),
+        ),
+        patch(
+            "app.agent_runtime.tools.impls.project_change.pending_project_change_service.revise_pending_change",
+            new=AsyncMock(return_value=change),
+        ) as revise,
+    ):
+        result = json.loads(
+            await tool.ainvoke(
+                {
+                    "change_id": "change-1",
+                    "expected_updated_at": "2026-09-16T00:00:00Z",
+                    "patch": {"body": "继续修订"},
+                }
+            )
+        )
+    assert result["success"] is True
+    assert result["pending_change"]["id"] == "change-1"
+    assert revise.await_args.kwargs["expected_updated_at"] == datetime(2026, 9, 16, tzinfo=UTC)
+    assert revise.await_args.kwargs["patch"] == {"body": "继续修订"}
+    db.commit.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_pending_tools_hide_out_of_scope_drafts():
+    db = AsyncMock()
+    change = _change(after={"body": "secret", "agent_visibility": "none"})
+    with (
+        patch("app.agent_runtime.tools.impls.project_change.create_session", return_value=db),
+        patch(
+            "app.agent_runtime.tools.impls.project_change.pending_project_change_service.get_pending_change",
+            new=AsyncMock(return_value=change),
+        ),
+        patch(
+            "app.agent_runtime.tools.impls.project_change.pending_project_change_service.list_pending_changes",
+            new=AsyncMock(return_value=[change]),
+        ),
+        patch(
+            "app.agent_runtime.tools.impls.project_change.pending_project_change_apply_service._resolve_snapshot",
+            new=AsyncMock(return_value=(None, {"agent_visibility": "all"})),
+        ),
+    ):
+        listed = json.loads(await ListPendingProjectChangesTool(_state=_state()).ainvoke({}))
+        assert listed["pending_changes"] == []
+        for tool, args in [
+            (ReadPendingProjectChangeTool, {"change_id": "change-1"}),
+            (
+                RevisePendingProjectChangeTool,
+                {
+                    "change_id": "change-1",
+                    "expected_updated_at": "2026-09-16T00:00:00Z",
+                    "patch": {"body": "x"},
+                },
+            ),
+        ]:
+            result = await tool(_state=_state()).ainvoke(args)
+            assert "secret" not in result
+            assert json.loads(result)["success"] is False
+    db.commit.assert_not_awaited()

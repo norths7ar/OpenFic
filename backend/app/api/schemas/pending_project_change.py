@@ -48,6 +48,19 @@ class PendingProjectChangeCreate(BaseModel):
         return self
 
 
+class PendingProjectChangeReview(BaseModel):
+    """Optional version guard for an existing review action."""
+
+    expected_updated_at: datetime
+    model_config = {"extra": "forbid"}
+
+
+class PendingProjectChangeRevise(PendingProjectChangeReview):
+    """Fields to change in the proposed result, not the formal material."""
+
+    patch: dict[str, Any]
+
+
 class PendingProjectChangeResponse(BaseModel):
     """待审项目变更响应。"""
 

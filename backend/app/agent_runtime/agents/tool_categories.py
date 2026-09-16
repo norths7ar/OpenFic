@@ -16,6 +16,9 @@ TOOL_CATEGORIES: Mapping[str, tuple[str, ...]] = MappingProxyType(
             "propose_project_create",
             "propose_project_update",
             "propose_project_delete",
+            "list_pending_project_changes",
+            "read_pending_project_change",
+            "revise_pending_project_change",
         ),
         "chapter_read": (
             "list_volumes",

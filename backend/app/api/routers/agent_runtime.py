@@ -151,6 +151,9 @@ TOOL_DISPLAY_ORDER = {
     "propose_project_create": 40,
     "propose_project_update": 41,
     "propose_project_delete": 42,
+    "list_pending_project_changes": 43,
+    "read_pending_project_change": 44,
+    "revise_pending_project_change": 45,
 }
 
 

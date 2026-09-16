@@ -8,7 +8,7 @@ from typing import Any, cast
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.errors import ConflictError, NotFoundError
+from app.core.errors import ConflictError, NotFoundError, ValidationError
 from app.storage.models.pending_project_change import PendingProjectChange
 from app.storage.repos import pending_project_change_repo, project_repo
 
@@ -123,6 +123,8 @@ async def reject_pending_change(
     session: AsyncSession,
     project_id: str,
     change_id: str,
+    *,
+    expected_updated_at: datetime | None = None,
 ) -> PendingProjectChange:
     """拒绝待审变更；重复拒绝保持幂等。"""
     change = await get_pending_change(session, project_id, change_id)
@@ -130,6 +132,53 @@ async def reject_pending_change(
         raise ConflictError("已采用的变更不能拒绝")
     if change.status == "rejected":
         return change
-    change.status = "rejected"
-    change.updated_at = datetime.now(UTC)
-    return await pending_project_change_repo.update(session, change)
+    expected = expected_updated_at or change.updated_at
+    if expected.tzinfo is not None:
+        expected = expected.astimezone(UTC).replace(tzinfo=None)
+    if not await pending_project_change_repo.reject_if_current(session, change, expected):
+        raise ConflictError("提案已变化或不再待审，请重新读取后再拒绝")
+    return change
+
+
+async def revise_pending_change(
+    session: AsyncSession,
+    project_id: str,
+    change_id: str,
+    *,
+    patch: dict[str, Any],
+    expected_updated_at: datetime,
+) -> PendingProjectChange:
+    """Revise the proposed result without changing its authoritative base."""
+    from app.storage.services import pending_project_change_apply_service as apply_service
+
+    change = await get_pending_change(session, project_id, change_id)
+    if change.status != "pending":
+        raise ConflictError("只有待审状态的变更可以修订")
+    if change.operation not in {"create", "update"}:
+        raise ValidationError("删除提案没有可修订的待采用内容")
+    if change.target_type not in {"note", "note_category", "character", "world_entry"}:
+        raise ValidationError("不支持的待审变更目标")
+    target_type = cast(apply_service.PendingTargetType, change.target_type)
+    allowed = (
+        {"title"}
+        if target_type == "note_category"
+        else {"title", "body", "edits", "agent_visibility"}
+    )
+    if target_type == "world_entry":
+        allowed.add("section")
+    if not patch or set(patch) - allowed:
+        raise ValidationError("修订只能包含该资料可编辑的字段，且不能为空")
+    if not isinstance(change.after, dict):
+        raise ValidationError("待采用内容无效")
+    after = apply_service._prepare_after(target_type, patch, change.after)
+    after = apply_service._validate_stored_after(
+        target_type, change.operation, after, change.before
+    )
+    assert after is not None
+    # SQLite stores UTC without a timezone; normalize API/model timestamps first.
+    expected = expected_updated_at
+    if expected.tzinfo is not None:
+        expected = expected.astimezone(UTC).replace(tzinfo=None)
+    if not await pending_project_change_repo.revise_if_current(session, change, after, expected):
+        raise ConflictError("待审提案已变化，请重新读取后再修订；本次修改未保存")
+    return change

@@ -45,6 +45,11 @@ _PERMISSION_METADATA_BY_TOOL_NAME = {
     "propose_project_create": ToolPermissionMetadata("propose_project_create", "allow"),
     "propose_project_delete": ToolPermissionMetadata("propose_project_delete", "allow"),
     "propose_project_update": ToolPermissionMetadata("propose_project_update", "allow"),
+    "list_pending_project_changes": ToolPermissionMetadata("list_pending_project_changes", "allow"),
+    "read_pending_project_change": ToolPermissionMetadata("read_pending_project_change", "allow"),
+    "revise_pending_project_change": ToolPermissionMetadata(
+        "revise_pending_project_change", "allow"
+    ),
     "read_chapter": ToolPermissionMetadata("read_chapter", "allow"),
     "read_chapter_summaries": ToolPermissionMetadata("read_chapter_summaries", "allow"),
     "read_character": ToolPermissionMetadata("read_character", "allow"),

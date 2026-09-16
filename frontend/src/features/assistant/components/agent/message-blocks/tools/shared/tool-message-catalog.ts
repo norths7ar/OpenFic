@@ -42,6 +42,9 @@ export const REGISTERED_TOOL_NAMES = [
   "propose_project_create",
   "propose_project_update",
   "propose_project_delete",
+  "revise_pending_project_change",
+  "read_pending_project_change",
+  "list_pending_project_changes",
 ] as const;
 
 export type RegisteredToolName = (typeof REGISTERED_TOOL_NAMES)[number];
@@ -348,6 +351,20 @@ export const TOOL_DESCRIPTOR_META = {
     isExplore: false,
     contentMode: "hidden",
   },
+  read_pending_project_change: {
+    toolName: "read_pending_project_change",
+    group: "project",
+    tag: "read",
+    isExplore: true,
+    contentMode: "hidden",
+  },
+  list_pending_project_changes: {
+    toolName: "list_pending_project_changes",
+    group: "project",
+    tag: "list",
+    isExplore: true,
+    contentMode: "hidden",
+  },
   propose_project_create: {
     toolName: "propose_project_create",
     group: "project",
@@ -359,6 +376,13 @@ export const TOOL_DESCRIPTOR_META = {
     toolName: "propose_project_update",
     group: "project",
     tag: "update-proposal",
+    isExplore: false,
+    contentMode: "expandable",
+  },
+  revise_pending_project_change: {
+    toolName: "revise_pending_project_change",
+    group: "project",
+    tag: "revise-proposal",
     isExplore: false,
     contentMode: "expandable",
   },

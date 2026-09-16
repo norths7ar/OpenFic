@@ -219,6 +219,29 @@
   overscroll-behavior: contain;
 }
 
+.pending-change-edit-fields > label {
+  display: flex;
+  flex: 1 1 180px;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.pending-project-changes-body-version-content:has(.pending-change-body-editor) {
+  overflow: hidden;
+}
+
+.pending-change-body-editor {
+  height: 100%;
+  min-height: 0;
+}
+
+.pending-change-body-editor textarea {
+  resize: none;
+  font-family: inherit;
+  overscroll-behavior: contain;
+}
+
 .pending-project-changes-technical-details {
   flex: 0 0 auto;
   padding-top: var(--space-1);

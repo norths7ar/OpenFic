@@ -7,10 +7,11 @@ import {
   IconButton,
   ScrollArea,
   Text,
+  TextArea,
 } from "@radix-ui/themes";
 import axios from "axios";
-import { ArrowUpDown, CheckCircle2, FileClock, XCircle } from "lucide-react";
-import { useMemo, useState } from "react";
+import { ArrowUpDown, CheckCircle2, FileClock, Pencil, XCircle } from "lucide-react";
+import { type ReactNode, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router";
 
@@ -26,11 +27,13 @@ import {
   usePendingProjectChangeCount,
   usePendingProjectChanges,
   useRejectPendingProjectChange,
+  useRevisePendingProjectChange,
 } from "../hooks";
 import type { JsonValue, PendingProjectChange } from "../types";
-import { useComparisonScroll } from "./use-comparison-scroll";
 import { compareBodyBlocks } from "./body-diff";
 import { BodyDiffLegend, BodyDiffMarkdown } from "./body-diff-markdown";
+import { PendingChangeFields } from "./pending-change-fields";
+import { useComparisonScroll } from "./use-comparison-scroll";
 
 import "./pending-project-changes-dialog.css";
 
@@ -168,7 +171,9 @@ function BodyComparison({
   beforeLabel,
   afterLabel,
   emptyLabel,
+  afterEditor,
 }: {
+  afterEditor?: ReactNode;
   before: string;
   after: string;
   label: string;
@@ -220,19 +225,20 @@ function BodyComparison({
             {afterLabel}
           </Text>
           <Box className="pending-project-changes-body-version-content">
-            {after ? (
-              <BodyDiffMarkdown
-                content={after}
-                changes={changes.after}
-              />
-            ) : (
-              <Text
-                size="2"
-                color="gray"
-              >
-                {emptyLabel}
-              </Text>
-            )}
+            {afterEditor ??
+              (after ? (
+                <BodyDiffMarkdown
+                  content={after}
+                  changes={changes.after}
+                />
+              ) : (
+                <Text
+                  size="2"
+                  color="gray"
+                >
+                  {emptyLabel}
+                </Text>
+              ))}
           </Box>
         </article>
       </div>
@@ -254,7 +260,17 @@ export function PendingProjectChangesPanel({
   const { t, i18n } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
   const selectedChangeId = searchParams.get("change");
+  const [draft, setDraft] = useState<{
+    change: PendingProjectChange;
+    values: Record<string, string>;
+  } | null>(null);
+  const [switchTo, setSwitchTo] = useState<{ id: string | null } | null>(null);
   const setSelectedChangeId = (id: string | null) => {
+    if (reviseMutation.isPending) return;
+    if (draft && id !== draft.change.id) {
+      setSwitchTo({ id });
+      return;
+    }
     setSearchParams(
       (previous) => {
         const next = new URLSearchParams(previous);
@@ -274,6 +290,7 @@ export function PendingProjectChangesPanel({
   const countQuery = usePendingProjectChangeCount(projectId);
   const rejectMutation = useRejectPendingProjectChange(projectId);
   const applyMutation = useApplyPendingProjectChange(projectId);
+  const reviseMutation = useRevisePendingProjectChange(projectId);
   const changes = changesQuery.data ?? EMPTY_PENDING_PROJECT_CHANGES;
   const displayedChanges = useMemo(() => {
     const normalizedQuery = searchQuery.trim().toLocaleLowerCase(i18n.language);
@@ -295,17 +312,68 @@ export function PendingProjectChangesPanel({
   }, [changes, i18n.language, searchQuery, sortDirection, t]);
   const selectedChange = useMemo(
     () =>
-      selectedChangeId
+      draft?.change ??
+      (selectedChangeId
         ? (displayedChanges.find((change) => change.id === selectedChangeId) ?? null)
-        : (displayedChanges[0] ?? null),
-    [displayedChanges, selectedChangeId],
+        : (displayedChanges[0] ?? null)),
+    [displayedChanges, selectedChangeId, draft],
   );
 
   const comparisonRef = useComparisonScroll(selectedChange?.id);
+  const updateDraft = (key: string, value: string) =>
+    setDraft((current) =>
+      current ? { ...current, values: { ...current.values, [key]: value } } : null,
+    );
+  const startEditing = () => {
+    if (!selectedChange) return;
+    const after = getChangeRecord(selectedChange, "after") ?? {};
+    const keys =
+      selectedChange.target_type === "note_category"
+        ? ["title"]
+        : [
+            "title",
+            "body",
+            "agent_visibility",
+            ...(selectedChange.target_type === "world_entry" ? ["section"] : []),
+          ];
+    setDraft({
+      change: selectedChange,
+      values: Object.fromEntries(
+        keys.map((key) => [key, typeof after[key] === "string" ? after[key] : ""]),
+      ),
+    });
+  };
+  const saveDraft = () => {
+    if (!draft) return;
+    const after = getChangeRecord(draft.change, "after") ?? {};
+    const patch = Object.fromEntries(
+      Object.entries(draft.values).filter(([key, value]) => value !== after[key]),
+    );
+    if (!Object.keys(patch).length) {
+      setDraft(null);
+      return;
+    }
+    reviseMutation.mutate(
+      { change: draft.change, patch },
+      {
+        onSuccess: () => {
+          setDraft(null);
+          toast.success(t("pendingProjectChanges.reviseSuccess"));
+        },
+        onError: (error) => {
+          toast.error(
+            axios.isAxiosError(error) && error.response?.status === 409
+              ? t("pendingProjectChanges.reviseConflict")
+              : t("pendingProjectChanges.reviseFailed", { error: getErrorMessage(error) }),
+          );
+        },
+      },
+    );
+  };
 
   const handleReject = () => {
     if (!changeToReject) return;
-    rejectMutation.mutate(changeToReject.id, {
+    rejectMutation.mutate(changeToReject, {
       onSuccess: () => {
         toast.success(t("pendingProjectChanges.rejectSuccess"));
         setSelectedChangeId(null);
@@ -323,7 +391,7 @@ export function PendingProjectChangesPanel({
 
   const handleApply = () => {
     if (!changeToApply) return;
-    applyMutation.mutate(changeToApply.id, {
+    applyMutation.mutate(changeToApply, {
       onSuccess: () => {
         toast.success(t("pendingProjectChanges.applySuccess"));
         setSelectedChangeId(null);
@@ -556,13 +624,48 @@ export function PendingProjectChangesPanel({
                     >
                       {selectedHeading}
                     </Text>
-                    <Flex gap="2">
+                    <Flex
+                      gap="2"
+                      wrap="wrap"
+                    >
+                      {draft ? (
+                        <>
+                          <Button
+                            size="1"
+                            onClick={saveDraft}
+                            loading={reviseMutation.isPending}
+                            disabled={!draft.values.title.trim()}
+                          >
+                            {t("pendingProjectChanges.saveDraft")}
+                          </Button>
+                          <Button
+                            size="1"
+                            variant="soft"
+                            disabled={reviseMutation.isPending}
+                            onClick={() => setDraft(null)}
+                          >
+                            {t("common.cancel")}
+                          </Button>
+                        </>
+                      ) : (
+                        selectedChange.operation !== "delete" && (
+                          <Button
+                            size="1"
+                            variant="soft"
+                            onClick={startEditing}
+                            disabled={applyMutation.isPending || rejectMutation.isPending}
+                          >
+                            <Pencil size={14} />
+                            {t("pendingProjectChanges.editDraft")}
+                          </Button>
+                        )
+                      )}
                       {selectedChange.is_applicable ? (
                         <Button
                           size="1"
                           color="green"
                           onClick={() => setChangeToApply(selectedChange)}
-                          disabled={rejectMutation.isPending}
+                          disabled={rejectMutation.isPending || Boolean(draft)}
                         >
                           <CheckCircle2 size={14} />
                           {t("pendingProjectChanges.apply")}
@@ -580,7 +683,7 @@ export function PendingProjectChangesPanel({
                         color="red"
                         variant="soft"
                         onClick={() => setChangeToReject(selectedChange)}
-                        disabled={applyMutation.isPending}
+                        disabled={applyMutation.isPending || Boolean(draft)}
                       >
                         <XCircle size={14} />
                         {t("pendingProjectChanges.reject")}
@@ -615,11 +718,28 @@ export function PendingProjectChangesPanel({
                       />
                     ) : null}
                   </div>
+                  {draft && (
+                    <>
+                      <Text
+                        size="1"
+                        color="gray"
+                      >
+                        {t("pendingProjectChanges.editHint")}
+                      </Text>
+                      <PendingChangeFields
+                        targetType={selectedChange.target_type}
+                        values={draft.values}
+                        onChange={updateDraft}
+                        disabled={reviseMutation.isPending}
+                      />
+                    </>
+                  )}
                   <div className="pending-project-changes-review-content">
                     {selectedChange.operation === "update" &&
                     selectedBefore &&
                     selectedAfter &&
-                    hasSelectedFieldChanges ? (
+                    hasSelectedFieldChanges &&
+                    !draft ? (
                       <section className="pending-project-changes-field-changes">
                         <Text
                           size="2"
@@ -656,11 +776,23 @@ export function PendingProjectChangesPanel({
                     {selectedChange.operation === "update" &&
                     selectedBefore &&
                     selectedAfter &&
-                    hasSelectedBodyChange ? (
+                    (hasSelectedBodyChange ||
+                      (draft && selectedChange.target_type !== "note_category")) ? (
                       <BodyComparison
                         label={t("pendingProjectChanges.bodyDiff")}
                         before={asString(selectedBefore.body) ?? ""}
                         after={asString(selectedAfter.body) ?? ""}
+                        afterEditor={
+                          draft && selectedChange.target_type !== "note_category" ? (
+                            <TextArea
+                              className="pending-change-body-editor"
+                              aria-label={t("pendingProjectChanges.editBody")}
+                              value={draft.values.body}
+                              disabled={reviseMutation.isPending}
+                              onChange={(event) => updateDraft("body", event.target.value)}
+                            />
+                          ) : undefined
+                        }
                         beforeLabel={t("pendingProjectChanges.before")}
                         afterLabel={t("pendingProjectChanges.proposedVersion")}
                         emptyLabel={t("pendingProjectChanges.noBody")}
@@ -671,6 +803,17 @@ export function PendingProjectChangesPanel({
                         label={t("pendingProjectChanges.proposedContent")}
                         before=""
                         after={asString(selectedAfter.body) ?? ""}
+                        afterEditor={
+                          draft && selectedChange.target_type !== "note_category" ? (
+                            <TextArea
+                              className="pending-change-body-editor"
+                              aria-label={t("pendingProjectChanges.editBody")}
+                              value={draft.values.body}
+                              disabled={reviseMutation.isPending}
+                              onChange={(event) => updateDraft("body", event.target.value)}
+                            />
+                          ) : undefined
+                        }
                         beforeLabel={t("pendingProjectChanges.before")}
                         afterLabel={t("pendingProjectChanges.proposedVersion")}
                         emptyLabel={t("pendingProjectChanges.noBody")}
@@ -741,6 +884,30 @@ export function PendingProjectChangesPanel({
           </div>
         }
       </div>
+      <ConfirmDialog
+        open={Boolean(switchTo)}
+        onOpenChange={(open) => {
+          if (!open) setSwitchTo(null);
+        }}
+        title={t("pendingProjectChanges.discardTitle")}
+        description={t("pendingProjectChanges.discardDescription")}
+        confirmText={t("pendingProjectChanges.discard")}
+        cancelText={t("common.cancel")}
+        onConfirm={() => {
+          const id = switchTo?.id;
+          setDraft(null);
+          setSwitchTo(null);
+          setSearchParams(
+            (previous) => {
+              const next = new URLSearchParams(previous);
+              if (id) next.set("change", id);
+              else next.delete("change");
+              return next;
+            },
+            { replace: true },
+          );
+        }}
+      />
       <ConfirmDialog
         open={Boolean(changeToApply)}
         onOpenChange={(nextOpen) => {
