@@ -1249,80 +1249,308 @@ async def test_react_agent_does_not_execute_tool_after_approval_is_rejected() ->
     }
 
 
+def _batch_state() -> ReactState:
+    return {
+        "messages": [HumanMessage(content="run")],
+        "iteration_count": 0,
+        "is_done": False,
+        "final_output": None,
+    }
+
+
+def _batch_response(count: int, name: str = "counting_tool") -> AIMessage:
+    return AIMessage(
+        content="",
+        tool_calls=[
+            {"id": f"call_{index}", "name": name, "args": {"value": str(index)}}
+            for index in range(count)
+        ],
+    )
+
+
 @pytest.mark.asyncio
-async def test_react_agent_rejects_more_than_twenty_tool_calls_before_execution() -> None:
+@pytest.mark.parametrize("count", [20, 21, 45])
+async def test_react_agent_executes_all_tool_calls_in_bounded_batches(count: int) -> None:
     executed: list[str] = []
-    tool_results: list[dict] = []
+    active = 0
+    peak = 0
+    gates = [asyncio.Event() for _ in range((count + 19) // 20)]
+    started = [0] * len(gates)
 
-    class CountingTool(AgentTool):
-        name: str = "counting_tool"
-        description: str = "counting"
-        args_schema: type[BaseModel] = ApprovalInput
-
-        async def _execute(self, value: str) -> str:
+    async def counting_tool(value: str) -> str:
+        nonlocal active, peak
+        index = int(value)
+        batch = index // 20
+        active += 1
+        peak = max(peak, active)
+        started[batch] += 1
+        if started[batch] == min(20, count - batch * 20):
+            gates[batch].set()
+        try:
+            await asyncio.wait_for(gates[batch].wait(), timeout=5)
+            # Finish out of order so aggregation cannot rely on completion order.
+            await asyncio.sleep((20 - index % 20) * 0.001)
             executed.append(value)
             return json.dumps({"success": True, "value": value})
+        finally:
+            active -= 1
 
     graph = create_react_agent(
         ReactAgentConfig(
             name="test",
-            tools=[CountingTool()],
+            tools=[StructuredTool.from_function(coroutine=counting_tool, description="count")],
+            termination=TerminationCondition(mode="no_tool_call"),
+            max_iterations=1,
+        ),
+        checkpointer=InMemorySaver(),
+    )
+    config = {"configurable": {"thread_id": f"batch-{count}"}}
+    events = []
+    with patch(
+        "app.agent_runtime.graph.react_agent._invoke_model",
+        return_value=_batch_response(count),
+    ) as invoke_model:
+        async for event in graph.astream_events(_batch_state(), config=config, version="v2"):
+            if event["event"] in {"on_tool_start", "on_tool_end"}:
+                events.append(event)
+    result = (await graph.aget_state(config)).values
+    invoke_model.assert_awaited_once()
+    assert result["iteration_count"] == 1
+    assert peak == 20
+    assert active == 0
+    assert sorted(executed, key=int) == [str(index) for index in range(count)]
+    messages = [message for message in result["messages"] if isinstance(message, ToolMessage)]
+    assert [message.tool_call_id for message in messages] == [f"call_{i}" for i in range(count)]
+    assert [json.loads(message.content)["value"] for message in messages] == [
+        str(i) for i in range(count)
+    ]
+    for kind in ("on_tool_start", "on_tool_end"):
+        ids = [event["metadata"]["tool_call_id"] for event in events if event["event"] == kind]
+        assert sorted(ids) == sorted(f"call_{i}" for i in range(count))
+
+
+@pytest.mark.asyncio
+async def test_react_agent_preserves_failures_and_successes_across_batches() -> None:
+    executed = []
+    tool_results = []
+
+    async def counting_tool(value: str) -> str:
+        executed.append(value)
+        if value in {"19", "20", "40"}:
+            raise ToolExecutionError(f"failed:{value}", code="not_found")
+        return json.dumps({"success": True, "value": value})
+
+    response = _batch_response(45)
+    response.tool_calls[21]["name"] = "missing_tool"
+    graph = create_react_agent(
+        ReactAgentConfig(
+            name="test",
+            tools=[StructuredTool.from_function(coroutine=counting_tool, description="count")],
             termination=TerminationCondition(mode="no_tool_call"),
             max_iterations=1,
         )
     )
+    with patch("app.agent_runtime.graph.react_agent._invoke_model", return_value=response) as model:
+        result = await graph.ainvoke(
+            _batch_state(), config={"configurable": {"tool_result_sink": tool_results.append}}
+        )
+    model.assert_awaited_once()
+    assert sorted(executed, key=int) == [str(i) for i in range(45) if i != 21]
+    messages = [message for message in result["messages"] if isinstance(message, ToolMessage)]
+    assert [message.tool_call_id for message in messages] == [f"call_{i}" for i in range(45)]
+    for i, message in enumerate(messages):
+        payload = json.loads(message.content)
+        if i in {19, 20, 40}:
+            assert payload["code"] == "not_found"
+            assert payload["success"] is False
+        elif i == 21:
+            assert payload["code"] == "tool_not_found"
+        else:
+            assert payload == {"success": True, "value": str(i)}
+    assert sorted(item["tool_call_id"] for item in tool_results) == [
+        "call_19",
+        "call_20",
+        "call_40",
+    ]
 
-    async def invoke_model(*_args, **_kwargs):
-        if getattr(invoke_model, "calls", 0) == 0:
-            invoke_model.calls = 1
-            return AIMessage(
-                content="",
-                tool_calls=[
-                    {"id": f"call_{index}", "name": "counting_tool", "args": {"value": str(index)}}
-                    for index in range(21)
-                ],
-            )
-        return AIMessage(content="done")
 
-    config = {"configurable": {"thread_id": "excess-tool-calls"}}
-    config["configurable"]["tool_result_sink"] = tool_results.append
+@pytest.mark.asyncio
+async def test_react_agent_prepares_all_batches_before_resuming_late_rejection() -> None:
+    prepared = set()
+    executed = []
+    tool_results = []
+
+    async def prepare(ctx):
+        prepared.add(ctx.args["value"])
+        if ctx.args["value"] in {"20", "44"}:
+            return await _approval_hook(ctx)
+        return HookResult()
+
+    class CountingApprovalTool(ApprovalTool):
+        async def _execute(self, value: str) -> str:
+            assert prepared == {str(i) for i in range(45)}
+            executed.append(value)
+            return await super()._execute(value)
+
+    graph = create_react_agent(
+        ReactAgentConfig(
+            name="test",
+            tools=[CountingApprovalTool(_pre_hooks=[prepare])],
+            termination=TerminationCondition(mode="no_tool_call"),
+            max_iterations=1,
+        ),
+        checkpointer=InMemorySaver(),
+    )
+    config = {
+        "configurable": {
+            "thread_id": "cross-batch-approval",
+            "tool_result_sink": tool_results.append,
+        }
+    }
     with patch(
         "app.agent_runtime.graph.react_agent._invoke_model",
-        side_effect=invoke_model,
-    ):
-        result = await graph.ainvoke(
-            {
-                "messages": [HumanMessage(content="run")],
-                "iteration_count": 0,
-                "is_done": False,
-                "final_output": None,
-            },
-            config=config,
-        )
-
-    assert executed == [str(index) for index in range(20)]
-    error_message = next(
-        message
-        for message in result["messages"]
-        if isinstance(message, ToolMessage) and "最多调用" in message.content
-    )
-    assert error_message.tool_call_id == "call_20"
-    assert json.loads(error_message.content) == {
-        "type": "fail",
-        "success": False,
-        "code": "limit_exceeded",
-        "message": "Agent 单轮最多调用 20 个工具，超出上限的工具调用未执行",
-    }
+        return_value=_batch_response(45, "approval_tool"),
+    ) as model:
+        await graph.ainvoke(_batch_state(), config=config)
+        approval_ids = []
+        for index, approved in [(20, True), (44, False)]:
+            state = await graph.aget_state(config)
+            pending = [interrupt for task in state.tasks for interrupt in task.interrupts]
+            assert len(pending) == 1
+            interrupt = pending[0]
+            approval_ids.append(interrupt.id)
+            assert interrupt.value["tool_call_id"] == f"call_{index}"
+            assert interrupt.value["tool_index"] == index
+            assert interrupt.value["args"] == {"value": str(index)}
+            assert interrupt.value["tool_result_preview"]["metadata"] == {"value": str(index)}
+            assert executed == []
+            assert tool_results == []
+            result = await graph.ainvoke(
+                Command(
+                    resume={
+                        interrupt.id: {
+                            "action_type": "tool_approval",
+                            "approval_id": interrupt.id,
+                            "approved": approved,
+                        }
+                    }
+                ),
+                config=config,
+            )
+    model.assert_awaited_once()
+    assert len(set(approval_ids)) == 2
+    assert sorted(executed, key=int) == [str(i) for i in range(44)]
+    assert (await graph.aget_state(config)).next == ()
+    messages = [message for message in result["messages"] if isinstance(message, ToolMessage)]
+    assert [message.tool_call_id for message in messages] == [f"call_{i}" for i in range(45)]
+    assert [json.loads(message.content)["value"] for message in messages[:-1]] == [
+        str(i) for i in range(44)
+    ]
+    denied = json.loads(messages[-1].content)
+    assert denied["status"] == "approval_denied"
+    assert denied["approval_id"] == approval_ids[-1]
     assert len(tool_results) == 1
-    assert tool_results[0]["tool_call_id"] == "call_20"
-    assert tool_results[0]["output"] == {
-        "type": "fail",
-        "success": False,
-        "code": "limit_exceeded",
-        "message": "Agent 单轮最多调用 20 个工具，超出上限的工具调用未执行",
-        "tool_call_id": "call_20",
-        "tool_name": "counting_tool",
-    }
+    assert tool_results[0]["tool_call_id"] == "call_44"
+    assert tool_results[0]["output"]["approval_id"] == approval_ids[-1]
+
+
+@pytest.mark.asyncio
+async def test_react_agent_limits_subagent_dispatches_per_model_turn_not_batch() -> None:
+    dispatched = []
+    ordinary = []
+
+    async def dispatch_subagent(value: str) -> str:
+        dispatched.append(value)
+        return '{"success": true}'
+
+    async def counting_tool(value: str) -> str:
+        ordinary.append(value)
+        return '{"success": true}'
+
+    response = _batch_response(25)
+    # Seven dispatches in the first batch leave only three permits for the second.
+    dispatch_indices = [0, 1, 2, 3, 4, 5, 19, 20, 21, 22, 23, 24]
+    for index in dispatch_indices:
+        response.tool_calls[index]["name"] = "dispatch_subagent"
+    second = AIMessage(
+        content="",
+        tool_calls=[
+            {
+                "id": "next_turn",
+                "name": "dispatch_subagent",
+                "args": {"value": "next"},
+            }
+        ],
+    )
+    graph = create_react_agent(
+        ReactAgentConfig(
+            name="test",
+            tools=[
+                StructuredTool.from_function(coroutine=tool, description="count")
+                for tool in [dispatch_subagent, counting_tool]
+            ],
+            termination=TerminationCondition(mode="no_tool_call"),
+            max_iterations=2,
+        )
+    )
+    with patch(
+        "app.agent_runtime.graph.react_agent._invoke_model", side_effect=[response, second]
+    ) as model:
+        result = await graph.ainvoke(_batch_state())
+    assert model.await_count == 2
+    assert result["iteration_count"] == 2
+    assert dispatched == [str(i) for i in dispatch_indices[:10]] + ["next"]
+    assert ordinary == [str(i) for i in range(25) if i not in dispatch_indices]
+    messages = [message for message in result["messages"] if isinstance(message, ToolMessage)]
+    assert [message.tool_call_id for message in messages] == [f"call_{i}" for i in range(25)] + [
+        "next_turn"
+    ]
+    assert [
+        message.tool_call_id
+        for message in messages
+        if json.loads(message.content).get("code") == "limit_exceeded"
+    ] == ["call_23", "call_24"]
+
+
+@pytest.mark.asyncio
+async def test_react_agent_cancellation_stops_active_batch_and_never_starts_later_batch() -> None:
+    started = []
+    cancelled = []
+    batch_started = asyncio.Event()
+    blocked = asyncio.Event()
+
+    async def counting_tool(value: str) -> str:
+        started.append(value)
+        if len(started) == 20:
+            batch_started.set()
+        try:
+            await blocked.wait()
+        except asyncio.CancelledError:
+            cancelled.append(value)
+            raise
+        return '{"success": true}'
+
+    graph = create_react_agent(
+        ReactAgentConfig(
+            name="test",
+            tools=[StructuredTool.from_function(coroutine=counting_tool, description="count")],
+            termination=TerminationCondition(mode="no_tool_call"),
+            max_iterations=1,
+        )
+    )
+    with patch(
+        "app.agent_runtime.graph.react_agent._invoke_model", return_value=_batch_response(45)
+    ) as model:
+        task = asyncio.create_task(graph.ainvoke(_batch_state()))
+        try:
+            await asyncio.wait_for(batch_started.wait(), timeout=5)
+        finally:
+            task.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await asyncio.wait_for(task, timeout=5)
+    model.assert_awaited_once()
+    assert sorted(started, key=int) == [str(i) for i in range(20)]
+    assert sorted(cancelled, key=int) == sorted(started, key=int)
 
 
 @pytest.mark.asyncio
@@ -1402,3 +1630,151 @@ async def test_react_agent_previews_all_parallel_tool_calls_and_resumes_each_app
     assert [json.loads(message.content)["value"] for message in tool_messages] == [
         str(index) for index in range(1, 6)
     ]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "persisted_overflow", [False, True], ids=["before-dispatch", "after-dispatch"]
+)
+async def test_react_agent_resumes_legacy_execution_without_running_overflow(
+    persisted_overflow: bool,
+) -> None:
+    executed = []
+    hook_calls = []
+    bypassed_hooks = []
+    tool_results = []
+    # The old graph prepared only these calls before checkpointing execution.
+    prepared = {str(i) for i in range(20)}
+
+    async def prepare(ctx):
+        value = ctx.args["value"]
+        hook_calls.append(value)
+        prepared.add(value)
+        return HookResult()
+
+    class LegacyProbeTool(ApprovalTool):
+        async def _execute(self, value: str) -> str:
+            if value not in prepared:
+                bypassed_hooks.append(value)
+            executed.append(value)
+            return await super()._execute(value)
+
+    response = _batch_response(21, "approval_tool")
+    overflow_payload = {
+        "type": "fail",
+        "success": False,
+        "code": "limit_exceeded",
+        "message": "Agent 单轮最多调用 20 个工具，超出上限的工具调用未执行",
+    }
+
+    def outcome(index: int, payload: dict, success: bool) -> dict:
+        call = response.tool_calls[index]
+        return {
+            "index": index,
+            "tool_call_id": call["id"],
+            "tool_name": call["name"],
+            "tool_args": call["args"],
+            "message": ToolMessage(
+                content=json.dumps(payload),
+                tool_call_id=call["id"],
+                name=call["name"],
+            ),
+            "payload": payload,
+            "success": success,
+            "latency_ms": 0,
+        }
+
+    graph = create_react_agent(
+        ReactAgentConfig(
+            name="test",
+            tools=[LegacyProbeTool(_pre_hooks=[prepare])],
+            termination=TerminationCondition(mode="no_tool_call"),
+            max_iterations=2,
+        ),
+        checkpointer=InMemorySaver(),
+    )
+    config = {
+        "configurable": {
+            "thread_id": f"legacy-execution-{persisted_overflow}",
+            "session_id": "legacy-session",
+            "tool_result_sink": tool_results.append,
+        }
+    }
+    legacy_state = {
+        **_batch_state(),
+        "messages": [HumanMessage(content="run"), response],
+        "iteration_count": 1,
+        "tool_phase": "execute",
+        "tool_prepared_outcomes": [
+            outcome(i, {"__openfic_prepared": True}, True) for i in range(20)
+        ],
+        "tool_outcomes": [outcome(20, overflow_payload, False)] if persisted_overflow else [],
+    }
+    # Reconstruct the two old checkpoint boundaries without adding the new offset.
+    await graph.aupdate_state(
+        config,
+        legacy_state,
+        as_node="dispatch_tools" if persisted_overflow else "tools_join",
+    )
+    saved = await graph.aget_state(config)
+    assert "tool_batch_offset" not in saved.values
+    assert saved.values["tool_phase"] == "execute"
+    assert len(saved.values["tool_prepared_outcomes"]) == 20
+    assert saved.next == (
+        tuple(f"tool_exec_{i}" for i in range(20)) if persisted_overflow else ("dispatch_tools",)
+    )
+
+    next_response = AIMessage(
+        content="",
+        tool_calls=[
+            {"id": f"next_{i}", "name": "approval_tool", "args": {"value": f"next_{i}"}}
+            for i in range(21)
+        ],
+    )
+
+    async def next_model_turn(_model, messages, **_kwargs):
+        # No replay of the old model turn, no preparation or execution of its overflow.
+        assert sorted(executed, key=int) == [str(i) for i in range(20)]
+        assert hook_calls == []
+        assert bypassed_hooks == []
+        legacy_messages = [message for message in messages if isinstance(message, ToolMessage)]
+        assert [message.tool_call_id for message in legacy_messages] == [
+            f"call_{i}" for i in range(21)
+        ]
+        return next_response
+
+    with patch(
+        "app.agent_runtime.graph.react_agent._invoke_model",
+        side_effect=next_model_turn,
+    ) as model:
+        result = await graph.ainvoke(None, config=config)
+    model.assert_awaited_once()
+    assert result["iteration_count"] == 2
+    assert result["is_done"] is True
+    assert bypassed_hooks == []
+    assert executed[:20] == [str(i) for i in range(20)]
+    assert executed[20:] == [f"next_{i}" for i in range(21)]
+    assert hook_calls == [f"next_{i}" for i in range(21)]
+    messages = [message for message in result["messages"] if isinstance(message, ToolMessage)]
+    assert [message.tool_call_id for message in messages] == [f"call_{i}" for i in range(21)] + [
+        f"next_{i}" for i in range(21)
+    ]
+    for message in messages[:20] + messages[21:]:
+        assert json.loads(message.content)["success"] is True
+    overflow = json.loads(messages[20].content)
+    assert overflow["code"] == "limit_exceeded"
+    assert overflow["success"] is False
+    if persisted_overflow:
+        assert overflow == overflow_payload
+        assert tool_results == []
+    else:
+        assert tool_results == [
+            {
+                "session_id": "legacy-session",
+                "tool_call_id": "call_20",
+                "tool_name": "approval_tool",
+                "input": {"value": "20"},
+                "output": {**overflow, "tool_call_id": "call_20", "tool_name": "approval_tool"},
+            }
+        ]
+    assert (await graph.aget_state(config)).next == ()

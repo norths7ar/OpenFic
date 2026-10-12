@@ -190,7 +190,7 @@ async def _invoke_model(
 # 节点级重试已禁用：超时与重试统一由模型调用层（invoke_model_with_retry）处理，
 # 避免双层重试叠加。保留常量名以便测试禁用兜底重试。
 LLM_RETRY_POLICY = RetryPolicy(max_attempts=1)
-TOOL_BATCH_SIZE = 20
+TOOL_CONCURRENCY_LIMIT = 20
 
 
 def _get_configurable(config: RunnableConfig | None) -> dict[str, Any]:
@@ -860,6 +860,7 @@ def create_react_agent(
             "tool_outcomes": Overwrite([]),
             "tool_prepared_outcomes": Overwrite([]),
             "tool_phase": "prepare",
+            "tool_batch_offset": 0,
         }
         if drained_injected_user_message:
             update["is_done"] = False
@@ -1145,14 +1146,71 @@ def create_react_agent(
 
     async def tools_join(
         state: ReactState,
-        _config: Optional[RunnableConfig] = None,  # noqa: UP045 - LangGraph inspects this annotation.
+        config: Optional[RunnableConfig] = None,  # noqa: UP045 - LangGraph inspects this annotation.
     ) -> dict:
-        """Join parallel tool results and restore model call order."""
+        """Advance bounded batches, then restore the complete model call order."""
+        last_message = next(
+            message
+            for message in reversed(state["messages"])
+            if isinstance(message, AIMessage) and message.tool_calls
+        )
+        # Persisted pre-batching execution checkpoints only prepared the first
+        # batch. Finish those turns under their original acceptance contract.
+        legacy_execution = state.get("tool_phase") == "execute" and "tool_batch_offset" not in state
+        next_offset = state.get("tool_batch_offset", 0) + TOOL_CONCURRENCY_LIMIT
+        if not legacy_execution and next_offset < len(last_message.tool_calls):
+            return {"tool_batch_offset": next_offset}
+
         outcomes = sorted(state.get("tool_outcomes", []), key=lambda outcome: outcome["index"])
+        if legacy_execution:
+            completed_ids = {outcome["tool_call_id"] for outcome in outcomes}
+            for index, tool_call in enumerate(last_message.tool_calls[TOOL_CONCURRENCY_LIMIT:]):
+                if tool_call["id"] in completed_ids:
+                    continue
+                failure = ToolFailure(
+                    code="limit_exceeded",
+                    message="此调用属于升级前的执行轮次，超出原单轮 20 个工具上限，未执行",
+                    trace={"source": "tool_dispatch"},
+                )
+                tool_result_sink = _get_configurable(config).get("tool_result_sink")
+                if callable(tool_result_sink):
+                    await _maybe_await(
+                        tool_result_sink(
+                            {
+                                "session_id": _get_configurable(config).get("session_id"),
+                                "tool_call_id": tool_call["id"],
+                                "tool_name": tool_call["name"],
+                                "input": tool_call["args"],
+                                "output": failure.to_result(
+                                    {
+                                        "tool_call_id": tool_call["id"],
+                                        "tool_name": tool_call["name"],
+                                    }
+                                ),
+                            }
+                        )
+                    )
+                outcomes.append(
+                    {
+                        "index": TOOL_CONCURRENCY_LIMIT + index,
+                        "tool_call_id": tool_call["id"],
+                        "tool_name": tool_call["name"],
+                        "tool_args": tool_call["args"],
+                        "message": ToolMessage(
+                            content=serialize_tool_failure(failure),
+                            tool_call_id=tool_call["id"],
+                            name=tool_call["name"],
+                        ),
+                        "payload": failure.to_result(),
+                        "success": False,
+                        "latency_ms": 0,
+                    }
+                )
         if state.get("tool_phase") == "prepare":
             return {
                 "tool_outcomes": Overwrite([]),
                 "tool_phase": "execute",
+                "tool_batch_offset": 0,
             }
         messages = [outcome["message"] for outcome in outcomes]
         is_done = False
@@ -1190,6 +1248,7 @@ def create_react_agent(
             "tool_outcomes": Overwrite([]),
             "tool_prepared_outcomes": Overwrite([]),
             "tool_phase": "prepare",
+            "tool_batch_offset": 0,
         }
         if is_done:
             update["is_done"] = True
@@ -1200,68 +1259,9 @@ def create_react_agent(
     # Routing
     # ------------------------------------------------------------------
 
-    async def dispatch_tools(
-        state: ReactState,
-        config: Optional[RunnableConfig] = None,  # noqa: UP045 - LangGraph inspects this annotation.
-    ) -> dict:
-        excess_outcomes: list[dict[str, Any]] = []
-        error_message = f"Agent 单轮最多调用 {TOOL_BATCH_SIZE} 个工具，超出上限的工具调用未执行"
-        failure = ToolFailure(
-            code="limit_exceeded",
-            message=error_message,
-            trace={"source": "tool_dispatch"},
-        )
-        for message in reversed(state["messages"]):
-            if isinstance(message, AIMessage) and message.tool_calls:
-                for offset, tool_call in enumerate(message.tool_calls[TOOL_BATCH_SIZE:]):
-                    tool_name = str(tool_call.get("name") or "")
-                    tool_id = str(tool_call.get("id") or "")
-                    tool_args = tool_call.get("args")
-                    tool_args = tool_args if isinstance(tool_args, dict) else {}
-                    log_tool_failure(failure, tool_name=tool_name, tool_call_id=tool_id)
-                    payload = failure.to_result()
-                    result = serialize_tool_failure(failure)
-                    excess_outcomes.append(
-                        {
-                            "index": TOOL_BATCH_SIZE + offset,
-                            "tool_call_id": tool_id,
-                            "tool_name": tool_name,
-                            "tool_args": tool_args,
-                            "message": ToolMessage(
-                                content=result,
-                                tool_call_id=tool_id,
-                                name=tool_name,
-                            ),
-                            "payload": payload,
-                            "success": False,
-                            "latency_ms": 0,
-                        }
-                    )
-                break
-        if not excess_outcomes:
-            return {}
-        if state.get("tool_phase") == "execute":
-            tool_result_sink = _get_configurable(config).get("tool_result_sink")
-            if callable(tool_result_sink):
-                for outcome in excess_outcomes:
-                    output_payload = failure.to_result(
-                        {
-                            "tool_call_id": outcome["tool_call_id"],
-                            "tool_name": outcome["tool_name"],
-                        }
-                    )
-                    result = tool_result_sink(
-                        {
-                            "session_id": _get_configurable(config).get("session_id"),
-                            "tool_call_id": outcome["tool_call_id"],
-                            "tool_name": outcome["tool_name"],
-                            "input": outcome["tool_args"],
-                            "output": output_payload,
-                        }
-                    )
-                    if inspect.isawaitable(result):
-                        await result
-        return {"tool_outcomes": excess_outcomes}
+    async def dispatch_tools(state: ReactState) -> dict:
+        """Keep dispatch as a checkpoint boundary; acceptance is not capped by concurrency."""
+        return {}
 
     def route_tool_batch(state: ReactState) -> list[Send]:
         last_message = next(
@@ -1274,10 +1274,14 @@ def create_react_agent(
         )
         if last_message is None:
             return []
-        dispatch_count = 0
+        offset = state.get("tool_batch_offset", 0)
+        dispatch_count = sum(
+            tool_call["name"] == "dispatch_subagent"
+            for tool_call in last_message.tool_calls[:offset]
+        )
         sends: list[Send] = []
-        for slot in range(TOOL_BATCH_SIZE):
-            index = slot
+        for slot in range(TOOL_CONCURRENCY_LIMIT):
+            index = offset + slot
             tool_call = (
                 last_message.tool_calls[index] if index < len(last_message.tool_calls) else None
             )
@@ -1324,7 +1328,7 @@ def create_react_agent(
     async def route_after_tools(
         state: ReactState,
     ) -> Literal["dispatch_tools", "llm_call", "__end__"]:
-        if state.get("tool_phase") == "execute":
+        if state.get("tool_phase") == "execute" or state.get("tool_batch_offset", 0) > 0:
             return "dispatch_tools"
         if inject_queue is not None and not inject_queue.empty():
             return "llm_call"
@@ -1348,7 +1352,7 @@ def create_react_agent(
         retry_policy=LLM_RETRY_POLICY,
     )
     graph.add_node("dispatch_tools", dispatch_tools)
-    for slot in range(TOOL_BATCH_SIZE):
+    for slot in range(TOOL_CONCURRENCY_LIMIT):
         graph.add_node(f"tool_exec_{slot}", tool_exec)
     graph.add_node("tools_join", tools_join)
 
@@ -1364,7 +1368,7 @@ def create_react_agent(
     )
     graph.add_conditional_edges("dispatch_tools", route_tool_batch)
     graph.add_edge(
-        [f"tool_exec_{slot}" for slot in range(TOOL_BATCH_SIZE)],
+        [f"tool_exec_{slot}" for slot in range(TOOL_CONCURRENCY_LIMIT)],
         "tools_join",
     )
     graph.add_conditional_edges(

@@ -416,3 +416,65 @@ async def test_react_agent_finishes_audit_when_tool_approval_interrupts() -> Non
     assert audit.responses[0]["tool_calls"][0]["name"] == "write_plan"
     assert audit.tools == []
     assert audit.finished == ["success"]
+
+
+@pytest.mark.asyncio
+async def test_react_agent_records_one_audit_for_full_multi_batch_turn() -> None:
+    audit = _AuditProbe()
+    audit_context = Mock()
+    audit_context.llm_call.return_value = audit
+    executed = []
+
+    async def counting_tool(value: int) -> str:
+        # The audit must remain open until even the final batch finishes.
+        assert audit.finished == []
+        executed.append(value)
+        if value == 20:
+            raise RuntimeError("later batch failure")
+        return '{"success": true}'
+
+    response = AIMessage(
+        content="",
+        tool_calls=[
+            {"id": f"call_{i}", "name": "counting_tool", "args": {"value": i}} for i in range(45)
+        ],
+        response_metadata={"usage": {"input_tokens": 12, "output_tokens": 4, "total_tokens": 16}},
+    )
+    graph = create_react_agent(
+        ReactAgentConfig(
+            name="writer",
+            tools=[StructuredTool.from_function(coroutine=counting_tool, description="count")],
+            termination=TerminationCondition(mode="no_tool_call"),
+            max_iterations=1,
+        )
+    )
+    with patch("app.agent_runtime.graph.react_agent._invoke_model", return_value=response) as model:
+        result = await graph.ainvoke(
+            {
+                "messages": [HumanMessage(content="go")],
+                "iteration_count": 0,
+                "is_done": False,
+                "final_output": None,
+            },
+            config={"configurable": {"audit_context": audit_context}},
+        )
+    model.assert_awaited_once()
+    audit_context.llm_call.assert_called_once()
+    assert result["iteration_count"] == 1
+    assert sorted(executed) == list(range(45))
+    assert len(audit.responses) == 1
+    assert audit.responses[0]["usage"]["total_tokens"] == 16
+    assert [call["id"] for call in audit.responses[0]["tool_calls"]] == [
+        f"call_{i}" for i in range(45)
+    ]
+    assert [call["tool_args"] for call in audit.tools] == [{"value": i} for i in range(45)]
+    assert [call["success"] for call in audit.tools] == [i != 20 for i in range(45)]
+    assert audit.tools[20]["tool_result"]["code"] == "execution_failed"
+    assert audit.errors == [
+        {
+            "error_type": "RuntimeError",
+            "error_message": "later batch failure",
+            "error_status_code": None,
+        }
+    ]
+    assert audit.finished == ["success"]
