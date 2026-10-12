@@ -19,6 +19,8 @@ $dataDirectory = if ($DataPath) { [IO.Path]::GetFullPath($DataPath) } else { Joi
 $runtimeDirectory = Join-Path $dataDirectory 'runtime'
 $logDirectory = Join-Path $dataDirectory 'logs'
 $statePath = Join-Path $runtimeDirectory 'openfic.json'
+# Service Desk's OpenFic adapter shares this state file and openfic.lock.
+# Preserve ownership and shutdown credentials when process visibility is restricted.
 $frontendDirectory = Join-Path $projectRoot 'frontend\dist'
 $healthUri = "http://127.0.0.1:$port/api/v1/health"
 $pathSettingNames = @('COVERS_DIR', 'CHARACTER_IMAGES_DIR', 'AGENT_ATTACHMENTS_DIR', 'CHAPTER_EXPORTS_DIR', 'STATIC_DIR', 'AGENT_CHECKPOINT_DB')
@@ -143,6 +145,7 @@ function Start-OpenFic {
         throw 'The managed OpenFic process is alive but not healthy. Check logs or stop it first.'
     }
     if ($listeners.Count -gt 0) { throw "Port $port is occupied by unmanaged PID(s): $($listeners -join ', ')." }
+    if (Test-Health) { throw 'OpenFic is reachable but its process ownership cannot be verified. Run the manager with full process visibility; existing state was preserved.' }
     if (-not (Test-Path -LiteralPath $pythonPath)) { throw "Run uv sync --frozen in backend first: $pythonPath" }
     if (-not [string]::IsNullOrWhiteSpace($env:ENCRYPTION_KEY)) {
         throw "Process ENCRYPTION_KEY is not supported by the managed service. Store it in $dataDirectory\.env instead."
@@ -208,7 +211,14 @@ function Start-OpenFic {
                 shutdown_token = $shutdownToken
                 paths = $effectivePaths
             }
-            $state | ConvertTo-Json | Set-Content -LiteralPath $statePath -Encoding utf8
+            $temporaryState = Join-Path $runtimeDirectory ("openfic-" + [Guid]::NewGuid().ToString('N') + '.tmp')
+            try {
+                $state | ConvertTo-Json | Set-Content -LiteralPath $temporaryState -Encoding utf8
+                [IO.File]::Move($temporaryState, $statePath, $true)
+            }
+            finally {
+                if (Test-Path -LiteralPath $temporaryState) { Remove-Item -LiteralPath $temporaryState }
+            }
             $startupComplete = $true
             Write-Output "OpenFic started in background. PID: $listenerId. http://127.0.0.1:$port/"
             return
@@ -227,10 +237,14 @@ function Stop-OpenFic {
     $state = Read-ServiceState
     $process = Get-OwnedProcess $state
     if ($null -eq $process) {
+        if (Test-Health) {
+            throw 'OpenFic is reachable but its process ownership cannot be verified. Run the manager with full process visibility; existing state was preserved.'
+        }
         if ((Get-ListeningProcessIds).Count -gt 0) {
             throw "Port $port has an unmanaged listener; refusing to stop it."
         }
-        if (Test-Path -LiteralPath $statePath) { Remove-Item -LiteralPath $statePath }
+        # Do not erase credentials merely because this process cannot see the
+        # recorded PID. A successful start can atomically replace stale state.
         Write-Output 'OpenFic is not running.'
         return
     }
@@ -255,7 +269,7 @@ function Show-OpenFicStatus {
         Write-Output "OpenFic is running. PID: $($process.Id). http://127.0.0.1:$port/"
         return
     }
-    if ($null -ne $process -or $listeners.Count -gt 0) { throw 'OpenFic process/port status is abnormal. Inspect logs.' }
+    if ($null -ne $process -or $listeners.Count -gt 0 -or (Test-Health)) { throw 'OpenFic process/port status is abnormal. Inspect logs; existing state was preserved.' }
     Write-Output 'OpenFic is not running.'
     exit 1
 }
