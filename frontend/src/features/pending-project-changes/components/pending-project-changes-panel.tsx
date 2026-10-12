@@ -718,6 +718,15 @@ export function PendingProjectChangesPanel({
                       />
                     ) : null}
                   </div>
+                  {!selectedChange.is_applicable && selectedChange.applicability_reason && (
+                    <Text
+                      size="2"
+                      color="amber"
+                      role="status"
+                    >
+                      {selectedChange.applicability_reason}
+                    </Text>
+                  )}
                   {draft && (
                     <>
                       <Text
@@ -735,6 +744,20 @@ export function PendingProjectChangesPanel({
                     </>
                   )}
                   <div className="pending-project-changes-review-content">
+                    {selectedChange.operation === "update" &&
+                    selectedBefore &&
+                    selectedAfter &&
+                    !hasSelectedFieldChanges &&
+                    !hasSelectedBodyChange &&
+                    !draft ? (
+                      <Text
+                        size="2"
+                        color="gray"
+                        role="status"
+                      >
+                        {t("pendingProjectChanges.noChanges")}
+                      </Text>
+                    ) : null}
                     {selectedChange.operation === "update" &&
                     selectedBefore &&
                     selectedAfter &&
@@ -776,8 +799,7 @@ export function PendingProjectChangesPanel({
                     {selectedChange.operation === "update" &&
                     selectedBefore &&
                     selectedAfter &&
-                    (hasSelectedBodyChange ||
-                      (draft && selectedChange.target_type !== "note_category")) ? (
+                    selectedChange.target_type !== "note_category" ? (
                       <BodyComparison
                         label={t("pendingProjectChanges.bodyDiff")}
                         before={asString(selectedBefore.body) ?? ""}

@@ -102,6 +102,33 @@ def _snapshot_hash(snapshot: dict[str, Any]) -> str:
     return semantic_hash(snapshot)
 
 
+def _resolve_change_base(
+    change: PendingProjectChange,
+    current: dict[str, Any],
+) -> dict[str, Any]:
+    """Permit updates after reordering, but never rebase over content changes."""
+    current_hash = _snapshot_hash(current)
+    if current_hash == change.base_hash:
+        return current
+    before = change.before
+    if (
+        change.operation == "update"
+        and isinstance(before, dict)
+        and "order" in before
+        and "order" in current
+        and _snapshot_hash(before) == change.base_hash
+        and {**current, "order": before["order"]} == before
+    ):
+        # Validate the proposal against its captured snapshot. The update path
+        # only writes editable fields, so the current order is left untouched.
+        return before
+    raise PendingChangeConflictError(
+        "正式资料已在候审后发生变化",
+        current=current,
+        current_hash=current_hash,
+    )
+
+
 def _note_snapshot(note: Note) -> dict[str, Any]:
     return {
         "kind": "note",
@@ -605,19 +632,20 @@ async def assess_pending_change(
             target_type,
             change.target_id,
         )
-        if _snapshot_hash(current) != change.base_hash:
-            return PendingChangeApplicability(False, "正式资料已在候审后发生变化")
+        base = _resolve_change_base(change, current)
         _validate_stored_after(
             target_type,
             change.operation,
             change.after,
-            current,
+            base,
         )
         if target_type == "note" and isinstance(target, Note) and target.is_locked:
             return PendingChangeApplicability(False, "笔记已锁定，请先解锁")
         return PendingChangeApplicability(True)
     except NotFoundError:
         return PendingChangeApplicability(False, "候审目标已不存在")
+    except PendingChangeConflictError as exc:
+        return PendingChangeApplicability(False, str(exc))
     except ValidationError as exc:
         return PendingChangeApplicability(False, str(exc))
 
@@ -680,18 +708,12 @@ async def apply_pending_change(
             )
         except NotFoundError as exc:
             raise PendingChangeConflictError("候审目标已不存在") from exc
-        current_hash = _snapshot_hash(current)
-        if current_hash != change.base_hash:
-            raise PendingChangeConflictError(
-                "正式资料已在候审后发生变化",
-                current=current,
-                current_hash=current_hash,
-            )
+        base = _resolve_change_base(change, current)
         normalized_after = _validate_stored_after(
             target_type,
             change.operation,
             change.after,
-            current,
+            base,
         )
         if change.operation == "update":
             if normalized_after is None:
