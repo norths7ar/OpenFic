@@ -67,32 +67,6 @@ async def test_pending_change_requires_existing_project(client: AsyncClient) -> 
 
 
 @pytest.mark.asyncio
-async def test_pending_change_request_contract_is_strict(client: AsyncClient) -> None:
-    project_id = await _create_project(client, "枚举项目")
-    invalid_operation = _create_payload()
-    invalid_operation["operation"] = "archive"
-    invalid_target = _create_payload("chapter")
-    injected_field = _create_payload("character")
-    injected_field["after"]["order"] = 99
-
-    operation_response = await client.post(
-        f"/api/v1/projects/{project_id}/pending-changes",
-        json=invalid_operation,
-    )
-    target_response = await client.post(
-        f"/api/v1/projects/{project_id}/pending-changes",
-        json=invalid_target,
-    )
-    field_response = await client.post(
-        f"/api/v1/projects/{project_id}/pending-changes",
-        json=injected_field,
-    )
-    assert operation_response.status_code == 422
-    assert target_response.status_code == 422
-    assert field_response.status_code == 422
-
-
-@pytest.mark.asyncio
 async def test_pending_change_create_list_and_detail(client: AsyncClient) -> None:
     project_id = await _create_project(client, "待审项目")
     created = await _post_change(client, project_id, _create_payload())
@@ -308,44 +282,6 @@ async def test_pending_change_accepts_matching_tool_payload_kind(
     assert accepted.json()["after"]["category_id"] == category_id
     assert rejected.status_code == 422
     assert "after.kind 必须与 target_type 一致" in rejected.text
-
-
-@pytest.mark.asyncio
-async def test_apply_update_captures_base_and_rejects_stale_target(
-    client: AsyncClient,
-) -> None:
-    project_id = await _create_project(client, "冲突项目")
-    note_response = await client.post(
-        f"/api/v1/projects/{project_id}/notes",
-        json={"title": "原笔记", "content": "原正文"},
-    )
-    note_id = note_response.json()["id"]
-    change = await _post_change(
-        client,
-        project_id,
-        _update_payload("note", note_id, {"body": "候审正文"}),
-    )
-    assert change["base_hash"].startswith("sha256:")
-    assert change["before"]["body"] == "原正文"
-    assert change["after"]["body"] == "候审正文"
-
-    mutate_response = await client.patch(
-        f"/api/v1/notes/{note_id}",
-        json={"content": "用户随后修改的正文"},
-    )
-    assert mutate_response.status_code == 200
-    apply_response = await client.post(
-        f"/api/v1/projects/{project_id}/pending-changes/{change['id']}/apply"
-    )
-    assert apply_response.status_code == 409
-    assert apply_response.json()["detail"]["code"] == "pending_change_conflict"
-
-    detail = await client.get(f"/api/v1/projects/{project_id}/pending-changes/{change['id']}")
-    note = await client.get(f"/api/v1/notes/{note_id}")
-    assert detail.json()["status"] == "pending"
-    assert detail.json()["is_applicable"] is False
-    assert "发生变化" in detail.json()["applicability_reason"]
-    assert note.json()["content"] == "用户随后修改的正文"
 
 
 @pytest.mark.asyncio

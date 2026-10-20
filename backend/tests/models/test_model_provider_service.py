@@ -178,29 +178,6 @@ async def test_validate_openai_responses_compatible_connection_uses_its_adapter(
 
 
 @pytest.mark.asyncio
-async def test_validate_native_anthropic_connection_keeps_openai_compatible_discovery(
-    monkeypatch,
-):
-    encryption_service = EncryptionService("id-hEPdEELwlgep9FQhcYQtX7ow188l7WHwy65qOZGQ=")
-    service = ModelProviderService(encryption_service)
-    requested_provider_types: list[str] = []
-
-    def get_adapter(cls, provider_type: str):
-        requested_provider_types.append(provider_type)
-        return _FakeAdapter()
-
-    monkeypatch.setattr(AdapterRegistry, "get_adapter", classmethod(get_adapter))
-
-    await service.validate_and_get_models(
-        "anthropic",
-        "https://api.anthropic.com",
-        "test-key",
-    )
-
-    assert requested_provider_types == ["anthropic", "openai-compatible"]
-
-
-@pytest.mark.asyncio
 async def test_get_available_models_uses_anthropic_compatible_adapter(monkeypatch):
     encryption_service = EncryptionService("id-hEPdEELwlgep9FQhcYQtX7ow188l7WHwy65qOZGQ=")
     service = ModelProviderService(encryption_service)

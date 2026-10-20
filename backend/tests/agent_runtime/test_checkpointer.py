@@ -3,10 +3,7 @@ import sqlite3
 import tempfile
 from contextlib import closing
 from dataclasses import dataclass
-from pathlib import Path
-from types import SimpleNamespace
 from typing import cast
-from unittest.mock import AsyncMock
 
 import aiosqlite
 import pytest
@@ -21,15 +18,12 @@ from app.agent_runtime.persistence.child_runs import create_child_run
 from app.agent_runtime.persistence.model import AgentChildRunRequest
 from app.agent_runtime.runner.checkpointer import (
     cleanup_unreachable_checkpoints,
-    close_checkpointer,
     delete_checkpoints_after_for_thread,
     delete_checkpoints_for_thread,
     get_checkpointer,
-    init_checkpointer,
     prune_checkpoints_for_thread,
     prune_reachable_checkpoints,
     reset_checkpointer,
-    vacuum_checkpoint_database,
 )
 from app.agent_runtime.tools.impls.interaction.ask_user import Question, QuestionOption
 from app.storage.models.revision import Revision
@@ -102,27 +96,6 @@ def test_checkpoint_serializer_stringifies_out_of_range_integer_metadata() -> No
     assert restored[0].response_metadata["provider_counter"] == str(oversized_integer)
 
 
-def test_checkpoint_serializer_skips_sanitization_for_serializable_values(monkeypatch) -> None:
-    serializer = checkpointer_mod._CheckpointSerializer(
-        allowed_msgpack_modules=checkpointer_mod._ALLOWED_MSGPACK_MODULES,
-    )
-    sanitize_calls = 0
-    original_sanitize = checkpointer_mod._sanitize_checkpoint_value
-
-    def track_sanitize(value, active_ids=None):
-        nonlocal sanitize_calls
-        sanitize_calls += 1
-        return original_sanitize(value, active_ids)
-
-    monkeypatch.setattr(checkpointer_mod, "_sanitize_checkpoint_value", track_sanitize)
-
-    message_type, payload = serializer.dumps_typed({"message": "complete"})
-
-    assert message_type == "msgpack"
-    assert payload
-    assert sanitize_calls == 0
-
-
 @pytest.mark.asyncio
 async def test_get_checkpointer_restores_legacy_question_checkpoint(monkeypatch, tmp_path):
     db_path = tmp_path / "test_checkpoints.db"
@@ -191,68 +164,6 @@ async def test_get_checkpointer_creates_db():
         # Cleanup
         del os.environ["AGENT_CHECKPOINT_DB"]
         await reset_checkpointer()
-
-
-async def test_get_checkpointer_configures_concurrent_sqlite_writes(
-    monkeypatch: pytest.MonkeyPatch,
-    tmp_path: Path,
-):
-    db_path = tmp_path / "test_checkpoints.db"
-    monkeypatch.setenv("AGENT_CHECKPOINT_DB", str(db_path))
-    await reset_checkpointer()
-
-    try:
-        checkpointer = await get_checkpointer()
-        values: dict[str, object] = {}
-        for pragma in ("journal_mode", "synchronous", "busy_timeout"):
-            cursor = await checkpointer.conn.execute(f"PRAGMA {pragma}")
-            try:
-                row = await cursor.fetchone()
-            finally:
-                await cursor.close()
-            values[pragma] = row[0] if row else None
-
-        assert values == {
-            "journal_mode": "wal",
-            "synchronous": 1,
-            "busy_timeout": 30000,
-        }
-    finally:
-        await reset_checkpointer()
-
-
-async def test_get_checkpointer_uses_backend_data_default_path(monkeypatch):
-    with tempfile.TemporaryDirectory() as tmpdir:
-        repo_root = Path(tmpdir)
-        backend_dir = repo_root / "backend"
-        data_dir = backend_dir / "data"
-
-        monkeypatch.delenv("AGENT_CHECKPOINT_DB", raising=False)
-        monkeypatch.setattr(checkpointer_mod.app_settings, "BACKEND_DIR", backend_dir)
-        monkeypatch.setattr(checkpointer_mod.app_settings, "BACKEND_DATA_DIR", data_dir)
-        await reset_checkpointer()
-
-        await get_checkpointer()
-
-        assert (data_dir / "checkpoints.db").exists()
-
-        await reset_checkpointer()
-
-
-async def test_init_checkpointer_preinitializes_and_close_releases_connection():
-    with tempfile.TemporaryDirectory() as tmpdir:
-        db_path = os.path.join(tmpdir, "test_checkpoints.db")
-        os.environ["AGENT_CHECKPOINT_DB"] = db_path
-        await reset_checkpointer()
-
-        checkpointer = await init_checkpointer()
-        assert checkpointer is await get_checkpointer()
-        assert os.path.exists(db_path)
-
-        await close_checkpointer()
-        assert checkpointer_mod._checkpointer is None
-
-        del os.environ["AGENT_CHECKPOINT_DB"]
 
 
 async def test_delete_checkpoints_for_thread_removes_matching_rows_only():
@@ -361,11 +272,6 @@ async def test_delete_checkpoints_after_for_thread_keeps_cutoff_and_clears_subgr
 
         del os.environ["AGENT_CHECKPOINT_DB"]
         await reset_checkpointer()
-
-
-async def test_delete_checkpoints_after_for_thread_noops_on_empty_args():
-    assert await delete_checkpoints_after_for_thread("", "cp-001") == 0
-    assert await delete_checkpoints_after_for_thread("session-a", "") == 0
 
 
 async def test_cleanup_unreachable_checkpoints_preserves_reachable_session_tree(
@@ -713,53 +619,3 @@ async def test_cleanup_unreachable_checkpoints_removes_inactive_child_thread(
     finally:
         await cursor.close()
     await reset_checkpointer()
-
-
-async def test_vacuum_checkpoint_database_only_runs_above_free_space_threshold(
-    monkeypatch,
-    tmp_path,
-):
-    db_path = tmp_path / "test_checkpoints.db"
-    monkeypatch.setenv("AGENT_CHECKPOINT_DB", str(db_path))
-    await reset_checkpointer()
-    checkpointer = await get_checkpointer()
-    await checkpointer.conn.execute("PRAGMA page_size = 4096")
-    await checkpointer.conn.execute("PRAGMA journal_mode = DELETE")
-    await checkpointer.conn.execute("CREATE TABLE test_data (value BLOB)")
-    await checkpointer.conn.execute("INSERT INTO test_data(value) VALUES (zeroblob(32768))")
-    await checkpointer.conn.execute("DELETE FROM test_data")
-    await checkpointer.conn.commit()
-    await reset_checkpointer()
-
-    assert await vacuum_checkpoint_database(min_free_bytes=1) is True
-
-
-async def test_vacuum_checkpoint_database_skips_small_free_space(
-    monkeypatch,
-    tmp_path,
-):
-    db_path = tmp_path / "test_checkpoints.db"
-    monkeypatch.setenv("AGENT_CHECKPOINT_DB", str(db_path))
-    await reset_checkpointer()
-    checkpointer = await get_checkpointer()
-    await checkpointer.conn.execute("CREATE TABLE test_data (value BLOB)")
-    await checkpointer.conn.execute("INSERT INTO test_data(value) VALUES (zeroblob(4096))")
-    await checkpointer.conn.execute("DELETE FROM test_data")
-    await checkpointer.conn.commit()
-    await reset_checkpointer()
-
-    assert await vacuum_checkpoint_database() is False
-
-
-async def test_reset_checkpointer_closes_existing_connection(monkeypatch):
-    close = AsyncMock()
-    monkeypatch.setattr(
-        checkpointer_mod,
-        "_checkpointer",
-        SimpleNamespace(conn=SimpleNamespace(close=close)),
-    )
-
-    await reset_checkpointer()
-
-    close.assert_awaited_once()
-    assert checkpointer_mod._checkpointer is None

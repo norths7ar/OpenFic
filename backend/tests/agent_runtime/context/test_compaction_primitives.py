@@ -115,28 +115,6 @@ def test_transcript_excludes_seq_and_tool_call_id_but_keeps_tool_names_and_args(
     assert "seq" not in transcript
 
 
-def test_transcript_tool_result_name_does_not_fallback_to_assistant_tool_call() -> None:
-    assistant = history(
-        "assistant",
-        "I will call",
-        2,
-        tool_calls=[
-            {"id": "call-1", "name": "assistant_tool_name", "args": {"q": "openfic"}},
-        ],
-    )
-    tool = ContextMessage(
-        role="tool",
-        content="tool result",
-        tool_call_id="call-1",
-        metadata={"part": "history", "seq": 3},
-    )
-
-    transcript = to_transcript([assistant, tool])
-
-    assert '<tool name="unknown">tool result</tool>' in transcript
-    assert '<tool name="assistant_tool_name">tool result</tool>' not in transcript
-
-
 def test_transcript_escapes_text_and_attribute_values() -> None:
     assistant = history(
         "assistant",

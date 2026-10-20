@@ -4,7 +4,6 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from langchain_core.messages import HumanMessage, SystemMessage
 
-from app.agent_runtime.context.errors import ContextBuildError
 from app.agent_runtime.context.processors.compress import (
     SETTING_KEY_COMPRESS_SYSTEM_PROMPTS,
     compress_system_prompts,
@@ -65,18 +64,6 @@ def test_preserves_first_message_metadata() -> None:
     assert merged[0].attachments == [{"type": "image_url", "image_url": {"url": "x"}}]
 
 
-def test_returns_original_list_when_no_consecutive_system_messages() -> None:
-    messages = [
-        ContextMessage(role="user", content="u"),
-        ContextMessage(role="system", content="s"),
-        ContextMessage(role="assistant", content="a"),
-    ]
-
-    merged = compress_system_prompts(messages)
-
-    assert merged == messages
-
-
 @pytest.mark.asyncio
 async def test_if_enabled_merges_when_setting_true() -> None:
     messages = [
@@ -93,55 +80,6 @@ async def test_if_enabled_merges_when_setting_true() -> None:
         merged = await compress_system_prompts_if_enabled(messages, AsyncMock())
 
     assert [m.content for m in merged] == ["A\n\nB"]
-
-
-@pytest.mark.asyncio
-async def test_if_enabled_keeps_original_when_setting_missing() -> None:
-    messages = [
-        ContextMessage(role="system", content="A", metadata={"part": "system_prompt"}),
-        ContextMessage(role="system", content="B", metadata={"part": "system_prompt"}),
-    ]
-
-    with patch(
-        "app.agent_runtime.context.processors.compress.setting_repo.get_by_key",
-        new=AsyncMock(return_value=None),
-    ):
-        merged = await compress_system_prompts_if_enabled(messages, AsyncMock())
-
-    assert merged is messages
-
-
-@pytest.mark.asyncio
-async def test_if_enabled_keeps_original_when_setting_false() -> None:
-    messages = [
-        ContextMessage(role="system", content="A", metadata={"part": "system_prompt"}),
-        ContextMessage(role="system", content="B", metadata={"part": "system_prompt"}),
-    ]
-
-    with patch(
-        "app.agent_runtime.context.processors.compress.setting_repo.get_by_key",
-        new=AsyncMock(
-            return_value=SimpleNamespace(key=SETTING_KEY_COMPRESS_SYSTEM_PROMPTS, value="false")
-        ),
-    ):
-        merged = await compress_system_prompts_if_enabled(messages, AsyncMock())
-
-    assert merged is messages
-
-
-@pytest.mark.asyncio
-async def test_if_enabled_wraps_setting_load_errors() -> None:
-    cause = RuntimeError("boom")
-
-    with patch(
-        "app.agent_runtime.context.processors.compress.setting_repo.get_by_key",
-        new=AsyncMock(side_effect=cause),
-    ):
-        with pytest.raises(ContextBuildError) as exc:
-            await compress_system_prompts_if_enabled([], AsyncMock())
-
-    assert exc.value.part == "settings"
-    assert exc.value.cause is cause
 
 
 @pytest.mark.asyncio

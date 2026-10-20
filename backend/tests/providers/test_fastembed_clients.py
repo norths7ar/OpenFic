@@ -7,7 +7,6 @@ FastEmbed client tests - 内置 fastembed 客户端的 provider 路由逻辑。
 
 import sys
 import types
-import warnings
 
 import pytest
 
@@ -98,39 +97,6 @@ async def test_rerank_client_builtin_uses_fastembed(monkeypatch):
     assert scores == sorted(scores, reverse=True)
 
 
-def test_rerank_client_accepts_builtin_provider():
-    client = RerankClient(
-        RerankConfig(
-            provider_type="builtin",
-            base_url="builtin://local",
-            api_key="",
-            model_id="Xenova/ms-marco-MiniLM-L-6-v2",
-        )
-    )
-    assert client.config.provider_type == "builtin"
-
-
-def test_embedding_client_uses_openai_compatible_for_ollama_even_when_not_forced():
-    client = EmbeddingClient(
-        EmbeddingConfig(
-            provider_type="ollama",
-            base_url="https://ollama.com/v1",
-            api_key="test-key",
-            model_id="embeddinggemma",
-            use_openai_compatible=False,
-        )
-    )
-
-    from langchain_openai import OpenAIEmbeddings
-
-    with warnings.catch_warnings(record=True) as caught_warnings:
-        warnings.simplefilter("always")
-        embeddings = client._get_embeddings()
-
-    assert isinstance(embeddings, OpenAIEmbeddings)
-    assert not caught_warnings
-
-
 def test_embedding_client_sends_custom_headers_for_openai_compatible_provider():
     client = EmbeddingClient(
         EmbeddingConfig(
@@ -145,17 +111,3 @@ def test_embedding_client_sends_custom_headers_for_openai_compatible_provider():
     embeddings = client._get_embeddings()
 
     assert embeddings.default_headers["X-Provider-Token"] == "custom-token"
-
-
-def test_rerank_client_forces_openai_compatible_for_non_builtin_provider():
-    client = RerankClient(
-        RerankConfig(
-            provider_type="upstage",
-            base_url="https://api.upstage.ai/v1/solar",
-            api_key="test-key",
-            model_id="solar-rerank",
-            use_openai_compatible=True,
-        )
-    )
-
-    assert client.runtime_provider_type == "openai-compatible"

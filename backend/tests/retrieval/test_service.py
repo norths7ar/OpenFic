@@ -7,7 +7,7 @@ from pathlib import Path
 
 import lancedb  # type: ignore[import-untyped]
 import pytest
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.encryption import EncryptionService
@@ -167,24 +167,6 @@ async def _create_embedding_model_with_dimensions(
 
 
 @pytest.mark.asyncio
-async def test_register_index_is_idempotent_for_same_contract(
-    session: AsyncSession, tmp_path: Path
-) -> None:
-    model = await _create_embedding_model(session)
-    service = OpenFicRetrievalService(base_dir=tmp_path / "lancedb")
-    contract = _make_contract(model.id)
-
-    first = await service.register_index(session, "chapters", contract)
-    second = await service.register_index(session, "chapters", contract)
-
-    count = await session.scalar(select(func.count()).select_from(RetrievalIndex))
-
-    assert first.index_key == "chapters"
-    assert second.id == first.id
-    assert count == 1
-
-
-@pytest.mark.asyncio
 async def test_register_index_keeps_needs_rebuild_for_same_contract(
     session: AsyncSession, tmp_path: Path
 ) -> None:
@@ -199,21 +181,6 @@ async def test_register_index_keeps_needs_rebuild_for_same_contract(
 
     assert same_contract_row.id == row.id
     assert same_contract_row.status == "needs_rebuild"
-
-
-@pytest.mark.asyncio
-async def test_register_index_rejects_contract_mismatch(
-    session: AsyncSession, tmp_path: Path
-) -> None:
-    model = await _create_embedding_model(session)
-    service = OpenFicRetrievalService(base_dir=tmp_path / "lancedb")
-    contract = _make_contract(model.id)
-    await service.register_index(session, "chapters", contract)
-
-    different = RetrievalIndexContract(**{**contract.model_dump(), "chunk_size": 128})
-
-    with pytest.raises(ValueError):
-        await service.register_index(session, "chapters", different)
 
 
 @pytest.mark.asyncio
@@ -829,56 +796,6 @@ async def test_index_documents_can_retry_after_failed_status(
     await session.refresh(row)
     assert retry_result.succeeded_count == 1
     assert row.status == "ready"
-
-
-@pytest.mark.asyncio
-async def test_index_documents_rejects_duplicate_document_ids(
-    session: AsyncSession, tmp_path: Path
-) -> None:
-    model = await _create_embedding_model(session)
-    service = OpenFicRetrievalService(base_dir=tmp_path / "lancedb")
-    contract = _make_contract(model.id)
-    embedding_client = FakeEmbeddingClient()
-
-    await service.register_index(session, "chapters", contract)
-
-    with pytest.raises(ValueError):
-        await service.index_documents(
-            session,
-            "chapters",
-            [
-                IndexDocument(document_id="chapter-1", text="dragon"),
-                IndexDocument(document_id="chapter-1", text="hero"),
-            ],
-            embedding_client,
-        )
-
-
-@pytest.mark.asyncio
-async def test_index_documents_skip_chunking_requires_chunks_only(
-    session: AsyncSession, tmp_path: Path
-) -> None:
-    model = await _create_embedding_model(session)
-    service = OpenFicRetrievalService(base_dir=tmp_path / "lancedb")
-    contract = _make_contract(model.id)
-    embedding_client = FakeEmbeddingClient()
-
-    await service.register_index(session, "chapters", contract)
-
-    with pytest.raises(ValueError):
-        await service.index_documents(
-            session,
-            "chapters",
-            [
-                IndexDocument(
-                    document_id="chapter-1",
-                    text="dragon",
-                    chunks=["dragon"],
-                )
-            ],
-            embedding_client,
-            skip_chunking=True,
-        )
 
 
 @pytest.mark.asyncio

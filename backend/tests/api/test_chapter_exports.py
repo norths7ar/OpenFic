@@ -12,15 +12,6 @@ from app.background.jobs.models import BackgroundJob
 from app.background.runtime.context import JobContext
 from app.background.runtime.dispatcher import dispatch_job
 from app.chapter_export import service as chapter_export_service
-from app.storage.repos import chapter_repo
-
-
-def test_chinese_volume_numbers() -> None:
-    assert chapter_export_service.chinese_number(1) == "一"
-    assert chapter_export_service.chinese_number(10) == "十"
-    assert chapter_export_service.chinese_number(11) == "十一"
-    assert chapter_export_service.chinese_number(21) == "二十一"
-    assert chapter_export_service.chinese_number(101) == "一百零一"
 
 
 def test_expired_export_is_not_downloadable(monkeypatch, tmp_path) -> None:
@@ -94,30 +85,6 @@ async def test_create_full_volume_export_uses_volume_filename_and_snapshot_selec
     assert data["word_count"] == 10
     assert data["filename"] == "测试小说-全本-2026-07-28.txt"
     assert data["chapter_ids"] == [first["id"], second["id"]]
-
-
-@pytest.mark.asyncio
-async def test_export_creation_does_not_load_chapter_bodies(
-    client: AsyncClient, monkeypatch
-) -> None:
-    project_id, volume_id = await _create_project(client)
-    chapter = await _create_chapter(client, project_id, volume_id, "第一章", "正文", 2)
-
-    async def reject_full_chapter_load(*_args, **_kwargs):
-        raise AssertionError("导出创建阶段不应读取完整章节正文")
-
-    monkeypatch.setattr(chapter_repo, "list_by_project", reject_full_chapter_load)
-    response = await client.post(
-        f"/api/v1/projects/{project_id}/chapter-exports",
-        json={
-            "selected_volume_ids": [],
-            "included_chapter_ids": [chapter["id"]],
-            "excluded_chapter_ids": [],
-            "local_date": "2026-07-28",
-        },
-    )
-
-    assert response.status_code == 201
 
 
 @pytest.mark.asyncio

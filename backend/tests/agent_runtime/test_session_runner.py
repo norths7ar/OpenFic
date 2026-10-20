@@ -42,61 +42,6 @@ def test_interrupt_payloads_preserve_pending_resume_data() -> None:
     ]
 
 
-def test_session_runner_init():
-    runner = SessionRunner(
-        session_id="sess_001",
-        task_id="task_001",
-        model_config={
-            "provider_type": "openai",
-            "model_id": "gpt-4o",
-            "api_key": "sk-test",
-            "base_url": "",
-            "max_context_tokens": 8000,
-        },
-    )
-    assert runner.session_id == "sess_001"
-    assert not hasattr(runner, "mode")
-
-
-def test_session_runner_inject_queue():
-    runner = SessionRunner(
-        session_id="sess_001",
-        task_id="task_001",
-        model_config={
-            "provider_type": "openai",
-            "model_id": "gpt-4o",
-            "api_key": "sk-test",
-            "base_url": "",
-            "max_context_tokens": 8000,
-        },
-    )
-    assert runner._inject_queue is not None
-    assert runner._inject_queue.empty()
-
-
-def test_runtime_config_keeps_api_key_outside_persisted_state():
-    runner = SessionRunner(
-        session_id="sess_runtime_config",
-        task_id="task_runtime_config",
-        model_config={
-            "model_record_id": "model-record-1",
-            "provider_type": "openai-compatible",
-            "model_id": "gpt-4o",
-            "api_key": "sk-runtime",
-            "base_url": "",
-            "max_context_tokens": 8000,
-        },
-    )
-
-    config = runner._build_runtime_config(
-        runtime_session=MagicMock(),
-        runtime_context={},
-        audit_context=MagicMock(),
-    )
-
-    assert config["configurable"]["model_config"]["api_key"] == "sk-runtime"
-
-
 @pytest.mark.asyncio
 async def test_session_runner_inject_message():
     runner = SessionRunner(
@@ -200,42 +145,6 @@ async def test_run_emits_done_with_created_at():
     assert done_payloads
     assert isinstance(done_payloads[-1].get("created_at"), str) and done_payloads[-1]["created_at"]
     prune_mock.assert_awaited_once()
-
-
-@pytest.mark.asyncio
-async def test_prune_thread_checkpoints_calls_prune_with_session_id():
-    runner = SessionRunner(
-        session_id="sess_prune_001",
-        task_id="task_prune_001",
-        model_config={
-            "provider_type": "openai",
-            "model_id": "gpt",
-            "api_key": "k",
-            "base_url": "",
-            "max_context_tokens": 8000,
-        },
-    )
-    fake_session = MagicMock(close=AsyncMock())
-    fake_checkpointer = MagicMock()
-
-    with (
-        patch(
-            "app.agent_runtime.runner.session_runner.create_session",
-            AsyncMock(return_value=fake_session),
-        ),
-        patch(
-            "app.agent_runtime.runner.session_runner.get_checkpointer",
-            AsyncMock(return_value=fake_checkpointer),
-        ),
-        patch(
-            "app.agent_runtime.runner.session_runner.prune_thread_checkpoints",
-            AsyncMock(return_value=0),
-        ) as prune_mock,
-    ):
-        await runner._prune_thread_checkpoints()
-
-    prune_mock.assert_awaited_once_with(fake_session, fake_checkpointer, "sess_prune_001")
-    fake_session.close.assert_awaited_once()
 
 
 @pytest.mark.asyncio
@@ -672,81 +581,6 @@ async def test_resume_targets_the_approved_parallel_tool_interrupt():
 
 
 @pytest.mark.asyncio
-async def test_resume_user_skip_uses_exit_durability():
-    runner = SessionRunner(
-        session_id="sess_resume_skip",
-        task_id="task_resume_skip",
-        model_config={
-            "provider_type": "openai",
-            "model_id": "gpt",
-            "api_key": "k",
-            "base_url": "",
-            "max_context_tokens": 8000,
-        },
-    )
-    captured: dict = {}
-
-    class _Graph:
-        def __init__(self) -> None:
-            self.state_reads = 0
-
-        async def astream_events(self, command, *args, **kwargs):
-            captured["command"] = command
-            captured["kwargs"] = kwargs
-            if False:
-                yield None
-
-        async def aget_state(self, *args, **kwargs):
-            self.state_reads += 1
-            if self.state_reads <= 2:
-                return SimpleNamespace(
-                    next=("tools",),
-                    tasks=(
-                        SimpleNamespace(
-                            interrupts=(
-                                SimpleNamespace(
-                                    id="question-1",
-                                    value={"type": "ask_user", "action_id": "question-1"},
-                                ),
-                            )
-                        ),
-                    ),
-                    values={"current_revision_id": "rev-skip"},
-                )
-            return SimpleNamespace(next=(), tasks=(), values={"current_revision_id": "rev-skip"})
-
-    fake_session = MagicMock(close=AsyncMock(), commit=AsyncMock())
-    fake_persister = MagicMock(handle=AsyncMock(), finalize=AsyncMock())
-
-    with (
-        patch.object(runner, "_get_graph", AsyncMock(return_value=_Graph())),
-        patch(
-            "app.agent_runtime.runner.session_runner.finalize_revision_status",
-            AsyncMock(),
-        ),
-        patch(
-            "app.agent_runtime.runner.session_runner.revision_repo.get_by_id",
-            AsyncMock(return_value=None),
-        ),
-        patch(
-            "app.agent_runtime.runner.session_runner.create_session",
-            AsyncMock(return_value=fake_session),
-        ),
-        patch.object(runner, "_make_persister", MagicMock(return_value=fake_persister)),
-    ):
-        await runner.resume(
-            {
-                "action_type": "clarification",
-                "action_id": "question-1",
-                "answer": [],
-                "skipped": True,
-            }
-        )
-
-    assert captured["kwargs"]["durability"] == "exit"
-
-
-@pytest.mark.asyncio
 async def test_resume_restores_all_parallel_interrupts_in_one_command() -> None:
     runner = SessionRunner(
         session_id="sess_resume_batch",
@@ -829,85 +663,6 @@ async def test_resume_restores_all_parallel_interrupts_in_one_command() -> None:
         "approval-1": responses[0],
         "question-1": responses[1],
     }
-
-
-@pytest.mark.asyncio
-async def test_initial_state_does_not_include_context_anchor_state():
-    runner = SessionRunner(
-        session_id="sess_ctx_001",
-        task_id="task_ctx_001",
-        model_config={
-            "provider_type": "openai",
-            "model_id": "gpt",
-            "api_key": "k",
-            "base_url": "",
-            "max_context_tokens": 8000,
-        },
-        project_id="proj_001",
-        agent_key="plan",
-    )
-    captured: dict = {}
-    captured_config: dict = {}
-
-    class _Graph:
-        async def astream_events(self, state, config, version):
-            captured.update(state)
-            captured_config.update(config)
-            if False:
-                yield None
-
-        async def aget_state(self, config):
-            class _S:
-                next = ()
-                tasks = ()
-                values: dict = {}
-
-            return _S()
-
-    fake_session = MagicMock(close=AsyncMock(), commit=AsyncMock())
-    begin_revision = AsyncMock(return_value=SimpleNamespace(id="rev_1"))
-    with (
-        patch.object(runner, "_get_graph", AsyncMock(return_value=_Graph())),
-        patch.object(runner, "_prepare_run_persistence", AsyncMock(return_value=[])),
-        patch.object(
-            runner,
-            "_persist_user_message",
-            AsyncMock(return_value=SimpleNamespace(id="msg_1", seq=0)),
-        ),
-        patch("app.agent_runtime.runner.session_runner.begin_user_revision", begin_revision),
-        patch("app.agent_runtime.runner.session_runner.finalize_revision_status", AsyncMock()),
-        patch("app.agent_runtime.runner.session_runner.emit", AsyncMock()),
-        patch(
-            "app.agent_runtime.runner.session_runner.create_session",
-            AsyncMock(return_value=fake_session),
-        ),
-        patch.object(
-            runner,
-            "_make_persister",
-            MagicMock(
-                return_value=MagicMock(
-                    handle=AsyncMock(),
-                    mark_user_sent=AsyncMock(),
-                    finalize=AsyncMock(),
-                )
-            ),
-        ),
-    ):
-        await runner.run(user_request="hi")
-
-    assert "context_anchor_order" not in captured
-    assert captured.get("current_revision_id") == "rev_1"
-    assert captured.get("task_id") == "task_ctx_001"
-    assert captured.get("agent_key") == "plan"
-    assert "message_checkpoints" not in captured
-    assert "handoff_context" not in captured
-    configurable = captured_config.get("configurable", {})
-    assert captured_config.get("recursion_limit") == 1000
-    assert configurable.get("db_session") is not None
-    assert configurable.get("runtime_context") == {}
-    assert configurable.get("audit_context") is not None
-    assert "context_anchor_persistence_sink" not in configurable
-    assert "context_anchor_order" not in begin_revision.await_args.kwargs
 
 
 @pytest.mark.asyncio

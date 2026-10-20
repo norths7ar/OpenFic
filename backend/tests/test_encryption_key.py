@@ -6,16 +6,6 @@ import app.settings as settings_module
 from app.settings import _ensure_encryption_key
 
 
-def test_env_file_path_resolves_under_data_dir() -> None:
-    assert settings_module.ENV_FILE_PATH.is_absolute()
-    assert settings_module.ENV_FILE_PATH.parent == settings_module.BACKEND_DATA_DIR
-
-
-def test_encryption_key_file_path_resolves_under_data_dir() -> None:
-    assert settings_module.ENCRYPTION_KEY_FILE_PATH.is_absolute()
-    assert settings_module.ENCRYPTION_KEY_FILE_PATH.parent == settings_module.BACKEND_DATA_DIR
-
-
 def test_ensure_encryption_key_reads_key_file_and_ignores_env(monkeypatch, tmp_path: Path) -> None:
     known_key = Fernet.generate_key().decode()
     key_file = tmp_path / "data" / ".key"

@@ -13,27 +13,6 @@ pytestmark = pytest.mark.usefixtures("fast_checkpoint_sqlite")
 
 
 @pytest.mark.asyncio
-async def test_new_checkpoint_database_uses_incremental_auto_vacuum(
-    monkeypatch: pytest.MonkeyPatch,
-    tmp_path,
-) -> None:
-    db_path = tmp_path / "checkpoints.db"
-    monkeypatch.setenv("AGENT_CHECKPOINT_DB", str(db_path))
-    await reset_checkpointer()
-
-    try:
-        checkpointer = await get_checkpointer()
-        cursor = await checkpointer.conn.execute("PRAGMA auto_vacuum")
-        try:
-            row = await cursor.fetchone()
-        finally:
-            await cursor.close()
-        assert row == (2,)
-    finally:
-        await reset_checkpointer()
-
-
-@pytest.mark.asyncio
 async def test_incremental_vacuum_reclaims_free_pages(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path,

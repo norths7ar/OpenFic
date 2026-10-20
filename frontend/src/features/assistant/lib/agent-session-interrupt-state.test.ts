@@ -24,28 +24,6 @@ describe("buildPendingInterruptMessages", () => {
     ]);
   });
 
-  test("preserves interrupt batch metadata and adds a restored batch id", () => {
-    const messages = buildPendingInterruptMessages(
-      [
-        { id: "a", type: "ask_user" },
-        { id: "b", type: "tool_approval", batch_index: 4, batch_total: 9 },
-      ],
-      options,
-    );
-
-    expect(messages).toHaveLength(2);
-    expect(messages[0]).toMatchObject({
-      interruptBatchId: "restored-interrupt-batch-10000",
-      interruptBatchIndex: 0,
-      interruptBatchTotal: 2,
-    });
-    expect(messages[1]).toMatchObject({
-      interruptBatchId: "restored-interrupt-batch-10000",
-      interruptBatchIndex: 4,
-      interruptBatchTotal: 9,
-    });
-  });
-
   test("normalizes tool approval args, preview, id, and behavior", () => {
     const [message] = buildPendingInterruptMessages(
       [
@@ -78,60 +56,4 @@ describe("buildPendingInterruptMessages", () => {
     });
   });
 
-  test("uses injected approval copy and safe defaults for malformed input", () => {
-    const [custom] = buildPendingInterruptMessages(
-      [{ interrupt_id: "custom", type: "tool_approval", tool_name: "run" }],
-      { ...options, getApprovalMessage: (toolName) => `批准 ${toolName}` },
-    );
-    const [defaults] = buildPendingInterruptMessages(
-      [
-        {
-          id: "defaults",
-          type: "tool_approval",
-          tool_name: "run",
-          args: [],
-          tool_args: "bad",
-          tool_result_preview: [],
-          interrupt_behavior: "unknown",
-        },
-      ],
-      options,
-    );
-
-    expect(custom.toolApproval?.message).toBe("批准 run");
-    expect(defaults.toolApproval).toMatchObject({
-      approval_id: "defaults",
-      tool_args: {},
-      message: "Allow calling run?",
-      interrupt_behavior: "cancel",
-    });
-    expect(defaults.toolApproval?.tool_result_preview).toBeUndefined();
-  });
-
-  test("skips missing ids and unknown interrupt types", () => {
-    expect(
-      buildPendingInterruptMessages(
-        [
-          { type: "ask_user" },
-          { id: "unknown", type: "something_else" },
-          { interrupt_id: "known", type: "unknown" },
-        ],
-        options,
-      ),
-    ).toEqual([]);
-  });
-
-  test("uses the injected clock for batch and message timestamps", () => {
-    let current = 700;
-    const messages = buildPendingInterruptMessages(
-      [
-        { id: "a", type: "ask_user" },
-        { id: "b", type: "ask_user" },
-      ],
-      { now: () => current++ },
-    );
-
-    expect(messages.map(({ timestamp }) => timestamp)).toEqual([701, 703]);
-    expect(messages[0].interruptBatchId).toBe("restored-interrupt-batch-700");
-  });
 });

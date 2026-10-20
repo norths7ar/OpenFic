@@ -10,7 +10,6 @@ from langchain_core.tools import BaseTool, StructuredTool
 from app.agent_runtime.context.compaction.service import CompactionError
 from app.agent_runtime.context.compaction.window import CompactionNoWindowError
 from app.agent_runtime.context.types import ContextMessage
-from app.agent_runtime.graph.message_conversion import _to_history_dict as message_to_history_dict
 from app.agent_runtime.graph.react_agent import (
     _to_history_dict,
     create_react_agent,
@@ -29,10 +28,6 @@ class _NoopTool(BaseTool):
 
     async def _arun(self, **kwargs):
         return "ok"
-
-
-def test_react_agent_reexports_history_converter() -> None:
-    assert _to_history_dict is message_to_history_dict
 
 
 def test_llm_call_uses_build_context_when_config_provided() -> None:

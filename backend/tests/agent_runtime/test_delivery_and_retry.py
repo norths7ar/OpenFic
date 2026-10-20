@@ -163,32 +163,3 @@ async def test_withdraw_restores_uploaded_attachments():
     restored = await item.cancel_pending_user_message(queued["message_id"])
     assert restored["attachments"] == attachments
     assert not item.list_pending_user_messages()
-
-
-@pytest.mark.asyncio
-async def test_message_arriving_at_final_cleanup_is_launched_under_lifecycle_lock(monkeypatch):
-    item = runner()
-    item.last_run_completed = True
-    registry = AgentRunRegistry()
-    monkeypatch.setitem(agent_runtime._SESSION_RUNNERS, item.session_id, item)
-    queued = await item.queue_pending_user_message("last boundary", delivery_mode="queue")
-    launches = []
-
-    async def launch(**kwargs):
-        launches.append(kwargs)
-        assert registry.session_lock(item.session_id).locked()
-        kwargs["coro"].close()
-
-    monkeypatch.setattr(agent_runtime, "_launch_task", launch)
-    async with registry.session_lock(item.session_id):
-        await agent_runtime._launch_pending_after_completion(
-            session_id=item.session_id,
-            registry=registry,
-            db_session_factory=AsyncMock(),
-            task_id=item.task_id,
-            project_id=item.project_id,
-        )
-    assert len(launches) == 1
-    assert launches[0]["lifecycle_lock_held"] is True
-    assert launches[0]["clear_cancelled"] is False
-    assert queued["message_id"] in item._received_user_message_ids

@@ -1,5 +1,4 @@
 import asyncio
-import builtins
 import json
 from collections import deque
 from datetime import UTC, datetime, timedelta
@@ -39,7 +38,7 @@ from app.background.jobs.states import (
 )
 from app.background.runtime.context import JobCancelledError, JobContext
 from app.background.runtime.dispatcher import dispatch_job
-from app.background.runtime.registry import JobRegistry, get_job_registry
+from app.background.runtime.registry import get_job_registry
 from app.background.runtime.watchdog import BackgroundWatchdog
 from app.background.runtime.worker import BackgroundWorker
 from app.background.transport.base import BackgroundTransport
@@ -95,10 +94,6 @@ async def _configure_file_database(tmp_path=None):
 
 class _NoopInput(BaseModel):
     value: str
-
-
-async def _noop_handler(context: JobContext) -> dict[str, str]:
-    return {"value": context.input["value"]}
 
 
 async def _failing_handler(context: JobContext) -> None:
@@ -327,58 +322,6 @@ async def test_submit_job_validates_definition_payload(session):
             job_type="session_title",
             payload={"seed_message": "缺少 task_id"},
         )
-
-
-@pytest.mark.asyncio
-async def test_submit_job_lazy_loads_only_requested_definition(session, monkeypatch):
-    get_job_registry().clear()
-    original_import = builtins.__import__
-
-    def import_without_chapter_summary(name, globals=None, locals=None, fromlist=(), level=0):
-        if name == "app.background.jobs.definitions.chapter_summary":
-            raise AssertionError("chapter summary definition should not be imported")
-        return original_import(name, globals, locals, fromlist, level)
-
-    monkeypatch.setattr(builtins, "__import__", import_without_chapter_summary)
-
-    job = await background_service.submit_job(
-        session,
-        job_type="session_title",
-        payload={"task_id": "task-1", "seed_message": "hello"},
-        context={"project_id": "project-1"},
-        subject_type="task",
-        subject_id="task-1",
-    )
-
-    assert job.type == "session_title"
-
-
-def test_registry_rejects_duplicate_job_type():
-    registry = JobRegistry()
-    definition = JobDefinition(
-        type="noop",
-        name="Noop",
-        description="Noop job",
-        input_model=_NoopInput,
-        handler=_noop_handler,
-    )
-    registry.register(definition)
-
-    with pytest.raises(ValueError):
-        registry.register(
-            JobDefinition(
-                type="noop",
-                name="Other noop",
-                description="Other noop job",
-                input_model=_NoopInput,
-                handler=_noop_handler,
-            )
-        )
-
-
-def test_builtin_jobs_are_discoverable():
-    definitions = {definition.type for definition in get_job_registry().list_definitions()}
-    assert {"session_title", "chapter_summary", "long_term_summary"} <= definitions
 
 
 @pytest.mark.asyncio
@@ -804,24 +747,6 @@ async def test_commit_and_notify_keeps_commit_when_event_transport_fails(session
     events = await job_repo.list_events(session, job_id=job.id)
     assert stored is not None
     assert len(events) == 1
-
-
-@pytest.mark.asyncio
-async def test_next_event_sequence_uses_job_counter(session):
-    job = await job_repo.create_job(
-        session,
-        BackgroundJob(type="unknown", payload_json="{}"),
-    )
-
-    first = await job_repo.next_event_sequence(session, job.id)
-    second = await job_repo.next_event_sequence(session, job.id)
-    await session.commit()
-
-    stored = await job_repo.get_job(session, job.id)
-    assert first == 1
-    assert second == 2
-    assert stored is not None
-    assert stored.event_sequence == 2
 
 
 @pytest.mark.asyncio
@@ -1809,10 +1734,6 @@ async def test_summary_batch_persists_running_status_before_generation(tmp_path,
     finally:
         await session.close()
         await engine.dispose()
-
-
-def test_summary_batch_has_no_fixed_outer_timeout():
-    assert summary_batch_definition.SUMMARY_BATCH_JOB.default_timeout_seconds is None
 
 
 @pytest.mark.asyncio

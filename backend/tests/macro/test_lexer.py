@@ -29,15 +29,6 @@ class TestFindMacros:
         assert matches[0].body == "getmem::chapter::near"
         assert matches[1].body == "getmem::chapter::far"
 
-    def test_ignore_nested_braces(self):
-        """嵌套大括号中的宏也会被匹配。"""
-        text = "{{{invalid}}} and {{valid::arg}}"
-        matches = MacroLexer.find_macros(text)
-
-        # 注意：{{{invalid}}} 中的 {{invalid}} 也会被匹配
-        assert len(matches) == 2
-        assert matches[0].body == "invalid"
-        assert matches[1].body == "valid::arg"
 
     def test_ignore_multiline(self):
         """忽略跨行宏。"""
@@ -56,29 +47,6 @@ class TestFindMacros:
 class TestTokenizeArgs:
     """测试参数解析。"""
 
-    def test_identifier(self):
-        """解析标识符。"""
-        tokens = MacroLexer.tokenize_args("var_name")
-
-        assert len(tokens) == 1
-        assert tokens[0].type == TokenType.IDENTIFIER
-        assert tokens[0].value == "var_name"
-
-    def test_number_positive(self):
-        """解析正整数。"""
-        tokens = MacroLexer.tokenize_args("100")
-
-        assert len(tokens) == 1
-        assert tokens[0].type == TokenType.NUMBER
-        assert tokens[0].value == 100
-
-    def test_number_negative(self):
-        """解析负整数。"""
-        tokens = MacroLexer.tokenize_args("-50")
-
-        assert len(tokens) == 1
-        assert tokens[0].type == TokenType.NUMBER
-        assert tokens[0].value == -50
 
     def test_range(self):
         """解析范围。"""

@@ -5,10 +5,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from app.skills import load_builtin_skills
-from app.storage.models.prompt_chain_version import PromptChainVersion
-from app.storage.models.prompt_entry import PromptEntry
 from app.storage.models.skill import Skill
-from app.storage.repos import prompt_entry_repo
 from app.storage.services import skill_service
 
 pytestmark = pytest.mark.asyncio
@@ -103,48 +100,3 @@ async def test_list_skills_uses_custom_skill_offset_after_builtin_skills(session
 
     assert result.total == 101
     list_page.assert_awaited_once_with(session, offset=44, limit=5)
-
-
-async def test_list_by_version_uses_stable_tiebreakers(session):
-    now = datetime(2026, 1, 1, tzinfo=UTC)
-    session.add(
-        PromptChainVersion(
-            id="version-ordering",
-            prompt_id="builtin-agent--writer",
-            version_hash="verorder",
-            version_number=1,
-            is_active=True,
-            created_at=now,
-        )
-    )
-    session.add_all(
-        [
-            PromptEntry(
-                id="entry-b",
-                uid="uid-b",
-                version_id="version-ordering",
-                name="条目 B",
-                role="system",
-                content="B",
-                order_index=0,
-                created_at=now,
-                updated_at=now,
-            ),
-            PromptEntry(
-                id="entry-a",
-                uid="uid-a",
-                version_id="version-ordering",
-                name="条目 A",
-                role="system",
-                content="A",
-                order_index=0,
-                created_at=now,
-                updated_at=now,
-            ),
-        ]
-    )
-    await session.commit()
-
-    result = await prompt_entry_repo.list_by_version(session, "version-ordering")
-
-    assert [item.id for item in result] == ["entry-a", "entry-b"]

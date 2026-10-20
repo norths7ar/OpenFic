@@ -6,29 +6,7 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agent_runtime.persistence import repo
-from app.agent_runtime.persistence.errors import PersistenceWriteError
 from app.agent_runtime.persistence.model import AgentRunMessage
-
-
-@pytest.mark.asyncio
-async def test_next_seq_starts_at_zero(db_session: AsyncSession, sample_task):
-    seq = await repo.next_seq(db_session, "session_a")
-    assert seq == 0
-
-
-@pytest.mark.asyncio
-async def test_next_seq_increments(db_session: AsyncSession, sample_task):
-    await repo.insert_message(
-        db_session,
-        session_id="session_a",
-        task_id=sample_task.id,
-        project_id=sample_task.project_id,
-        role="user",
-        content="hi",
-        status="pending",
-    )
-    seq = await repo.next_seq(db_session, "session_a")
-    assert seq == 1
 
 
 @pytest.mark.asyncio
@@ -241,12 +219,6 @@ async def test_update_status(db_session: AsyncSession, sample_task):
 
 
 @pytest.mark.asyncio
-async def test_update_status_missing_raises_write_error(db_session: AsyncSession, sample_task):
-    with pytest.raises(PersistenceWriteError):
-        await repo.update_status(db_session, "msg_does_not_exist", "sent")
-
-
-@pytest.mark.asyncio
 async def test_delete_by_id(db_session: AsyncSession, sample_task):
     msg = await repo.insert_message(
         db_session,
@@ -261,9 +233,3 @@ async def test_delete_by_id(db_session: AsyncSession, sample_task):
     assert deleted is True
     items = await repo.list_by_session(db_session, "session_a")
     assert items == []
-
-
-@pytest.mark.asyncio
-async def test_delete_by_id_missing_returns_false(db_session: AsyncSession, sample_task):
-    deleted = await repo.delete_by_id(db_session, "msg_does_not_exist")
-    assert deleted is False

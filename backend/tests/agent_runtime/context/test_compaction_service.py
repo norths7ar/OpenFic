@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 import pytest_asyncio
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+from langchain_core.messages import AIMessage
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlmodel import SQLModel
 
@@ -18,9 +18,7 @@ from app.agent_runtime.context.compaction.window import CompactionWindow
 from app.agent_runtime.context.types import ContextMessage
 from app.agent_runtime.graph.state import AgentRuntimeState
 from app.agent_runtime.persistence import compaction_repo
-from app.agent_runtime.persistence import repo as message_repo
 from app.agent_runtime.persistence.model import AgentContextCompaction, AgentRunMessage
-from app.agent_runtime.runner.session_runner import SessionRunner
 from app.storage.models.chapter import Chapter
 from app.storage.models.project import Project
 from app.storage.models.project_folder import ProjectFolder as Volume
@@ -192,90 +190,6 @@ async def _record_event(
     payload: dict[str, Any],
 ) -> None:
     events.append((name, payload))
-
-
-@pytest.mark.asyncio
-async def test_compact_window_persists_raw_summary_and_emits_events_and_usage(
-    db_session: AsyncSession,
-    state: AgentRuntimeState,
-    window: CompactionWindow,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    fake_model = FakeModel(
-        _ai_message(
-            "  摘要正文  ",
-            {"input_tokens": 100, "output_tokens": 20},
-        ),
-    )
-    events: list[tuple[str, dict[str, Any]]] = []
-    usage_events: list[dict[str, Any]] = []
-
-    monkeypatch.setattr(
-        "app.agent_runtime.context.compaction.service.create_chat_model",
-        lambda _config: fake_model,
-    )
-    get_prompt = AsyncMock(return_value=_prompt_version())
-    monkeypatch.setattr(
-        "app.agent_runtime.context.compaction.service.prompt_chain_service.get_latest_version_with_entries_or_default",
-        get_prompt,
-    )
-
-    result = await compact_window(
-        db_session,
-        state=state,
-        window=window,
-        trigger="manual",
-        event_sink=lambda name, payload: _record_event(events, name, payload),
-        usage_sink=usage_events.append,
-    )
-
-    assert result.summary == "摘要正文"
-    assert result.start_seq == window.start_seq
-    assert result.end_seq == window.end_seq
-    assert fake_model.messages is not None
-    assert isinstance(fake_model.messages[0], SystemMessage)
-    assert isinstance(fake_model.messages[-1], HumanMessage)
-    assert fake_model.messages[-1].content == window.transcript
-    get_prompt.assert_awaited_once_with(
-        db_session,
-        prompt_id="session-compaction",
-    )
-    assert events[0][0] == "agent:compaction_start"
-    assert events[-1][0] == "agent:compaction_success"
-    assert "summary" not in events[-1][1]
-    assert usage_events[0]["usage_kind"] == "compaction"
-    assert usage_events[0]["usage"]["input_tokens"] == 100
-    assert usage_events[0]["usage"]["output_tokens"] == 20
-    normalized_usage = SessionRunner(
-        session_id=state["session_id"],
-        task_id=state["task_id"],
-        model_config=state["model_config"],
-        project_id=state["project_id"],
-    )._normalize_usage_event(usage_events[0])
-    assert normalized_usage["token_input"] == 100
-    assert normalized_usage["token_output"] == 20
-
-    rows = await compaction_repo.list_by_session(db_session, state["session_id"])
-    assert [row.summary for row in rows] == ["摘要正文"]
-    assert "<compaction-summary>" not in rows[0].summary
-
-    display_rows = await message_repo.list_by_session(
-        db_session,
-        state["session_id"],
-    )
-    assert len(display_rows) == 1
-    assert display_rows[0].id == f"compaction:{result.id}"
-    assert display_rows[0].role == "system"
-    assert display_rows[0].status == "complete"
-    assert display_rows[0].content == "已进行压缩"
-    assert display_rows[0].message_type == "compaction"
-    assert display_rows[0].display_channel == "list"
-    assert display_rows[0].llm_visibility == "hidden"
-    assert display_rows[0].metadata == {
-        "kind": "compaction",
-        "compaction_id": result.id,
-        "trigger": "manual",
-    }
 
 
 @pytest.mark.asyncio

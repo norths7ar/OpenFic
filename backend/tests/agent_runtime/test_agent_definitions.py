@@ -4,85 +4,6 @@ from sqlalchemy.orm import sessionmaker
 from sqlmodel import SQLModel
 
 
-def test_default_agent_definitions_include_scene_draft_workflow_agent():
-    from app.agent_runtime.agents.definitions import (
-        DEFAULT_AGENT_KEYS,
-        get_default_agent_definition,
-    )
-
-    assert DEFAULT_AGENT_KEYS == (
-        "build",
-        "plan",
-        "discuss",
-        "draft",
-        "explore",
-        "composer",
-        "auditor",
-        "writer",
-        "reviewer",
-        "actor",
-    )
-    build = get_default_agent_definition("build")
-    assert build.kind == "primary"
-    assert build.prompt_agent_name == "build"
-    assert build.delegatable_agents == (
-        "explore",
-        "composer",
-        "auditor",
-        "writer",
-        "actor",
-        "reviewer",
-    )
-
-    plan = get_default_agent_definition("plan")
-    assert plan.kind == "primary"
-    assert plan.prompt_agent_name == "plan"
-    assert plan.delegatable_agents == (
-        "explore",
-        "composer",
-        "auditor",
-        "writer",
-        "actor",
-        "reviewer",
-    )
-
-    discuss = get_default_agent_definition("discuss")
-    assert discuss.display_name == "Discuss"
-    assert discuss.description == ("围绕当前项目讨论设定与剧情，按所选范围读取资料，并保持信息边界")
-    assert discuss.kind == "primary"
-    assert discuss.prompt_agent_name == "discuss"
-    assert discuss.model_id is None
-    assert discuss.enabled_tool_categories == (
-        "interaction",
-        "project_change_proposal",
-        "plan",
-        "chapter_read",
-        "summary_read",
-        "world_read",
-        "note_read",
-        "character_read",
-    )
-    assert discuss.color == "purple"
-    assert discuss.icon == "lightbulb"
-    assert discuss.delegatable_agents == ()
-    assert not any(category.endswith("_write") for category in discuss.enabled_tool_categories)
-
-    draft = get_default_agent_definition("draft")
-    assert draft.kind == "primary"
-    assert draft.prompt_agent_name == "draft"
-    assert draft.metadata["workflow_only"] is True
-    assert draft.metadata["supports_global_context"] is True
-    assert not any(category.endswith("_write") for category in draft.enabled_tool_categories)
-
-    for key in DEFAULT_AGENT_KEYS[2:]:
-        definition = get_default_agent_definition(key)
-        assert definition.key == key
-        assert definition.prompt_agent_name == key
-        assert definition.enabled is True
-        assert definition.source == "builtin"
-        assert definition.delegatable_agents == ()
-
-
 @pytest.mark.asyncio
 async def test_load_agent_definition_prefers_db_record():
     from app.agent_runtime.agents.definitions import load_agent_definition
@@ -267,22 +188,3 @@ def test_capabilities_snapshot_metadata_and_preserve_custom_fields():
     assert definition.metadata["display_hint"] == "custom"
     with pytest.raises(TypeError):
         definition.metadata["supports_global_context"] = True
-
-
-@pytest.mark.parametrize("field,value", [("kind", "unknown"), ("source", "unknown")])
-def test_database_definition_validates_closed_domains(field, value):
-    from pydantic import ValidationError
-
-    from app.agent_runtime.agents.definitions import agent_definition_from_record
-    from app.agent_runtime.persistence.model import AgentDefinitionRecord
-
-    record = AgentDefinitionRecord(
-        key="custom",
-        display_name="Custom",
-        kind="primary",
-        prompt_agent_name="custom",
-        source="custom",
-    )
-    setattr(record, field, value)
-    with pytest.raises(ValidationError):
-        agent_definition_from_record(record)

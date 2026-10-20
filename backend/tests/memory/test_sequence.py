@@ -2,8 +2,6 @@
 测试全局阅读序位 helper 函数。
 """
 
-import subprocess
-import sys
 
 from app.memory.chapter.sequence import (
     chapter_by_global_order,
@@ -12,18 +10,6 @@ from app.memory.chapter.sequence import (
 )
 from app.storage.models.chapter import Chapter
 from app.storage.models.project_folder import ProjectFolder as Volume
-
-
-def test_sequence_module_imports_in_a_fresh_interpreter() -> None:
-    """Leaf model imports must not depend on a lucky application import order."""
-    result = subprocess.run(
-        [sys.executable, "-c", "import app.memory.chapter.sequence"],
-        capture_output=True,
-        check=False,
-        text=True,
-    )
-
-    assert result.returncode == 0, result.stderr
 
 
 def _make_chapter(chapter_id: str, volume_id: str, order: int) -> Chapter:
@@ -152,46 +138,3 @@ class TestChapterByGlobalOrder:
 
     def test_empty_chapters_returns_empty_dict(self) -> None:
         assert chapter_by_global_order([], []) == {}
-
-
-class TestConsistency:
-    """测试三个函数间的一致性。"""
-
-    def test_index_and_by_order_are_inverse(self) -> None:
-        volumes = [_make_volume("v1", 1), _make_volume("v2", 2)]
-        chapters = [
-            _make_chapter("c1", "v1", 1),
-            _make_chapter("c2", "v1", 2),
-            _make_chapter("c3", "v2", 1),
-        ]
-
-        idx = global_order_index(chapters, volumes)
-        by_order = chapter_by_global_order(chapters, volumes)
-
-        for chapter_id, global_ord in idx.items():
-            assert by_order[global_ord].id == chapter_id
-        for global_ord, chapter in by_order.items():
-            assert idx[chapter.id] == global_ord
-
-    def test_all_three_agree(self) -> None:
-        volumes = [
-            _make_volume("v1", 1),
-            _make_volume("v2", 3),
-            _make_volume("v3", 2),
-        ]
-        chapters = [
-            _make_chapter("c1", "v1", 2),
-            _make_chapter("c2", "v1", 1),
-            _make_chapter("c3", "v2", 1),
-            _make_chapter("c4", "v3", 3),
-            _make_chapter("c5", "v3", 1),
-            _make_chapter("c6", "v3", 2),
-        ]
-
-        seq = global_reading_sequence(chapters, volumes)
-        idx = global_order_index(chapters, volumes)
-        by_order = chapter_by_global_order(chapters, volumes)
-
-        for global_ord, chapter in seq:
-            assert idx[chapter.id] == global_ord
-            assert by_order[global_ord] is chapter

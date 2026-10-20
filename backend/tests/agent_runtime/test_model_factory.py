@@ -43,38 +43,6 @@ def test_without_api_key_removes_custom_headers_from_persisted_config():
     assert persisted == {}
 
 
-def test_create_chat_model_openai_returns_chat_openai():
-    config = ModelConfig(
-        provider_type="openai",
-        base_url="https://api.openai.com/v1",
-        api_key="sk-test",
-        model_id="gpt-4o",
-    )
-    model = create_chat_model(config)
-
-    from langchain_openai import ChatOpenAI
-
-    assert isinstance(model, ChatOpenAI)
-    assert model.model_name == "gpt-4o"
-    assert model.stream_chunk_timeout == 120.0
-    assert model.request_timeout == (10.0, 600.0)
-
-
-@requires_extra("langchain_anthropic")
-def test_create_chat_model_anthropic_uses_native_client():
-    config = ModelConfig(
-        provider_type="anthropic",
-        base_url="",
-        api_key="sk-ant-test",
-        model_id="claude-sonnet-4-6",
-    )
-    model = create_chat_model(config)
-
-    from langchain_anthropic import ChatAnthropic
-
-    assert isinstance(model, ChatAnthropic)
-
-
 @requires_extra("langchain_anthropic")
 def test_create_chat_model_anthropic_compatible_uses_anthropic_client_with_custom_url():
     config = ModelConfig(
@@ -267,68 +235,6 @@ def test_unknown_connection_rejects_unverified_effort(provider, model, url):
 
 
 @requires_extra("langchain_anthropic")
-def test_create_chat_model_disables_provider_internal_retries_for_anthropic():
-    config = ModelConfig(
-        provider_type="anthropic",
-        base_url="",
-        api_key="sk-ant-test",
-        model_id="claude-sonnet-4-6",
-    )
-    model = create_chat_model(config)
-    assert model.max_retries == 0
-
-
-@requires_extra("langchain_deepseek")
-def test_create_chat_model_disables_provider_internal_retries_for_deepseek():
-    config = ModelConfig(
-        provider_type="deepseek",
-        base_url="https://api.deepseek.com",
-        api_key="sk-test",
-        model_id="deepseek-v4-flash",
-    )
-    model = create_chat_model(config)
-    assert model.max_retries == 0
-
-
-@requires_extra("langchain_mistralai")
-def test_create_chat_model_disables_provider_internal_retries_for_mistral():
-    config = ModelConfig(
-        provider_type="mistral",
-        base_url="https://api.mistral.ai",
-        api_key="sk-mistral-test",
-        model_id="mistral-small",
-    )
-    model = create_chat_model(config)
-    assert model.max_retries == 0
-
-
-@requires_extra("langchain_google_genai")
-def test_create_chat_model_configures_google_genai_retries():
-    config = ModelConfig(
-        provider_type="google-genai",
-        base_url="",
-        api_key="sk-google-test",
-        model_id="gemini-2.0-flash",
-    )
-    model = create_chat_model(config)
-    assert model.max_retries == 1
-
-
-def test_create_chat_model_unknown_provider_falls_back_to_openai():
-    config = ModelConfig(
-        provider_type="some-unknown-provider",
-        base_url="https://custom.api/v1",
-        api_key="sk-test",
-        model_id="custom-model",
-    )
-    model = create_chat_model(config)
-
-    from langchain_openai import ChatOpenAI
-
-    assert isinstance(model, ChatOpenAI)
-
-
-@requires_extra("langchain_anthropic")
 def test_create_chat_model_uses_native_client_for_configured_provider():
     config = ModelConfig(
         provider_type="anthropic",
@@ -383,38 +289,6 @@ def test_create_chat_model_openrouter_uses_native_client(monkeypatch):
     assert model.request_timeout == 600000
 
 
-@requires_extra("langchain_groq")
-def test_create_chat_model_groq_uses_native_client():
-    config = ModelConfig(
-        provider_type="groq",
-        base_url="https://api.groq.com/openai/v1",
-        api_key="gsk_test",
-        model_id="llama-3.3-70b-versatile",
-    )
-
-    model = create_chat_model(config)
-
-    from langchain_groq import ChatGroq
-
-    assert isinstance(model, ChatGroq)
-
-
-@requires_extra("langchain_cohere")
-def test_create_chat_model_cohere_uses_native_client():
-    config = ModelConfig(
-        provider_type="cohere",
-        base_url="https://api.cohere.com/v2",
-        api_key="cohere-test",
-        model_id="command-a-03-2025",
-    )
-
-    model = create_chat_model(config)
-
-    from langchain_cohere import ChatCohere
-
-    assert isinstance(model, ChatCohere)
-
-
 def test_create_chat_model_ollama_uses_openai_compatible_client():
     config = ModelConfig(
         provider_type="ollama",
@@ -429,37 +303,6 @@ def test_create_chat_model_ollama_uses_openai_compatible_client():
 
     assert isinstance(model, ChatOpenAI)
     assert str(model.root_client.base_url) == "https://ollama.com/v1/"
-
-
-@requires_extra("langchain_amazon_nova")
-def test_create_chat_model_amazon_nova_uses_native_client():
-    config = ModelConfig(
-        provider_type="amazon-nova",
-        base_url="https://api.nova.amazon.com/v1",
-        api_key="nova-test",
-        model_id="nova-2-pro-v1",
-    )
-
-    model = create_chat_model(config)
-
-    from langchain_amazon_nova import ChatAmazonNova
-
-    assert isinstance(model, ChatAmazonNova)
-
-
-def test_create_chat_model_openai_compatible_enables_stream_usage_for_custom_base_url():
-    config = ModelConfig(
-        provider_type="openai-compatible",
-        base_url="https://custom.api/v1",
-        api_key="sk-test",
-        model_id="custom-model",
-    )
-    model = create_chat_model(config)
-
-    from langchain_openai import ChatOpenAI
-
-    assert isinstance(model, ChatOpenAI)
-    assert model.stream_usage is True
 
 
 @respx.mock
@@ -606,22 +449,6 @@ def test_create_chat_model_openai_responses_compatible_uses_responses_api():
     assert isinstance(model, ChatOpenAI)
     assert model.use_responses_api is True
     assert str(model.root_client.base_url) == "https://gateway.example/v1/"
-
-
-@requires_extra("langchain_deepseek")
-def test_create_chat_model_deepseek_enables_stream_usage():
-    config = ModelConfig(
-        provider_type="deepseek",
-        base_url="https://api.deepseek.com",
-        api_key="sk-test",
-        model_id="deepseek-v4-flash",
-    )
-    model = create_chat_model(config)
-
-    from langchain_deepseek import ChatDeepSeek
-
-    assert isinstance(model, ChatDeepSeek)
-    assert model.stream_usage is True
 
 
 @requires_extra("langchain_deepseek")

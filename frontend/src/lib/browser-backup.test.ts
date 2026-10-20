@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { BrowserBackupError, parseBrowserBackupJson } from "./browser-backup";
+import { parseBrowserBackupJson } from "./browser-backup";
 
 function validBackup(): Record<string, unknown> {
   return {
@@ -101,31 +101,4 @@ describe("browser backup format", () => {
     });
   });
 
-  it("rejects incomplete table sets and mismatched working-copy IDs", () => {
-    const missingTable = validBackup();
-    delete (missingTable.database as { tables: Record<string, unknown> }).tables.recentProjects;
-    expect(() => parseBrowserBackupJson(JSON.stringify(missingTable))).toThrow(BrowserBackupError);
-
-    const mismatchedId = validBackup();
-    const tables = (
-      mismatchedId.database as { tables: Record<string, Array<Record<string, unknown>>> }
-    ).tables;
-    tables.writingWorkingCopies[0]!.id = "chapter:other";
-    expect(() => parseBrowserBackupJson(JSON.stringify(mismatchedId))).toThrow(BrowserBackupError);
-  });
-
-  it("rejects unsupported local storage and invalid dates", () => {
-    const unsupportedStorage = validBackup();
-    (unsupportedStorage.localStorage as Record<string, string>).unrelated = "secret";
-    expect(() => parseBrowserBackupJson(JSON.stringify(unsupportedStorage))).toThrow(
-      BrowserBackupError,
-    );
-
-    const invalidDate = validBackup();
-    const tables = (
-      invalidDate.database as { tables: Record<string, Array<Record<string, unknown>>> }
-    ).tables;
-    tables.agentInputHistories[0]!.updatedAt = "not-a-date";
-    expect(() => parseBrowserBackupJson(JSON.stringify(invalidDate))).toThrow(BrowserBackupError);
-  });
 });

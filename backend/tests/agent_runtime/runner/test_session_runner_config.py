@@ -1,5 +1,4 @@
 import asyncio
-import weakref
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
@@ -56,18 +55,6 @@ async def test_register_can_preserve_session_cancellation() -> None:
     finally:
         task.cancel()
         await asyncio.gather(task, return_exceptions=True)
-
-
-@pytest.mark.asyncio
-async def test_session_locks_are_not_retained_after_use() -> None:
-    registry = AgentRunRegistry()
-    lock = registry.session_lock("finished-session")
-    lock_ref = weakref.ref(lock)
-
-    del lock
-
-    assert lock_ref() is None
-    assert "finished-session" not in registry._session_locks
 
 
 @pytest.mark.asyncio

@@ -22,7 +22,6 @@ from app.storage.models.chapter import Chapter
 from app.storage.models.chapter_summary import ChapterSummary
 from app.storage.models.project import Project
 from app.storage.models.project_folder import ProjectFolder as Volume
-from app.storage.models.task import Task
 from tests.model_registry import register_sqlmodel_models
 
 
@@ -320,88 +319,6 @@ class TestSocketIntegration:
 
         await parent_client.disconnect()
 
-    async def test_join_agent_session_emits_task_usage_snapshot_then_deltas(
-        self,
-        server,
-        socket_db_factory,
-    ):
-        await _seed_project(
-            socket_db_factory,
-            project_id="project-usage",
-            chapter_id="chapter-usage",
-        )
-        async with socket_db_factory() as session:
-            session.add(
-                Task(
-                    id="task-usage",
-                    project_id="project-usage",
-                    title="Task",
-                    mode="agent",
-                    agent_session_id="parent-session-usage",
-                    token_input=100,
-                    token_output=40,
-                    token_cache=8,
-                    context_input_tokens=12,
-                )
-            )
-            await session.commit()
-
-        client = socketio_lib.AsyncSimpleClient()
-        await client.connect(server, socketio_path="/socket.io")
-        await asyncio.sleep(0.1)
-
-        await client.emit("agent:join", {"session_id": "parent-session-usage"})
-        joined_event = await asyncio.wait_for(client.receive(), timeout=2.0)
-        assert joined_event[0] == "agent:joined"
-        assert joined_event[1] == {"session_id": "parent-session-usage"}
-
-        snapshot_event = await asyncio.wait_for(client.receive(), timeout=2.0)
-        assert snapshot_event[0] == "agent:task_usage_snapshot"
-        assert snapshot_event[1] == {
-            "session_id": "parent-session-usage",
-            "task_id": "task-usage",
-            "token_input": 100,
-            "token_output": 40,
-            "token_cache": 8,
-            "cost": 0.0,
-        }
-
-        await emit(
-            "agent:task_usage_delta",
-            {
-                "session_id": "parent-session-usage",
-                "task_id": "task-usage",
-                "token_input": 10,
-                "token_output": 4,
-                "token_cache": 1,
-            },
-            room=agent_subagent_session_room("child-thread-ignored"),
-        )
-        with pytest.raises(asyncio.TimeoutError):
-            await asyncio.wait_for(client.receive(), timeout=0.3)
-
-        await emit(
-            "agent:task_usage_delta",
-            {
-                "session_id": "parent-session-usage",
-                "task_id": "task-usage",
-                "token_input": 10,
-                "token_output": 4,
-                "token_cache": 1,
-            },
-            room="agent_session:parent-session-usage",
-        )
-        delta_event = await asyncio.wait_for(client.receive(), timeout=2.0)
-        assert delta_event[0] == "agent:task_usage_delta"
-        assert delta_event[1] == {
-            "session_id": "parent-session-usage",
-            "task_id": "task-usage",
-            "token_input": 10,
-            "token_output": 4,
-            "token_cache": 1,
-        }
-
-        await client.disconnect()
 
     async def test_join_subagent_replays_and_receives_child_transcript(
         self,

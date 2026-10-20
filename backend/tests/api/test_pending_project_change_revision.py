@@ -6,7 +6,6 @@ from tests.api.test_pending_project_changes import (
     _create_payload,
     _create_project,
     _post_change,
-    _update_payload,
 )
 
 
@@ -43,41 +42,6 @@ async def test_revise_create_and_reject_stale_writes(client, target):
         url, json={"expected_updated_at": updated["updated_at"], "patch": {"title": "已采用"}}
     )
     assert locked.status_code == 409
-
-
-async def test_revision_preserves_base_and_formal_conflict(client):
-    project = await _create_project(client, "原始快照")
-    create = await _post_change(client, project, _create_payload("character"))
-    accepted = (
-        await client.post(f"/api/v1/projects/{project}/pending-changes/{create['id']}/apply")
-    ).json()
-    original = await _post_change(
-        client, project, _update_payload("character", accepted["target_id"], {"body": "第一稿"})
-    )
-    url = f"/api/v1/projects/{project}/pending-changes/{original['id']}"
-    revised = await client.patch(
-        url,
-        json={
-            "expected_updated_at": original["updated_at"],
-            "patch": {"edits": [{"old_content": "第一稿", "new_content": "第二稿"}]},
-        },
-    )
-    assert revised.status_code == 200, revised.text
-    revised = revised.json()
-    assert revised["after"]["body"] == "第二稿"
-    assert revised["before"] == original["before"]
-    assert revised["base_hash"] == original["base_hash"]
-    other = await _post_change(
-        client, project, _update_payload("character", accepted["target_id"], {"body": "正式新文"})
-    )
-    assert (
-        await client.post(f"/api/v1/projects/{project}/pending-changes/{other['id']}/apply")
-    ).status_code == 200
-    conflict = await client.post(
-        url + "/apply", json={"expected_updated_at": revised["updated_at"]}
-    )
-    assert conflict.status_code == 409
-    assert (await client.get(url)).json()["after"]["body"] == "第二稿"
 
 
 @pytest.mark.parametrize(

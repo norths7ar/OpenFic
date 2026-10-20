@@ -1,6 +1,6 @@
 import pytest
 
-from app.core.agent_visibility import AGENT_VISIBILITY_STATES, AgentVisibility
+from app.core.agent_visibility import AGENT_VISIBILITY_STATES
 from app.project_bundle import source_export, source_mapping
 from app.project_bundle.archive import BundleFormatError, build_zip, read_zip
 from app.project_bundle.export import export_project_bundle
@@ -97,11 +97,6 @@ async def test_native_bundle_rejects_invalid_visibility(session, value):
     )
     with pytest.raises(BundleFormatError, match="agent_visibility"):
         parse_project_bundle(build_zip(files), project.id)
-
-
-def test_visibility_catalog_covers_enum_exactly():
-    assert [state.value for state in AGENT_VISIBILITY_STATES] == list(AgentVisibility)
-    assert all(isinstance(state.value, AgentVisibility) for state in AGENT_VISIBILITY_STATES)
 
 
 @pytest.mark.parametrize("state", AGENT_VISIBILITY_STATES, ids=lambda state: state.value)

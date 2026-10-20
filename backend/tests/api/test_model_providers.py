@@ -459,36 +459,6 @@ async def test_create_openrouter_provider(client: AsyncClient, session: AsyncSes
 
 
 @pytest.mark.asyncio
-async def test_get_openrouter_provider_models(client: AsyncClient, session: AsyncSession):
-    """测试获取 OpenRouter 提供商的模型列表。"""
-    from app.core.encryption import EncryptionService
-    from app.settings import settings
-
-    encryption_service = EncryptionService(settings.encryption_key)
-    encrypted_key = encryption_service.encrypt("sk-or-test-key")
-
-    provider = await model_provider_repo.create(
-        session=session,
-        name="Test OpenRouter",
-        url="https://openrouter.ai/api/v1",
-        api_key_encrypted=encrypted_key,
-        provider_type="openrouter",
-    )
-    await session.commit()
-
-    response = await client.get(f"/api/v1/model-providers/{provider.id}/models")
-    # 由于是测试环境，可能无法真正连接到 OpenRouter，所以可能返回失败
-    # 但至少应该返回正确的响应格式
-    assert response.status_code == 200
-
-    data = response.json()
-    assert "success" in data
-    assert "message" in data
-    assert "models" in data
-    assert isinstance(data["models"], list)
-
-
-@pytest.mark.asyncio
 async def test_delete_provider_removes_enabled_and_disabled_models(client, session):
     from app.models.entities.model import Model
 

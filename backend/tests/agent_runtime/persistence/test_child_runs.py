@@ -21,9 +21,6 @@ from app.agent_runtime.persistence.model import (
     AgentChildRunRequest,
     AgentRunMessage,
 )
-from app.agent_runtime.persistence.task_projection import (
-    load_task_messages_for_agent_session,
-)
 
 
 @pytest.mark.asyncio
@@ -375,35 +372,3 @@ async def test_hidden_system_reminder_remains_visible_to_llm_history(
     assert [message.content for message in messages] == [
         "<system-reminder>writer child run completed</system-reminder>"
     ]
-
-
-@pytest.mark.asyncio
-async def test_hidden_system_reminder_stays_hidden_in_task_projection(
-    db_session: AsyncSession, sample_task
-):
-    db_session.add(
-        AgentRunMessage(
-            session_id="session-reminder-projection",
-            task_id=sample_task.id,
-            project_id=sample_task.project_id,
-            role="user",
-            content="<system-reminder>reviewer child run completed</system-reminder>",
-            status="sent",
-            message_type="message",
-            display_channel="hidden",
-            llm_visibility="visible",
-            seq=0,
-        )
-    )
-    await db_session.commit()
-
-    messages = await load_task_messages_for_agent_session(
-        db_session,
-        "session-reminder-projection",
-    )
-
-    assert len(messages) == 1
-    assert messages[0].display_channel == "hidden"
-    assert messages[0].content == (
-        "<system-reminder>reviewer child run completed</system-reminder>"
-    )

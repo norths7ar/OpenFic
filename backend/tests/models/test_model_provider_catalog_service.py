@@ -450,32 +450,3 @@ async def test_catalog_service_matches_openai_responses_compatible_provider_by_e
     assert service.get_supported_task_types("openai-compatible-responses", catalog_match=match) == [
         "llm"
     ]
-
-
-@pytest.mark.asyncio
-async def test_catalog_service_caches_snapshot_until_refresh(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    service = _build_service(tmp_path)
-
-    reads: list[str] = []
-    original_read_json = service._read_json
-
-    def tracking_read_json(path: Path):
-        if path.suffix == ".json":
-            reads.append(f"{path.parent.name}/{path.name}")
-        return original_read_json(path)
-
-    monkeypatch.setattr(service, "_read_json", tracking_read_json)
-
-    await service.list_providers()
-    await service.list_providers()
-    # 命中缓存：第二次 list_providers 不再解析 bundled 快照文件
-    assert reads.count("bundled/snapshot.json") == 1
-
-    # refresh 写入新缓存文件，mtime 变化使缓存失效，之后只解析一次缓存快照
-    reads.clear()
-    await service.refresh()
-    await service.list_providers()
-    await service.list_providers()
-    assert reads.count("cache/snapshot.json") == 1

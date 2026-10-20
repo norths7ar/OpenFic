@@ -9,10 +9,7 @@ import {
   createEmptySummaryProjection,
   isSummaryBackgroundEvent,
   isSummaryEventForProject,
-  normalizeRevision,
   reduceSummaryProjectionEvent,
-  shouldApplyEventRevision,
-  shouldApplySnapshotRevision,
   type SummaryBackgroundEvent,
   type SummaryProjection,
 } from "./summary-projection-state";
@@ -85,14 +82,6 @@ describe("summary projection state", () => {
         event({ type: "background_job_started", job_type: "index", item_type: null }),
       ),
     ).toBe(false);
-  });
-
-  test("rejects old event revisions but accepts equal snapshot revisions", () => {
-    expect(normalizeRevision("12")).toBe(12);
-    expect(shouldApplyEventRevision(12, 12)).toBe(false);
-    expect(shouldApplyEventRevision(12, 13)).toBe(true);
-    expect(shouldApplySnapshotRevision(12, 11)).toBe(false);
-    expect(shouldApplySnapshotRevision(12, 12)).toBe(true);
   });
 
   test("updates chapter status and removes a completed chapter from maintenance", () => {

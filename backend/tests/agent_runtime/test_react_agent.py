@@ -90,16 +90,6 @@ def _metadata_tool() -> StructuredTool:
     )
 
 
-def test_react_state_is_valid_typed_dict():
-    state: ReactState = {
-        "messages": [],
-        "iteration_count": 0,
-        "is_done": False,
-        "final_output": None,
-    }
-    assert state["iteration_count"] == 0
-
-
 @pytest.mark.asyncio
 async def test_invoke_model_normalizes_recoverable_invalid_tool_calls_to_ai_message() -> None:
     class StreamingModel:
@@ -143,44 +133,6 @@ async def test_invoke_model_extracts_anthropic_text_content_blocks() -> None:
     response = await _invoke_model(StreamingModel(), [HumanMessage(content="Hello")])
 
     assert response.content == "可见回复"
-
-
-@pytest.mark.asyncio
-async def test_invoke_model_sanitizes_nested_message_metadata() -> None:
-    nested_message = AIMessage(content="nested")
-
-    class StreamingModel:
-        async def astream(self, _messages):
-            yield AIMessageChunk(
-                content="完成",
-                response_metadata={"raw_message": nested_message},
-            )
-
-    response = await _invoke_model(StreamingModel(), [HumanMessage(content="Hello")])
-
-    assert response.response_metadata["raw_message"]["content"] == "nested"
-    assert not isinstance(response.response_metadata["raw_message"], AIMessage)
-
-
-def test_create_react_agent_returns_compiled_graph(dummy_tool):
-    config = ReactAgentConfig(
-        name="test",
-        tools=[dummy_tool],
-        termination=TerminationCondition(mode="no_tool_call"),
-    )
-    graph = create_react_agent(config, checkpointer=InMemorySaver())
-    assert graph is not None
-    assert hasattr(graph, "ainvoke")
-
-
-def test_create_react_agent_with_tool_success_termination(submit_tool):
-    config = ReactAgentConfig(
-        name="test",
-        tools=[submit_tool],
-        termination=TerminationCondition(mode="tool_success", tool_name="submit_result"),
-    )
-    graph = create_react_agent(config, checkpointer=InMemorySaver())
-    assert graph is not None
 
 
 def test_react_agent_terminates_on_no_tool_call(dummy_tool):

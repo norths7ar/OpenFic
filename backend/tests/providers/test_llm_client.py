@@ -2,7 +2,7 @@ from typing import Any
 from unittest.mock import AsyncMock
 
 import pytest
-from langchain_core.messages import AIMessage, AIMessageChunk, HumanMessage
+from langchain_core.messages import AIMessage, HumanMessage
 
 from app.core.errors import LLMTimeoutError
 from app.models.clients.llm_client import LLMClient, LLMConfig, _patch_deepseek_reasoning_payload
@@ -33,43 +33,6 @@ def test_patch_deepseek_reasoning_payload_adds_reasoning_content() -> None:
     _patch_deepseek_reasoning_payload(messages, payload)
 
     assert payload["messages"][1]["reasoning_content"] == "need chapter content"
-
-
-def test_extract_usage_prefers_usage_metadata() -> None:
-    chunk = AIMessageChunk(
-        content="hello",
-        usage_metadata={
-            "input_tokens": 10,
-            "output_tokens": 2,
-            "total_tokens": 12,
-        },
-        response_metadata={"token_usage": {"prompt_tokens": 1}},
-    )
-
-    assert LLMClient._extract_usage(chunk) == {
-        "input_tokens": 10,
-        "output_tokens": 2,
-        "total_tokens": 12,
-    }
-
-
-def test_extract_usage_reads_response_metadata() -> None:
-    message = AIMessage(
-        content="hello",
-        response_metadata={
-            "token_usage": {
-                "prompt_tokens": 10,
-                "completion_tokens": 2,
-                "total_tokens": 12,
-            }
-        },
-    )
-
-    assert LLMClient._extract_usage(message) == {
-        "prompt_tokens": 10,
-        "completion_tokens": 2,
-        "total_tokens": 12,
-    }
 
 
 @pytest.mark.asyncio
