@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field, model_validator
 
 from app.agent_runtime.tools.base import AgentTool
 from app.agent_runtime.tools.registry import ToolRegistry
+from app.memory.chapter.summary_policy import is_chapter_summary_stale
 from app.storage.database import create_session
 from app.storage.repos import chapter_repo, chapter_summary_repo
 
@@ -62,6 +63,7 @@ class ReadChapterSummariesTool(AgentTool):
                 }
                 for chapter in chapters
                 if (summary := summary_by_chapter_id.get(chapter.id)) is not None
+                and not is_chapter_summary_stale(summary, chapter)
             ]
             return json.dumps({"summaries": payload}, ensure_ascii=False)
         finally:
