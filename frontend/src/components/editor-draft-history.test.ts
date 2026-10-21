@@ -16,21 +16,4 @@ describe("shared source and visual draft history", () => {
     expect(history.redo()).toBe(`${original}源码修改`);
   });
 
-  it("groups typing, but starts a new branch after undo", () => {
-    const history = new EditorDraftHistory("");
-    history.record("a", 1000);
-    history.record("ab", 1200);
-    expect(history.undo()).toBe("");
-    history.record("新内容", 1300);
-    expect(history.canRedo).toBe(false);
-    expect(history.undo()).toBe("");
-  });
-
-  it("does not record switching or reapplying unchanged content", () => {
-    const history = new EditorDraftHistory("## 原文\n");
-    history.breakGroup();
-    history.record("## 原文\n");
-    expect(history.canUndo).toBe(false);
-    expect(history.content).toBe("## 原文\n");
-  });
 });

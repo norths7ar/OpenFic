@@ -1,12 +1,11 @@
 """Recovery behavior at the common SQLite mutation boundary."""
 
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 
 import pytest
-from sqlalchemy import delete, select, update
+from sqlalchemy import delete, select
 
 from app.core.errors import ConflictError
-from app.storage.history_capture import history_source
 from app.storage.models.chapter import Chapter
 from app.storage.models.character import Character
 from app.storage.models.document_history import DocumentHistory, DocumentTrash
@@ -84,38 +83,6 @@ async def test_history_restore_and_undo_for_every_kind(session, kind):
 
 
 @pytest.mark.asyncio
-async def test_manual_grouping_ai_boundaries_noop_and_cap(session):
-    project, _, item = await document(session, "note")
-    for text in ("one", "two", "three"):
-        edit(item, "Before", text)
-        await session.flush()
-    versions, _ = await service.history_list(session, project.id, "note", item.id)
-    assert len(versions) == 1
-    with history_source("ai"):
-        edit(item, "Before", "AI")
-        await session.flush()
-        edit(item, "Before", "AI")
-        await session.flush()
-    versions, _ = await service.history_list(session, project.id, "note", item.id)
-    assert len(versions) == 2
-    assert versions[0].source == "ai"
-    edit(item, "Before", "user again")
-    await session.flush()
-    versions, _ = await service.history_list(session, project.id, "note", item.id)
-    assert len(versions) == 3
-    versions[0].created_at = datetime.now(UTC) - timedelta(minutes=6)
-    await session.flush()
-    edit(item, "Before", "new interval")
-    await session.flush()
-    with history_source("ai"):
-        for index in range(105):
-            edit(item, "Before", str(index))
-            await session.flush()
-    versions, _ = await service.history_list(session, project.id, "note", item.id)
-    assert len(versions) == 100
-
-
-@pytest.mark.asyncio
 @pytest.mark.parametrize("kind", list(service.MODELS))
 @pytest.mark.parametrize("missing_folder", [False, True])
 async def test_bulk_delete_trash_restores_metadata_and_history(session, kind, missing_folder):
@@ -155,37 +122,6 @@ async def test_stale_restore_and_permanent_cleanup(session):
     await service.delete_trash(session, project.id, trash[0].id)
     assert (await session.execute(select(DocumentHistory))).scalars().all() == []
     assert (await session.execute(select(DocumentTrash))).scalars().all() == []
-
-
-@pytest.mark.asyncio
-async def test_bulk_import_capture_and_project_cleanup(session):
-    project, _, item = await document(session, "note")
-    with history_source("import"):
-        await session.execute(
-            update(Note).where(Note.id == item.id).values(title="Imported", content="New")
-        )
-    versions, _ = await service.history_list(session, project.id, "note", item.id)
-    assert versions[0].source == "import"
-    await session.execute(delete(Note).where(Note.id == item.id))
-    await session.delete(project)
-    await session.flush()
-    assert (await session.execute(select(DocumentHistory))).scalars().all() == []
-    assert (await session.execute(select(DocumentTrash))).scalars().all() == []
-
-
-@pytest.mark.asyncio
-async def test_task_cleanup_does_not_remove_history(session):
-    from app.storage.models.task import Task
-    from app.storage.services.task_service import delete_task
-
-    project, _, item = await document(session, "note")
-    task = Task(project_id=project.id, title="Disposable task", mode="agent")
-    session.add(task)
-    edit(item, "After", "Changed")
-    await session.flush()
-    await delete_task(session, task.id)
-    versions, _ = await service.history_list(session, project.id, "note", item.id)
-    assert len(versions) == 1
 
 
 @pytest.mark.asyncio

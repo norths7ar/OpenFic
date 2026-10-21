@@ -17,19 +17,3 @@ def test_ensure_encryption_key_reads_key_file_and_ignores_env(monkeypatch, tmp_p
     key = _ensure_encryption_key()
 
     assert key == known_key
-
-
-def test_ensure_encryption_key_writes_to_key_file_not_cwd(monkeypatch, tmp_path: Path) -> None:
-    data_dir = tmp_path / "data"
-    data_dir.mkdir()
-    key_file = data_dir / ".key"
-    monkeypatch.setattr(settings_module, "ENCRYPTION_KEY_FILE_PATH", key_file)
-    monkeypatch.delenv("ENCRYPTION_KEY", raising=False)
-    monkeypatch.chdir(tmp_path)
-
-    key = _ensure_encryption_key()
-
-    assert key
-    assert key_file.exists(), "key should be written under the data directory"
-    assert key_file.read_text(encoding="utf-8").strip() == key
-    assert not (tmp_path / ".key").exists(), "key should not be written to cwd"

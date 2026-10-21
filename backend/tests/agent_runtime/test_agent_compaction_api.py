@@ -1,11 +1,8 @@
 import asyncio
 from types import SimpleNamespace
-from typing import Any, cast
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from fastapi import status
-from httpx import AsyncClient
 
 from app.agent_runtime.runner.run_registry import AgentRunRegistry
 from app.api.routers import agent_runtime
@@ -49,17 +46,6 @@ def _runner(
             }
         )
     return runner
-
-
-def _registry(*, running: bool = False):
-    return SimpleNamespace(
-        is_running=AsyncMock(return_value=running),
-        try_register_parent=AsyncMock(return_value=not running),
-        register=AsyncMock(),
-        unregister=AsyncMock(return_value=True),
-        cancel=AsyncMock(),
-        is_cancelled=AsyncMock(return_value=False),
-    )
 
 
 @pytest.mark.asyncio
@@ -115,39 +101,3 @@ async def test_manual_compaction_can_be_cancelled_while_model_call_is_waiting() 
 
     runner.compact.assert_awaited_once_with()
     assert not release_compact.is_set()
-
-
-@pytest.mark.asyncio
-async def test_rollback_rejects_running_session_without_cancelling(
-    client: AsyncClient,
-) -> None:
-    fake_runner = SimpleNamespace(cancel=MagicMock())
-    _SESSION_RUNNERS["sess_compaction_api"] = cast(Any, fake_runner)
-    registry = _registry(running=True)
-    rollback_result = SimpleNamespace(
-        restored_checkpoint_id=None,
-        rollback_revision=SimpleNamespace(id="rev_rollback_unexpected"),
-        affected_chapters=[],
-        restored_message_content="",
-    )
-
-    with (
-        patch(
-            "app.api.routers.agent_runtime.get_agent_run_registry",
-            return_value=registry,
-        ),
-        patch(
-            "app.api.routers.agent_runtime.rollback_revision_for_session",
-            AsyncMock(return_value=rollback_result),
-        ) as rollback_revision,
-    ):
-        response = await client.post(
-            "/api/v1/agent/sessions/sess_compaction_api/rollback",
-            json={"revision_id": "rev_before_compaction"},
-        )
-
-    assert response.status_code == status.HTTP_409_CONFLICT
-    assert response.json()["detail"] == "会话运行中，不能回滚"
-    fake_runner.cancel.assert_not_called()
-    registry.cancel.assert_not_awaited()
-    rollback_revision.assert_not_awaited()

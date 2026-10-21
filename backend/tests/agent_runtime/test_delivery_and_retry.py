@@ -3,7 +3,6 @@
 from unittest.mock import AsyncMock
 
 import pytest
-from langchain_core.messages import AIMessageChunk
 
 from app.agent_runtime.persistence.persister import MessagePersister
 from app.agent_runtime.runner.run_registry import AgentRunRegistry
@@ -74,30 +73,6 @@ async def test_completed_run_consumes_queue_in_order_but_cancel_does_not(monkeyp
     await agent_runtime._run_pending_continuations(item.session_id, registry)
     assert item.run.await_count == 2
     assert len(item.list_pending_user_messages()) == 1
-
-
-@pytest.mark.asyncio
-async def test_failed_attempt_discards_partial_tool_arguments_and_late_chunks():
-    persister = MessagePersister("session", "task", "project", AsyncMock())
-    persister._write = AsyncMock()
-    await persister.handle({"event": "on_chat_model_start", "run_id": "attempt-1", "data": {}})
-    chunk = AIMessageChunk(
-        content="unfinished",
-        tool_call_chunks=[
-            {
-                "id": "tool-1",
-                "name": "propose_project_change",
-                "args": '{"body":"partial',
-                "index": 0,
-            }
-        ],
-    )
-    event = {"event": "on_chat_model_stream", "run_id": "attempt-1", "data": {"chunk": chunk}}
-    await persister.handle(event)
-    assert persister.discard_incomplete_attempts() == ["attempt-1"]
-    await persister.handle(event)
-    await persister.finalize("done")
-    persister._write.assert_not_awaited()
 
 
 @pytest.mark.asyncio

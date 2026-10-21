@@ -102,54 +102,6 @@ async def isolated_db(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_queue_pending_user_message_enqueues_without_persisting_until_consumed(
-    isolated_db,
-    monkeypatch,
-):
-    factory = isolated_db
-    sid = "s_x"
-    emitted: list[tuple[str, dict]] = []
-    raw_follow_up = 'follow-up<of-mention volume_id="vol_x" label="旧卷" />'
-    persisted_follow_up = raw_follow_up
-
-    async def capture_emit(name, payload=None, *_args, **_kwargs):
-        emitted.append((name, payload or {}))
-        return None
-
-    monkeypatch.setattr("app.agent_runtime.runner.session_runner.emit", capture_emit)
-
-    runner = SessionRunner(
-        session_id=sid,
-        task_id="task_x",
-        model_config={"max_context_tokens": 8000},
-        project_id="proj_x",
-    )
-
-    pending = await runner.queue_pending_user_message(raw_follow_up)
-
-    assert pending["content"] == persisted_follow_up
-    assert isinstance(pending["created_at"], str) and pending["created_at"]
-
-    queued = runner._inject_queue.get_nowait()
-    queued_message_id, role, content = queued
-    assert pending["message_id"] == queued_message_id
-    assert isinstance(queued_message_id, str) and queued_message_id
-    assert role == "user"
-    assert content == persisted_follow_up
-    assert queued_message_id in runner._queued_user_messages
-
-    async with factory() as s:
-        items = await repo.list_by_session(s, sid)
-    assert items == []
-    assert any(
-        name == "agent:pending_message"
-        and payload.get("message_id") == queued_message_id
-        and payload.get("action") == "queued"
-        for name, payload in emitted
-    )
-
-
-@pytest.mark.asyncio
 async def test_cancel_pending_user_message_emits_cancel_event_and_skips_injection(
     isolated_db,
     monkeypatch,

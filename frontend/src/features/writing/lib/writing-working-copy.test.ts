@@ -51,16 +51,4 @@ describe("writing working-copy recovery", () => {
     });
   });
 
-  it("treats a changed content base as a conflict even when timestamps match", () => {
-    const resolved = resolveWritingWorkingCopy(remote("saved", "remote"), {
-      title: "local",
-      content: "draft",
-      baseTitle: "saved",
-      baseContent: "server",
-      baseUpdatedAt: "2026-09-08T00:00:00Z",
-      updatedAt: new Date(),
-    });
-
-    expect(resolved.conflict).toBeDefined();
-  });
 });

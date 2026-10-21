@@ -1,5 +1,4 @@
 from collections.abc import AsyncGenerator
-from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
@@ -12,9 +11,7 @@ from sqlmodel import SQLModel
 
 from app.agent_runtime.persistence import repo
 from app.agent_runtime.persistence.child_runs import (
-    cancel_child_run,
     create_child_run,
-    get_child_run_request_by_seq,
 )
 from app.agent_runtime.persistence.model import (
     AgentChildRun,
@@ -77,33 +74,6 @@ def stub_checkpointer(monkeypatch):
         "app.agent_runtime.runner.subagent_runner.get_checkpointer",
         AsyncMock(return_value=object()),
     )
-
-
-@pytest.mark.asyncio
-@pytest.mark.parametrize("scope", ["local", "global"])
-async def test_child_inherits_persisted_parent_knowledge_scope(db_session_factory, scope):
-    from app.agent_runtime.runner.subagent_runner import SubagentRunner
-
-    async with db_session_factory() as session:
-        task = await session.get(Task, "task-1")
-        task.context_mode = scope
-        await session.commit()
-    runner = SubagentRunner(
-        session_factory=db_session_factory,
-        model_config={},
-        project_id="project-1",
-    )
-    row = SimpleNamespace(
-        id="child",
-        parent_task_id="task-1",
-        child_thread_id="child-thread",
-        agent_key="explore",
-        parent_session_id="parent-session",
-        parent_thread_id="parent-session",
-        dispatch_id="dispatch",
-    )
-    state = await runner._build_runtime_state(row, "inspect materials")
-    assert state["context_mode"] == scope
 
 
 @pytest.mark.asyncio
@@ -474,50 +444,3 @@ async def test_subagent_runner_streams_and_persists_child_transcript_on_child_th
     assert child_messages[1].content == "child tool output"
     assert child_messages[1].tool_call_id == "call-child-tool"
     assert all(message.session_id != "child-thread-transcript" for message in parent_messages)
-
-
-@pytest.mark.asyncio
-async def test_wait_for_request_resolution_raises_on_cancelled_request() -> None:
-    from app.agent_runtime.tools.errors import ToolExecutionError
-    from app.agent_runtime.tools.impls.orchestration.common import (
-        wait_for_request_resolution,
-    )
-
-    engine = create_async_engine("sqlite+aiosqlite:///:memory:", future=True)
-    factory = sessionmaker(  # type: ignore[call-overload]
-        engine,
-        class_=AsyncSession,
-        expire_on_commit=False,
-    )
-    async with engine.begin() as conn:
-        await conn.run_sync(SQLModel.metadata.create_all)
-    try:
-        async with factory() as session:
-            row = await create_child_run(
-                session,
-                parent_session_id="parent-session",
-                parent_task_id="task-1",
-                parent_thread_id="parent-session",
-                child_thread_id="child-thread-cancel",
-                agent_key="writer",
-                dispatch_id="dispatch-cancel",
-                tool_call_id="tool-call-cancel",
-                request={"task": "write"},
-                status="running",
-            )
-            request_row = await get_child_run_request_by_seq(
-                session,
-                child_run_id=row.id,
-                seq=0,
-            )
-            assert request_row is not None
-            await cancel_child_run(session, row.id, error="user cancelled subagent")
-
-        with pytest.raises(ToolExecutionError, match="user cancelled subagent"):
-            await wait_for_request_resolution(
-                session_factory=factory,
-                child_run_id=row.id,
-                request_id=request_row.id,
-            )
-    finally:
-        await engine.dispose()

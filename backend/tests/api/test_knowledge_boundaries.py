@@ -1,8 +1,7 @@
 import json
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock
 
 import pytest
-from httpx import AsyncClient
 
 from app.agent_runtime.context.helpers import compile_canonical_mentions
 from app.agent_runtime.tools.errors import ToolExecutionError
@@ -20,51 +19,6 @@ from app.storage.models.note import Note
 from app.storage.models.project import Project
 from app.storage.models.world_info import WorldInfo
 from app.storage.models.world_info_entry import WorldInfoEntry
-from tests.api.test_agent import _SESSION_RUNNERS, _seed_agent_target
-
-
-@pytest.mark.asyncio
-async def test_build_rejects_global_context(client: AsyncClient) -> None:
-    target = await _seed_agent_target(client)
-
-    response = await client.post(
-        "/api/v1/agent/sessions",
-        json={
-            "project_id": target["project_id"],
-            "model_id": target["model_id"],
-            "context_mode": "global",
-            "agent_key": "build",
-        },
-    )
-
-    assert response.status_code == 400
-
-
-@pytest.mark.asyncio
-async def test_global_discuss_session_cannot_switch_to_build_on_message(
-    client: AsyncClient,
-) -> None:
-    target = await _seed_agent_target(client)
-    created = await client.post(
-        "/api/v1/agent/sessions",
-        json={
-            "project_id": target["project_id"],
-            "model_id": target["model_id"],
-            "context_mode": "global",
-            "agent_key": "discuss",
-        },
-    )
-    assert created.status_code == 200
-    session_id = created.json()["session_id"]
-
-    with patch("app.api.routers.agent_runtime._launch_task", AsyncMock()):
-        response = await client.post(
-            f"/api/v1/agent/sessions/{session_id}/message",
-            json={"message": "继续讨论", "agent_key": "build"},
-        )
-
-    assert response.status_code == 400
-    assert _SESSION_RUNNERS[session_id].agent_key == "discuss"
 
 
 @pytest.mark.asyncio

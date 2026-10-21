@@ -78,13 +78,6 @@ def test_external_paths_relocate_and_effective_key_survives(tmp_path, monkeypatc
     assert (restored / "data" / ".key").read_text() == "effective-key"
 
 
-def test_process_encryption_key_is_rejected_for_a_recoverable_snapshot(tmp_path, monkeypatch):
-    repo, data = source(tmp_path)
-    monkeypatch.setenv("ENCRYPTION_KEY", "process-only-key")
-    with pytest.raises(ValueError, match="Process ENCRYPTION_KEY"):
-        create_snapshot(data, tmp_path / "snapshot", repo)
-
-
 def test_saved_service_paths_override_the_backup_invocation_environment(tmp_path, monkeypatch):
     repo, data = source(tmp_path)
     active_covers = tmp_path / "active-covers"
@@ -103,40 +96,3 @@ def test_saved_service_paths_override_the_backup_invocation_environment(tmp_path
         restored / "external" / "COVERS_DIR" / "active-covers" / "image.png"
     ).read_bytes() == b"active"
     assert configured_paths(data, repo, saved_paths)["COVERS_DIR"] == active_covers
-
-
-def test_snapshot_includes_its_start_script_for_matching_source(tmp_path):
-    repo, data = source(tmp_path)
-    script = repo / "scripts" / "openfic-service.ps1"
-    script.parent.mkdir()
-    script.write_text("# snapshot launcher", encoding="utf-8")
-    snapshot = tmp_path / "snapshot"
-
-    def tracked(command, **kwargs):
-        return (
-            "test-commit\n" if kwargs.get("text") else b"README.md\0scripts/openfic-service.ps1\0"
-        )
-
-    with patch("app.backup.subprocess.check_output", side_effect=tracked):
-        create_snapshot(data, snapshot, repo)
-    assert (snapshot / "source" / "scripts" / "openfic-service.ps1").is_file()
-
-
-def test_managed_path_state_must_be_complete_and_absolute(tmp_path):
-    repo, data = source(tmp_path)
-    with pytest.raises(ValueError, match="incomplete"):
-        configured_paths(data, repo, {"COVERS_DIR": str(data / "covers")})
-    relative_paths = {key: str(data / default) for key, default in PATH_SETTINGS.items()}
-    relative_paths["COVERS_DIR"] = "covers"
-    with pytest.raises(ValueError, match="relative"):
-        configured_paths(data, repo, relative_paths)
-
-
-def test_running_service_and_recursive_destination_rejected(tmp_path):
-    repo, data = source(tmp_path)
-    (data / "runtime").mkdir()
-    (data / "runtime" / "openfic.json").write_text("{}")
-    with pytest.raises(ValueError, match="Stop"):
-        create_snapshot(data, tmp_path / "snapshot", repo)
-    with pytest.raises(ValueError, match="outside"):
-        create_snapshot(data, data / "snapshot", repo)

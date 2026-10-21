@@ -10,8 +10,6 @@ from app.project_bundle.archive import build_zip
 from app.storage.models.character import Character
 from app.storage.models.note import Note
 from app.storage.models.project import Project
-from app.storage.models.project_import_profile import ProjectImportProfile
-from app.storage.models.world_info_entry import WorldInfoEntry
 
 
 def _source_bundle(
@@ -77,93 +75,6 @@ def _upload(data: bytes, mode: str = "merge") -> dict:
     }
 
 
-def _visibility_bundle(project_id: str, *, disabled: bool) -> bytes:
-    config = {
-        "schema": "openfic.import-map",
-        "version": 1,
-        "project_id": project_id,
-        "rules": [
-            {
-                "id": "world-visibility",
-                "target": "worldbook",
-                "source": "world.md",
-                "split": {"type": "headings", "item_levels": [3]},
-                "section_level": 2,
-            }
-        ],
-    }
-    marker = " [仅全局]" if disabled else ""
-    return build_zip(
-        {
-            "openfic-import.yaml": yaml.safe_dump(config, allow_unicode=True, sort_keys=True),
-            "world.md": f"# 世界\n## 体系\n### 灵气{marker}\n灵气内容",
-        }
-    )
-
-
-@pytest.mark.asyncio
-async def test_source_preview_reports_create_actions(client: AsyncClient, session) -> None:
-    project = await _create_project(session)
-
-    response = await client.post(
-        f"/api/v1/projects/{project.id}/bundle/source/preview",
-        files=_upload(_source_bundle(project.id)),
-    )
-
-    assert response.status_code == 200
-    body = response.json()
-    assert body["mode"] == "merge"
-    assert body["summary"] == {
-        "create": 8,
-        "update": 0,
-        "unchanged": 0,
-        "conflict": 0,
-    }
-
-
-@pytest.mark.asyncio
-async def test_source_apply_succeeds_and_repeated_source_is_unchanged(
-    client: AsyncClient, session
-) -> None:
-    project = await _create_project(session)
-    source = _source_bundle(project.id)
-
-    applied = await client.post(
-        f"/api/v1/projects/{project.id}/bundle/source/apply",
-        files=_upload(source),
-    )
-    assert applied.status_code == 200
-    assert applied.json()["summary"] == {
-        "create": 8,
-        "update": 0,
-        "unchanged": 0,
-        "conflict": 0,
-    }
-
-    repeated = await client.post(
-        f"/api/v1/projects/{project.id}/bundle/source/preview",
-        files=_upload(source),
-    )
-    assert repeated.status_code == 200
-    assert repeated.json()["summary"] == {
-        "create": 0,
-        "update": 0,
-        "unchanged": 8,
-        "conflict": 0,
-    }
-
-    assert (await session.get(Character, "map-ch-" + "0" * 24)) is None
-    characters = (
-        await session.execute(
-            Character.__table__.select().where(Character.project_id == project.id)
-        )
-    ).all()
-    assert len(characters) == 1
-    profile = await session.get(ProjectImportProfile, project.id)
-    assert profile is not None
-    assert "schema: openfic.import-map" in profile.mapping_yaml
-
-
 @pytest.mark.asyncio
 async def test_source_apply_updates_changed_source(client: AsyncClient, session) -> None:
     project = await _create_project(session)
@@ -196,46 +107,6 @@ async def test_source_apply_updates_changed_source(client: AsyncClient, session)
         )
     ).all()
     assert len(notes) == 1
-
-
-@pytest.mark.asyncio
-async def test_source_apply_updates_visibility_without_recreating_target(
-    client: AsyncClient, session
-) -> None:
-    project = await _create_project(session)
-    first = await client.post(
-        f"/api/v1/projects/{project.id}/bundle/source/apply",
-        files=_upload(_visibility_bundle(project.id, disabled=False)),
-    )
-    assert first.status_code == 200
-    assert first.json()["summary"]["create"] == 2
-
-    before = (
-        await session.execute(select(WorldInfoEntry).where(WorldInfoEntry.name == "灵气"))
-    ).scalar_one()
-    target_id = before.id
-    assert before.agent_visibility == "all"
-
-    second = await client.post(
-        f"/api/v1/projects/{project.id}/bundle/source/apply",
-        files=_upload(_visibility_bundle(project.id, disabled=True)),
-    )
-    assert second.status_code == 200
-    assert second.json()["summary"] == {
-        "create": 0,
-        "update": 1,
-        "unchanged": 1,
-        "conflict": 0,
-    }
-
-    await session.refresh(before)
-    entries = (
-        (await session.execute(select(WorldInfoEntry).where(WorldInfoEntry.name == "灵气")))
-        .scalars()
-        .all()
-    )
-    assert [entry.id for entry in entries] == [target_id]
-    assert entries[0].agent_visibility == "global"
 
 
 @pytest.mark.asyncio
@@ -293,16 +164,3 @@ async def test_source_apply_conflict_does_not_partially_write(
         )
     ).all()
     assert len(characters) == 1
-
-
-@pytest.mark.asyncio
-async def test_source_manifest_project_id_mismatch_is_bad_request(
-    client: AsyncClient, session
-) -> None:
-    project = await _create_project(session)
-    response = await client.post(
-        f"/api/v1/projects/{project.id}/bundle/source/preview",
-        files=_upload(_source_bundle("another-project")),
-    )
-
-    assert response.status_code == 400

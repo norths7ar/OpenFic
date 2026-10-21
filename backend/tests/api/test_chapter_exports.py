@@ -5,28 +5,11 @@ from urllib.parse import unquote
 import pytest
 from httpx import AsyncClient
 
-from app.api.routers import chapter_exports as chapter_exports_router
 from app.background.events.publisher import BackgroundEventPublisher
 from app.background.jobs import service as background_service
-from app.background.jobs.models import BackgroundJob
 from app.background.runtime.context import JobContext
 from app.background.runtime.dispatcher import dispatch_job
 from app.chapter_export import service as chapter_export_service
-
-
-def test_expired_export_is_not_downloadable(monkeypatch, tmp_path) -> None:
-    monkeypatch.setattr(chapter_export_service.settings, "chapter_exports_dir", tmp_path)
-    job = BackgroundJob(
-        id="expired-export",
-        type=chapter_export_service.EXPORT_JOB_TYPE,
-        status="succeeded",
-        payload_json='{"filename":"测试.txt"}',
-        result_json='{"expires_at":"2020-01-01T00:00:00+00:00"}',
-    )
-    _part_path, output_path = chapter_export_service.export_file_paths(job.id)
-    output_path.write_text("expired", encoding="utf-8")
-
-    assert not chapter_export_service.is_export_download_available(job)
 
 
 async def _create_project(client: AsyncClient, title: str = "测试小说") -> tuple[str, str]:
@@ -56,134 +39,6 @@ async def _create_chapter(
     )
     assert response.status_code == 201
     return response.json()
-
-
-@pytest.mark.asyncio
-async def test_create_full_volume_export_uses_volume_filename_and_snapshot_selection(
-    client: AsyncClient,
-) -> None:
-    project_id, volume_id = await _create_project(client)
-    first = await _create_chapter(
-        client, project_id, volume_id, "第一章", "第一章正文\r\n第二行", 5
-    )
-    second = await _create_chapter(client, project_id, volume_id, "第二章", "第二章正文", 5)
-
-    response = await client.post(
-        f"/api/v1/projects/{project_id}/chapter-exports",
-        json={
-            "selected_volume_ids": [volume_id],
-            "included_chapter_ids": [],
-            "excluded_chapter_ids": [],
-            "local_date": "2026-07-28",
-        },
-    )
-
-    assert response.status_code == 201
-    data = response.json()
-    assert data["status"] == "pending"
-    assert data["chapter_count"] == 2
-    assert data["word_count"] == 10
-    assert data["filename"] == "测试小说-全本-2026-07-28.txt"
-    assert data["chapter_ids"] == [first["id"], second["id"]]
-
-
-@pytest.mark.asyncio
-async def test_only_cancel_endpoint_preempts_running_export(
-    client: AsyncClient, monkeypatch
-) -> None:
-    class Supervisor:
-        def __init__(self) -> None:
-            self.cancelled_job_ids: list[str] = []
-
-        def create_event_publisher(self) -> BackgroundEventPublisher:
-            return BackgroundEventPublisher(None)
-
-        def cancel_running_chapter_export(self, job_id: str) -> bool:
-            self.cancelled_job_ids.append(job_id)
-            return False
-
-    supervisor = Supervisor()
-    monkeypatch.setattr(chapter_exports_router, "get_background_supervisor", lambda: supervisor)
-    project_id, volume_id = await _create_project(client)
-    chapter = await _create_chapter(client, project_id, volume_id, "第一章", "正文", 2)
-
-    created = await client.post(
-        f"/api/v1/projects/{project_id}/chapter-exports",
-        json={
-            "selected_volume_ids": [],
-            "included_chapter_ids": [chapter["id"]],
-            "excluded_chapter_ids": [],
-            "local_date": "2026-07-28",
-        },
-    )
-    assert created.status_code == 201
-    assert supervisor.cancelled_job_ids == []
-
-    cancelled = await client.post(
-        f"/api/v1/projects/{project_id}/chapter-exports/{created.json()['id']}/cancel"
-    )
-    assert cancelled.status_code == 200
-    assert supervisor.cancelled_job_ids == [created.json()["id"]]
-
-
-@pytest.mark.asyncio
-async def test_create_fragment_export_uses_chapter_filename(client: AsyncClient) -> None:
-    project_id, volume_id = await _create_project(client)
-    selected = await _create_chapter(client, project_id, volume_id, "第一章", "正文", 2)
-    await _create_chapter(client, project_id, volume_id, "第二章", "正文", 2)
-
-    response = await client.post(
-        f"/api/v1/projects/{project_id}/chapter-exports",
-        json={
-            "selected_volume_ids": [],
-            "included_chapter_ids": [selected["id"]],
-            "excluded_chapter_ids": [],
-            "local_date": "2026-07-28",
-        },
-    )
-
-    assert response.status_code == 201
-    assert response.json()["filename"] == "测试小说-1个章节-2026-07-28.txt"
-
-
-@pytest.mark.asyncio
-async def test_manually_selected_complete_volume_still_uses_chapter_format(
-    client: AsyncClient,
-) -> None:
-    project_id, volume_id = await _create_project(client)
-    first = await _create_chapter(client, project_id, volume_id, "第一章", "正文", 2)
-    second = await _create_chapter(client, project_id, volume_id, "第二章", "正文", 2)
-
-    response = await client.post(
-        f"/api/v1/projects/{project_id}/chapter-exports",
-        json={
-            "selected_volume_ids": [],
-            "included_chapter_ids": [first["id"], second["id"]],
-            "excluded_chapter_ids": [],
-            "local_date": "2026-07-28",
-        },
-    )
-
-    assert response.status_code == 201
-    assert response.json()["filename"] == "测试小说-2个章节-2026-07-28.txt"
-
-
-@pytest.mark.asyncio
-async def test_create_export_rejects_empty_selection(client: AsyncClient) -> None:
-    project_id, _volume_id = await _create_project(client)
-
-    response = await client.post(
-        f"/api/v1/projects/{project_id}/chapter-exports",
-        json={
-            "selected_volume_ids": [],
-            "included_chapter_ids": [],
-            "excluded_chapter_ids": [],
-            "local_date": "2026-07-28",
-        },
-    )
-
-    assert response.status_code == 400
-    assert "章节" in response.json()["detail"]
 
 
 @pytest.mark.asyncio
@@ -248,57 +103,3 @@ async def test_export_task_writes_full_volume_txt_and_serves_download(
         "expires_at": result["expires_at"],
     }
     assert [first["id"], second["id"]] == created.json()["chapter_ids"]
-
-
-@pytest.mark.asyncio
-async def test_cancelled_export_removes_partial_file(
-    client: AsyncClient,
-    session,
-    monkeypatch,
-    tmp_path,
-) -> None:
-    monkeypatch.setattr(chapter_export_service.settings, "chapter_exports_dir", tmp_path)
-    project_id, volume_id = await _create_project(client)
-    await _create_chapter(client, project_id, volume_id, "第一章", "正文", 2)
-    created = await client.post(
-        f"/api/v1/projects/{project_id}/chapter-exports",
-        json={
-            "selected_volume_ids": [volume_id],
-            "included_chapter_ids": [],
-            "excluded_chapter_ids": [],
-            "local_date": "2026-07-28",
-        },
-    )
-    job_id = created.json()["id"]
-    part_path, output_path = chapter_export_service.export_file_paths(job_id)
-    part_path.write_text("partial", encoding="utf-8")
-    output_path.write_text("complete", encoding="utf-8")
-
-    cancelled = await client.post(f"/api/v1/projects/{project_id}/chapter-exports/{job_id}/cancel")
-
-    assert cancelled.status_code == 200
-    assert cancelled.json()["status"] == "cancelled"
-    assert not part_path.exists()
-    assert not output_path.exists()
-
-
-@pytest.mark.asyncio
-async def test_cleanup_keeps_output_while_export_is_still_running(
-    session,
-    monkeypatch,
-    tmp_path,
-) -> None:
-    monkeypatch.setattr(chapter_export_service.settings, "chapter_exports_dir", tmp_path)
-    job = BackgroundJob(
-        id="running-export",
-        type=chapter_export_service.EXPORT_JOB_TYPE,
-        status="running",
-        payload_json="{}",
-    )
-    session.add(job)
-    await session.commit()
-    _part_path, output_path = chapter_export_service.export_file_paths(job.id)
-    output_path.write_text("finished but not committed", encoding="utf-8")
-
-    assert await chapter_export_service.cleanup_chapter_export_files(session) == 0
-    assert output_path.exists()

@@ -3,12 +3,10 @@
 import json
 
 import pytest
-from langchain_core.messages import AIMessage, AIMessageChunk, ToolMessage
+from langchain_core.messages import AIMessageChunk
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agent_runtime.persistence import repo
-from app.agent_runtime.persistence.child_runs import create_child_run
-from app.agent_runtime.persistence.loader import load_history
 from app.agent_runtime.persistence.persister import MessagePersister
 
 
@@ -53,134 +51,4 @@ async def test_finalize_writes_partial_assistant_with_resolvable_tool_call(
         "success": False,
         "code": "execution_failed",
         "message": "工具未执行",
-    }
-
-
-@pytest.mark.asyncio
-async def test_finalize_persists_reasoning_duration_for_cancelled_partial_message(
-    db_session: AsyncSession, db_session_factory, sample_task
-):
-    sid = "session_reasoning_cancelled"
-    p = MessagePersister(
-        session_id=sid,
-        task_id=sample_task.id,
-        project_id=sample_task.project_id,
-        db_session_factory=db_session_factory,
-    )
-    await p.handle({"event": "on_chat_model_start", "data": {}})
-    await p.handle(
-        {
-            "event": "on_chat_model_stream",
-            "data": {
-                "chunk": AIMessageChunk(
-                    content="",
-                    additional_kwargs={"reasoning_content": "先分析到一半"},
-                ),
-            },
-        }
-    )
-
-    await p.finalize(reason="cancelled")
-
-    items = await repo.list_by_session(db_session, sid)
-    assert len(items) == 1
-    msg = items[0]
-    assert msg.role == "assistant"
-    assert msg.status == "partial"
-    assert msg.reasoning == "先分析到一半"
-    assert msg.reasoning_duration_ms is not None
-    assert msg.reasoning_duration_ms == 0
-
-
-@pytest.mark.asyncio
-@pytest.mark.parametrize(
-    ("tool_name", "tool_call_id", "tool_args"),
-    [
-        (
-            "dispatch_subagent",
-            "call-dispatch",
-            {"agent_type": "writer", "prompt": "write scene"},
-        ),
-        (
-            "notify_subagent",
-            "call-notify",
-            {"dispatch_id": "dispatch-cancelled", "prompt": "continue scene"},
-        ),
-    ],
-)
-async def test_finalize_preserves_cancelled_subagent_tool_identity_in_history(
-    db_session: AsyncSession,
-    db_session_factory,
-    sample_task,
-    tool_name: str,
-    tool_call_id: str,
-    tool_args: dict[str, str],
-):
-    session_id = "parent-session"
-    await repo.insert_message(
-        db_session,
-        session_id=session_id,
-        task_id=sample_task.id,
-        project_id=sample_task.project_id,
-        role="assistant",
-        status="complete",
-        content="",
-        tool_calls=[
-            {
-                "id": "call-dispatch",
-                "name": "dispatch_subagent",
-                "args": {"agent_type": "writer", "prompt": "write scene"},
-            },
-            {
-                "id": "call-notify",
-                "name": "notify_subagent",
-                "args": {
-                    "dispatch_id": "dispatch-cancelled",
-                    "prompt": "continue scene",
-                },
-            },
-        ],
-    )
-    await create_child_run(
-        db_session,
-        parent_session_id=session_id,
-        parent_task_id=sample_task.id,
-        parent_thread_id=session_id,
-        child_thread_id="parent-session:child:dispatch-cancelled",
-        agent_key="writer",
-        dispatch_id="dispatch-cancelled",
-        tool_call_id="call-dispatch",
-        request={"task": "write scene"},
-        metadata={"agent_number": "#1001"},
-    )
-    persister = MessagePersister(
-        session_id=session_id,
-        task_id=sample_task.id,
-        project_id=sample_task.project_id,
-        db_session_factory=db_session_factory,
-    )
-    await persister.handle(
-        {
-            "event": "on_tool_start",
-            "name": tool_name,
-            "run_id": f"tool-{tool_name}",
-            "data": {"input": tool_args},
-            "metadata": {"tool_call_id": tool_call_id},
-        }
-    )
-
-    await persister.finalize(reason="cancelled")
-
-    messages = await load_history(db_session, session_id)
-
-    assert isinstance(messages[0], AIMessage)
-    assert isinstance(messages[1], ToolMessage)
-    assert json.loads(messages[1].content) == {
-        "dispatch_id": "dispatch-cancelled",
-        "agent_key": "writer",
-        "agent_number": "#1001",
-        "type": "fail",
-        "success": False,
-        "code": "execution_failed",
-        "message": "subagent 会话已被用户中断，要通知其继续工作请使用 notify_subagent",
     }

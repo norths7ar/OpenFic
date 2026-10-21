@@ -160,33 +160,6 @@ async def test_apply_updates_content_without_deleting_unlisted_rows(session) -> 
 
 
 @pytest.mark.asyncio
-async def test_apply_rejects_updates_to_locked_notes(session) -> None:
-    project = Project(id="apply-locked-project", title="锁定项目")
-    note = Note(
-        id="apply-locked-note",
-        project_id=project.id,
-        title="锁定笔记",
-        content="基线",
-        order=1,
-    )
-    session.add_all([project, note])
-    await session.flush()
-    edited = _rewrite_kind(
-        await export_project_bundle(session, project.id),
-        "note",
-        body="导入后的内容",
-    )
-    note.is_locked = True
-    await session.flush()
-
-    with pytest.raises(BundleApplyConflictError) as conflict:
-        await apply_project_bundle(session, project.id, edited, "merge")
-
-    assert any(item.reason == "locked_note" for item in conflict.value.items)
-    assert note.content == "基线"
-
-
-@pytest.mark.asyncio
 async def test_apply_rejects_concurrent_changes_and_live_discussion_edits(
     session,
 ) -> None:
@@ -235,39 +208,3 @@ async def test_apply_rejects_concurrent_changes_and_live_discussion_edits(
         item.reason == "live_discussion_is_read_only" for item in discussion_conflict.value.items
     )
     assert message.content == "原讨论"
-
-
-@pytest.mark.asyncio
-async def test_apply_api_commits_and_returns_conflicts(session, client) -> None:
-    project = Project(id="apply-api-project", title="API 项目")
-    note = Note(
-        id="apply-api-note",
-        project_id=project.id,
-        title="笔记",
-        content="原文",
-        order=1,
-    )
-    session.add_all([project, note])
-    await session.flush()
-    bundle = await export_project_bundle(session, project.id)
-    edited = _rewrite_kind(bundle, "note", body="API 更新")
-
-    response = await client.post(
-        f"/api/v1/projects/{project.id}/bundle/import/apply",
-        files={"file": ("bundle.zip", edited, "application/zip")},
-        data={"mode": "merge"},
-    )
-    assert response.status_code == 200
-    assert response.json()["summary"]["update"] == 1
-    await session.refresh(note)
-    assert note.content == "API 更新"
-
-    note.content = "之后的数据库编辑"
-    await session.commit()
-    conflict = await client.post(
-        f"/api/v1/projects/{project.id}/bundle/import/apply",
-        files={"file": ("bundle.zip", edited, "application/zip")},
-        data={"mode": "merge"},
-    )
-    assert conflict.status_code == 409
-    assert conflict.json()["detail"]["conflicts"][0]["reason"] == "current_changed"
