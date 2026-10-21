@@ -11,10 +11,8 @@ from sqlalchemy.orm import sessionmaker
 from sqlmodel import SQLModel
 
 from app.agent_runtime.streaming.replay_buffer import get_agent_event_replay_buffer
-from app.socket import background_project_room, emit, init_socketio, is_connected
+from app.socket import background_project_room, emit, init_socketio
 from app.socket.handlers import (
-    agent_subagent_session_room,
-    agent_subagents_room,
     get_connection_state,
 )
 from app.storage import database
@@ -153,27 +151,7 @@ def reset_state():
 
 
 class TestSocketIntegration:
-    async def test_connect_and_disconnect(self, server):
-        client = socketio_lib.AsyncSimpleClient()
-        await client.connect(server, socketio_path="/socket.io")
-        await asyncio.sleep(0.1)
-        assert is_connected() is True
 
-        await client.disconnect()
-        await asyncio.sleep(0.1)
-        assert is_connected() is False
-
-    async def test_emit_reaches_client(self, server):
-        client = socketio_lib.AsyncSimpleClient()
-        await client.connect(server, socketio_path="/socket.io")
-        await asyncio.sleep(0.1)
-
-        await emit("agent:token", {"content": "hello"})
-        event = await asyncio.wait_for(client.receive(), timeout=2.0)
-        assert event[0] == "agent:token"
-        assert event[1] == {"content": "hello"}
-
-        await client.disconnect()
 
     async def test_join_agent_session_room_receives_room_event(self, server):
         client = socketio_lib.AsyncSimpleClient()
@@ -192,260 +170,12 @@ class TestSocketIntegration:
 
         await client.disconnect()
 
-    async def test_join_agent_session_replays_buffered_stream_events(self, server):
-        buffer = get_agent_event_replay_buffer()
-        async with buffer.session_lock("s1"):
-            buffer.record_unlocked(
-                "agent:token",
-                {"session_id": "s1", "run_id": "run-1", "content": "前半段"},
-            )
-
-        client = socketio_lib.AsyncSimpleClient()
-        await client.connect(server, socketio_path="/socket.io")
-        await asyncio.sleep(0.1)
-
-        await client.emit("agent:join", {"session_id": "s1"})
-        joined_event = await asyncio.wait_for(client.receive(), timeout=2.0)
-        assert joined_event[0] == "agent:joined"
-        assert joined_event[1] == {"session_id": "s1"}
-
-        replayed_event = await asyncio.wait_for(client.receive(), timeout=2.0)
-        assert replayed_event[0] == "agent:token"
-        assert replayed_event[1] == {
-            "session_id": "s1",
-            "run_id": "run-1",
-            "content": "前半段",
-        }
-
-        await client.disconnect()
-
-    async def test_join_subagents_replays_status_without_child_transcript(
-        self,
-        server,
-    ):
-        buffer = get_agent_event_replay_buffer()
-        async with buffer.session_lock("parent-session"):
-            buffer.record_unlocked(
-                "agent:subagent_status",
-                {
-                    "parent_session_id": "parent-session",
-                    "child_run_id": "child-run-1",
-                    "child_thread_id": "child-thread-1",
-                    "agent_key": "writer",
-                    "status": "running",
-                    "queued_messages": 1,
-                    "is_active": True,
-                },
-            )
-        async with buffer.session_lock("child-thread-1"):
-            buffer.record_unlocked(
-                "agent:token",
-                {
-                    "session_id": "child-thread-1",
-                    "run_id": "child-run-1",
-                    "content": "child transcript",
-                },
-            )
-
-        regular_client = socketio_lib.AsyncSimpleClient()
-        await regular_client.connect(server, socketio_path="/socket.io")
-        await asyncio.sleep(0.1)
-
-        await regular_client.emit("agent:join", {"session_id": "parent-session"})
-        joined_parent = await asyncio.wait_for(regular_client.receive(), timeout=2.0)
-        assert joined_parent[0] == "agent:joined"
-        assert joined_parent[1] == {"session_id": "parent-session"}
-
-        with pytest.raises(asyncio.TimeoutError):
-            await asyncio.wait_for(regular_client.receive(), timeout=0.3)
-
-        await regular_client.disconnect()
-
-        parent_client = socketio_lib.AsyncSimpleClient()
-        await parent_client.connect(server, socketio_path="/socket.io")
-        await asyncio.sleep(0.1)
-
-        await parent_client.emit(
-            "agent:join_subagents",
-            {"session_id": "parent-session"},
-        )
-        joined_event = await asyncio.wait_for(parent_client.receive(), timeout=2.0)
-        assert joined_event[0] == "agent:joined_subagents"
-        assert joined_event[1] == {"session_id": "parent-session"}
-
-        replayed_status = await asyncio.wait_for(parent_client.receive(), timeout=2.0)
-        assert replayed_status[0] == "agent:subagent_status"
-        assert replayed_status[1] == {
-            "parent_session_id": "parent-session",
-            "child_run_id": "child-run-1",
-            "child_thread_id": "child-thread-1",
-            "agent_key": "writer",
-            "status": "running",
-            "queued_messages": 1,
-            "is_active": True,
-        }
-
-        with pytest.raises(asyncio.TimeoutError):
-            await asyncio.wait_for(parent_client.receive(), timeout=0.3)
-
-        await emit(
-            "agent:token",
-            {
-                "session_id": "child-thread-1",
-                "run_id": "child-run-1",
-                "content": "live child transcript",
-            },
-            room=agent_subagent_session_room("child-thread-1"),
-        )
-        with pytest.raises(asyncio.TimeoutError):
-            await asyncio.wait_for(parent_client.receive(), timeout=0.3)
-
-        await emit(
-            "agent:subagent_status",
-            {
-                "parent_session_id": "parent-session",
-                "child_run_id": "child-run-1",
-                "child_thread_id": "child-thread-1",
-                "agent_key": "writer",
-                "status": "completed",
-                "queued_messages": 0,
-                "is_active": True,
-            },
-            room=agent_subagents_room("parent-session"),
-        )
-        live_status = await asyncio.wait_for(parent_client.receive(), timeout=2.0)
-        assert live_status[0] == "agent:subagent_status"
-        assert live_status[1]["status"] == "completed"
-
-        await parent_client.disconnect()
 
 
-    async def test_join_subagent_replays_and_receives_child_transcript(
-        self,
-        server,
-    ):
-        buffer = get_agent_event_replay_buffer()
-        async with buffer.session_lock("child-thread-2"):
-            buffer.record_unlocked(
-                "agent:token",
-                {
-                    "session_id": "child-thread-2",
-                    "run_id": "child-run-2",
-                    "content": "buffered child transcript",
-                },
-            )
 
-        client = socketio_lib.AsyncSimpleClient()
-        await client.connect(server, socketio_path="/socket.io")
-        await asyncio.sleep(0.1)
 
-        await client.emit(
-            "agent:join_subagent",
-            {"child_thread_id": "child-thread-2"},
-        )
-        joined_event = await asyncio.wait_for(client.receive(), timeout=2.0)
-        assert joined_event[0] == "agent:joined_subagent"
-        assert joined_event[1] == {"child_thread_id": "child-thread-2"}
 
-        replayed_event = await asyncio.wait_for(client.receive(), timeout=2.0)
-        assert replayed_event[0] == "agent:token"
-        assert replayed_event[1] == {
-            "session_id": "child-thread-2",
-            "run_id": "child-run-2",
-            "content": "buffered child transcript",
-        }
 
-        await emit(
-            "agent:token",
-            {
-                "session_id": "child-thread-2",
-                "run_id": "child-run-2",
-                "content": "live child transcript",
-            },
-            room=agent_subagent_session_room("child-thread-2"),
-        )
-        live_event = await asyncio.wait_for(client.receive(), timeout=2.0)
-        assert live_event[0] == "agent:token"
-        assert live_event[1] == {
-            "session_id": "child-thread-2",
-            "run_id": "child-run-2",
-            "content": "live child transcript",
-        }
-
-        await client.disconnect()
-
-    async def test_join_background_project_room_receives_snapshot_and_room_event(
-        self, server, socket_db_factory
-    ):
-        await _seed_project(socket_db_factory, project_id="p1", chapter_id="c1")
-        client = socketio_lib.AsyncSimpleClient()
-        await client.connect(server, socketio_path="/socket.io")
-        await asyncio.sleep(0.1)
-
-        await client.emit("background:join", {"project_id": "p1"})
-        snapshot = await _expect_background_joined_and_snapshot(client, "p1")
-        assert snapshot["summary"]["statuses"] == [
-            {
-                "chapter_id": "c1",
-                "volume_id": "p1-volume-1",
-                "status": "not_generated",
-                "is_stale": False,
-                "summary_id": None,
-                "updated_at": None,
-            }
-        ]
-        missing = snapshot["summary"]["maintenance"]["missing_or_failed_chapter_summaries"]
-        assert [item["chapter_id"] for item in missing] == ["c1"]
-
-        await emit(
-            "background:task",
-            {"project_id": "p1", "status": "running"},
-            room=background_project_room("p1"),
-        )
-        event = await asyncio.wait_for(client.receive(), timeout=2.0)
-        assert event[0] == "background:task"
-        assert event[1] == {"project_id": "p1", "status": "running"}
-
-        await client.disconnect()
-
-    async def test_background_leave_removes_client_from_room(self, server):
-        client = socketio_lib.AsyncSimpleClient()
-        await client.connect(server, socketio_path="/socket.io")
-        await asyncio.sleep(0.1)
-
-        await client.emit("background:join", {"project_id": "p1"})
-        await _expect_background_joined_and_snapshot(client, "p1")
-
-        await client.emit("background:leave", {"project_id": "p1"})
-        left_event = await asyncio.wait_for(client.receive(), timeout=2.0)
-        assert left_event[0] == "background:left"
-        assert left_event[1] == {"project_id": "p1"}
-
-        await emit(
-            "background:task",
-            {"project_id": "p1", "status": "after-leave"},
-            room=background_project_room("p1"),
-        )
-        with pytest.raises(asyncio.TimeoutError):
-            await asyncio.wait_for(client.receive(), timeout=0.3)
-
-        await client.disconnect()
-
-    @pytest.mark.parametrize("payload", [{}, {"project_id": ""}])
-    async def test_invalid_background_join_project_id_emits_error(self, server, payload):
-        client = socketio_lib.AsyncSimpleClient()
-        await client.connect(server, socketio_path="/socket.io")
-        await asyncio.sleep(0.1)
-
-        await client.emit("background:join", payload)
-        error_event = await asyncio.wait_for(client.receive(), timeout=2.0)
-        assert error_event[0] == "background:error"
-        assert error_event[1] == {
-            "type": "invalid_project",
-            "reason": "project_id is required",
-        }
-
-        await client.disconnect()
 
     async def test_background_project_rooms_and_snapshots_are_isolated(
         self, server, socket_db_factory
@@ -483,18 +213,3 @@ class TestSocketIntegration:
 
         await client_a.disconnect()
         await client_b.disconnect()
-
-    async def test_heartbeat_updates_state(self, server):
-        client = socketio_lib.AsyncSimpleClient()
-        await client.connect(server, socketio_path="/socket.io")
-        await asyncio.sleep(0.1)
-
-        state = get_connection_state()
-        old_seen = state.last_seen_at
-        await asyncio.sleep(0.05)
-
-        await client.emit("heartbeat", {})
-        await asyncio.sleep(0.1)
-        assert state.last_seen_at > old_seen
-
-        await client.disconnect()

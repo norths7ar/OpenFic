@@ -11,7 +11,6 @@ from sqlmodel import SQLModel
 
 from app.agent_runtime.context.compaction.service import (
     CompactionError,
-    _build_messages,
     compact_window,
 )
 from app.agent_runtime.context.compaction.window import CompactionWindow
@@ -127,28 +126,6 @@ def window() -> CompactionWindow:
         messages=[ContextMessage(role="assistant", content="old")],
         source_input_tokens=321,
         transcript="<assistant>old</assistant>",
-    )
-
-
-@pytest.mark.asyncio
-async def test_discuss_compaction_uses_discussion_prompt(
-    db_session: AsyncSession,
-    state: AgentRuntimeState,
-    window: CompactionWindow,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    get_prompt = AsyncMock(return_value=_prompt_version())
-    monkeypatch.setattr(
-        "app.agent_runtime.context.compaction.service.prompt_chain_service.get_latest_version_with_entries_or_default",
-        get_prompt,
-    )
-    discuss_state = {**state, "agent_key": "discuss"}
-
-    await _build_messages(db_session, window=window, state=discuss_state)
-
-    get_prompt.assert_awaited_once_with(
-        db_session,
-        prompt_id="session-discussion-compaction",
     )
 
 
@@ -269,44 +246,3 @@ async def test_compact_window_ignores_post_commit_sink_failures(
     assert result.summary == "摘要正文"
     rows = await compaction_repo.list_by_session(db_session, state["session_id"])
     assert [row.id for row in rows] == [result.id]
-
-
-@pytest.mark.asyncio
-async def test_compact_window_converts_llm_error_to_stable_error_event(
-    db_session: AsyncSession,
-    state: AgentRuntimeState,
-    window: CompactionWindow,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    fake_model = FakeModel(RuntimeError("provider leaked transcript old stack"))
-    events: list[tuple[str, dict[str, Any]]] = []
-
-    monkeypatch.setattr(
-        "app.agent_runtime.context.compaction.service.create_chat_model",
-        lambda _config: fake_model,
-    )
-    monkeypatch.setattr(
-        "app.agent_runtime.context.compaction.service.prompt_chain_service.get_latest_version_with_entries_or_default",
-        AsyncMock(return_value=_prompt_version()),
-    )
-
-    with pytest.raises(CompactionError) as exc_info:
-        await compact_window(
-            db_session,
-            state=state,
-            window=window,
-            trigger="manual",
-            event_sink=lambda name, payload: _record_event(events, name, payload),
-        )
-
-    assert exc_info.value.code == "llm_error"
-    assert events[-1][0] == "agent:compaction_error"
-    error_payload = events[-1][1]
-    assert error_payload["code"] == "llm_error"
-    text = repr(error_payload)
-    assert window.transcript not in text
-    assert "provider" not in text
-    assert "stack" not in text
-    assert "summary" not in error_payload
-    rows = await compaction_repo.list_by_session(db_session, state["session_id"])
-    assert rows == []

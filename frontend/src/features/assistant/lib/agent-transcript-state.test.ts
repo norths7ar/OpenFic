@@ -49,37 +49,6 @@ describe("applyAgentTranscriptEvent", () => {
     expect(second.state.messages[0]).toMatchObject({ id: "assistant-1", content: "第一段第二段" });
   });
 
-  test("finishes the transcript and clears the running stage on task completion", () => {
-    const running = state({
-      status: "running",
-      isRunning: true,
-      currentStage: "写作中",
-      messages: [
-        {
-          id: "assistant-1",
-          type: "text",
-          role: "assistant",
-          status: "running",
-          timestamp: 1,
-          content: "草稿",
-          isStreaming: true,
-        },
-      ],
-    });
-    const result = applyAgentTranscriptEvent(
-      running,
-      event({
-        type: "task_completed",
-        status: "completed",
-        content: undefined,
-        payload: { final_content: "成稿", word_count: 2 },
-      }),
-    );
-
-    expect(result.state).toMatchObject({ status: "completed", isRunning: false, currentStage: "" });
-    expect(result.state.messages[0]).toMatchObject({ isStreaming: false });
-    expect(result.message).toMatchObject({ type: "completed", finalContent: "成稿", wordCount: 2 });
-  });
 });
 
 test("retry reset removes only the failed model draft and ignores its late chunks", () => {

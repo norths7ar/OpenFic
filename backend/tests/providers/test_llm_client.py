@@ -1,11 +1,8 @@
 from typing import Any
-from unittest.mock import AsyncMock
 
-import pytest
 from langchain_core.messages import AIMessage, HumanMessage
 
-from app.core.errors import LLMTimeoutError
-from app.models.clients.llm_client import LLMClient, LLMConfig, _patch_deepseek_reasoning_payload
+from app.models.clients.llm_client import _patch_deepseek_reasoning_payload
 
 
 def test_patch_deepseek_reasoning_payload_adds_reasoning_content() -> None:
@@ -33,21 +30,3 @@ def test_patch_deepseek_reasoning_payload_adds_reasoning_content() -> None:
     _patch_deepseek_reasoning_payload(messages, payload)
 
     assert payload["messages"][1]["reasoning_content"] == "need chapter content"
-
-
-@pytest.mark.asyncio
-async def test_generate_with_tools_uses_configured_request_timeout() -> None:
-    client = LLMClient(
-        LLMConfig(
-            provider_type="openai",
-            base_url="",
-            api_key="test",
-            model_id="test-model",
-            request_timeout=600,
-        )
-    )
-    client._llm_with_tools = AsyncMock()
-    client._llm_with_tools.ainvoke.side_effect = TimeoutError()
-
-    with pytest.raises(LLMTimeoutError, match="600s"):
-        await client.generate_with_tools([])

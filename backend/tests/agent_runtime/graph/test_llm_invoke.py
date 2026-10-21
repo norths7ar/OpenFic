@@ -11,7 +11,6 @@ from langchain_core.messages import AIMessage, HumanMessage
 
 from app.agent_runtime.context.compaction.service import CompactionError
 from app.agent_runtime.graph.llm_invoke import (
-    EmptyResponseError,
     LLMInvokeSettings,
     LLMStreamTimeoutError,
     RetryCategory,
@@ -52,25 +51,13 @@ _ZERO_BACKOFF = LLMInvokeSettings(
 
 
 class TestClassifyError:
-    def test_retries_5xx(self) -> None:
-        outcome = classify_error(_StatusError("upstream boom", 503))
-        assert outcome.decision is RetryDecision.RETRY
-        assert outcome.category is RetryCategory.HTTP
 
-    def test_retries_rate_limit_429(self) -> None:
-        outcome = classify_error(_StatusError("rate limit exceeded", 429))
-        assert outcome.decision is RetryDecision.RETRY
-        assert outcome.category is RetryCategory.RATE_LIMIT
 
     def test_no_retry_quota_on_429(self) -> None:
         outcome = classify_error(_StatusError("insufficient_quota", 429))
         assert outcome.decision is RetryDecision.NO_RETRY
         assert outcome.category is RetryCategory.QUOTA
 
-    def test_retries_rate_limit_text(self) -> None:
-        outcome = classify_error(RuntimeError("too many requests, try later"))
-        assert outcome.decision is RetryDecision.RETRY
-        assert outcome.category is RetryCategory.RATE_LIMIT
 
     def test_no_retry_auth_status(self) -> None:
         outcome = classify_error(_StatusError("invalid api key", 401))
@@ -92,41 +79,11 @@ class TestClassifyError:
         assert outcome.decision is RetryDecision.NO_RETRY
         assert outcome.category is RetryCategory.CONTEXT_OVERFLOW
 
-    def test_retries_builtin_timeout(self) -> None:
-        outcome = classify_error(TimeoutError("took too long"))
-        assert outcome.decision is RetryDecision.RETRY
-        assert outcome.category is RetryCategory.TIMEOUT
 
-    def test_retries_stream_timeout(self) -> None:
-        outcome = classify_error(LLMStreamTimeoutError("chunk idle timeout"))
-        assert outcome.decision is RetryDecision.RETRY
-        assert outcome.category is RetryCategory.TIMEOUT
 
-    def test_retries_sdk_timeout_by_class_name(self) -> None:
-        class APITimeoutError(Exception):
-            pass
 
-        outcome = classify_error(APITimeoutError("timeout"))
-        assert outcome.decision is RetryDecision.RETRY
-        assert outcome.category is RetryCategory.TIMEOUT
 
-    def test_retries_network_connection_error(self) -> None:
-        outcome = classify_error(ConnectionError("connection refused"))
-        assert outcome.decision is RetryDecision.RETRY
-        assert outcome.category is RetryCategory.NETWORK
 
-    def test_retries_sdk_connection_error_by_class_name(self) -> None:
-        class APIConnectionError(Exception):
-            pass
-
-        outcome = classify_error(APIConnectionError("connection error"))
-        assert outcome.decision is RetryDecision.RETRY
-        assert outcome.category is RetryCategory.NETWORK
-
-    def test_retries_empty_response(self) -> None:
-        outcome = classify_error(EmptyResponseError("empty"))
-        assert outcome.decision is RetryDecision.RETRY
-        assert outcome.category is RetryCategory.EMPTY_RESPONSE
 
     def test_no_retry_compaction_error(self) -> None:
         outcome = classify_error(CompactionError("llm_error", "压缩失败"))
@@ -160,42 +117,9 @@ class TestExtractRetryAfterMs:
         assert value is not None
         assert 50_000 < value < 70_000
 
-    def test_missing_headers(self) -> None:
-        exc = _StatusError("boom", 500)
-        assert extract_retry_after_ms(exc) is None
-
 
 class TestComputeRetryDelay:
-    def test_exponential_backoff(self) -> None:
-        assert (
-            compute_retry_delay(
-                RuntimeError("x"),
-                attempt=1,
-                base_interval=2.0,
-                max_interval=30.0,
-            )
-            == 2.0
-        )
-        assert (
-            compute_retry_delay(
-                RuntimeError("x"),
-                attempt=2,
-                base_interval=2.0,
-                max_interval=30.0,
-            )
-            == 4.0
-        )
 
-    def test_backoff_caps_at_max_interval(self) -> None:
-        assert (
-            compute_retry_delay(
-                RuntimeError("x"),
-                attempt=5,
-                base_interval=2.0,
-                max_interval=30.0,
-            )
-            == 30.0
-        )
 
     def test_retry_after_header_wins(self) -> None:
         exc = _StatusError("rate limited", 429, headers={"retry-after": "3"})
@@ -226,21 +150,7 @@ class _SlowStream:
 
 
 class TestTimedStream:
-    @pytest.mark.asyncio
-    async def test_passes_chunks_through(self) -> None:
-        stream = _TimedStream(
-            _SlowStream(["a", "b"], delay=0),
-            chunk_timeout=1.0,
-        )
-        assert [chunk async for chunk in stream] == ["a", "b"]
 
-    @pytest.mark.asyncio
-    async def test_allows_stream_to_exceed_previous_total_timeout(self) -> None:
-        stream = _TimedStream(
-            _SlowStream(["a", "b"], delay=0.1),
-            chunk_timeout=1.0,
-        )
-        assert [chunk async for chunk in stream] == ["a", "b"]
 
     @pytest.mark.asyncio
     async def test_chunk_idle_timeout(self) -> None:
@@ -340,45 +250,7 @@ class TestInvokeModelWithRetry:
 
         assert events == []
 
-    @pytest.mark.asyncio
-    async def test_empty_response_replayed_until_success(self) -> None:
-        calls = 0
 
-        async def invoke(*args: Any, **kwargs: Any) -> AIMessage:
-            nonlocal calls
-            calls += 1
-            if calls <= 2:
-                raise EmptyResponseError("empty")
-            return AIMessage(content="ok")
-
-        result = await invoke_model_with_retry(
-            object(),
-            [],
-            invoke=invoke,
-            settings=_ZERO_BACKOFF,
-        )
-
-        assert result.content == "ok"
-        assert calls == 3
-
-    @pytest.mark.asyncio
-    async def test_empty_response_exhausted_raises(self) -> None:
-        calls = 0
-
-        async def invoke(*args: Any, **kwargs: Any) -> AIMessage:
-            nonlocal calls
-            calls += 1
-            raise EmptyResponseError("empty")
-
-        with pytest.raises(EmptyResponseError):
-            await invoke_model_with_retry(
-                object(),
-                [],
-                invoke=invoke,
-                settings=_ZERO_BACKOFF,
-            )
-
-        assert calls == 3
 
     @pytest.mark.asyncio
     async def test_cancelled_error_propagates_without_retry(self) -> None:

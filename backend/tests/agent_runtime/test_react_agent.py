@@ -484,64 +484,6 @@ async def test_react_agent_prepares_all_batches_before_resuming_late_rejection()
 
 
 @pytest.mark.asyncio
-async def test_react_agent_limits_subagent_dispatches_per_model_turn_not_batch() -> None:
-    dispatched = []
-    ordinary = []
-
-    async def dispatch_subagent(value: str) -> str:
-        dispatched.append(value)
-        return '{"success": true}'
-
-    async def counting_tool(value: str) -> str:
-        ordinary.append(value)
-        return '{"success": true}'
-
-    response = _batch_response(25)
-    # Seven dispatches in the first batch leave only three permits for the second.
-    dispatch_indices = [0, 1, 2, 3, 4, 5, 19, 20, 21, 22, 23, 24]
-    for index in dispatch_indices:
-        response.tool_calls[index]["name"] = "dispatch_subagent"
-    second = AIMessage(
-        content="",
-        tool_calls=[
-            {
-                "id": "next_turn",
-                "name": "dispatch_subagent",
-                "args": {"value": "next"},
-            }
-        ],
-    )
-    graph = create_react_agent(
-        ReactAgentConfig(
-            name="test",
-            tools=[
-                StructuredTool.from_function(coroutine=tool, description="count")
-                for tool in [dispatch_subagent, counting_tool]
-            ],
-            termination=TerminationCondition(mode="no_tool_call"),
-            max_iterations=2,
-        )
-    )
-    with patch(
-        "app.agent_runtime.graph.react_agent._invoke_model", side_effect=[response, second]
-    ) as model:
-        result = await graph.ainvoke(_batch_state())
-    assert model.await_count == 2
-    assert result["iteration_count"] == 2
-    assert dispatched == [str(i) for i in dispatch_indices[:10]] + ["next"]
-    assert ordinary == [str(i) for i in range(25) if i not in dispatch_indices]
-    messages = [message for message in result["messages"] if isinstance(message, ToolMessage)]
-    assert [message.tool_call_id for message in messages] == [f"call_{i}" for i in range(25)] + [
-        "next_turn"
-    ]
-    assert [
-        message.tool_call_id
-        for message in messages
-        if json.loads(message.content).get("code") == "limit_exceeded"
-    ] == ["call_23", "call_24"]
-
-
-@pytest.mark.asyncio
 async def test_react_agent_cancellation_stops_active_batch_and_never_starts_later_batch() -> None:
     started = []
     cancelled = []

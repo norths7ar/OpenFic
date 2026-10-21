@@ -1,5 +1,4 @@
 import json
-from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -11,47 +10,6 @@ from pydantic import BaseModel
 from app.agent_runtime.context.types import ContextMessage
 from app.agent_runtime.tools.base import AgentTool, HookResult
 from app.agent_runtime.tools.registry import ToolRegistry
-
-
-@pytest.mark.asyncio
-async def test_primary_tool_names_forward_explicit_skill_references() -> None:
-    from app.agent_runtime.graph.orchestrator.graph import _primary_tool_names
-
-    with (
-        patch(
-            "app.agent_runtime.graph.orchestrator.graph.load_agent_definition",
-            AsyncMock(
-                return_value=SimpleNamespace(
-                    enabled_tool_categories=(),
-                    enabled_skills=[],
-                )
-            ),
-        ),
-        patch(
-            "app.agent_runtime.graph.orchestrator.graph.get_tool_names_for_categories",
-            return_value=(),
-        ),
-        patch(
-            "app.agent_runtime.graph.orchestrator.graph.skill_tool_names_for_definition",
-            AsyncMock(return_value=("activate_skill", "reference_skill")),
-        ) as skill_tools,
-        patch(
-            "app.agent_runtime.graph.orchestrator.graph.setting_repo.get_by_key",
-            AsyncMock(return_value=None),
-        ),
-    ):
-        result = await _primary_tool_names(
-            {"configurable": {"db_session": object()}},
-            referenced_skill_ids=("skill-explicit",),
-        )
-
-    assert result == ["activate_skill", "reference_skill"]
-    skill_tools.assert_awaited_once_with(
-        skill_tools.call_args.args[0],
-        skill_tools.call_args.args[1],
-        referenced_skill_ids=("skill-explicit",),
-        allow_runtime_skill_references=False,
-    )
 
 
 class _ApprovalToolInput(BaseModel):

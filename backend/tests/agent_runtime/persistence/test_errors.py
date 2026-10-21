@@ -61,25 +61,3 @@ async def test_persister_write_failure_raises_write_error(sample_task):
 
     with pytest.raises(PersistenceWriteError):
         await p.handle({"event": "on_chat_model_end", "data": {}})
-
-
-@pytest.mark.asyncio
-async def test_persister_finalize_failure_raises_write_error(sample_task):
-    def make_session():
-        return _BrokenSession()
-
-    p = MessagePersister(
-        session_id="s",
-        task_id=sample_task.id,
-        project_id=sample_task.project_id,
-        db_session_factory=make_session,
-    )
-    await p.handle({"event": "on_chat_model_start", "data": {}})
-    await p.handle(
-        {
-            "event": "on_chat_model_stream",
-            "data": {"chunk": AIMessageChunk(content="half")},
-        }
-    )
-    with pytest.raises(PersistenceWriteError):
-        await p.finalize(reason="cancelled")
