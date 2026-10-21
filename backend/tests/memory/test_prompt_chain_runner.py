@@ -328,61 +328,6 @@ def test_compact_task_history_drops_clarification_panel_between_tool_pair() -> N
     assert compact[1]["tool_call_id"] == "call-ask"
 
 
-def test_compact_task_history_drops_tool_approval_message_between_tool_pair() -> None:
-    messages = [
-        TaskMessage(
-            task_id="task-1",
-            role="assistant",
-            agent_id="writer",
-            content="创建章节",
-            tool_calls=json.dumps(
-                [
-                    {
-                        "id": "call-create",
-                        "name": "create_chapter",
-                        "args": {"chapter_ref": {"type": "order", "value": 99}},
-                    }
-                ],
-                ensure_ascii=False,
-            ),
-        ),
-        TaskMessage(
-            task_id="task-1",
-            role="assistant",
-            agent_id="writer",
-            content="该工具需要用户许可。",
-            message_type="approval",
-            message_metadata=json.dumps(
-                {"event_type": "tool_approval_required"},
-                ensure_ascii=False,
-            ),
-        ),
-        TaskMessage(
-            task_id="task-1",
-            role="tool",
-            agent_id="writer",
-            content=json.dumps(
-                {
-                    "success": True,
-                    "message": "章节创建成功",
-                    "metadata": {"tool_name": "create_chapter"},
-                },
-                ensure_ascii=False,
-            ),
-            tool_call_id="call-create",
-        ),
-    ]
-
-    compact = _compact_task_history(messages, current_agent_name="writer")
-
-    assert len(compact) == 2
-    assert compact[0]["role"] == "assistant"
-    assert compact[0]["tool_calls"][0]["id"] == "call-create"
-    assert compact[1]["role"] == "tool"
-    assert compact[1]["tool_call_id"] == "call-create"
-    assert all("需要澄清" not in str(message.get("content") or "") for message in compact)
-
-
 async def test_build_chat_messages_injects_handoff_without_task_history(monkeypatch) -> None:
     version = type(
         "Version",

@@ -8,10 +8,7 @@ from app.agent_runtime.persistence.child_runs import (
     complete_child_run_request,
     create_child_run,
     enqueue_child_run_request,
-    get_child_run_by_pending_approval,
-    get_waiting_child_run_for_tool_call,
     list_child_runs_for_parent,
-    record_child_run_pending_approval,
     rollback_child_runs_for_parent_revisions,
     update_child_run_status,
 )
@@ -77,58 +74,6 @@ async def test_update_child_run_status_records_completion_payload(
     assert updated.status == "completed"
     assert updated.result_json == {"status": "approved"}
     assert updated.completed_at is not None
-
-
-@pytest.mark.asyncio
-async def test_child_run_pending_approval_maps_to_child_thread_and_clears_on_terminal(
-    db_session: AsyncSession,
-    sample_task,
-):
-    row = await create_child_run(
-        db_session,
-        parent_session_id="parent-session",
-        parent_task_id=sample_task.id,
-        parent_thread_id="parent-thread",
-        child_thread_id="child-thread",
-        agent_key="writer",
-        dispatch_id="dispatch-1",
-        tool_call_id="tool-call-1",
-        request={},
-    )
-
-    await record_child_run_pending_approval(
-        db_session,
-        row.id,
-        approval_id="approval-1",
-        approval_request={"type": "tool_approval", "approval_id": "approval-1"},
-    )
-
-    by_approval = await get_child_run_by_pending_approval(
-        db_session,
-        parent_session_id="parent-session",
-        approval_id="approval-1",
-    )
-    by_tool_call = await get_waiting_child_run_for_tool_call(
-        db_session,
-        parent_session_id="parent-session",
-        tool_call_id="tool-call-1",
-    )
-
-    assert by_approval is not None
-    assert by_approval.id == row.id
-    assert by_approval.child_thread_id == "child-thread"
-    assert by_tool_call is not None
-    assert by_tool_call.id == row.id
-
-    await update_child_run_status(db_session, row.id, "completed", result={"ok": True})
-    assert (
-        await get_child_run_by_pending_approval(
-            db_session,
-            parent_session_id="parent-session",
-            approval_id="approval-1",
-        )
-        is None
-    )
 
 
 @pytest.mark.asyncio

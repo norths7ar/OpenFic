@@ -127,20 +127,3 @@ async def test_changing_default_embedding_model_marks_retrieval_indexes_for_rebu
 
     rows = (await session.execute(select(RetrievalChapterIndexState))).scalars().all()
     assert [row.status for row in rows] == ["needs_rebuild"]
-
-
-@pytest.mark.asyncio
-async def test_update_settings_agent_bypass_tool_approval(client: AsyncClient) -> None:
-    """测试更新工具审批放行设置。"""
-    response = await client.put(
-        "/api/v1/settings",
-        json={"agent_bypass_tool_approval": True},
-    )
-
-    assert response.status_code == 200
-    data = response.json()
-    assert data["agent_bypass_tool_approval"] is True
-
-    follow_up = await client.get("/api/v1/settings")
-    assert follow_up.status_code == 200
-    assert follow_up.json()["agent_bypass_tool_approval"] is True
