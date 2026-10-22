@@ -9,8 +9,35 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import ConflictError, NotFoundError, ValidationError
-from app.storage.models.pending_project_change import PendingProjectChange
+from app.storage.models.pending_project_change import (
+    PendingProjectChange,
+    PendingProjectChangeRevision,
+)
 from app.storage.repos import pending_project_change_repo, project_repo
+
+
+class PendingChangeDuplicateError(ConflictError):
+    def __init__(self, candidate_ids: list[str]) -> None:
+        super().__init__(
+            "同一目标已有待审提案，请读取并修订已有提案；多个候选时须明确选择，不得自动选择"
+        )
+        self.candidate_ids = sorted(candidate_ids)
+
+    def detail(self) -> dict[str, Any]:
+        return {
+            "code": "pending_change_duplicate",
+            "message": str(self),
+            "candidate_ids": self.candidate_ids,
+            "action": "revise_pending_project_change",
+        }
+
+
+def _same_target(change: PendingProjectChange, target_type: str, target_id: str | None) -> bool:
+    return (
+        target_id is not None
+        and change.target_type == target_type
+        and change.target_id == target_id
+    )
 
 
 async def _ensure_project_exists(session: AsyncSession, project_id: str) -> None:
@@ -37,8 +64,10 @@ async def create_pending_change(
     source_message_id: str | None,
     model_id: str | None,
     tool_call_id: str | None = None,
+    source: str = "manual",
 ) -> PendingProjectChange:
     """创建一条绑定项目、由服务端捕获基础快照的待审变更。"""
+    await pending_project_change_repo.lock_project(session, project_id)
     await _ensure_project_exists(session, project_id)
     # Stable execution identity, not content similarity, makes redelivery durable.
     change_id = None
@@ -49,6 +78,18 @@ async def create_pending_change(
         existing = await pending_project_change_repo.get_by_id(session, project_id, change_id)
         if existing is not None:
             return existing
+    # Check identity before interpreting edits: a caller may have quoted text
+    # from the pending draft rather than from the canonical material.
+    if target_id is not None:
+        candidates = await pending_project_change_repo.list_by_project(session, project_id)
+        duplicate_ids = [
+            candidate.id
+            for candidate in candidates
+            if candidate.status in {"pending", "applying"}
+            and _same_target(candidate, target_type, target_id)
+        ]
+        if duplicate_ids:
+            raise PendingChangeDuplicateError(duplicate_ids)
     from app.storage.services import pending_project_change_apply_service
 
     prepared = await pending_project_change_apply_service.prepare_pending_change(
@@ -74,13 +115,27 @@ async def create_pending_change(
         source_message_id=source_message_id,
         model_id=model_id,
     )
-    if change_id is None:
-        return await pending_project_change_repo.create(session, change)
-    change.id = change_id
+    if change_id is not None:
+        change.id = change_id
     try:
         async with session.begin_nested():
-            return await pending_project_change_repo.create(session, change)
+            await pending_project_change_repo.create(session, change)
+            revision = await pending_project_change_repo.add_revision(
+                session,
+                PendingProjectChangeRevision(
+                    change_id=change.id,
+                    after=change.after,
+                    source=source,
+                    source_task_id=source_task_id,
+                    source_message_id=source_message_id,
+                    model_id=model_id,
+                ),
+            )
+            change.current_revision_id = revision.id
+            return await pending_project_change_repo.update(session, change)
     except IntegrityError:
+        if change_id is None:
+            raise
         existing = await pending_project_change_repo.get_by_id(session, project_id, change_id)
         if existing is None:
             raise
@@ -119,6 +174,23 @@ async def get_pending_change(
     return change
 
 
+async def list_revisions(
+    session: AsyncSession, project_id: str, change_id: str
+) -> list[PendingProjectChangeRevision]:
+    await get_pending_change(session, project_id, change_id)
+    return await pending_project_change_repo.list_revisions(session, change_id)
+
+
+async def get_revision(
+    session: AsyncSession, project_id: str, change_id: str, revision_id: str
+) -> PendingProjectChangeRevision:
+    await get_pending_change(session, project_id, change_id)
+    revision = await pending_project_change_repo.get_revision(session, change_id, revision_id)
+    if revision is None:
+        raise NotFoundError(f"提案修订版本不存在: {revision_id}")
+    return revision
+
+
 async def reject_pending_change(
     session: AsyncSession,
     project_id: str,
@@ -147,10 +219,15 @@ async def revise_pending_change(
     *,
     patch: dict[str, Any],
     expected_updated_at: datetime,
+    source: str = "manual",
+    source_task_id: str | None = None,
+    source_message_id: str | None = None,
+    model_id: str | None = None,
 ) -> PendingProjectChange:
     """Revise the proposed result without changing its authoritative base."""
     from app.storage.services import pending_project_change_apply_service as apply_service
 
+    await pending_project_change_repo.lock_project(session, project_id)
     change = await get_pending_change(session, project_id, change_id)
     if change.status != "pending":
         raise ConflictError("只有待审状态的变更可以修订")
@@ -179,6 +256,25 @@ async def revise_pending_change(
     expected = expected_updated_at
     if expected.tzinfo is not None:
         expected = expected.astimezone(UTC).replace(tzinfo=None)
-    if not await pending_project_change_repo.revise_if_current(session, change, after, expected):
+    stored_timestamp = change.updated_at
+    if stored_timestamp.tzinfo is not None:
+        stored_timestamp = stored_timestamp.astimezone(UTC).replace(tzinfo=None)
+    if expected != stored_timestamp:
         raise ConflictError("待审提案已变化，请重新读取后再修订；本次修改未保存")
+    if after == change.after:
+        return change
+    async with session.begin_nested():
+        revision = PendingProjectChangeRevision(
+            change_id=change.id,
+            after=after,
+            source=source,
+            source_task_id=source_task_id,
+            source_message_id=source_message_id,
+            model_id=model_id,
+        )
+        if not await pending_project_change_repo.revise_if_current(
+            session, change, after, expected, revision.id
+        ):
+            raise ConflictError("待审提案已变化，请重新读取后再修订；本次修改未保存")
+        await pending_project_change_repo.add_revision(session, revision)
     return change

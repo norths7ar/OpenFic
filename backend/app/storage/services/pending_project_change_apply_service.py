@@ -8,7 +8,10 @@ from typing import Any, Literal, cast
 
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic import ValidationError as PydanticValidationError
+from sqlalchemy import Table, inspect
+from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import InstanceState
 
 from app.core.agent_visibility import AgentVisibility
 from app.core.errors import ConflictError, NotFoundError, ValidationError
@@ -102,31 +105,46 @@ def _snapshot_hash(snapshot: dict[str, Any]) -> str:
     return semantic_hash(snapshot)
 
 
-def _resolve_change_base(
-    change: PendingProjectChange,
-    current: dict[str, Any],
-) -> dict[str, Any]:
-    """Permit updates after reordering, but never rebase over content changes."""
-    current_hash = _snapshot_hash(current)
-    if current_hash == change.base_hash:
-        return current
-    before = change.before
-    if (
-        change.operation == "update"
-        and isinstance(before, dict)
-        and "order" in before
-        and "order" in current
-        and _snapshot_hash(before) == change.base_hash
-        and {**current, "order": before["order"]} == before
-    ):
-        # Validate the proposal against its captured snapshot. The update path
-        # only writes editable fields, so the current order is left untouched.
-        return before
-    raise PendingChangeConflictError(
-        "正式资料已在候审后发生变化",
-        current=current,
-        current_hash=current_hash,
+def _captured_base(change: PendingProjectChange) -> dict[str, Any]:
+    """The old base validates stored server fields; current confirmation authorizes apply."""
+    if not isinstance(change.before, dict) or _snapshot_hash(change.before) != change.base_hash:
+        raise ValidationError("候审变更的原始快照无效")
+    return change.before
+
+
+async def current_snapshot(
+    session: AsyncSession, change: PendingProjectChange
+) -> tuple[dict[str, Any] | None, str | None]:
+    if not change.target_id or change.target_type not in {
+        "note",
+        "note_category",
+        "character",
+        "world_entry",
+    }:
+        return None, None
+    try:
+        _, snapshot = await _resolve_snapshot(
+            session,
+            change.project_id,
+            cast(PendingTargetType, change.target_type),
+            change.target_id,
+        )
+    except NotFoundError:
+        return None, None
+    return snapshot, _snapshot_hash(snapshot)
+
+
+async def _claim_canonical(session: AsyncSession, target: object) -> None:
+    """CAS every stored field, then retain the SQLite writer lock through application."""
+    state = cast(InstanceState[Any], inspect(target))
+    table = cast(Table, state.mapper.local_table)
+    predicates = [column == getattr(target, column.key) for column in table.columns]
+    result = cast(
+        CursorResult[Any],
+        await session.execute(table.update().where(*predicates).values(id=table.c.id)),
     )
+    if result.rowcount != 1:
+        raise PendingChangeConflictError("正式资料已变化，请重新读取并确认")
 
 
 def _note_snapshot(note: Note) -> dict[str, Any]:
@@ -201,20 +219,24 @@ async def _resolve_snapshot(
         target = await note_repo.get_by_id(session, target_id)
         if target is None or target.project_id != project_id:
             raise NotFoundError("待审变更目标不存在")
+        await session.refresh(target)
         return target, _note_snapshot(target)
     if target_type == "note_category":
         target = await note_category_repo.get_by_id(session, target_id)
         if target is None or target.project_id != project_id:
             raise NotFoundError("待审变更目标不存在")
+        await session.refresh(target)
         return target, _note_category_snapshot(target)
     if target_type == "character":
         target = await character_repo.get_by_id(session, target_id)
         if target is None or target.project_id != project_id:
             raise NotFoundError("待审变更目标不存在")
+        await session.refresh(target)
         return target, _character_snapshot(target)
     target = await world_info_entry_repo.get_by_id(session, target_id)
     if target is None:
         raise NotFoundError("待审变更目标不存在")
+    await session.refresh(target)
     return target, await _world_entry_snapshot(session, target, project_id)
 
 
@@ -405,6 +427,12 @@ def _validate_stored_after(
     immutable_keys = set(current) - editable_keys
     if any(after_record[key] != current[key] for key in immutable_keys):
         raise ValidationError("候审结果试图修改服务端管理字段")
+    fixed_keys = {
+        "note": {"category_id", "document_type"},
+        "note_category": {"parent_id", "document_type"},
+    }.get(target_type, set())
+    if any(after_record[key] != current[key] for key in fixed_keys):
+        raise ValidationError("候审结果不能移动分类或改变文档类型")
     payload = _validate_payload(
         target_type,
         {key: after_record[key] for key in editable_keys},
@@ -632,7 +660,7 @@ async def assess_pending_change(
             target_type,
             change.target_id,
         )
-        base = _resolve_change_base(change, current)
+        base = _captured_base(change)
         _validate_stored_after(
             target_type,
             change.operation,
@@ -655,10 +683,38 @@ async def apply_pending_change(
     session: AsyncSession,
     change: PendingProjectChange,
     *,
-    expected_updated_at: datetime | None = None,
+    expected_updated_at: datetime,
+    expected_current_hash: str | None,
+    revision_id: str,
 ) -> PendingProjectChange:
-    """Apply one pending change atomically after checking its captured base hash."""
-    if expected_updated_at is not None and expected_updated_at.tzinfo is not None:
+    """Apply an explicitly confirmed immutable result with proposal and canonical CAS.
+
+    The savepoint belongs here, not only to the HTTP caller: internal callers
+    cannot leave a claimed proposal or partial material writes after a failure.
+    """
+    if (
+        not isinstance(expected_updated_at, datetime)
+        or not isinstance(revision_id, str)
+        or not revision_id
+    ):
+        raise ValidationError("采用必须确认 updated_at、current_hash 和 revision_id")
+    if expected_current_hash is not None and not isinstance(expected_current_hash, str):
+        raise ValidationError("expected_current_hash 必须为字符串或 null")
+    await pending_project_change_repo.lock_project(session, change.project_id)
+    async with session.begin_nested():
+        return await _apply_confirmed(
+            session, change, expected_updated_at, expected_current_hash, revision_id
+        )
+
+
+async def _apply_confirmed(
+    session: AsyncSession,
+    change: PendingProjectChange,
+    expected_updated_at: datetime,
+    expected_current_hash: str | None,
+    revision_id: str,
+) -> PendingProjectChange:
+    if expected_updated_at.tzinfo is not None:
         expected_updated_at = expected_updated_at.astimezone(UTC).replace(tzinfo=None)
     claimed = await pending_project_change_repo.claim_for_apply(
         session,
@@ -672,8 +728,13 @@ async def apply_pending_change(
     if change.target_type not in {"note", "note_category", "character", "world_entry"}:
         raise ValidationError(f"不支持的待审变更目标: {change.target_type}")
     target_type = cast(PendingTargetType, change.target_type)
+    revision = await pending_project_change_repo.get_revision(session, change.id, revision_id)
+    if revision is None:
+        raise NotFoundError(f"提案修订版本不存在: {revision_id}")
 
     if change.operation == "create":
+        if expected_current_hash is not None:
+            raise PendingChangeConflictError("新建提案的当前正式资料必须为空，请重新确认")
         if (
             change.target_id is not None
             or change.base_hash is not None
@@ -683,19 +744,18 @@ async def apply_pending_change(
         normalized_after = _validate_stored_after(
             target_type,
             change.operation,
-            change.after,
+            revision.after,
             None,
         )
         if normalized_after is None:
             raise ValidationError("create 缺少 after")
-        target_id, applied_snapshot = await _apply_create(
+        target_id, _applied_snapshot = await _apply_create(
             session,
             change.project_id,
             target_type,
             normalized_after,
         )
         change.target_id = target_id
-        change.after = applied_snapshot
     else:
         if not change.target_id or not change.base_hash:
             raise ValidationError(f"{change.operation} 缺少目标或 base_hash")
@@ -708,17 +768,25 @@ async def apply_pending_change(
             )
         except NotFoundError as exc:
             raise PendingChangeConflictError("候审目标已不存在") from exc
-        base = _resolve_change_base(change, current)
+        current_hash = _snapshot_hash(current)
+        if current_hash != expected_current_hash:
+            raise PendingChangeConflictError(
+                "正式资料已变化，请重新读取并确认",
+                current=current,
+                current_hash=current_hash,
+            )
+        await _claim_canonical(session, target)
+        base = _captured_base(change)
         normalized_after = _validate_stored_after(
             target_type,
             change.operation,
-            change.after,
+            revision.after,
             base,
         )
         if change.operation == "update":
             if normalized_after is None:
                 raise ValidationError("update 缺少 after")
-            change.after = await _apply_update(
+            await _apply_update(
                 session,
                 change.project_id,
                 target_type,
@@ -732,6 +800,7 @@ async def apply_pending_change(
 
     now = datetime.now(UTC)
     change.status = "applied"
+    change.applied_revision_id = revision.id
     change.applied_at = now
     change.updated_at = now
     return await pending_project_change_repo.update(session, change)

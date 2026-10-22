@@ -249,6 +249,7 @@ async def _queue_pending_change(
             source_message_id=_source_message_id(tool),
             model_id=_model_id(tool),
             tool_call_id=tool.tool_call_id,
+            source="ai",
         )
         await session.commit()
         before = change.before if isinstance(change.before, dict) else {}
@@ -281,6 +282,9 @@ async def _queue_pending_change(
             },
             ensure_ascii=False,
         )
+    except pending_project_change_service.PendingChangeDuplicateError as exc:
+        await session.rollback()
+        return json.dumps({"success": False, **exc.detail()}, ensure_ascii=False)
     except Exception:
         await session.rollback()
         raise
@@ -329,7 +333,7 @@ class ProposeProjectUpdateTool(AgentTool):
         "为当前项目提议修改一项正式资料；只填写真正要改的字段，"
         "小范围正文修改优先使用 edits，仅整体重写使用 body，两者互斥；"
         "分类、文档类型、顺序等未暴露字段由服务端原样保留。"
-        "如需继续修改已有待审提案，使用 revise_pending_project_change。"
+        "同一目标已有待审提案时会返回候选 ID；先读取并明确选择，再用 revise_pending_project_change。"
     )
     access_level: str = "write"
     args_schema: type[BaseModel] = ProposeProjectUpdateInput
@@ -433,6 +437,8 @@ def _pending_result(change: Any, *, full: bool) -> dict[str, Any]:
         "title": snapshot.get("title", ""),
         "document_type": snapshot.get("document_type"),
         "updated_at": timestamp.isoformat(),
+        "current_revision_id": change.current_revision_id,
+        "applied_revision_id": change.applied_revision_id,
         "changed_fields": [
             field
             for field in ("title", "body", "agent_visibility", "section")
@@ -441,6 +447,17 @@ def _pending_result(change: Any, *, full: bool) -> dict[str, Any]:
     }
     if full:
         result.update(before=change.before, after=change.after)
+    return result
+
+
+async def _pending_read_result(session: Any, change: Any, *, full: bool) -> dict[str, Any]:
+    result = _pending_result(change, full=full)
+    current, current_hash = await pending_project_change_apply_service.current_snapshot(
+        session, change
+    )
+    result["current_hash"] = current_hash
+    if full:
+        result["current"] = current
     return result
 
 
@@ -458,7 +475,7 @@ class ListPendingProjectChangesTool(AgentTool):
                 session, _pending_project_id(self), "pending"
             )
             visible = [
-                _pending_result(change, full=False)
+                await _pending_read_result(session, change, full=False)
                 for change in changes
                 if await _pending_visible(self, session, change)
             ]
@@ -471,7 +488,8 @@ class ListPendingProjectChangesTool(AgentTool):
 class ReadPendingProjectChangeTool(AgentTool):
     name: str = "read_pending_project_change"
     description: str = (
-        "读取一条资料提案的原始快照 before、当前待采用版本 after 和修订版本 updated_at。"
+        "读取提案的原始快照 before、当前正式资料 current/current_hash、"
+        "待采用版本 after、current_revision_id 和 updated_at；只以 after 为修订基础。"
     )
     access_level: str = "readonly"
     args_schema: type[BaseModel] = ReadPendingProjectChangeInput
@@ -484,7 +502,9 @@ class ReadPendingProjectChangeTool(AgentTool):
             )
             if not await _pending_visible(self, session, change):
                 raise ToolExecutionError("提案不在当前知识范围内")
-            return json.dumps(_pending_result(change, full=True), ensure_ascii=False)
+            return json.dumps(
+                await _pending_read_result(session, change, full=True), ensure_ascii=False
+            )
         finally:
             await session.close()
 
@@ -521,6 +541,10 @@ class RevisePendingProjectChangeTool(AgentTool):
                 if isinstance(patch, ProjectChangePatch)
                 else patch,
                 expected_updated_at=expected_updated_at,
+                source="ai",
+                source_task_id=self._state.get("task_id"),
+                source_message_id=_source_message_id(self),
+                model_id=_model_id(self),
             )
             await session.commit()
             return json.dumps(

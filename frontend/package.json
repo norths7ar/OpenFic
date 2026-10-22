@@ -10,8 +10,9 @@
     "format:check": "oxfmt . --check",
     "lint": "oxlint . --import-plugin -D import/no-cycle",
     "preview": "vp preview",
-    "test": "vp test src",
-    "test:e2e": "playwright test",
+    "test": "pnpm run test:unit && pnpm run test:browser",
+    "test:browser": "node --test tests/*.browser.test.ts",
+    "test:unit": "vp test --run src",
     "type-check": "oxlint . --type-aware --type-check"
   },
   "dependencies": {

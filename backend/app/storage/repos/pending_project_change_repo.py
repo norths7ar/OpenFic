@@ -9,7 +9,59 @@ from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col
 
-from app.storage.models.pending_project_change import PendingProjectChange
+from app.storage.models.pending_project_change import (
+    PendingProjectChange,
+    PendingProjectChangeRevision,
+)
+from app.storage.models.project import Project
+
+
+async def lock_project(session: AsyncSession, project_id: str) -> None:
+    """Acquire SQLite's transaction write lock before reading duplicate candidates.
+
+    A unique index would reject pre-existing duplicate proposals. A no-op write
+    instead serializes the check/insert with no change to project metadata.
+    """
+    await session.execute(
+        sql_update(Project)
+        .where(col(Project.id) == project_id)
+        .values(id=col(Project.id))
+        .execution_options(synchronize_session=False)
+    )
+
+
+async def add_revision(
+    session: AsyncSession, revision: PendingProjectChangeRevision
+) -> PendingProjectChangeRevision:
+    session.add(revision)
+    await session.flush()
+    return revision
+
+
+async def list_revisions(
+    session: AsyncSession, change_id: str
+) -> list[PendingProjectChangeRevision]:
+    result = await session.execute(
+        select(PendingProjectChangeRevision)
+        .where(col(PendingProjectChangeRevision.change_id) == change_id)
+        .order_by(
+            col(PendingProjectChangeRevision.created_at).desc(),
+            col(PendingProjectChangeRevision.id).desc(),
+        )
+    )
+    return list(result.scalars().all())
+
+
+async def get_revision(
+    session: AsyncSession, change_id: str, revision_id: str
+) -> PendingProjectChangeRevision | None:
+    result = await session.execute(
+        select(PendingProjectChangeRevision).where(
+            col(PendingProjectChangeRevision.change_id) == change_id,
+            col(PendingProjectChangeRevision.id) == revision_id,
+        )
+    )
+    return result.scalar_one_or_none()
 
 
 async def create(
@@ -30,10 +82,12 @@ async def get_by_id(
 ) -> PendingProjectChange | None:
     """按项目范围获取待审变更。"""
     result = await session.execute(
-        select(PendingProjectChange).where(
+        select(PendingProjectChange)
+        .where(
             col(PendingProjectChange.project_id) == project_id,
             col(PendingProjectChange.id) == change_id,
         )
+        .execution_options(populate_existing=True)
     )
     return result.scalar_one_or_none()
 
@@ -120,6 +174,7 @@ async def revise_if_current(
     change: PendingProjectChange,
     after: dict[str, Any],
     expected_updated_at: datetime,
+    revision_id: str,
 ) -> bool:
     """Save a draft only if the caller still owns the version it read."""
     result = cast(
@@ -132,7 +187,7 @@ async def revise_if_current(
                 col(PendingProjectChange.status) == "pending",
                 col(PendingProjectChange.updated_at) == expected_updated_at,
             )
-            .values(after=after, updated_at=datetime.now(UTC))
+            .values(after=after, current_revision_id=revision_id, updated_at=datetime.now(UTC))
             .execution_options(synchronize_session=False)
         ),
     )
@@ -165,6 +220,15 @@ async def reject_if_current(
 
 async def delete_by_project(session: AsyncSession, project_id: str) -> None:
     """删除项目下的所有待审变更。"""
+    await session.execute(
+        delete(PendingProjectChangeRevision).where(
+            col(PendingProjectChangeRevision.change_id).in_(
+                select(col(PendingProjectChange.id)).where(
+                    col(PendingProjectChange.project_id) == project_id
+                )
+            )
+        )
+    )
     await session.execute(
         delete(PendingProjectChange).where(col(PendingProjectChange.project_id) == project_id)
     )

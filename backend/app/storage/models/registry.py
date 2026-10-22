@@ -17,7 +17,10 @@ from app.storage.models.commit import Commit
 from app.storage.models.document_history import DocumentHistory, DocumentTrash
 from app.storage.models.llm_audit_log import LLMAuditLog
 from app.storage.models.note import Note
-from app.storage.models.pending_project_change import PendingProjectChange
+from app.storage.models.pending_project_change import (
+    PendingProjectChange,
+    PendingProjectChangeRevision,
+)
 from app.storage.models.project import Project
 from app.storage.models.project_folder import ProjectFolder
 from app.storage.models.project_import_binding import ProjectImportBinding
@@ -65,6 +68,7 @@ __all__ = [
     "Note",
     "ProjectFolder",
     "PendingProjectChange",
+    "PendingProjectChangeRevision",
     "Project",
     "ProjectImportBinding",
     "ProjectImportProfile",

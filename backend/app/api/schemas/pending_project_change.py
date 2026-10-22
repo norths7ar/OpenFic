@@ -49,10 +49,33 @@ class PendingProjectChangeCreate(BaseModel):
 
 
 class PendingProjectChangeReview(BaseModel):
-    """Optional version guard for an existing review action."""
+    """Proposal version guard for a review action."""
 
     expected_updated_at: datetime
     model_config = {"extra": "forbid"}
+
+
+class PendingProjectChangeApply(PendingProjectChangeReview):
+    expected_current_hash: str | None
+    revision_id: str = Field(min_length=1)
+
+
+class PendingProjectChangeRevisionResponse(BaseModel):
+    id: str
+    change_id: str
+    after: Any
+    source: Literal["manual", "ai", "migration"]
+    source_task_id: str | None
+    source_message_id: str | None
+    model_id: str | None
+    created_at: datetime
+
+    @field_validator("created_at", mode="after")
+    @classmethod
+    def ensure_utc(cls, value: datetime) -> datetime:
+        return value.replace(tzinfo=UTC) if value.tzinfo is None else value
+
+    model_config = {"from_attributes": True}
 
 
 class PendingProjectChangeRevise(PendingProjectChangeReview):
@@ -72,6 +95,10 @@ class PendingProjectChangeResponse(BaseModel):
     base_hash: str | None
     before: Any
     after: Any
+    current: Any = None
+    current_hash: str | None = None
+    current_revision_id: str | None
+    applied_revision_id: str | None
     source_task_id: str | None
     source_message_id: str | None
     model_id: str | None

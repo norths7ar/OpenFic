@@ -7,10 +7,12 @@ from fastapi import status as http_status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.schemas.pending_project_change import (
+    PendingProjectChangeApply,
     PendingProjectChangeCreate,
     PendingProjectChangeResponse,
     PendingProjectChangeReview,
     PendingProjectChangeRevise,
+    PendingProjectChangeRevisionResponse,
     PendingProjectChangeStatus,
 )
 from app.core.errors import ConflictError, NotFoundError, ValidationError
@@ -30,10 +32,15 @@ async def _to_response(
     applicability = await pending_project_change_apply_service.assess_pending_change(
         session, change
     )
+    current, current_hash = await pending_project_change_apply_service.current_snapshot(
+        session, change
+    )
     return PendingProjectChangeResponse.model_validate(change).model_copy(
         update={
             "is_applicable": applicability.is_applicable,
             "applicability_reason": applicability.reason,
+            "current": current,
+            "current_hash": current_hash,
         }
     )
 
@@ -62,6 +69,8 @@ async def create_pending_change(
             model_id=data.model_id,
         )
         return await _to_response(session, change)
+    except pending_project_change_service.PendingChangeDuplicateError as exc:
+        raise HTTPException(status_code=409, detail=exc.detail()) from exc
     except NotFoundError as exc:
         raise HTTPException(status_code=http_status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     except ValidationError as exc:
@@ -98,8 +107,8 @@ async def list_pending_changes(
 async def apply_pending_change(
     project_id: str,
     change_id: str,
+    data: PendingProjectChangeApply,
     session: Annotated[AsyncSession, Depends(get_session)],
-    data: PendingProjectChangeReview | None = None,
 ) -> PendingProjectChangeResponse:
     from app.storage.services import pending_project_change_apply_service
 
@@ -108,10 +117,13 @@ async def apply_pending_change(
         change = await pending_project_change_service.get_pending_change(
             session, project_id, change_id
         )
-        async with session.begin_nested():
-            applied = await pending_project_change_apply_service.apply_pending_change(
-                session, change, expected_updated_at=data.expected_updated_at if data else None
-            )
+        applied = await pending_project_change_apply_service.apply_pending_change(
+            session,
+            change,
+            expected_updated_at=data.expected_updated_at,
+            expected_current_hash=data.expected_current_hash,
+            revision_id=data.revision_id,
+        )
         return await _to_response(session, applied)
     except NotFoundError as exc:
         raise HTTPException(
@@ -237,3 +249,32 @@ async def reject_pending_change(
             status_code=http_status.HTTP_409_CONFLICT,
             detail=str(exc),
         ) from exc
+
+
+@router.get(
+    "/projects/{project_id}/pending-changes/{change_id}/revisions",
+    response_model=list[PendingProjectChangeRevisionResponse],
+)
+async def list_pending_change_revisions(
+    project_id: str,
+    change_id: str,
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> list[PendingProjectChangeRevisionResponse]:
+    revisions = await pending_project_change_service.list_revisions(session, project_id, change_id)
+    return [PendingProjectChangeRevisionResponse.model_validate(item) for item in revisions]
+
+
+@router.get(
+    "/projects/{project_id}/pending-changes/{change_id}/revisions/{revision_id}",
+    response_model=PendingProjectChangeRevisionResponse,
+)
+async def get_pending_change_revision(
+    project_id: str,
+    change_id: str,
+    revision_id: str,
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> PendingProjectChangeRevisionResponse:
+    revision = await pending_project_change_service.get_revision(
+        session, project_id, change_id, revision_id
+    )
+    return PendingProjectChangeRevisionResponse.model_validate(revision)

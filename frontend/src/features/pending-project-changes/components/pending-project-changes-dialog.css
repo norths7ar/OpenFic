@@ -48,6 +48,25 @@
   color: var(--gray-11);
 }
 
+.pending-body-character--before,
+.pending-body-character--after {
+  border-radius: var(--radius-1);
+  color: inherit;
+  box-decoration-break: clone;
+}
+
+.pending-body-character--before {
+  background: var(--red-a5);
+  text-decoration: line-through;
+  text-decoration-color: var(--red-11);
+}
+
+.pending-body-character--after {
+  background: var(--green-a5);
+  text-decoration: underline;
+  text-decoration-color: var(--green-11);
+}
+
 .pending-project-changes-dialog-content {
   width: min(1180px, calc(100vw - 32px));
   max-width: none;

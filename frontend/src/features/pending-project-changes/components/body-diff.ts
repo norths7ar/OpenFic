@@ -1,14 +1,22 @@
-import { diffArrays } from "diff";
+import { diffArrays, diffChars } from "diff";
 import { parseMarkdownIntoBlocks } from "streamdown";
 
 export type BlockChange = "unchanged" | "added" | "changed" | "removed";
+export type CharacterRange = { start: number; end: number };
 
 // Use the renderer's block boundaries: lists, tables and code fences stay intact.
 export function compareBodyBlocks(before: string, after: string) {
+  const result = compareBodyDetails(before, after);
+  return { before: result.before, after: result.after };
+}
+
+export function compareBodyDetails(before: string, after: string) {
   const left = parseMarkdownIntoBlocks(before);
   const right = parseMarkdownIntoBlocks(after);
   const beforeChanges: BlockChange[] = [];
   const afterChanges: BlockChange[] = [];
+  const beforeRanges: CharacterRange[][] = [];
+  const afterRanges: CharacterRange[][] = [];
   const chunks = diffArrays(
     left.filter((block) => block.trim()),
     right.filter((block) => block.trim()),
@@ -18,20 +26,30 @@ export function compareBodyBlocks(before: string, after: string) {
     if (!chunk.added && !chunk.removed) {
       beforeChanges.push(...chunk.value.map(() => "unchanged" as const));
       afterChanges.push(...chunk.value.map(() => "unchanged" as const));
+      beforeRanges.push(...chunk.value.map(() => []));
+      afterRanges.push(...chunk.value.map(() => []));
     } else if (chunk.removed && chunks[index + 1]?.added) {
       const added = chunks[++index];
       const replacement = alignReplacementBlocks(chunk.value, added.value);
       beforeChanges.push(...replacement.before);
       afterChanges.push(...replacement.after);
+      beforeRanges.push(...replacement.beforeRanges);
+      afterRanges.push(...replacement.afterRanges);
     } else if (chunk.removed) {
       beforeChanges.push(...chunk.value.map(() => "removed" as const));
+      beforeRanges.push(...chunk.value.map(() => []));
     } else {
       afterChanges.push(...chunk.value.map(() => "added" as const));
+      afterRanges.push(...chunk.value.map(() => []));
     }
   }
   let leftIndex = 0;
   let rightIndex = 0;
+  let leftRangeIndex = 0;
+  let rightRangeIndex = 0;
   return {
+    beforeRanges: left.map((block) => (block.trim() ? beforeRanges[leftRangeIndex++] : [])),
+    afterRanges: right.map((block) => (block.trim() ? afterRanges[rightRangeIndex++] : [])),
     before: left.map((block) =>
       block.trim() ? beforeChanges[leftIndex++] : ("unchanged" as const),
     ),
@@ -64,7 +82,12 @@ function alignReplacementBlocks(before: string[], after: string[]) {
       scores[i][j] = Math.max(match, scores[i + 1][j], scores[i][j + 1]);
     }
   }
-  const result: { before: BlockChange[]; after: BlockChange[] } = { before: [], after: [] };
+  const result: {
+    before: BlockChange[];
+    after: BlockChange[];
+    beforeRanges: CharacterRange[][];
+    afterRanges: CharacterRange[][];
+  } = { before: [], after: [], beforeRanges: [], afterRanges: [] };
   let i = 0,
     j = 0;
   while (i < left.length || j < right.length) {
@@ -76,14 +99,40 @@ function alignReplacementBlocks(before: string[], after: string[]) {
     ) {
       result.before.push("changed");
       result.after.push("changed");
+      const ranges = compareCharacters(before[i], after[j]);
+      result.beforeRanges.push(ranges.before);
+      result.afterRanges.push(ranges.after);
       i++;
       j++;
     } else if (j < right.length && (i === left.length || scores[i][j + 1] >= scores[i + 1][j])) {
       result.after.push("added");
+      result.afterRanges.push([]);
       j++;
     } else {
       result.before.push("removed");
+      result.beforeRanges.push([]);
       i++;
+    }
+  }
+  return result;
+}
+
+function compareCharacters(before: string, after: string) {
+  const result: { before: CharacterRange[]; after: CharacterRange[] } = { before: [], after: [] };
+  let left = 0;
+  let right = 0;
+  // Bound expensive diffs; the block-level change remains visible on timeout.
+  const chunks = diffChars(before, after, { timeout: 100 });
+  for (const chunk of chunks ?? []) {
+    if (chunk.removed) {
+      result.before.push({ start: left, end: left + chunk.value.length });
+      left += chunk.value.length;
+    } else if (chunk.added) {
+      result.after.push({ start: right, end: right + chunk.value.length });
+      right += chunk.value.length;
+    } else {
+      left += chunk.value.length;
+      right += chunk.value.length;
     }
   }
   return result;
