@@ -30,12 +30,12 @@ function Invoke-QualityCommand {
 if (-not $SkipBackend) {
     Push-Location -LiteralPath $backendPath
     try {
-        Invoke-QualityCommand -Command 'uv' -Arguments @('run', 'ruff', 'format', '--check', '.')
-        Invoke-QualityCommand -Command 'uv' -Arguments @('run', 'ruff', 'check', '.')
-        Invoke-QualityCommand -Command 'uv' -Arguments @('run', 'ty', 'check', 'app')
+        Invoke-QualityCommand -Command 'uv' -Arguments @('run', '--no-sync', 'ruff', 'format', '--check', '.')
+        Invoke-QualityCommand -Command 'uv' -Arguments @('run', '--no-sync', 'ruff', 'check', '.')
+        Invoke-QualityCommand -Command 'uv' -Arguments @('run', '--no-sync', 'ty', 'check', 'app')
 
         if (-not $SkipTests) {
-            Invoke-QualityCommand -Command 'uv' -Arguments @('run', 'pytest')
+            Invoke-QualityCommand -Command 'uv' -Arguments @('run', '--no-sync', 'pytest')
         }
     }
     finally {

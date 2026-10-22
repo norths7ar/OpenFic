@@ -5,6 +5,8 @@ OpenFic 的 FastAPI 后端与 Python 打包入口。项目定位、本地运行�
 常用验证：
 
 ```powershell
-uv sync --frozen
-uv run pytest
+../scripts/sync-dependencies.ps1
+uv run --no-sync pytest
 ```
+
+添加原生 provider 时使用 `../scripts/sync-dependencies.ps1 -Extra deepseek`；后续同步会记住选择，具体规则见根目录 README 的「本地运行」。

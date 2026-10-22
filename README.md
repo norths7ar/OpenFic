@@ -42,13 +42,16 @@ OpenFic 是用于本地管理多本小说的写作工作台，支持设定、提
 使用 PowerShell 7.4+、Python 3.12/3.13、uv 和 pnpm。首次准备环境并构建网页：
 
 ```powershell
-cd backend
-uv sync --frozen
-cd ../frontend
+./scripts/sync-dependencies.ps1
+cd frontend
 pnpm install --frozen-lockfile
 pnpm build
 cd ..
 ```
+
+更新源码或依赖后，同样运行 `./scripts/sync-dependencies.ps1`。脚本在同步前识别环境中已安装的 provider 可选依赖，与 `data/dependency-extras.json` 中的选择合并，再按锁文件同步；重建虚拟环境也会恢复这些选择。首次添加 provider 使用 `./scripts/sync-dependencies.ps1 -Extra deepseek`，多个可选项用逗号分隔。选择记录随完整数据备份保存；独立数据目录通过 `-DataPath` 指定。`-DryRun` 只预览，不修改环境或记录。
+
+不要用裸 `uv sync` 替代此入口：它不会读取 provider 选择，可能移除已安装的可选依赖。运行开发工具时使用 `uv run --no-sync ...`，将依赖变更留给统一同步入口。
 
 在仓库根目录管理服务：
 
@@ -88,9 +91,10 @@ cd ..
 ./scripts/openfic-service.ps1 restore -SnapshotPath ./output/backups/快照目录 -RestorePath ./output/restored-openfic
 ```
 
-恢复后的 `source/` 保存对应源码，`data/` 和 `external/` 保存服务数据。先在恢复目录的 `source/backend/` 执行 `uv sync --frozen`，再按恢复提示使用 `restore-environment.json` 启动独立实例；以上例为准，在原仓库根目录执行：
+恢复后的 `source/` 保存对应源码，`data/` 和 `external/` 保存服务数据。在原仓库根目录执行以下命令，先从恢复数据中的选择记录重建依赖，再使用 `restore-environment.json` 启动独立实例：
 
 ```powershell
+./output/restored-openfic/source/scripts/sync-dependencies.ps1 -DataPath ./output/restored-openfic/data
 ./output/restored-openfic/source/scripts/openfic-service.ps1 start -DataPath ./output/restored-openfic/data -RestoreEnvironmentPath ./output/restored-openfic/restore-environment.json -Port 18082
 ```
 

@@ -27,3 +27,4 @@ AGENTS.md
 CLAUDE.md
 docs/superpowers
 *.db
+backend/.openfic-sync.lock

@@ -41,5 +41,5 @@ def install_hint(provider_type: str, task_type: str) -> str | None:
     """Return a copyable installation command when this capability is absent."""
     extra = required_extra(provider_type, task_type)
     if extra and not is_available(provider_type, task_type):
-        return f"uv sync --extra {extra}"
+        return f"在仓库根目录执行：./scripts/sync-dependencies.ps1 -Extra {extra}"
     return None
