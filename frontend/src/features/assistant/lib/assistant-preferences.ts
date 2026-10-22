@@ -4,17 +4,6 @@ export const ASSISTANT_MODEL_STORAGE_KEY = "openfic.agent.selectedModelId";
 export const ASSISTANT_AGENT_STORAGE_KEY = "openfic.agent.selectedAgentKey";
 export const ASSISTANT_REASONING_EFFORT_STORAGE_KEY = "openfic.agent.reasoningEffort";
 
-const REASONING_EFFORTS: ReasoningEffort[] = [
-  "off",
-  "none",
-  "minimal",
-  "low",
-  "medium",
-  "high",
-  "xhigh",
-  "max",
-];
-
 function getStorage(storage?: Storage): Storage | undefined {
   if (storage) return storage;
   if (typeof window === "undefined") return undefined;
@@ -56,7 +45,7 @@ export function storeAgentKey(agentKey: string, storage?: Storage): void {
 }
 
 export function isReasoningEffort(value: unknown): value is ReasoningEffort {
-  return typeof value === "string" && REASONING_EFFORTS.includes(value as ReasoningEffort);
+  return typeof value === "string" && value.length > 0;
 }
 
 export function getStoredReasoningEffort(
@@ -64,16 +53,15 @@ export function getStoredReasoningEffort(
   supportsReasoning: boolean,
   storage?: Storage,
 ): ReasoningEffort {
-  if (!supportsReasoning) return "off";
-  if (!modelId) return "medium";
+  if (!supportsReasoning || !modelId) return "off";
   try {
     const stored = JSON.parse(
       getStorage(storage)?.getItem(ASSISTANT_REASONING_EFFORT_STORAGE_KEY) ?? "{}",
     ) as Record<string, unknown>;
     const value = stored[modelId];
-    return isReasoningEffort(value) ? value : "medium";
+    return isReasoningEffort(value) ? value : "off";
   } catch {
-    return "medium";
+    return "off";
   }
 }
 

@@ -23,6 +23,7 @@ import {
   validateAgentImageFiles,
 } from "../../lib/agent-image-attachments";
 import type { AgentInputHistoryDirection } from "../../lib/agent-input-history-state";
+import { constrainReasoningEffort } from "../../lib/assistant-preferences";
 import { appendMentionMarkup, replaceAutomaticMentionMarkup } from "../../lib/mention-text";
 import { AgentComposerEditor, type AgentComposerSuggestionState } from "./agent-composer-editor";
 import { AgentIndexStatusIndicator } from "./agent-index-status-indicator";
@@ -164,11 +165,28 @@ export function AgentInput({
       iconPath={selectedModel.providerIconPath}
     />
   ) : null;
-  const shouldShowReasoningEffort = Boolean(selectedModel?.reasoningEffortLevels?.length);
+  const reasoningEffortStatus = selectedModel?.reasoningEffortStatus ?? "unknown";
+  const reasoningEffortLevels =
+    reasoningEffortStatus === "supported" ? selectedModel?.reasoningEffortLevels : undefined;
+  const getReasoningEffortLabel = (value: string) =>
+    t(`assistant.reasoningEffort.${value}`, { defaultValue: value });
+  const defaultReasoningEffort = selectedModel?.reasoningEffortDefault;
+  const defaultReasoningEffortLabel =
+    reasoningEffortStatus === "supported" && defaultReasoningEffort
+      ? t("assistant.reasoningEffortDefault", {
+          level: getReasoningEffortLabel(defaultReasoningEffort),
+        })
+      : t("assistant.reasoningEffort.off");
   const reasoningEffortOptions: SelectOption[] = [
-    "off",
-    ...(selectedModel?.reasoningEffortLevels ?? []),
-  ].map((value) => ({ value, label: t(`assistant.reasoningEffort.${value}`) }));
+    { value: "off", label: defaultReasoningEffortLabel },
+    ...[...new Set(reasoningEffortLevels ?? [])]
+      .filter((value) => value !== "off")
+      .map((value) => ({ value, label: getReasoningEffortLabel(value) })),
+  ];
+  const effectiveReasoningEffort = constrainReasoningEffort(
+    reasoningEffort ?? "off",
+    reasoningEffortLevels,
+  );
 
   useEffect(() => {
     if (previousProjectIdRef.current === projectId) return;
@@ -621,23 +639,33 @@ export function AgentInput({
                       }}
                     />
                   </Box>
-                  {shouldShowReasoningEffort && reasoningEffort && onReasoningEffortChange ? (
-                    <Box className="ai-sidebar-reasoning-effort-selector">
-                      <SimpleSelect
-                        value={reasoningEffort}
-                        options={reasoningEffortOptions}
-                        onChange={(value) => onReasoningEffortChange(value as ReasoningEffort)}
-                        size="1"
-                        hideTriggerChevron
-                        triggerClassName="ai-sidebar-inline-select-trigger ai-sidebar-reasoning-effort-trigger"
-                        triggerStyle={{
-                          fontSize: "var(--font-size-sm)",
-                          border: "none",
-                          background: "transparent",
-                          boxShadow: "none",
-                        }}
-                      />
-                    </Box>
+                  {selectedModel && onReasoningEffortChange ? (
+                    <Tooltip
+                      content={
+                        reasoningEffortStatus === "unsupported"
+                          ? t("assistant.reasoningEffortUnsupported")
+                          : t("assistant.reasoningEffortUnknown")
+                      }
+                      open={reasoningEffortStatus === "supported" ? false : undefined}
+                    >
+                      <Box className="ai-sidebar-reasoning-effort-selector">
+                        <SimpleSelect
+                          value={effectiveReasoningEffort}
+                          options={reasoningEffortOptions}
+                          onChange={onReasoningEffortChange}
+                          disabled={disabled || reasoningEffortStatus !== "supported"}
+                          size="1"
+                          hideTriggerChevron
+                          triggerClassName="ai-sidebar-inline-select-trigger ai-sidebar-reasoning-effort-trigger"
+                          triggerStyle={{
+                            fontSize: "var(--font-size-sm)",
+                            border: "none",
+                            background: "transparent",
+                            boxShadow: "none",
+                          }}
+                        />
+                      </Box>
+                    </Tooltip>
                   ) : null}
                 </Flex>
               </>

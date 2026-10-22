@@ -167,6 +167,8 @@ function transformModel(raw: ModelResponse): Model {
     isBuiltin: raw.is_builtin ?? false,
     isEnabled: raw.is_enabled ?? true,
     reasoningEffortLevels: raw.reasoning_effort_levels ?? [],
+    reasoningEffortStatus: raw.reasoning_effort_status ?? "unknown",
+    reasoningEffortDefault: raw.reasoning_effort_default,
     createdAt: raw.created_at,
     updatedAt: raw.updated_at,
   };

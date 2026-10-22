@@ -2166,12 +2166,15 @@
         "completed": "Completed"
       }
     },
-    "deliverySteer": "Steer current task",
-    "deliveryQueue": "Queue message",
+    "deliverySteer": "Steer",
+    "deliveryQueue": "Queue",
     "deliverySteerHint": "Receive before the next model call; completed actions are not undone",
     "deliveryQueueHint": "Process after the current task finishes",
     "pendingSteer": "Awaiting receipt",
     "pendingQueue": "Queued",
+    "reasoningEffortDefault": "Default ({{level}})",
+    "reasoningEffortUnknown": "This model has not declared reasoning effort levels. Use the model default without sending a reasoning effort parameter.",
+    "reasoningEffortUnsupported": "This model does not support reasoning effort levels. Use the model default without sending a reasoning effort parameter.",
     "reasoningEffort": {
       "off": "Default",
       "none": "None",

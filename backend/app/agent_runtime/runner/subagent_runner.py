@@ -58,6 +58,10 @@ from app.audit import AuditContext
 from app.core.encryption import EncryptionService
 from app.core.knowledge_scope import KnowledgeScope
 from app.models.clients.model_factory import ModelConfig, create_chat_model
+from app.models.clients.reasoning_capabilities import (
+    refresh_advertised_efforts,
+    supported_reasoning_efforts,
+)
 from app.models.repos import model_provider_repo, model_repo
 from app.models.services.model_provider_service import ModelProviderService
 from app.settings import settings
@@ -218,8 +222,21 @@ async def _resolve_agent_model_config(
     if record_id:
         resolved = await _build_model_config_from_record(session, record_id)
         if resolved is not None:
+            await refresh_advertised_efforts(
+                resolved["provider_type"],
+                resolved["base_url"],
+                resolved["api_key"],
+                resolved.get("custom_headers"),
+            )
+            supported = supported_reasoning_efforts(
+                resolved["provider_type"],
+                resolved["model_id"],
+                resolved["base_url"],
+                api_key=resolved["api_key"],
+                custom_headers=resolved.get("custom_headers"),
+            )
             reasoning_effort = inherited_config.get("reasoning_effort")
-            if isinstance(reasoning_effort, str):
+            if reasoning_effort in supported:
                 resolved["reasoning_effort"] = reasoning_effort
             return resolved
     return dict(inherited_config)

@@ -2330,12 +2330,15 @@
         "completed": "已完成"
       }
     },
-    "deliverySteer": "引导当前任务",
-    "deliveryQueue": "排队发送",
+    "deliverySteer": "引导",
+    "deliveryQueue": "排队",
     "deliverySteerHint": "在下一次模型调用前接收，不撤销已执行操作",
     "deliveryQueueHint": "当前任务完成后处理",
     "pendingSteer": "待接收",
     "pendingQueue": "排队中",
+    "reasoningEffortDefault": "默认（{{level}}）",
+    "reasoningEffortUnknown": "此模型未声明推理档位，使用模型默认设置，不发送推理档位参数。",
+    "reasoningEffortUnsupported": "此模型不支持推理档位，使用模型默认设置，不发送推理档位参数。",
     "reasoningEffort": {
       "off": "默认",
       "none": "关闭",

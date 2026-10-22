@@ -20,8 +20,9 @@ from app.api.schemas.model import (
 from app.core.encryption import EncryptionService
 from app.core.errors import NotFoundError
 from app.models.clients.reasoning_capabilities import (
+    ReasoningCapability,
+    get_reasoning_capability,
     refresh_advertised_efforts,
-    supported_reasoning_efforts,
 )
 from app.models.repos import model_provider_repo
 from app.models.services import ModelService
@@ -50,10 +51,7 @@ def _require_task_type(task_type: str) -> TaskType:
 
 
 async def _warm_reasoning_capabilities(provider) -> None:
-    if provider is None or provider.provider_type not in {
-        "openai-compatible",
-        "openai-compatible-responses",
-    }:
+    if provider is None or provider.is_builtin:
         return
     try:
         service = ModelProviderService(EncryptionService(settings.encryption_key))
@@ -76,6 +74,19 @@ async def _model_response(session: AsyncSession, model) -> ModelResponse:
 
 
 def _to_response(m, provider=None) -> ModelResponse:
+    capability = ReasoningCapability()
+    if provider is not None and m.task_type == "llm":
+        service = ModelProviderService(EncryptionService(settings.encryption_key))
+        try:
+            capability = get_reasoning_capability(
+                provider.provider_type,
+                m.model_id,
+                provider.url,
+                api_key=service.get_decrypted_api_key(provider) or "",
+                custom_headers=service.get_decrypted_custom_headers(provider),
+            )
+        except ValueError:
+            pass
     return ModelResponse(
         id=m.id,
         name=m.name,
@@ -98,11 +109,9 @@ def _to_response(m, provider=None) -> ModelResponse:
         cache_read_price=m.cache_read_price,
         cache_write_price=m.cache_write_price,
         dimensions=m.dimensions,
-        reasoning_effort_levels=list(
-            supported_reasoning_efforts(provider.provider_type, m.model_id, provider.url)
-        )
-        if provider is not None and m.task_type == "llm"
-        else [],
+        reasoning_effort_levels=list(capability.levels or ()),
+        reasoning_effort_status=capability.status,
+        reasoning_effort_default=capability.default,
         is_builtin=m.is_builtin,
         is_enabled=m.is_enabled,
         created_at=m.created_at.isoformat(),

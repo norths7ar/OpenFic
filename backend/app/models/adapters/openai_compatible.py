@@ -6,12 +6,11 @@ OpenAI Compatible Adapter - OpenAI兼容API适配器。
 """
 
 from collections.abc import Mapping
+from typing import Any
 
 import httpx
-from loguru import logger
 
 from app.models.adapters.base import BaseAdapter
-from app.models.clients.reasoning_capabilities import remember_advertised_efforts
 
 
 class OpenAICompatibleAdapter(BaseAdapter):
@@ -28,7 +27,7 @@ class OpenAICompatibleAdapter(BaseAdapter):
         api_key: str,
         *,
         headers: Mapping[str, str] | None = None,
-    ) -> list[dict[str, str]]:
+    ) -> list[dict[str, Any]]:
         """获取模型列表（返回全部可用模型）。"""
         return await self._fetch_all_models(client, base_url, api_key, headers=headers)
 
@@ -39,7 +38,7 @@ class OpenAICompatibleAdapter(BaseAdapter):
         api_key: str,
         *,
         headers: Mapping[str, str] | None = None,
-    ) -> list[dict[str, str]]:
+    ) -> list[dict[str, Any]]:
         """获取模型列表（返回全部可用模型，由用户自行选择）。"""
         return await self._fetch_all_models(client, base_url, api_key, headers=headers)
 
@@ -50,7 +49,7 @@ class OpenAICompatibleAdapter(BaseAdapter):
         api_key: str,
         *,
         headers: Mapping[str, str] | None = None,
-    ) -> list[dict[str, str]]:
+    ) -> list[dict[str, Any]]:
         """获取模型列表（返回全部可用模型，由用户自行选择）。"""
         return await self._fetch_all_models(client, base_url, api_key, headers=headers)
 
@@ -64,32 +63,16 @@ class OpenAICompatibleAdapter(BaseAdapter):
         api_key: str,
         *,
         headers: Mapping[str, str] | None = None,
-    ) -> list[dict[str, str]]:
+    ) -> list[dict[str, Any]]:
         """获取所有可用模型。"""
         url = self._normalize_url(base_url)
         url = f"{url}/models" if url.endswith("/v1") else f"{url}/v1/models"
         request_headers = self._build_auth_header(api_key, headers)
 
-        try:
-            response = await client.get(url, headers=request_headers)
-            response.raise_for_status()
-            data = response.json()
-
-            remember_advertised_efforts(base_url, data.get("data", []))
-            models = []
-            for model in data.get("data", []):
-                model_id = model.get("id", "")
-                model_name = model.get("name", model_id) if model.get("name") else model_id
-                models.append({"id": model_id, "name": model_name})
-
-            return models
-        except httpx.HTTPStatusError as exc:
-            if exc.response.status_code in {401, 429} or exc.response.status_code >= 500:
-                raise
-            logger.warning(f"Failed to fetch models from OpenAI-compatible API: {exc}")
-            # 返回空列表，允许用户手动输入模型ID
-            return []
-        except httpx.HTTPError as exc:
-            logger.warning(f"Failed to fetch models from OpenAI-compatible API: {exc}")
-            # 返回空列表，允许用户手动输入模型ID
-            return []
+        response = await client.get(url, headers=request_headers)
+        response.raise_for_status()
+        return [
+            {**model, "name": model.get("name") or model["id"]}
+            for model in response.json().get("data", [])
+            if isinstance(model, dict) and isinstance(model.get("id"), str)
+        ]

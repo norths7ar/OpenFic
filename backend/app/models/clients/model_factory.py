@@ -76,7 +76,12 @@ def _non_default(value: Any, default: Any) -> Any | None:
 
 def _enabled_reasoning_effort(config: ModelConfig) -> ReasoningEffort | None:
     return resolve_reasoning_effort(
-        config.provider_type, config.model_id, config.base_url, config.reasoning_effort
+        config.provider_type,
+        config.model_id,
+        config.base_url,
+        config.reasoning_effort,
+        api_key=config.api_key,
+        custom_headers=config.custom_headers,
     )
 
 

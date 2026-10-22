@@ -149,6 +149,10 @@ Markdown 源包用 `<!-- openfic:item` 元数据块区分条目并保留稳定 I
 
 先在「设置 → 提供商」配置连接类型、服务地址与凭据，再在「设置 → 模型」选择连接、任务类型和模型 ID。OpenAI-compatible 的 Chat Completions 与 Responses 使用不同连接类型，应与服务端协议一致；本机兼容连接表单预填 `http://127.0.0.1:10100/v1`，可按实际服务修改。模型 ID 使用服务返回的完整值，保留前缀；上下文长度未知时填 `0`。Embedding 与 rerank 分别创建对应任务类型的模型，再到「设置 → 索引」选择。
 
+推理强度从当前连接返回的模型元数据读取，不按型号猜测。模型列表支持 `reasoning_efforts`、`capabilities.reasoning_effort` 和 `effort.supported_levels`，服务返回的新档位会直接出现在选择器中；Chat Completions 发送 `reasoning_effort`，Responses 发送 `reasoning.effort`。“默认”不发送强度参数；未声明档位或明确不支持时只保留默认选项，并提示原因。连接能力按地址、协议及凭据隔离缓存，五分钟后重新查询；在设置中刷新模型列表也会更新能力。
+
+ocx 等聚合服务与直连 provider 使用同一套发现流程。DeepSeek 的档位取自接口的 `effort` 元数据；MiMo 当前模型列表未声明强度档位，使用服务默认行为。模型 ID 必须与服务返回值一致，不自动替换旧型号或猜测别名。
+
 ## 开发检查
 
 依赖安装完成后，在仓库根目录运行：

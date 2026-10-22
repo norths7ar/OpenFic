@@ -288,15 +288,8 @@ export interface AgentImageAttachment {
   url: string;
 }
 
-export type ReasoningEffort =
-  | "off"
-  | "none"
-  | "minimal"
-  | "low"
-  | "medium"
-  | "high"
-  | "xhigh"
-  | "max";
+/** Model-advertised level; "off" is the UI-only default (omit the request parameter). */
+export type ReasoningEffort = string;
 
 export type AgentPendingMessageAction = "queued" | "cancelled" | "consumed";
 

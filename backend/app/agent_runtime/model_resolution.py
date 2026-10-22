@@ -45,7 +45,12 @@ async def build_model_config(
     }
     await refresh_advertised_efforts(provider.provider_type, provider.url, api_key, custom_headers)
     resolved_effort = resolve_reasoning_effort(
-        provider.provider_type, model.model_id, provider.url, reasoning_effort
+        provider.provider_type,
+        model.model_id,
+        provider.url,
+        reasoning_effort,
+        api_key=api_key,
+        custom_headers=custom_headers,
     )
     if resolved_effort is not None:
         model_config["reasoning_effort"] = resolved_effort

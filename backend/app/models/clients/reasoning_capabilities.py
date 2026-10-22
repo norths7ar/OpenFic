@@ -1,124 +1,155 @@
-"""Confirmed effort controls for a provider/model/endpoint, shared by API and runtime."""
+"""Reasoning controls advertised by each authenticated model connection."""
 
-import re
+import hashlib
+import json
 import time
-from typing import Any, cast
-from urllib.parse import urlparse
+from dataclasses import dataclass
+from typing import Any, Literal
 
 import httpx
 
 from app.core.errors import ValidationError
-from app.models.clients.model_params import REASONING_EFFORT_VALUES, ReasoningEffort
-
-# Metadata is connection-scoped and short lived; never persist provider secrets.
-_advertised: dict[str, tuple[float, dict[str, tuple[ReasoningEffort, ...]]]] = {}
+from app.models.clients.model_params import ReasoningEffort
 
 
-def remember_advertised_efforts(base_url: str, models: list[dict[str, Any]]) -> None:
-    levels_by_model = {}
-    for model in models:
-        if not isinstance(model, dict):
-            continue
-        values = model.get("reasoning_efforts")
-        if isinstance(values, list):
-            values = [value.get("value") if isinstance(value, dict) else value for value in values]
-        elif isinstance(model.get("capabilities"), dict):
-            values = model["capabilities"].get("reasoning_effort")
-        if isinstance(values, list) and isinstance(model.get("id"), str):
-            levels_by_model[model["id"]] = tuple(
-                dict.fromkeys(
-                    cast(ReasoningEffort, value)
-                    for value in values
-                    if isinstance(value, str)
-                    and value in REASONING_EFFORT_VALUES
-                    and value != "off"
-                )
-            )
-    _advertised[base_url.rstrip("/")] = (time.monotonic(), levels_by_model)
+@dataclass(frozen=True)
+class ReasoningCapability:
+    # None means unadvertised, while an explicit empty list means unsupported.
+    levels: tuple[str, ...] | None = None
+    default: str | None = None
+
+    @property
+    def status(self) -> Literal["supported", "unsupported", "unknown"]:
+        if self.levels is None:
+            return "unknown"
+        return "supported" if self.levels else "unsupported"
+
+
+_advertised: dict[tuple[str, str, str], tuple[float, dict[str, ReasoningCapability]]] = {}
+
+
+def _connection_key(
+    provider_type: str, base_url: str, api_key: str, custom_headers: dict[str, str] | None
+) -> tuple[str, str, str]:
+    credentials = json.dumps([api_key, custom_headers or {}], sort_keys=True).encode()
+    return provider_type, base_url.rstrip("/"), hashlib.sha256(credentials).hexdigest()
+
+
+def parse_reasoning_capability(model: dict[str, Any]) -> ReasoningCapability:
+    """Normalize advertised schemas, never infer controls from a model name."""
+    values = model.get("reasoning_efforts")
+    default = model.get("reasoning_effort")
+    capabilities = model.get("capabilities")
+    if not isinstance(values, list) and isinstance(capabilities, dict):
+        values = capabilities.get("reasoning_effort")
+    effort = model.get("effort")
+    if not isinstance(values, list) and isinstance(effort, dict):
+        values = effort.get("supported_levels")
+        default = effort.get("default_level")
+    if model.get("supports_reasoning_effort") is False:
+        return ReasoningCapability(())
+    if not isinstance(values, list):
+        return ReasoningCapability()
+    levels: list[str] = []
+    for value in values:
+        if isinstance(value, dict):
+            if value.get("default") is True:
+                default = value.get("value")
+            value = value.get("value")
+        # off is the application's legacy "use upstream default" sentinel.
+        if isinstance(value, str) and value and value != "off" and value not in levels:
+            levels.append(value)
+    return ReasoningCapability(tuple(levels), default if default in levels else None)
+
+
+def remember_advertised_efforts(
+    base_url: str,
+    models: list[dict[str, Any]],
+    *,
+    provider_type: str = "openai-compatible",
+    api_key: str = "",
+    custom_headers: dict[str, str] | None = None,
+) -> None:
+    models_by_id = {
+        model["id"]: parse_reasoning_capability(model)
+        for model in models
+        if isinstance(model, dict) and isinstance(model.get("id"), str)
+    }
+    key = _connection_key(provider_type, base_url, api_key, custom_headers)
+    _advertised[key] = (time.monotonic(), models_by_id)
 
 
 async def refresh_advertised_efforts(
     provider_type: str, base_url: str, api_key: str, custom_headers: dict[str, str] | None = None
 ) -> None:
-    if provider_type not in {"openai-compatible", "openai-compatible-responses"} or not base_url:
+    if not base_url:
         return
-    cached = _advertised.get(base_url.rstrip("/"))
+    key = _connection_key(provider_type, base_url, api_key, custom_headers)
+    cached = _advertised.get(key)
     if cached is not None and time.monotonic() - cached[0] < 300:
         return
-    from app.models.adapters.openai_compatible import OpenAICompatibleAdapter
+    from app.models.registry import AdapterRegistry
 
+    adapter = AdapterRegistry.get_adapter(provider_type)
     try:
-        async with httpx.AsyncClient(timeout=3.0) as client:
-            await OpenAICompatibleAdapter().get_llm_models(
-                client, base_url, api_key, headers=custom_headers
-            )
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            models = await adapter.get_llm_models(client, base_url, api_key, headers=custom_headers)
+        remember_advertised_efforts(
+            base_url,
+            models,
+            provider_type=provider_type,
+            api_key=api_key,
+            custom_headers=custom_headers,
+        )
     except (httpx.HTTPError, ValueError):
-        pass
-    if base_url.rstrip("/") not in _advertised or cached is _advertised.get(base_url.rstrip("/")):
-        # Failed discovery does not invalidate an already running connection.
-        _advertised[base_url.rstrip("/")] = (time.monotonic(), cached[1] if cached else {})
+        # Retry later; a temporary discovery failure must not erase known controls.
+        _advertised[key] = (time.monotonic(), cached[1] if cached else {})
 
 
-def _official(base_url: str, hostname: str) -> bool:
-    return not base_url or urlparse(base_url).hostname == hostname
+def get_reasoning_capability(
+    provider_type: str,
+    model_id: str,
+    base_url: str = "",
+    *,
+    api_key: str = "",
+    custom_headers: dict[str, str] | None = None,
+) -> ReasoningCapability:
+    cached = _advertised.get(_connection_key(provider_type, base_url, api_key, custom_headers))
+    return cached[1].get(model_id, ReasoningCapability()) if cached else ReasoningCapability()
 
 
 def supported_reasoning_efforts(
-    provider_type: str, model_id: str, base_url: str = ""
+    provider_type: str,
+    model_id: str,
+    base_url: str = "",
+    *,
+    api_key: str = "",
+    custom_headers: dict[str, str] | None = None,
 ) -> tuple[ReasoningEffort, ...]:
-    """Unknown compatible endpoints do not inherit capabilities from a model name."""
-    if provider_type in {"openai-compatible", "openai-compatible-responses"}:
-        cached = _advertised.get(base_url.rstrip("/"))
-        if cached is not None:
-            advertised = cached[1].get(model_id)
-            if advertised is not None:
-                return advertised
-    name = model_id.lower()
-    if provider_type in {
-        "openai",
-        "openai-compatible",
-        "openai-compatible-responses",
-    } and _official(base_url, "api.openai.com"):
-        name = re.sub(r"-\d{4}-\d{2}-\d{2}$", "", name)
-        if name == "gpt-5":
-            return ("minimal", "low", "medium", "high")
-        if name == "gpt-5.1":
-            return ("none", "low", "medium", "high")
-        if name in {"gpt-5.2", "gpt-5.4"}:
-            return ("none", "low", "medium", "high", "xhigh")
-        if name == "gpt-5.6-sol":
-            return ("none", "low", "medium", "high", "xhigh", "max")
-    if provider_type in {"anthropic", "anthropic-compatible"} and _official(
-        base_url, "api.anthropic.com"
-    ):
-        name = re.sub(r"-\d{8}$", "", name)
-        if name in {"claude-opus-4-6", "claude-sonnet-4-6"}:
-            return ("low", "medium", "high", "max")
-        if name in {"claude-opus-4-7", "claude-opus-4-8", "claude-opus-5", "claude-sonnet-5"}:
-            return ("low", "medium", "high", "xhigh", "max")
-    if provider_type == "google-genai" and _official(base_url, "generativelanguage.googleapis.com"):
-        if name in {"gemini-3.1-pro-preview", "gemini-3.8-flash", "gemini-3.7-flash"}:
-            return ("low", "medium", "high")
-        if name in {
-            "gemini-3-flash-preview",
-            "gemini-3.6-flash",
-            "gemini-3.5-flash",
-            "gemini-3.1-flash-lite",
-            "gemini-3.5-flash-lite",
-        }:
-            return ("minimal", "low", "medium", "high")
-        if name == "gemini-3.1-flash-lite-image":
-            return ("minimal", "high")
-    return ()
+    return (
+        get_reasoning_capability(
+            provider_type, model_id, base_url, api_key=api_key, custom_headers=custom_headers
+        ).levels
+        or ()
+    )
 
 
 def resolve_reasoning_effort(
-    provider_type: str, model_id: str, base_url: str, effort: str | None
+    provider_type: str,
+    model_id: str,
+    base_url: str,
+    effort: str | None,
+    *,
+    api_key: str = "",
+    custom_headers: dict[str, str] | None = None,
 ) -> ReasoningEffort | None:
-    # Legacy off means unspecified, not a promise to disable the model's thinking.
     if effort is None or effort == "off":
         return None
-    levels = supported_reasoning_efforts(provider_type, model_id, base_url)
-    if effort not in levels:
+    capability = get_reasoning_capability(
+        provider_type, model_id, base_url, api_key=api_key, custom_headers=custom_headers
+    )
+    if capability.levels is None:
+        raise ValidationError("当前连接未声明此模型的推理档位，请使用默认值")
+    if effort not in capability.levels:
         raise ValidationError(f"当前模型连接不支持推理档位 {effort}，请使用默认值或可用档位")
-    return cast(ReasoningEffort, effort)
+    return effort

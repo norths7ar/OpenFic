@@ -358,6 +358,8 @@ async def _get_runner(
             runner.model_config["provider_type"],
             runner.model_config["model_id"],
             runner.model_config["base_url"],
+            api_key=runner.model_config.get("api_key", ""),
+            custom_headers=runner.model_config.get("custom_headers"),
         )
         if restored_reasoning_effort in supported_efforts:
             runner.model_config["reasoning_effort"] = restored_reasoning_effort

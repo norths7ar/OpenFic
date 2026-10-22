@@ -275,13 +275,14 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
       [effectiveModelId, llmModelOptions],
     );
     const [deliveryMode, setDeliveryMode] = useState<"steer" | "queue">("steer");
+    const reasoningEffortLevels =
+      currentModel?.reasoningEffortStatus === "supported"
+        ? currentModel.reasoningEffortLevels
+        : undefined;
     const [reasoningEffort, setReasoningEffort] = useState<ReasoningEffort>(() =>
       constrainReasoningEffort(
-        getStoredReasoningEffort(
-          effectiveModelId,
-          Boolean(currentModel?.reasoningEffortLevels?.length),
-        ),
-        currentModel?.reasoningEffortLevels,
+        getStoredReasoningEffort(effectiveModelId, Boolean(reasoningEffortLevels?.length)),
+        reasoningEffortLevels,
       ),
     );
     const isToolApprovalBypassEnabled = settings?.agentBypassToolApproval ?? false;
@@ -318,14 +319,11 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
     useEffect(() => {
       setReasoningEffort(
         constrainReasoningEffort(
-          getStoredReasoningEffort(
-            effectiveModelId,
-            Boolean(currentModel?.reasoningEffortLevels?.length),
-          ),
-          currentModel?.reasoningEffortLevels,
+          getStoredReasoningEffort(effectiveModelId, Boolean(reasoningEffortLevels?.length)),
+          reasoningEffortLevels,
         ),
       );
-    }, [currentModel?.reasoningEffortLevels, effectiveModelId]);
+    }, [reasoningEffortLevels, effectiveModelId]);
 
     const newTaskFolderRef = useRef<string | null>(null);
     const handleAgentTaskTitleUpdated = useCallback(
@@ -489,14 +487,15 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
       return getAgentSpecialPanels(approvalMessages);
     }, [activeSubagents, isViewingSubagent]);
 
+    const effectiveReasoningEffort = constrainReasoningEffort(
+      reasoningEffort,
+      reasoningEffortLevels,
+    );
     const agentSidebar = useAgentSidebar({
       projectId,
       scrollToBottomKey: currentTaskId,
       modelId: effectiveModelId,
-      reasoningEffort: constrainReasoningEffort(
-        reasoningEffort,
-        currentModel?.reasoningEffortLevels,
-      ),
+      reasoningEffort: effectiveReasoningEffort === "off" ? undefined : effectiveReasoningEffort,
       deliveryMode,
       agentKey: effectiveAgentKey,
       contextMode,
@@ -796,7 +795,9 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
           if (restoredReasoningEffort) {
             const normalizedReasoningEffort = constrainReasoningEffort(
               restoredReasoningEffort,
-              restoredModel?.reasoningEffortLevels,
+              restoredModel?.reasoningEffortStatus === "supported"
+                ? restoredModel.reasoningEffortLevels
+                : undefined,
             );
             if (restoredModelId) {
               storeReasoningEffort(restoredModelId, normalizedReasoningEffort);
@@ -992,10 +993,14 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
     const handleReasoningEffortChange = useCallback(
       (nextReasoningEffort: ReasoningEffort) => {
         if (!effectiveModelId) return;
-        setReasoningEffort(nextReasoningEffort);
-        storeReasoningEffort(effectiveModelId, nextReasoningEffort);
+        const constrainedEffort = constrainReasoningEffort(
+          nextReasoningEffort,
+          reasoningEffortLevels,
+        );
+        setReasoningEffort(constrainedEffort);
+        storeReasoningEffort(effectiveModelId, constrainedEffort);
       },
-      [effectiveModelId],
+      [effectiveModelId, reasoningEffortLevels],
     );
 
     const hasActiveSession = Boolean(parentConversationSessionId);

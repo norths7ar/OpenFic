@@ -5,9 +5,9 @@ DeepSeek API兼容OpenAI格式，仅支持LLM，不支持Embedding。
 """
 
 from collections.abc import Mapping
+from typing import Any
 
 import httpx
-from loguru import logger
 
 from app.models.adapters.base import BaseAdapter
 
@@ -30,28 +30,17 @@ class DeepSeekAdapter(BaseAdapter):
         api_key: str,
         *,
         headers: Mapping[str, str] | None = None,
-    ) -> list[dict[str, str]]:
+    ) -> list[dict[str, Any]]:
         """获取LLM模型列表。"""
         url = f"{self._normalize_url(base_url)}/models"
-        headers = self._build_auth_header(api_key)
-
-        try:
-            response = await client.get(url, headers=headers)
-            response.raise_for_status()
-            data = response.json()
-
-            models = []
-            for model in data.get("data", []):
-                model_id = model.get("id", "")
-                models.append({"id": model_id, "name": model_id})
-            return models
-        except Exception as e:
-            logger.warning(f"Failed to fetch DeepSeek models: {e}")
-            # 返回预定义列表作为fallback
-            return [
-                {"id": "deepseek-chat", "name": "DeepSeek Chat"},
-                {"id": "deepseek-reasoner", "name": "DeepSeek Reasoner"},
-            ]
+        request_headers = self._build_auth_header(api_key, headers)
+        response = await client.get(url, headers=request_headers)
+        response.raise_for_status()
+        return [
+            {**model, "name": model.get("name") or model["id"]}
+            for model in response.json().get("data", [])
+            if isinstance(model, dict) and isinstance(model.get("id"), str)
+        ]
 
     async def get_embedding_models(
         self,

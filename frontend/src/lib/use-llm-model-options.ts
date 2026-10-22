@@ -81,6 +81,8 @@ export function useLlmModelOptions(): UseLlmModelOptionsResult {
         releaseDate: catalogModel?.releaseDate ?? null,
         reasoning: catalogModel?.reasoning ?? null,
         reasoningEffortLevels: model.reasoningEffortLevels ?? [],
+        reasoningEffortStatus: model.reasoningEffortStatus ?? "unknown",
+        reasoningEffortDefault: model.reasoningEffortDefault,
         toolCall: catalogModel?.toolCall ?? null,
         inputModalities: catalogModel?.inputModalities ?? [],
         limit: catalogModel?.limit ?? null,

@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.encryption import EncryptionService
 from app.core.errors import NotFoundError
 from app.models.catalog import CatalogMatch, ModelProviderCatalogService
+from app.models.clients.reasoning_capabilities import remember_advertised_efforts
 from app.models.entities.model_provider import ModelProvider
 from app.models.registry import AdapterRegistry
 from app.models.repos import model_provider_repo
@@ -400,13 +401,22 @@ class ModelProviderService:
             async with httpx.AsyncClient(timeout=30.0) as client:
                 # 默认获取LLM模型列表（用于连接验证）
                 if request_headers:
-                    return await adapter.get_llm_models(
+                    models = await adapter.get_llm_models(
                         client,
                         url,
                         api_key,
                         headers=request_headers,
                     )
-                return await adapter.get_llm_models(client, url, api_key)
+                else:
+                    models = await adapter.get_llm_models(client, url, api_key)
+                remember_advertised_efforts(
+                    url,
+                    models,
+                    provider_type=provider_type,
+                    api_key=api_key,
+                    custom_headers=request_headers,
+                )
+                return models
         except Exception as e:
             logger.error(f"验证提供商连接失败: {e}")
             raise
@@ -493,6 +503,14 @@ class ModelProviderService:
                 logger.info(
                     f"Successfully fetched {len(models)} models for provider={provider.provider_type}, task_type={task_type}"
                 )
+                if task_type == "llm":
+                    remember_advertised_efforts(
+                        provider.url,
+                        models,
+                        provider_type=provider.provider_type,
+                        api_key=api_key,
+                        custom_headers=request_headers,
+                    )
                 return models
 
         except Exception as e:

@@ -12,6 +12,8 @@ export type ProviderType = string;
 /** 任务类型 */
 export type TaskType = "llm" | "embedding" | "rerank";
 
+export type ReasoningEffortStatus = "supported" | "unsupported" | "unknown";
+
 /** 模型服务提供商 */
 export interface ModelProvider {
   id: string;
@@ -83,6 +85,8 @@ export interface ModelProviderCustomHeader {
 /** 可用模型 */
 export interface AvailableModel {
   reasoningEffortLevels?: ReasoningEffort[];
+  reasoningEffortStatus?: ReasoningEffortStatus;
+  reasoningEffortDefault?: ReasoningEffort | null;
   id: string;
   name: string;
   taskType?: TaskType | null;
@@ -127,6 +131,8 @@ export interface ModelValidationResponse {
 /** 模型 */
 export interface Model {
   reasoningEffortLevels?: ReasoningEffort[];
+  reasoningEffortStatus?: ReasoningEffortStatus;
+  reasoningEffortDefault?: ReasoningEffort | null;
   id: string;
   name: string;
   remark: string;
@@ -157,6 +163,8 @@ export interface Model {
 /** 模型响应（后端格式） */
 export interface ModelResponse {
   reasoning_effort_levels?: ReasoningEffort[];
+  reasoning_effort_status?: ReasoningEffortStatus;
+  reasoning_effort_default?: ReasoningEffort | null;
   id: string;
   name: string;
   remark: string;
