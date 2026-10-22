@@ -14,6 +14,15 @@ export type TaskType = "llm" | "embedding" | "rerank";
 
 export type ReasoningEffortStatus = "supported" | "unsupported" | "unknown";
 
+export type ModelDiscoveryStatus = "ok" | "error" | "unsupported" | "unknown";
+export type UpstreamModelStatus = "listed" | "not_listed" | "unknown";
+
+export interface ModelDiscoveryFields {
+  upstreamStatus?: UpstreamModelStatus;
+  discoveryStatus?: ModelDiscoveryStatus;
+  discoveryCheckedAt?: string | null;
+}
+
 /** 模型服务提供商 */
 export interface ModelProvider {
   id: string;
@@ -83,7 +92,7 @@ export interface ModelProviderCustomHeader {
 }
 
 /** 可用模型 */
-export interface AvailableModel {
+export interface AvailableModel extends ModelDiscoveryFields {
   reasoningEffortLevels?: ReasoningEffort[];
   reasoningEffortStatus?: ReasoningEffortStatus;
   reasoningEffortDefault?: ReasoningEffort | null;
@@ -106,6 +115,8 @@ export interface AvailableModel {
 
 /** 验证提供商响应 */
 export interface ModelProviderValidateResponse {
+  discoveryStatus?: ModelDiscoveryStatus;
+  discoveryCheckedAt?: string | null;
   success: boolean;
   message: string;
   models: AvailableModel[];
@@ -129,7 +140,7 @@ export interface ModelValidationResponse {
 }
 
 /** 模型 */
-export interface Model {
+export interface Model extends ModelDiscoveryFields {
   reasoningEffortLevels?: ReasoningEffort[];
   reasoningEffortStatus?: ReasoningEffortStatus;
   reasoningEffortDefault?: ReasoningEffort | null;
@@ -162,6 +173,9 @@ export interface Model {
 
 /** 模型响应（后端格式） */
 export interface ModelResponse {
+  upstream_status?: UpstreamModelStatus;
+  discovery_status?: ModelDiscoveryStatus;
+  discovery_checked_at?: string | null;
   reasoning_effort_levels?: ReasoningEffort[];
   reasoning_effort_status?: ReasoningEffortStatus;
   reasoning_effort_default?: ReasoningEffort | null;

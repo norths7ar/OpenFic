@@ -5,6 +5,7 @@ from collections.abc import Mapping
 import httpx
 
 from app.models.adapters.base import BaseAdapter
+from app.models.adapters.model_list import parse_model_list
 
 
 class AnthropicCompatibleAdapter(BaseAdapter):
@@ -43,15 +44,9 @@ class AnthropicCompatibleAdapter(BaseAdapter):
             headers=request_headers,
         )
         response.raise_for_status()
-        data = response.json()
-
         return [
-            {
-                "id": model_id,
-                "name": model.get("display_name", model_id),
-            }
-            for model in data.get("data", [])
-            if (model_id := model.get("id"))
+            {**model, "name": model.get("display_name") or model["name"]}
+            for model in parse_model_list(response.json())
         ]
 
     async def get_embedding_models(

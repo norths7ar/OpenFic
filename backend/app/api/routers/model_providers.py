@@ -29,6 +29,7 @@ from app.api.schemas.model_provider import (
 from app.core.encryption import EncryptionService
 from app.core.errors import NotFoundError
 from app.models.catalog import ModelProviderCatalogService
+from app.models.clients.provider_discovery import DiscoverySnapshot
 from app.models.services import ModelProviderService
 from app.settings import settings
 from app.storage.database import get_session
@@ -315,15 +316,28 @@ async def validate_provider(
     logger.info(f"验证提供商连接: {request.provider_type}")
 
     try:
-        models = await service.validate_and_get_models(
+        discovery = await service.discover_connection(
             provider_type=request.provider_type,
             url=request.url,
             api_key=request.api_key,
             custom_headers=[item.model_dump(mode="json") for item in request.custom_headers],
         )
+        if discovery.status == "error":
+            return ModelProviderValidateResponse(
+                success=False,
+                message=f"连接验证失败: {discovery.error or '获取模型目录失败'}",
+                models=[],
+                discovery_status=discovery.status,
+                discovery_checked_at=discovery.checked_at,
+            )
+        models = list(discovery.models.values())
         return ModelProviderValidateResponse(
             success=True,
-            message="连接验证成功" if models else "连接验证成功，但该提供商可能不支持模型列表 API",
+            message=(
+                "该提供商仅提供静态模型列表，未验证上游目录"
+                if discovery.status == "unsupported"
+                else "连接验证成功"
+            ),
             models=[
                 AvailableModel(
                     id=m["id"],
@@ -331,6 +345,8 @@ async def validate_provider(
                 )
                 for m in models
             ],
+            discovery_status=discovery.status,
+            discovery_checked_at=discovery.checked_at,
         )
     except Exception as e:
         logger.error(f"验证提供商连接失败: {e}")
@@ -338,6 +354,7 @@ async def validate_provider(
             success=False,
             message=f"连接验证失败: {str(e)}",
             models=[],
+            discovery_status="error",
         )
 
 
@@ -351,6 +368,7 @@ async def get_provider_models(
     session: Annotated[AsyncSession, Depends(get_session)],
     service: Annotated[ModelProviderService, Depends(get_provider_service)],
     task_type: str = Query("llm", description="任务类型 (llm、embedding 或 rerank)"),
+    refresh: bool = Query(False, description="绕过 LLM 目录缓存，重新查询上游"),
 ) -> ModelProviderValidateResponse:
     """
     获取提供商的模型列表。
@@ -367,6 +385,8 @@ async def get_provider_models(
         HTTPException: 如果提供商不存在。
     """
     logger.info(f"获取提供商模型列表: {provider_id}")
+    discovery = DiscoverySnapshot()
+    provider = None
 
     try:
         # 获取提供商信息
@@ -387,6 +407,7 @@ async def get_provider_models(
                 success=True,
                 message="获取模型列表成功",
                 models=[AvailableModel.model_validate(model) for model in enriched_models],
+                discovery_status="unsupported" if task_type == "llm" else "unknown",
             )
 
         # 获取解密后的 API Key。无认证的通用连接允许空密钥发现模型。
@@ -405,13 +426,18 @@ async def get_provider_models(
                     success=False,
                     message="API Key 解密失败，请重新配置该提供商的 API Key",
                     models=[],
+                    discovery_status="error" if task_type == "llm" else "unknown",
                 )
-            elif provider.provider_type not in {"openai-compatible", "openai-compatible-responses"}:
+            elif task_type != "llm" and provider.provider_type not in {
+                "openai-compatible",
+                "openai-compatible-responses",
+            }:
                 logger.info(f"Provider {provider_id} has no API key configured")
                 return ModelProviderValidateResponse(
                     success=False,
                     message="该提供商未配置 API Key，无法获取模型列表",
                     models=[],
+                    discovery_status="error" if task_type == "llm" else "unknown",
                 )
 
         # 记录 API key 的掩码（无认证连接不输出伪造占位符）。
@@ -427,7 +453,10 @@ async def get_provider_models(
         models = await service.get_available_models(
             provider=provider,
             task_type=task_type,
+            refresh=refresh,
         )
+        if task_type == "llm":
+            discovery = service.get_llm_discovery_snapshot(provider)
         enriched_models = await service.enrich_models_with_catalog_metadata(
             provider=provider,
             task_type=task_type,
@@ -437,17 +466,32 @@ async def get_provider_models(
         logger.info(f"成功获取 {len(models)} 个模型")
         return ModelProviderValidateResponse(
             success=True,
-            message="获取模型列表成功" if models else "该提供商可能不支持模型列表 API",
+            message=(
+                "该提供商仅提供静态模型列表，未验证上游目录"
+                if discovery.status == "unsupported"
+                else "获取模型列表成功"
+                if models
+                else "该提供商可能不支持模型列表 API"
+            ),
             models=[AvailableModel.model_validate(model) for model in enriched_models],
+            discovery_status=discovery.status,
+            discovery_checked_at=discovery.checked_at,
         )
     except NotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
     except Exception as e:
         error_msg = str(e)
+        if provider is not None and task_type == "llm":
+            try:
+                discovery = service.get_llm_discovery_snapshot(provider)
+            except ValueError:
+                discovery = DiscoverySnapshot(status="error")
         # 使用 loguru 的参数化日志记录，避免 error_msg 中的花括号被误认为格式化占位符
         logger.error("获取模型列表失败: {}", error_msg, exc_info=True)
         return ModelProviderValidateResponse(
             success=False,
             message=f"获取模型列表失败: {error_msg}",
             models=[],
+            discovery_status="error" if task_type == "llm" else "unknown",
+            discovery_checked_at=discovery.checked_at,
         )

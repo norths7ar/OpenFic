@@ -20,6 +20,19 @@ class BaseAdapter(ABC):
     3. 获取该Provider支持的Rerank模型列表
     """
 
+    llm_models_are_static = False
+
+    async def discover_llm_models(
+        self,
+        client: httpx.AsyncClient,
+        base_url: str,
+        api_key: str,
+        *,
+        headers: Mapping[str, str] | None = None,
+    ) -> list[dict[str, str]]:
+        """Real directory lookup; adapters with static fallbacks override this entry point."""
+        return await self.get_llm_models(client, base_url, api_key, headers=headers)
+
     @property
     @abstractmethod
     def provider_type(self) -> str:

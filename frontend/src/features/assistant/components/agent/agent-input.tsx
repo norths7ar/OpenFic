@@ -1,4 +1,4 @@
-import { Box, Flex, IconButton, Text, Tooltip } from "@radix-ui/themes";
+import { Box, Button, Flex, IconButton, Text, Tooltip } from "@radix-ui/themes";
 import { ArrowUp, CloudUpload, ExternalLink, ShieldCheck, Square, X } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
@@ -10,6 +10,7 @@ import "react-photo-view/dist/react-photo-view.css";
 
 import { ModelIdSelect, Spinner, type ModelIdSelectOption } from "@/components";
 import { toast } from "@/components";
+import { ModelDiscoveryStatus } from "@/components/model-discovery-status";
 import { SimpleSelect, type SelectOption } from "@/components/select";
 import { ProviderIcon } from "@/features/settings/lib/provider-icons";
 import type { AgentPendingMessage, AgentSessionStatus, ReasoningEffort } from "@/lib/agent.types";
@@ -353,6 +354,26 @@ export function AgentInput({
 
   return (
     <Box className="ai-sidebar-input-area">
+      {selectedModel &&
+      (selectedModel.upstreamStatus === "not_listed" ||
+        selectedModel.discoveryStatus === "error") ? (
+        <Flex
+          align="center"
+          justify="between"
+          gap="2"
+          mb="2"
+          wrap="wrap"
+        >
+          <ModelDiscoveryStatus model={selectedModel} />
+          <Button
+            variant="ghost"
+            size="1"
+            onClick={onGoToSettings}
+          >
+            {t("models.reviewModels")}
+          </Button>
+        </Flex>
+      ) : null}
       <div className="ai-sidebar-input-stage">
         <AnimatePresence initial={false}>
           {mentionSuggestions ? (

@@ -149,7 +149,9 @@ Markdown 源包用 `<!-- openfic:item` 元数据块区分条目并保留稳定 I
 
 先在「设置 → 提供商」配置连接类型、服务地址与凭据，再在「设置 → 模型」选择连接、任务类型和模型 ID。OpenAI-compatible 的 Chat Completions 与 Responses 使用不同连接类型，应与服务端协议一致；本机兼容连接表单预填 `http://127.0.0.1:10100/v1`，可按实际服务修改。模型 ID 使用服务返回的完整值，保留前缀；上下文长度未知时填 `0`。Embedding 与 rerank 分别创建对应任务类型的模型，再到「设置 → 索引」选择。
 
-推理强度从当前连接返回的模型元数据读取，不按型号猜测。模型列表支持 `reasoning_efforts`、`capabilities.reasoning_effort` 和 `effort.supported_levels`，服务返回的新档位会直接出现在选择器中；Chat Completions 发送 `reasoning_effort`，Responses 发送 `reasoning.effort`。“默认”不发送强度参数；未声明档位或明确不支持时只保留默认选项，并提示原因。连接能力按地址、协议及凭据隔离缓存，五分钟后重新查询；在设置中刷新模型列表也会更新能力。
+推理强度从当前连接返回的模型元数据读取，不按型号猜测。模型列表支持 `reasoning_efforts`、`capabilities.reasoning_effort` 和 `effort.supported_levels`，服务返回的新档位会直接出现在选择器中；Chat Completions 发送 `reasoning_effort`，Responses 发送 `reasoning.effort`。“默认”不发送强度参数；未声明档位或明确不支持时只保留默认选项，并提示原因。模型目录与能力共用按地址、协议及凭据隔离的五分钟缓存；在设置中手动刷新会立即重新查询。
+
+打开模型相关页面、返回窗口或网络恢复时自动检查，页面可见期间每五分钟刷新。新发现的模型出现在提供商管理和模型 ID 候选列表中，由用户选择启用；已有模型的 ID、名称、参数与启用状态保持不变。成功取得完整目录后，未列出的已保存模型提示“上游目录未列出”，仍允许选择和调用；目录未列出不代表调用已确认失效。查询失败则提示“目录刷新失败”，保留最近成功获取的能力信息，不把网络故障当作模型下线。应用不推测或维护模型别名关系。
 
 ocx 等聚合服务与直连 provider 使用同一套发现流程。DeepSeek 的档位取自接口的 `effort` 元数据。模型 ID 优先使用服务返回值；文档认可但发现接口未返回的兼容别名不会自动替换，未声明能力时仍使用默认行为。
 

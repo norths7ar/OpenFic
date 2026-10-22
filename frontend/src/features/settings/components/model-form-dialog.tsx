@@ -1,7 +1,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Box, Dialog, Flex, Button, Text, TextField, TextArea, Separator } from "@radix-ui/themes";
 import { useQuery } from "@tanstack/react-query";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { useForm, Controller, useWatch } from "react-hook-form";
 import { useTranslation } from "react-i18next";
 import { z } from "zod";
@@ -10,7 +10,6 @@ import { Spinner } from "@/components";
 import { ModelIdSelect } from "@/components/model-id-select";
 import { LabeledSelect } from "@/components/select";
 import type {
-  AvailableModel,
   Model,
   ModelCreateRequest,
   ModelProvider,
@@ -18,7 +17,7 @@ import type {
   TaskType,
 } from "@/lib/model.types";
 
-import { fetchProviders, fetchProviderModels } from "../lib/model-api";
+import { fetchProviders } from "../lib/model-api";
 import {
   isSelectableModelProvider,
   isCustomProviderType,
@@ -26,6 +25,7 @@ import {
   resolveProviderDisplayName,
   supportsEmbeddingDimensions,
 } from "../lib/provider-utils";
+import { useProviderModelsQuery } from "../lib/use-provider-models-query";
 import { AdvancedParamsSection } from "./advanced-params-section";
 import { ModelMetadataSection } from "./model-metadata-section";
 
@@ -76,11 +76,6 @@ export function ModelFormDialog({
 }: ModelFormDialogProps) {
   const { t } = useTranslation();
   const isEditing = !!model;
-
-  const [availableModels, setAvailableModels] = useState<AvailableModel[]>([]);
-  const [loadingModels, setLoadingModels] = useState(false);
-  const [modelsError, setModelsError] = useState<string>("");
-  const [modelOptionsSource, setModelOptionsSource] = useState<"catalog" | "remote" | null>(null);
 
   const {
     control,
@@ -169,12 +164,6 @@ export function ModelFormDialog({
       }
     } else {
       reset();
-      queueMicrotask(() => {
-        setAvailableModels([]);
-        setLoadingModels(false);
-        setModelsError("");
-        setModelOptionsSource(null);
-      });
     }
   }, [open, model, reset]);
 
@@ -213,57 +202,19 @@ export function ModelFormDialog({
     return provider.name || provider.url || resolveProviderDisplayName(provider);
   }, []);
 
-  // 加载提供商的模型列表
-  const loadModelsForProvider = useCallback(
-    async (provId: string, currentTaskType: TaskType) => {
-      const provider = providers?.find((p) => p.id === provId);
-      if (!provider) return;
-
-      setLoadingModels(true);
-      setAvailableModels([]);
-      setModelsError("");
-      setModelOptionsSource("remote");
-
-      try {
-        const result = await fetchProviderModels(provId, currentTaskType);
-        if (result.success) {
-          setAvailableModels(result.models);
-          setModelsError("");
-        } else {
-          setAvailableModels([]);
-          // 显示后端返回的错误信息
-          setModelsError(result.message || t("models.fetchModelsFailed"));
-        }
-      } catch (error) {
-        console.error("Failed to load models:", error);
-        setAvailableModels([]);
-        // 显示网络错误或其他异常
-        setModelsError(error instanceof Error ? error.message : t("models.networkRequestFailed"));
-      } finally {
-        setLoadingModels(false);
-      }
-    },
-    [providers, t],
+  // Query keys isolate provider/task responses; polling never writes form values.
+  const remoteQuery = useProviderModelsQuery(
+    providerId,
+    taskType,
+    open && Boolean(selectedProvider),
   );
-
-  const handleRefreshRemoteModels = useCallback(() => {
-    if (!providerId) {
-      return;
-    }
-
-    void loadModelsForProvider(providerId, taskType as TaskType);
-  }, [loadModelsForProvider, providerId, taskType]);
-
-  // 已保存的连接应直接探测远端模型；后端会用 catalog 补全可用元数据。
-  useEffect(() => {
-    if (!open || !selectedProvider) {
-      return;
-    }
-
-    queueMicrotask(() => {
-      void loadModelsForProvider(selectedProvider.id, taskType as TaskType);
-    });
-  }, [loadModelsForProvider, open, selectedProvider, taskType]);
+  const availableModels = useMemo(() => remoteQuery.data?.models ?? [], [remoteQuery.data?.models]);
+  const loadingModels = remoteQuery.isLoading;
+  const modelsError = remoteQuery.isError
+    ? remoteQuery.error?.message || t("models.fetchModelsFailed")
+    : remoteQuery.data?.discoveryStatus === "error"
+      ? t("models.discoveryFailed")
+      : "";
 
   // 仅在创建表单没有提供商时清空模型选择。
   // 编辑表单的 reset() 会在 watch 值同步前触发，不能据此清空已保存的模型 ID。
@@ -271,9 +222,6 @@ export function ModelFormDialog({
     if (!providerId && !isEditing) {
       queueMicrotask(() => {
         setValue("modelId", "");
-        setAvailableModels([]);
-        setModelsError("");
-        setModelOptionsSource(null);
       });
     }
   }, [isEditing, providerId, setValue]);
@@ -603,9 +551,11 @@ export function ModelFormDialog({
                       taskType={taskType as TaskType}
                       error={modelsError}
                       showRefreshButton
-                      onRefresh={handleRefreshRemoteModels}
-                      isRefreshing={loadingModels && modelOptionsSource === "remote"}
-                      refreshDisabled={!providerId || loadingModels}
+                      onRefresh={remoteQuery.refresh}
+                      isRefreshing={remoteQuery.isFetching || remoteQuery.isRefreshing}
+                      refreshDisabled={
+                        !providerId || remoteQuery.isFetching || remoteQuery.isRefreshing
+                      }
                     />
                   )}
                 />

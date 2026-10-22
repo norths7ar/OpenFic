@@ -1,18 +1,14 @@
 """Reasoning controls advertised by each authenticated model connection."""
 
-import hashlib
-import json
-import time
 import tomllib
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, Literal
 
-import httpx
-
 from app.core.errors import ValidationError
 from app.models.clients.model_params import ReasoningEffort
+from app.models.clients.provider_discovery import discover_provider_models, get_discovery_snapshot
 
 
 @dataclass(frozen=True)
@@ -27,9 +23,6 @@ class ReasoningCapability:
         if self.levels is None:
             return "unknown"
         return "supported" if self.levels else "unsupported"
-
-
-_advertised: dict[tuple[str, str, str], tuple[float, dict[str, ReasoningCapability]]] = {}
 
 
 @lru_cache(maxsize=1)
@@ -49,13 +42,6 @@ def _documented_capability(provider_type: str, model_id: str, base_url: str) -> 
                 tuple(profile["levels"]), profile["default"], profile.get("requests")
             )
     return ReasoningCapability()
-
-
-def _connection_key(
-    provider_type: str, base_url: str, api_key: str, custom_headers: dict[str, str] | None
-) -> tuple[str, str, str]:
-    credentials = json.dumps([api_key, custom_headers or {}], sort_keys=True).encode()
-    return provider_type, base_url.rstrip("/"), hashlib.sha256(credentials).hexdigest()
 
 
 def parse_reasoning_capability(model: dict[str, Any]) -> ReasoningCapability:
@@ -85,48 +71,10 @@ def parse_reasoning_capability(model: dict[str, Any]) -> ReasoningCapability:
     return ReasoningCapability(tuple(levels), default if default in levels else None)
 
 
-def remember_advertised_efforts(
-    base_url: str,
-    models: list[dict[str, Any]],
-    *,
-    provider_type: str = "openai-compatible",
-    api_key: str = "",
-    custom_headers: dict[str, str] | None = None,
-) -> None:
-    models_by_id = {
-        model["id"]: parse_reasoning_capability(model)
-        for model in models
-        if isinstance(model, dict) and isinstance(model.get("id"), str)
-    }
-    key = _connection_key(provider_type, base_url, api_key, custom_headers)
-    _advertised[key] = (time.monotonic(), models_by_id)
-
-
 async def refresh_advertised_efforts(
     provider_type: str, base_url: str, api_key: str, custom_headers: dict[str, str] | None = None
 ) -> None:
-    if not base_url:
-        return
-    key = _connection_key(provider_type, base_url, api_key, custom_headers)
-    cached = _advertised.get(key)
-    if cached is not None and time.monotonic() - cached[0] < 300:
-        return
-    from app.models.registry import AdapterRegistry
-
-    adapter = AdapterRegistry.get_adapter(provider_type)
-    try:
-        async with httpx.AsyncClient(timeout=5.0) as client:
-            models = await adapter.get_llm_models(client, base_url, api_key, headers=custom_headers)
-        remember_advertised_efforts(
-            base_url,
-            models,
-            provider_type=provider_type,
-            api_key=api_key,
-            custom_headers=custom_headers,
-        )
-    except (httpx.HTTPError, ValueError):
-        # Retry later; a temporary discovery failure must not erase known controls.
-        _advertised[key] = (time.monotonic(), cached[1] if cached else {})
+    await discover_provider_models(provider_type, base_url, api_key, custom_headers)
 
 
 def get_reasoning_capability(
@@ -137,8 +85,10 @@ def get_reasoning_capability(
     api_key: str = "",
     custom_headers: dict[str, str] | None = None,
 ) -> ReasoningCapability:
-    cached = _advertised.get(_connection_key(provider_type, base_url, api_key, custom_headers))
-    advertised = cached[1].get(model_id, ReasoningCapability()) if cached else ReasoningCapability()
+    snapshot = get_discovery_snapshot(provider_type, base_url, api_key, custom_headers)
+    advertised = parse_reasoning_capability(
+        snapshot.models.get(model_id, {}) if snapshot.checked_at is not None else {}
+    )
     if advertised.levels is not None:
         return advertised
     return _documented_capability(provider_type, model_id, base_url)

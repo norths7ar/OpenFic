@@ -8,6 +8,7 @@ import httpx
 from loguru import logger
 
 from app.models.adapters.base import BaseAdapter
+from app.models.adapters.model_list import parse_model_list
 from app.models.helpers.openrouter_attribution import get_openrouter_attribution_headers
 
 
@@ -29,22 +30,14 @@ class OpenRouterAdapter(BaseAdapter):
         """获取LLM模型列表（/models端点）。"""
         url = f"{self._normalize_url(base_url)}/models"
         headers = {
-            **self._build_auth_header(api_key),
+            **self._build_auth_header(api_key, headers),
             **get_openrouter_attribution_headers(),
         }
 
         try:
             response = await client.get(url, headers=headers)
             response.raise_for_status()
-            data = response.json()
-
-            models = []
-            for model in data.get("data", []):
-                model_id = model.get("id", "")
-                model_name = model.get("name", model_id)
-                models.append({"id": model_id, "name": model_name})
-
-            return models
+            return parse_model_list(response.json())
         except Exception as e:
             logger.error(f"Failed to fetch OpenRouter LLM models: {e}")
             raise

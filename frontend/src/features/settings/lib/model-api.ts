@@ -21,6 +21,7 @@ import type {
   ModelValidationResponse,
   TaskType,
   ModelUpdateRequest,
+  ModelDiscoveryStatus,
 } from "@/lib/model.types";
 
 interface ModelProviderCatalogProviderResponse {
@@ -59,6 +60,8 @@ interface ModelProviderAvailableModelApiResponse {
 }
 
 interface ModelProviderValidateApiResponse {
+  discovery_status?: ModelDiscoveryStatus;
+  discovery_checked_at?: string | null;
   success: boolean;
   message: string;
   models: ModelProviderAvailableModelApiResponse[];
@@ -143,6 +146,9 @@ function transformProvider(raw: ModelProviderResponse): ModelProvider {
  */
 function transformModel(raw: ModelResponse): Model {
   return {
+    upstreamStatus: raw.upstream_status ?? "unknown",
+    discoveryStatus: raw.discovery_status ?? "unknown",
+    discoveryCheckedAt: raw.discovery_checked_at,
     id: raw.id,
     name: raw.name,
     remark: raw.remark,
@@ -308,13 +314,16 @@ export async function validateProvider(
 export async function fetchProviderModels(
   providerId: string,
   taskType: TaskType = "llm",
+  refresh = false,
 ): Promise<ModelProviderValidateResponse> {
   const response = await apiClient.get<ModelProviderValidateApiResponse>(
     `/model-providers/${providerId}/models`,
-    { params: { task_type: taskType } },
+    { params: { task_type: taskType, refresh } },
   );
   return {
     ...response.data,
+    discoveryStatus: response.data.discovery_status ?? "unknown",
+    discoveryCheckedAt: response.data.discovery_checked_at,
     models: (response.data.models || []).map((model) => transformAvailableModel(model, "remote")),
   };
 }

@@ -11,6 +11,7 @@ from typing import Any
 import httpx
 
 from app.models.adapters.base import BaseAdapter
+from app.models.adapters.model_list import parse_model_list
 
 
 class OpenAICompatibleAdapter(BaseAdapter):
@@ -29,7 +30,9 @@ class OpenAICompatibleAdapter(BaseAdapter):
         headers: Mapping[str, str] | None = None,
     ) -> list[dict[str, Any]]:
         """获取模型列表（返回全部可用模型）。"""
-        return await self._fetch_all_models(client, base_url, api_key, headers=headers)
+        return await self._fetch_all_models(
+            client, base_url, api_key, headers=headers, validate_directory=True
+        )
 
     async def get_embedding_models(
         self,
@@ -63,6 +66,7 @@ class OpenAICompatibleAdapter(BaseAdapter):
         api_key: str,
         *,
         headers: Mapping[str, str] | None = None,
+        validate_directory: bool = False,
     ) -> list[dict[str, Any]]:
         """获取所有可用模型。"""
         url = self._normalize_url(base_url)
@@ -71,6 +75,9 @@ class OpenAICompatibleAdapter(BaseAdapter):
 
         response = await client.get(url, headers=request_headers)
         response.raise_for_status()
+        if validate_directory:
+            return parse_model_list(response.json())
+        # Preserve the existing embedding/rerank list behavior outside LLM discovery.
         return [
             {**model, "name": model.get("name") or model["id"]}
             for model in response.json().get("data", [])

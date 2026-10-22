@@ -63,6 +63,11 @@ class ModelResponse(BaseModel):
     is_builtin: bool = Field(default=False, description="是否为内置模型")
     reasoning_effort_status: Literal["supported", "unsupported", "unknown"] = "unknown"
     reasoning_effort_default: str | None = None
+    upstream_status: Literal["listed", "not_listed", "unknown"] = "unknown"
+    discovery_status: Literal["ok", "error", "unsupported", "unknown"] = "unknown"
+    discovery_checked_at: str | None = Field(
+        default=None, description="最后一次成功查询真实上游目录的 UTC ISO 时间"
+    )
     is_enabled: bool = Field(default=True, description="是否启用模型")
     created_at: str = Field(description="创建时间")
     updated_at: str = Field(description="更新时间")

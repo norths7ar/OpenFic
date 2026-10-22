@@ -19,6 +19,7 @@ from app.api.schemas.model import (
 )
 from app.core.encryption import EncryptionService
 from app.core.errors import NotFoundError
+from app.models.clients.provider_discovery import DiscoverySnapshot
 from app.models.clients.reasoning_capabilities import (
     ReasoningCapability,
     get_reasoning_capability,
@@ -55,11 +56,12 @@ async def _warm_reasoning_capabilities(provider) -> None:
         return
     try:
         service = ModelProviderService(EncryptionService(settings.encryption_key))
+        api_key, headers = service.get_discovery_credentials(provider)
         await refresh_advertised_efforts(
             provider.provider_type,
             provider.url,
-            service.get_decrypted_api_key(provider) or "",
-            service.get_decrypted_custom_headers(provider),
+            api_key,
+            headers,
         )
     except Exception:
         # Model listing must remain readable if saved credentials cannot decrypt.
@@ -69,24 +71,30 @@ async def _warm_reasoning_capabilities(provider) -> None:
 
 async def _model_response(session: AsyncSession, model) -> ModelResponse:
     provider = await model_provider_repo.get_by_id(session, model.provider_id)
-    await _warm_reasoning_capabilities(provider)
+    if model.task_type == "llm":
+        await _warm_reasoning_capabilities(provider)
     return _to_response(model, provider)
 
 
 def _to_response(m, provider=None) -> ModelResponse:
     capability = ReasoningCapability()
-    if provider is not None and m.task_type == "llm":
+    discovery = DiscoverySnapshot()
+    if provider is not None and m.task_type == "llm" and not provider.is_builtin:
         service = ModelProviderService(EncryptionService(settings.encryption_key))
         try:
+            api_key, headers = service.get_discovery_credentials(provider)
+            discovery = service.get_llm_discovery_snapshot(provider)
             capability = get_reasoning_capability(
                 provider.provider_type,
                 m.model_id,
                 provider.url,
-                api_key=service.get_decrypted_api_key(provider) or "",
-                custom_headers=service.get_decrypted_custom_headers(provider),
+                api_key=api_key,
+                custom_headers=headers,
             )
         except ValueError:
-            pass
+            discovery = DiscoverySnapshot(status="error")
+    elif provider is not None and m.task_type == "llm" and provider.is_builtin:
+        discovery = DiscoverySnapshot(status="unsupported")
     return ModelResponse(
         id=m.id,
         name=m.name,
@@ -112,6 +120,9 @@ def _to_response(m, provider=None) -> ModelResponse:
         reasoning_effort_levels=list(capability.levels or ()),
         reasoning_effort_status=capability.status,
         reasoning_effort_default=capability.default,
+        upstream_status=discovery.upstream_status(m.model_id),
+        discovery_status=discovery.status,
+        discovery_checked_at=discovery.checked_at,
         is_builtin=m.is_builtin,
         is_enabled=m.is_enabled,
         created_at=m.created_at.isoformat(),

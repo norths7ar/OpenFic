@@ -12,6 +12,8 @@ from app.models.adapters.base import BaseAdapter
 class AnthropicAdapter(BaseAdapter):
     """Anthropic API适配器，仅支持LLM模型（不支持Embedding）。"""
 
+    llm_models_are_static = True
+
     @property
     def provider_type(self) -> str:
         return "anthropic"

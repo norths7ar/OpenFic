@@ -10,6 +10,7 @@ from typing import Any
 import httpx
 
 from app.models.adapters.base import BaseAdapter
+from app.models.adapters.model_list import parse_model_list
 
 
 class DeepSeekAdapter(BaseAdapter):
@@ -36,11 +37,7 @@ class DeepSeekAdapter(BaseAdapter):
         request_headers = self._build_auth_header(api_key, headers)
         response = await client.get(url, headers=request_headers)
         response.raise_for_status()
-        return [
-            {**model, "name": model.get("name") or model["id"]}
-            for model in response.json().get("data", [])
-            if isinstance(model, dict) and isinstance(model.get("id"), str)
-        ]
+        return parse_model_list(response.json())
 
     async def get_embedding_models(
         self,

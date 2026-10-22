@@ -1144,6 +1144,13 @@
     "deleteFailed": "Delete failed"
   },
   "models": {
+    "upstreamNotListed": "Not listed upstream",
+    "upstreamNotListedHint": "The latest successful discovery did not list this model. Its saved configuration is retained; this does not confirm that requests will fail. Choose a current model in model settings if needed.",
+    "discoveryFailed": "Discovery failed",
+    "discoveryFailedHint": "The upstream model list could not be refreshed. Saved configuration and previous capabilities are retained; discovery will retry automatically.",
+    "lastDiscovered": "Last successful discovery: {{time}}",
+    "autoRefreshModels": "The catalog refreshes automatically. Saved models absent from the list are retained and never replaced automatically.",
+    "reviewModels": "Model settings",
     "title": "Models",
     "description": "Manage and configure AI models",
     "newModel": "New Model",
@@ -1207,7 +1214,7 @@
     "useCustomModelId": "Use {{modelId}} as selected model",
     "customModelIdHint": "Not found in list, using custom ID",
     "fetchRemoteModels": "Fetch Remote",
-    "noCatalogMatchHint": "This OpenAI-compatible connection has no built-in catalog match yet. The default candidate list may be empty until you fetch remote models or enter an ID manually.",
+    "noCatalogMatchHint": "This connection has no built-in catalog match. Remote models are fetched automatically; you can also enter a model ID directly.",
     "toolCallWarningTooltip": "This model appears not to support tool calling and may not work correctly.",
     "priceInputLabel": "input",
     "priceOutputLabel": "output",

@@ -12,6 +12,7 @@ import httpx
 from loguru import logger
 
 from app.models.adapters.base import BaseAdapter
+from app.models.adapters.model_list import parse_model_list
 
 
 class GoogleGenAIAdapter(BaseAdapter):
@@ -29,37 +30,56 @@ class GoogleGenAIAdapter(BaseAdapter):
         *,
         headers: Mapping[str, str] | None = None,
     ) -> list[dict[str, str]]:
-        """获取LLM模型列表（supportedGenerationMethods包含generateContent）。"""
-        url = f"{self._normalize_url(base_url)}/models"
-
+        """Preserve the legacy static fallback for non-discovery callers."""
         try:
-            response = await client.get(url, params={"key": api_key})
-            response.raise_for_status()
-            data = response.json()
-
-            models = []
-            for model in data.get("models", []):
-                methods = model.get("supportedGenerationMethods", [])
-                # LLM模型支持generateContent
-                if "generateContent" in methods:
-                    model_name = model.get("name", "")
-                    if model_name.startswith("models/"):
-                        model_id = model_name[7:]
-                    else:
-                        model_id = model_name
-                    display_name = model.get("displayName", model_id)
-                    models.append({"id": model_id, "name": display_name})
-
-            return models
+            return await self.discover_llm_models(client, base_url, api_key, headers=headers)
         except Exception as e:
             logger.warning(f"Failed to fetch Google GenAI LLM models: {e}")
-            # 返回预定义列表作为fallback
             return [
                 {"id": "gemini-2.0-flash", "name": "Gemini 2.0 Flash"},
                 {"id": "gemini-2.0-flash-lite", "name": "Gemini 2.0 Flash Lite"},
                 {"id": "gemini-1.5-pro", "name": "Gemini 1.5 Pro"},
                 {"id": "gemini-1.5-flash", "name": "Gemini 1.5 Flash"},
             ]
+
+    async def discover_llm_models(
+        self,
+        client: httpx.AsyncClient,
+        base_url: str,
+        api_key: str,
+        *,
+        headers: Mapping[str, str] | None = None,
+    ) -> list[dict[str, str]]:
+        """获取LLM模型列表（supportedGenerationMethods包含generateContent）。"""
+        url = httpx.URL(self._normalize_url(base_url))
+        # Catalog URLs use the host root; explicit API versions/proxy paths are authoritative.
+        path = url.path.rstrip("/") or "/v1beta"
+        url = url.copy_with(path=f"{path}/models")
+        params = {"key": api_key}
+        seen_tokens: set[str] = set()
+        models = []
+        while True:
+            response = await client.get(url, params=params, headers=headers)
+            response.raise_for_status()
+            page = response.json()
+            if not isinstance(page, dict):
+                raise ValueError("模型目录响应格式无效")
+            next_token = page.pop("nextPageToken", "")
+            if not isinstance(next_token, str):
+                raise ValueError("模型目录响应包含无效的 nextPageToken")
+            for model in parse_model_list(page, field="models", id_field="name"):
+                methods = model.get("supportedGenerationMethods")
+                if not isinstance(methods, list) or any(not isinstance(m, str) for m in methods):
+                    raise ValueError("模型目录响应包含无效的 supportedGenerationMethods")
+                if "generateContent" in methods:
+                    model_id = model["id"].removeprefix("models/")
+                    models.append({**model, "id": model_id})
+            if not next_token:
+                return models
+            if next_token in seen_tokens:
+                raise ValueError("模型目录响应包含重复的 nextPageToken")
+            seen_tokens.add(next_token)
+            params["pageToken"] = next_token
 
     async def get_embedding_models(
         self,

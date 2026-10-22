@@ -11,6 +11,7 @@ import {
   resolveProviderCatalogType,
   resolveProviderIconPath,
 } from "@/features/settings/lib/provider-utils";
+import { MODEL_DISCOVERY_QUERY_OPTIONS } from "@/lib/model-discovery";
 
 export interface UseLlmModelOptionsResult {
   options: ModelIdSelectOption[];
@@ -26,6 +27,7 @@ export function useLlmModelOptions(): UseLlmModelOptionsResult {
   } = useQuery({
     queryKey: ["models"],
     queryFn: () => fetchModels(),
+    ...MODEL_DISCOVERY_QUERY_OPTIONS,
   });
 
   const { data: providers, isLoading: isProvidersLoading } = useQuery({
@@ -75,6 +77,9 @@ export function useLlmModelOptions(): UseLlmModelOptionsResult {
 
       return {
         value: model.id,
+        upstreamStatus: model.upstreamStatus,
+        discoveryStatus: model.discoveryStatus,
+        discoveryCheckedAt: model.discoveryCheckedAt,
         id: model.modelId,
         name: model.name,
         taskType: "llm",

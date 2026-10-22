@@ -1,5 +1,4 @@
 import {
-  Badge,
   Box,
   Button,
   Dialog,
@@ -22,17 +21,14 @@ import {
   formatContextWindow,
   getModelCapabilityKeys,
 } from "@/components/model-capability-tags";
+import { ModelDiscoveryStatus } from "@/components/model-discovery-status";
 import { Spinner } from "@/components/spinner";
 import { toast } from "@/components/toast";
+import { MODEL_DISCOVERY_QUERY_OPTIONS } from "@/lib/model-discovery";
 import type { AvailableModel, Model, ModelProvider, TaskType } from "@/lib/model.types";
 
-import {
-  createModel,
-  fetchModels,
-  fetchProviderModels,
-  updateModel,
-  validateModel,
-} from "../lib/model-api";
+import { createModel, fetchModels, updateModel, validateModel } from "../lib/model-api";
+import { useProviderModelsQuery } from "../lib/use-provider-models-query";
 
 interface ProviderModelsDialogProps {
   provider: ModelProvider | null;
@@ -44,7 +40,6 @@ interface ProviderModelsDialogProps {
 interface ProviderModelRow {
   remote: AvailableModel;
   saved: Model | null;
-  isRemoteAvailable: boolean;
 }
 
 function getErrorMessage(error: unknown, fallback: string): string {
@@ -107,13 +102,14 @@ export function ProviderModelsDialog({
     setTaskType(supportedTaskTypes[0] ?? "llm");
   }, [open, provider?.id, supportedTaskTypes]);
 
-  const remoteQuery = useQuery({
-    queryKey: ["provider-models", provider?.id, taskType],
-    queryFn: () => fetchProviderModels(provider!.id, taskType),
-    enabled: open && Boolean(provider) && supportedTaskTypes.includes(taskType),
-  });
+  const remoteQuery = useProviderModelsQuery(
+    provider?.id,
+    taskType,
+    open && supportedTaskTypes.includes(taskType),
+  );
 
   const savedQuery = useQuery({
+    ...MODEL_DISCOVERY_QUERY_OPTIONS,
     queryKey: ["models", "include-disabled"],
     queryFn: () => fetchModels(undefined, undefined, true),
     enabled: open && Boolean(provider),
@@ -135,16 +131,14 @@ export function ProviderModelsDialog({
     const result = remoteModels.map((remote) => ({
       remote,
       saved: savedByIdentifier.get(remote.id) ?? null,
-      isRemoteAvailable: true,
     }));
     const remoteIds = new Set(remoteModels.map((model) => model.id));
     result.push(
       ...providerModels
-        .filter((model) => model.isEnabled && !remoteIds.has(model.modelId))
+        .filter((model) => !remoteIds.has(model.modelId))
         .map((model) => ({
           remote: toAvailableModel(model),
           saved: model,
-          isRemoteAvailable: false,
         })),
     );
     return result;
@@ -281,13 +275,36 @@ export function ProviderModelsDialog({
             <Button
               variant="soft"
               color="gray"
-              onClick={() => void remoteQuery.refetch()}
-              disabled={remoteQuery.isFetching}
+              onClick={remoteQuery.refresh}
+              disabled={remoteQuery.isFetching || remoteQuery.isRefreshing}
             >
-              {remoteQuery.isFetching ? <Spinner size={12} /> : <RefreshCw size={15} />}
+              {remoteQuery.isFetching || remoteQuery.isRefreshing ? (
+                <Spinner size={12} />
+              ) : (
+                <RefreshCw size={15} />
+              )}
               {t("models.detectModels")}
             </Button>
           </Flex>
+
+          <Text
+            size="1"
+            color="gray"
+          >
+            {t("models.autoRefreshModels")}
+          </Text>
+          {remoteQuery.isError || remoteQuery.data?.discoveryStatus === "error" ? (
+            <Text
+              size="2"
+              color="gray"
+              role="status"
+            >
+              {t("models.discoveryFailed")} ·{" "}
+              {remoteQuery.error
+                ? getErrorMessage(remoteQuery.error, t("models.networkRequestFailed"))
+                : t("models.discoveryFailedHint")}
+            </Text>
+          ) : null}
 
           {isLoading ? (
             <Flex
@@ -297,22 +314,6 @@ export function ProviderModelsDialog({
             >
               <Spinner size={18} />
             </Flex>
-          ) : remoteQuery.isError ? (
-            <Flex
-              direction="column"
-              align="center"
-              justify="center"
-              gap="2"
-              style={{ height: 280 }}
-            >
-              <Text color="red">{t("models.fetchModelsFailed")}</Text>
-              <Text
-                size="2"
-                color="gray"
-              >
-                {getErrorMessage(remoteQuery.error, t("models.networkRequestFailed"))}
-              </Text>
-            </Flex>
           ) : (
             <ScrollArea style={{ height: 420 }}>
               <Flex direction="column">
@@ -321,6 +322,23 @@ export function ProviderModelsDialog({
                   const contextLabel = formatContextWindow(row.remote.contextWindow);
                   const isPending = pendingModelId === row.remote.id;
                   const isValidating = row.saved?.id === validatingModelId;
+                  const discovery = remoteQuery.data;
+                  const statusModel = row.saved
+                    ? {
+                        ...row.saved,
+                        discoveryStatus: remoteQuery.isError
+                          ? ("error" as const)
+                          : discovery?.discoveryStatus,
+                        upstreamStatus:
+                          remoteQuery.isError || discovery?.discoveryStatus !== "ok"
+                            ? ("unknown" as const)
+                            : discovery.models.some((entry) => entry.id === row.remote.id)
+                              ? ("listed" as const)
+                              : ("not_listed" as const),
+                        discoveryCheckedAt:
+                          discovery?.discoveryCheckedAt ?? row.saved.discoveryCheckedAt,
+                      }
+                    : null;
                   return (
                     <Box
                       key={`${taskType}-${row.remote.id}`}
@@ -351,13 +369,11 @@ export function ProviderModelsDialog({
                               />
                             ))}
                             {contextLabel ? <ContextBadge label={contextLabel} /> : null}
-                            {!row.isRemoteAvailable ? (
-                              <Badge
-                                color="amber"
-                                variant="soft"
-                              >
-                                {t("models.notDetectedRemotely")}
-                              </Badge>
+                            {statusModel ? (
+                              <ModelDiscoveryStatus
+                                model={statusModel}
+                                compact
+                              />
                             ) : null}
                           </Flex>
                           <Text

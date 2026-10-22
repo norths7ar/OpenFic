@@ -18,8 +18,10 @@ import {
   getModelCapabilityKeys,
   formatContextWindow,
 } from "@/components/model-capability-tags";
+import { ModelDiscoveryStatus } from "@/components/model-discovery-status";
 import { ModelIdSelect, type ModelIdSelectOption } from "@/components/model-id-select";
 import { toast } from "@/components/toast";
+import { MODEL_DISCOVERY_QUERY_OPTIONS } from "@/lib/model-discovery";
 import type { Model, ModelCreateRequest, ModelUpdateRequest } from "@/lib/model.types";
 
 import {
@@ -69,31 +71,20 @@ export function ModelsSettings({
   }, [isAgentSettingsLocked]);
 
   // 获取所有模型
-  const {
-    data: models,
-    isLoading: isModelsLoading,
-    isFetching: isModelsFetching,
-  } = useQuery({
+  const { data: models, isLoading: isModelsLoading } = useQuery({
+    ...MODEL_DISCOVERY_QUERY_OPTIONS,
     queryKey: ["models"],
     queryFn: () => fetchModels(),
   });
 
   // 获取所有提供商（用于显示提供商名称）
-  const {
-    data: providers,
-    isLoading: isProvidersLoading,
-    isFetching: isProvidersFetching,
-  } = useQuery({
+  const { data: providers, isLoading: isProvidersLoading } = useQuery({
     queryKey: ["model-providers"],
     queryFn: fetchProviders,
   });
 
   // 获取设置
-  const {
-    data: settings,
-    isLoading: isSettingsLoading,
-    isFetching: isSettingsFetching,
-  } = useQuery({
+  const { data: settings, isLoading: isSettingsLoading } = useQuery({
     queryKey: ["settings"],
     queryFn: fetchSettings,
   });
@@ -137,11 +128,7 @@ export function ModelsSettings({
     );
   }, [llmModels, providers]);
 
-  const {
-    data: llmCatalogMetadata,
-    isLoading: isLlmCatalogMetadataLoading,
-    isFetching: isLlmCatalogMetadataFetching,
-  } = useQuery({
+  const { data: llmCatalogMetadata } = useQuery({
     queryKey: ["model-provider-catalog", "saved-llm-model-metadata", llmCatalogProviderTypes],
     queryFn: async () => {
       const responses = await Promise.all(
@@ -189,6 +176,9 @@ export function ModelsSettings({
           (model.cacheWritePrice > 0 ? model.cacheWritePrice : null),
         source: catalogModel?.source ?? "catalog",
         providerIconPath,
+        upstreamStatus: model.upstreamStatus,
+        discoveryStatus: model.discoveryStatus,
+        discoveryCheckedAt: model.discoveryCheckedAt,
       };
     });
   }, [llmCatalogMetadata, llmModels, providers]);
@@ -249,7 +239,7 @@ export function ModelsSettings({
 
   // 打开编辑对话框
   const handleEdit = useCallback((model: Model) => {
-    setEditingModel(model);
+    setEditingModel({ ...model });
     setFormOpen(true);
   }, []);
 
@@ -294,15 +284,7 @@ export function ModelsSettings({
   const hasLlmModels = llmModelOptions.length > 0;
   const hasProviders = providers ? hasSelectableModelProvider(providers) : false;
   const isContentLoading =
-    isModelsLoading ||
-    isModelsFetching ||
-    isProvidersLoading ||
-    isProvidersFetching ||
-    isSettingsLoading ||
-    isSettingsFetching ||
-    isAgentSettingsLockLoading ||
-    (llmCatalogProviderTypes.length > 0 &&
-      (isLlmCatalogMetadataLoading || isLlmCatalogMetadataFetching));
+    isModelsLoading || isProvidersLoading || isSettingsLoading || isAgentSettingsLockLoading;
 
   const handleActiveTabChange = useCallback(
     (value: string) => {
@@ -336,6 +318,12 @@ export function ModelsSettings({
           color="gray"
         >
           {t("models.description")}
+        </Text>
+        <Text
+          size="1"
+          color="gray"
+        >
+          {t("models.autoRefreshModels")}
         </Text>
 
         {/* 默认模型 & 轻量模型 */}
@@ -477,6 +465,7 @@ export function ModelsSettings({
                         >
                           {model.name}
                         </Text>
+                        <ModelDiscoveryStatus model={model} />
                         {model.isBuiltin ? (
                           <Badge
                             size="1"
@@ -553,6 +542,7 @@ export function ModelsSettings({
                             variant="ghost"
                             color="gray"
                             onClick={() => handleEdit(model)}
+                            aria-label={t("models.editModel")}
                             disabled={isAgentSettingsLocked}
                           >
                             <Edit size={16} />

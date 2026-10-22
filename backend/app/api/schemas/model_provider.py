@@ -2,7 +2,7 @@
 ModelProvider API Schemas - 模型服务提供商请求/响应模型。
 """
 
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -93,3 +93,7 @@ class ModelProviderValidateResponse(BaseModel):
     success: bool = Field(description="是否验证成功")
     message: str = Field(description="消息")
     models: list[AvailableModel] = Field(description="可用模型列表")
+    discovery_status: Literal["ok", "error", "unsupported", "unknown"] = "unknown"
+    discovery_checked_at: str | None = Field(
+        default=None, description="最后一次成功查询真实上游目录的 UTC ISO 时间"
+    )

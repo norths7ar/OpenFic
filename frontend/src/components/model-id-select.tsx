@@ -25,6 +25,7 @@ import {
   getModelCapabilityKeys,
   formatContextWindow,
 } from "./model-capability-tags";
+import { ModelDiscoveryStatus } from "./model-discovery-status";
 import { Spinner } from "./spinner";
 
 const MotionBox = motion.create(Box);
@@ -330,6 +331,12 @@ export function ModelIdSelect({
         >
           {selectedModel?.name || placeholder || t("models.modelIdPlaceholder")}
         </Text>
+        {selectedModel ? (
+          <ModelDiscoveryStatus
+            model={selectedModel}
+            compact
+          />
+        ) : null}
       </Flex>
       {hideTriggerChevron ? null : (
         <ChevronDown
@@ -642,6 +649,7 @@ export function ModelIdSelect({
                               </Flex>
                             ) : null}
                           </Flex>
+                          <ModelDiscoveryStatus model={model} />
                           {compact ? null : (
                             <Text
                               size="1"

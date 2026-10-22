@@ -8,6 +8,7 @@ import httpx
 from loguru import logger
 
 from app.models.adapters.base import BaseAdapter
+from app.models.adapters.model_list import parse_model_list
 
 
 class OpenAIAdapter(BaseAdapter):
@@ -27,18 +28,12 @@ class OpenAIAdapter(BaseAdapter):
     ) -> list[dict[str, str]]:
         """获取LLM模型列表（通过API）。"""
         url = f"{self._normalize_url(base_url)}/models"
-        headers = self._build_auth_header(api_key)
+        headers = self._build_auth_header(api_key, headers)
 
         try:
             response = await client.get(url, headers=headers)
             response.raise_for_status()
-            data = response.json()
-
-            models = []
-            for model in data.get("data", []):
-                model_id = model.get("id", "")
-                models.append({"id": model_id, "name": model_id})
-            return models
+            return parse_model_list(response.json())
         except Exception as e:
             logger.error(f"Failed to fetch OpenAI LLM models: {e}")
             raise

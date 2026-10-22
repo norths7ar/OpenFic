@@ -15,7 +15,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.encryption import EncryptionService
 from app.core.errors import NotFoundError
 from app.models.catalog import CatalogMatch, ModelProviderCatalogService
-from app.models.clients.reasoning_capabilities import remember_advertised_efforts
+from app.models.clients.provider_discovery import (
+    DiscoverySnapshot,
+    discover_provider_models,
+    get_discovery_snapshot,
+)
 from app.models.entities.model_provider import ModelProvider
 from app.models.registry import AdapterRegistry
 from app.models.repos import model_provider_repo
@@ -384,45 +388,51 @@ class ModelProviderService:
         Raises:
             Exception: 如果连接验证失败。
         """
+        snapshot = await self.discover_connection(provider_type, url, api_key, custom_headers)
+        return self._discovered_models(snapshot)
+
+    async def discover_connection(
+        self,
+        provider_type: str,
+        url: str,
+        api_key: str,
+        custom_headers: list[dict[str, str]] | None = None,
+    ) -> DiscoverySnapshot:
+        """Explicit connection validation shares discovery, but bypasses its TTL."""
         url = await self._resolve_provider_url(provider_type, url)
-
-        # 使用统一的Adapter获取模型
-        runtime_provider_type = (
-            "anthropic-compatible"
-            if provider_type == "anthropic-compatible"
-            else "openai-compatible-responses"
-            if provider_type == "openai-compatible-responses"
-            else "openai-compatible"
-        )
-        adapter = AdapterRegistry.get_adapter(runtime_provider_type)
         request_headers = self._normalize_custom_headers(provider_type, custom_headers)
+        return await discover_provider_models(
+            provider_type, url, api_key, request_headers, refresh=True
+        )
 
-        try:
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                # 默认获取LLM模型列表（用于连接验证）
-                if request_headers:
-                    models = await adapter.get_llm_models(
-                        client,
-                        url,
-                        api_key,
-                        headers=request_headers,
-                    )
-                else:
-                    models = await adapter.get_llm_models(client, url, api_key)
-                remember_advertised_efforts(
-                    url,
-                    models,
-                    provider_type=provider_type,
-                    api_key=api_key,
-                    custom_headers=request_headers,
-                )
-                return models
-        except Exception as e:
-            logger.error(f"验证提供商连接失败: {e}")
-            raise
+    def get_discovery_credentials(self, provider: ModelProvider) -> tuple[str, dict[str, str]]:
+        """Do not query or reuse an anonymous snapshot when saved credentials are unreadable."""
+        api_key = self.get_decrypted_api_key(provider) or ""
+        if provider.api_key_encrypted and provider.api_key_encrypted.strip() and not api_key:
+            raise ValueError("API Key 解密失败，请重新配置该提供商的 API Key")
+        headers = self.get_decrypted_custom_headers(provider)
+        if (
+            provider.provider_type in CUSTOM_PROVIDER_TYPES
+            and provider.custom_headers_encrypted
+            and not headers
+        ):
+            raise ValueError("自定义请求头解密失败，请重新配置该提供商的请求头")
+        return api_key, headers
+
+    def get_llm_discovery_snapshot(self, provider: ModelProvider) -> DiscoverySnapshot:
+        if provider.is_builtin:
+            return DiscoverySnapshot(status="unsupported")
+        api_key, headers = self.get_discovery_credentials(provider)
+        return get_discovery_snapshot(provider.provider_type, provider.url, api_key, headers)
+
+    @staticmethod
+    def _discovered_models(snapshot: DiscoverySnapshot) -> list[dict[str, Any]]:
+        if snapshot.status == "error":
+            raise ValueError(snapshot.error or "获取模型目录失败")
+        return list(snapshot.models.values())
 
     async def get_available_models(
-        self, provider: ModelProvider, task_type: str
+        self, provider: ModelProvider, task_type: str, *, refresh: bool = False
     ) -> list[dict[str, str]]:
         """
         获取指定provider和task_type的可用模型列表（Executor执行点）。
@@ -440,6 +450,13 @@ class ModelProviderService:
         """
         if provider.is_builtin:
             return self._builtin_available_models(task_type)
+
+        if task_type == "llm":
+            api_key, headers = self.get_discovery_credentials(provider)
+            snapshot = await discover_provider_models(
+                provider.provider_type, provider.url, api_key, headers, refresh=refresh
+            )
+            return self._discovered_models(snapshot)
 
         logger.info(
             f"Fetching available models for provider={provider.provider_type}, task_type={task_type}"
@@ -469,17 +486,7 @@ class ModelProviderService:
         try:
             async with httpx.AsyncClient(timeout=30.0) as client:
                 # 根据task_type路由到对应方法
-                if task_type == "llm":
-                    if request_headers:
-                        models = await adapter.get_llm_models(
-                            client,
-                            provider.url,
-                            api_key,
-                            headers=request_headers,
-                        )
-                    else:
-                        models = await adapter.get_llm_models(client, provider.url, api_key)
-                elif task_type == "rerank":
+                if task_type == "rerank":
                     if request_headers:
                         models = await adapter.get_rerank_models(
                             client,
@@ -503,14 +510,6 @@ class ModelProviderService:
                 logger.info(
                     f"Successfully fetched {len(models)} models for provider={provider.provider_type}, task_type={task_type}"
                 )
-                if task_type == "llm":
-                    remember_advertised_efforts(
-                        provider.url,
-                        models,
-                        provider_type=provider.provider_type,
-                        api_key=api_key,
-                        custom_headers=request_headers,
-                    )
                 return models
 
         except Exception as e:
