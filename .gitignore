@@ -27,10 +27,3 @@ AGENTS.md
 CLAUDE.md
 docs/superpowers
 *.db
-dist-electron
-frontend_dist
-dist-electron-new
-desktop/node_modules
-desktop/dist
-desktop/dist-electron
-desktop/out
