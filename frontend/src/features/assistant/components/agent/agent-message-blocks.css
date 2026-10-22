@@ -64,6 +64,7 @@
 }
 
 .agent-message-block-toolbar[data-align="left"] {
+  align-self: flex-start;
   justify-content: flex-start;
 }
 

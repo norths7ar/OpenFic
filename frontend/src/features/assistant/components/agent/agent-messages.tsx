@@ -712,18 +712,10 @@ export function AgentMessages({
           />
           <Flex
             className="agent-message-block-toolbar"
-            data-align="right"
+            data-align="left"
             align="center"
             gap="1"
           >
-            {timestampText ? (
-              <Text
-                size="1"
-                className="agent-message-block-toolbar-timestamp"
-              >
-                {timestampText}
-              </Text>
-            ) : null}
             <Tooltip content={isCopied ? t("common.copied") : t("common.copy")}>
               <IconButton
                 size="1"
@@ -755,6 +747,14 @@ export function AgentMessages({
                 </IconButton>
               </Tooltip>
             )}
+            {timestampText ? (
+              <Text
+                size="1"
+                className="agent-message-block-toolbar-timestamp"
+              >
+                {timestampText}
+              </Text>
+            ) : null}
           </Flex>
         </Box>
       );
