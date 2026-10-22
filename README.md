@@ -113,6 +113,20 @@ Markdown 源包用 `<!-- openfic:item` 元数据块区分条目并保留稳定 I
 
 导入前先生成预览，核对新增、更新与冲突后再应用。
 
+### 导出到文档备份仓库
+
+在 OpenFic 中写作、用独立 Git 仓库保存文档历史时，运行：
+
+```powershell
+./scripts/export-document-backup.ps1 -ProjectId '项目 ID' -Destination '../小说备份目录'
+```
+
+目标目录须已存在。脚本调用本机正式服务的 Markdown 源包 API，完整下载并解压后更新目标目录；可用 `-BaseUrl` 指定其他服务。根目录的 `.git`、`.gitignore`、`.gitattributes`、`archives`、`README` 和 `AGENTS`（包括带扩展名的名称，不区分大小写）保留，其余内容替换为本次导出。需要长期保留的私人原稿请先放入 `archives/`。应用删除或移动条目后，旧文件不会继续残留在当前备份中。
+
+已有 Git 仓库若有未提交修改，脚本会停止。同步方向是 OpenFic → 文档仓库；执行前仍需确认文档侧没有需要回传的已提交修改。脚本不初始化仓库、不提交或推送，完成后检查 Git 差异并提交以保存这次快照。新备份目录可自行执行 `git init`。
+
+本次导出 ZIP、导出信息和替换前的文件副本保存在 `output/exports/document-backup-时间/`；写入失败时可从其中的 `before/` 恢复被替换的文件。这是当前文档备份，不包含应用历史与会话，也不会重启服务。
+
 ## 模型接入
 
 先在「设置 → 提供商」配置连接类型、服务地址与凭据，再在「设置 → 模型」选择连接、任务类型和模型 ID。OpenAI-compatible 的 Chat Completions 与 Responses 使用不同连接类型，应与服务端协议一致；本机兼容连接表单预填 `http://127.0.0.1:10100/v1`，可按实际服务修改。模型 ID 使用服务返回的完整值，保留前缀；上下文长度未知时填 `0`。Embedding 与 rerank 分别创建对应任务类型的模型，再到「设置 → 索引」选择。
