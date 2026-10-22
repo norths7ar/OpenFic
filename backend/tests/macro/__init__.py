@@ -1,3 +1,0 @@
-"""
-Macro Tests Package.
-"""
