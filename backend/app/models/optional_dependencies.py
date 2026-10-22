@@ -1,8 +1,8 @@
 """Availability checks for provider SDK extras.
 
-The generic OpenAI-compatible path is part of the base installation.  Native
-provider clients stay optional so a saved provider configuration never makes
-the application fail to import at startup.
+OpenAI-compatible clients are part of the base installation. Native provider
+SDKs used by this deployment are declared in the default deployment group.
+Availability checks report missing SDKs without making application startup fail.
 """
 
 from importlib.util import find_spec
@@ -41,5 +41,6 @@ def install_hint(provider_type: str, task_type: str) -> str | None:
     """Return a copyable installation command when this capability is absent."""
     extra = required_extra(provider_type, task_type)
     if extra and not is_available(provider_type, task_type):
-        return f"在仓库根目录执行：./scripts/sync-dependencies.ps1 -Extra {extra}"
+        package = _DEPENDENCIES[(provider_type, task_type)][0].replace("_", "-")
+        return f"在 backend 目录执行：uv add --group deployment {package}"
     return None

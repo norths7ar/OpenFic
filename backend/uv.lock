@@ -1687,6 +1687,9 @@ openrouter = [
 ]
 
 [package.dev-dependencies]
+deployment = [
+    { name = "langchain-deepseek" },
+]
 dev = [
     { name = "pre-commit" },
     { name = "pytest" },
@@ -1752,6 +1755,7 @@ requires-dist = [
 provides-extras = ["amazon-nova", "anthropic", "cohere", "deepseek", "google-genai", "groq", "mistral", "nvidia", "openrouter"]
 
 [package.metadata.requires-dev]
+deployment = [{ name = "langchain-deepseek", specifier = ">=1.0.1" }]
 dev = [
     { name = "pre-commit", specifier = ">=4.5.1" },
     { name = "pytest", specifier = ">=9.0.2" },

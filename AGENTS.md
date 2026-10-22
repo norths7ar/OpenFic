@@ -3,7 +3,9 @@
 - 本仓库作为独立分支持续开发。upstream 仅用于参考和按需移植功能，不再整体合并上游更新，也不以向上游合并或提交 PR 为目标。
 - 小说讨论和写作在 OpenFic 中进行，文档按 OpenFic → 独立 Git 仓库单向备份：`fanpai-dashijie` 保存《反派大师姐想活下去》，`just-us-four` 保存《四个人，刚刚好》。使用 `scripts/export-document-backup.ps1` 更新完整快照，具体命令与双远端推送规则见各文档仓库的 `AGENTS.md`。更新前检查并保留已有未提交工作，日常不主动编辑备份书稿或向应用回传。
 - 本机正式服务使用 Windows 本地运行（127.0.0.1:18081），由 `scripts/openfic-service.ps1` 管理，正式数据位于仓库根目录 `data`；`backend/data` 下的验证副本不是正式数据。
-- 安装、更新和重建后端依赖统一使用 `scripts/sync-dependencies.ps1`，新增 provider 使用 `-Extra`，保留 `data/dependency-extras.json` 中的用户选择；不要执行会遗忘可选项的裸 `uv sync`。开发验证使用 `uv run --no-sync`，避免验证命令隐式改动运行环境。
+- 首次安装、环境重建或后端依赖声明／锁文件变化时，在 `backend/` 执行 `uv sync --frozen`。`deployment` 组包含 `langchain-deepseek>=1.0.1`，`tool.uv.default-groups = ["dev", "deployment"]` 使普通 `uv sync` 也默认保留部署依赖。
+- 部署所需 provider SDK 在 `backend/` 使用 `uv add --group deployment langchain-anthropic` 添加，移除时使用 `uv remove --group deployment <SDK包名>`，一并提交 `pyproject.toml` 和 `uv.lock`。原有 extras 保留。
+- 普通源码更新不升级依赖。纯前端代码更新在 `frontend/` 执行 `pnpm build`，前端锁文件变化时先执行 `pnpm install --frozen-lockfile`；仅后端 Python 源码变化时完成检查后重启。开发检查使用 `uv run --no-sync`。
 - 功能开发或缺陷修复完成并通过必要检查后，默认提交本次任务的改动，并按需部署、核验；纯前端重新构建，后端按需重启。讨论、审查、文档编辑、目录或测试整理不触发默认提交，需用户明确要求。提交不得夹带工作区中与本次任务无关的既有改动；用户另有指示时，以用户指示为准。未完成或已知关键检查失败的改动不部署；涉及不可逆数据变更时先落实备份与恢复方案，无法可靠恢复则先确认。
 - Git 远端：`origin` 是 GitHub 上的 OpenFic 主远端，`gitea` 是 Gitea 备份远端，`upstream` 仅供参考。用户要求推送时，将本次指定的分支或标签同步推送到 `origin` 和 `gitea`，分别核验结果；任一失败须明确报告，不向 `upstream` 推送。仅要求提交时，不自动推送。
 

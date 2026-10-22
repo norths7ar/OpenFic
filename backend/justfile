@@ -12,23 +12,23 @@ check: format-check lint type-check test
 
 # Run Ruff lint checks.
 lint:
-    uv run ruff check .
+    uv run --no-sync ruff check .
 
 # Format Python sources with Ruff.
 format:
-    uv run ruff format .
+    uv run --no-sync ruff format .
 
 # Verify Python formatting without changing files.
 format-check:
-    uv run ruff format --check .
+    uv run --no-sync ruff format --check .
 
 # Run ty type checks.
 type-check:
-    uv run ty check app
+    uv run --no-sync ty check app
 
 # Run the backend test suite, or a specific pytest target.
 test target="":
-    uv run pytest {{ target }}
+    uv run --no-sync pytest {{ target }}
 
 # Build source and wheel distributions.
 build:
@@ -36,4 +36,4 @@ build:
 
 # Run the backend development server.
 dev:
-    uv run uvicorn app.main:app --host 127.0.0.1 --port 18081 {{ uvicorn_loop_arg }}
+    uv run --no-sync uvicorn app.main:app --host 127.0.0.1 --port 18081 {{ uvicorn_loop_arg }}

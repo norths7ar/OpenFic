@@ -79,6 +79,7 @@ openrouter = ["langchain-openrouter>=0.2.3"]
 openfic = "app.cli:main"
 
 [dependency-groups]
+deployment = ["langchain-deepseek>=1.0.1"]
 dev = [
     "pre-commit>=4.5.1",
     "python-socketio[asyncio-client]>=5.11.0",
@@ -91,6 +92,9 @@ dev = [
     "types-nanoid>=2.0.0.20260508",
     "types-pyyaml>=6.0.12.20260510",
 ]
+
+[tool.uv]
+default-groups = ["dev", "deployment"]
 
 [[tool.uv.index]]
 name = "pypi"

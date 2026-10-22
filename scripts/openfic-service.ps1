@@ -146,7 +146,7 @@ function Start-OpenFic {
     }
     if ($listeners.Count -gt 0) { throw "Port $port is occupied by unmanaged PID(s): $($listeners -join ', ')." }
     if (Test-Health) { throw 'OpenFic is reachable but its process ownership cannot be verified. Run the manager with full process visibility; existing state was preserved.' }
-    if (-not (Test-Path -LiteralPath $pythonPath)) { throw "Run ./scripts/sync-dependencies.ps1 first: $pythonPath" }
+    if (-not (Test-Path -LiteralPath $pythonPath)) { throw "Run uv sync --frozen in backend first: $pythonPath" }
     if (-not [string]::IsNullOrWhiteSpace($env:ENCRYPTION_KEY)) {
         throw "Process ENCRYPTION_KEY is not supported by the managed service. Store it in $dataDirectory\.env instead."
     }
@@ -306,8 +306,8 @@ if ($Action -eq 'restore') {
     Invoke-SnapshotCommand @('restore', '--snapshot', [IO.Path]::GetFullPath($SnapshotPath), '--destination', [IO.Path]::GetFullPath($RestorePath))
     $restoredRoot = [IO.Path]::GetFullPath($RestorePath)
     $sourceScript = Join-Path $restoredRoot 'source\scripts\openfic-service.ps1'
-    Write-Output "Restored to $restoredRoot. First restore dependencies (including saved provider extras):"
-    Write-Output "& '$restoredRoot\source\scripts\sync-dependencies.ps1' -DataPath '$restoredRoot\data'"
+    Write-Output "Restored to $restoredRoot. First restore dependencies (including the default deployment group):"
+    Write-Output "uv sync --frozen --project '$restoredRoot\source\backend'"
     Write-Output "& '$sourceScript' start -DataPath '$restoredRoot\data' -RestoreEnvironmentPath '$restoredRoot\restore-environment.json' -Port 18082"
     return
 }

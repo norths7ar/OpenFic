@@ -42,16 +42,24 @@ OpenFic 是用于本地管理多本小说的写作工作台，支持设定、提
 使用 PowerShell 7.4+、Python 3.12/3.13、uv 和 pnpm。首次准备环境并构建网页：
 
 ```powershell
-./scripts/sync-dependencies.ps1
-cd frontend
+cd backend
+uv sync --frozen
+cd ../frontend
 pnpm install --frozen-lockfile
 pnpm build
 cd ..
 ```
 
-更新源码或依赖后，同样运行 `./scripts/sync-dependencies.ps1`。脚本在同步前识别环境中已安装的 provider 可选依赖，与 `data/dependency-extras.json` 中的选择合并，再按锁文件同步；重建虚拟环境也会恢复这些选择。首次添加 provider 使用 `./scripts/sync-dependencies.ps1 -Extra deepseek`，多个可选项用逗号分隔。选择记录随完整数据备份保存；独立数据目录通过 `-DataPath` 指定。`-DryRun` 只预览，不修改环境或记录。
+后端的 `deployment` 依赖组包含 `langchain-deepseek>=1.0.1`，`tool.uv.default-groups = ["dev", "deployment"]` 使普通 `uv sync` 也默认安装并保留部署依赖。原有 provider extras 保留；本机部署所需的 SDK 统一加入 `deployment` 组。
 
-不要用裸 `uv sync` 替代此入口：它不会读取 provider 选择，可能移除已安装的可选依赖。运行开发工具时使用 `uv run --no-sync ...`，将依赖变更留给统一同步入口。
+在 `backend/` 中添加或移除部署 SDK，例如：
+
+```powershell
+uv add --group deployment langchain-anthropic
+uv remove --group deployment langchain-anthropic
+```
+
+按需执行对应命令，并将 `backend/pyproject.toml` 与 `backend/uv.lock` 一起提交，后续安装和重建即可恢复相同的部署依赖。开发检查使用 `uv run --no-sync ...`。
 
 在仓库根目录管理服务：
 
@@ -67,7 +75,9 @@ cd ..
 
 服务管理脚本通过 `OPENFIC_DATA_DIR` 指定数据目录。未设置该变量时，使用 CLI（`openfic serve`）启动默认使用用户目录下的 `~/.openfic`；绕过 CLI、直接加载后端应用时才回退到 `backend/data/`。`backend/data/` 及现有数据继续保留，独立运行后端时应明确选择数据目录。
 
-日常写作无需重新构建。修改前端后在 `frontend/` 执行 `pnpm build`，修改后端或依赖后重启服务。正式网页使用当前服务地址访问 API，构建时保持 `VITE_BACKEND_URL` 未设置，以免连接到测试后端。隔离验证可用服务脚本的 `-DataPath` 和 `-Port` 指定独立数据目录与端口。
+日常写作无需重新构建。纯前端代码更新后，在 `frontend/` 执行 `pnpm build`；前端锁文件变化时，先执行 `pnpm install --frozen-lockfile` 再构建。仅修改后端 Python 源码时，完成检查后重启服务即可。正式网页使用当前服务地址访问 API，构建时保持 `VITE_BACKEND_URL` 未设置，以免连接到测试后端。隔离验证可用服务脚本的 `-DataPath` 和 `-Port` 指定独立数据目录与端口。
+
+首次安装、重建 Python 环境或后端依赖声明／锁文件变化时，在 `backend/` 执行 `uv sync --frozen`，更新后按需重启后端。普通源码更新不升级依赖。
 
 ## 数据与资料交换
 
@@ -91,10 +101,12 @@ cd ..
 ./scripts/openfic-service.ps1 restore -SnapshotPath ./output/backups/快照目录 -RestorePath ./output/restored-openfic
 ```
 
-恢复后的 `source/` 保存对应源码，`data/` 和 `external/` 保存服务数据。在原仓库根目录执行以下命令，先从恢复数据中的选择记录重建依赖，再使用 `restore-environment.json` 启动独立实例：
+恢复后的 `source/` 保存对应源码，`data/` 和 `external/` 保存服务数据。从原仓库根目录进入恢复源码的 `source/backend/`，按锁文件重建依赖，再使用 `restore-environment.json` 启动独立实例：
 
 ```powershell
-./output/restored-openfic/source/scripts/sync-dependencies.ps1 -DataPath ./output/restored-openfic/data
+cd ./output/restored-openfic/source/backend
+uv sync --frozen
+cd ../../../..
 ./output/restored-openfic/source/scripts/openfic-service.ps1 start -DataPath ./output/restored-openfic/data -RestoreEnvironmentPath ./output/restored-openfic/restore-environment.json -Port 18082
 ```
 
