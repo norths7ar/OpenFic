@@ -1,0 +1,35 @@
+# Documentation fallback only; explicit API capabilities always take priority.
+# After editing, restart the backend. Keep model IDs and endpoint scope explicit.
+# "default" describes upstream behavior: choosing Default sends no override.
+
+[[profiles]]
+provider_types = ["xiaomi", "openai-compatible", "openai"]
+base_urls = ["https://api.xiaomimimo.com/v1"]
+models = ["mimo-v2.6-flash", "mimo-v2.6-pro", "mimo-v2.6-pro-ultraspeed"]
+levels = ["enabled", "disabled"]
+default = "enabled"
+checked_on = "2026-10-22"
+source = "https://mimo.mi.com/docs/en-US/api/chat/openai-api"
+
+[profiles.requests.enabled]
+extra_body = { thinking = { type = "enabled" } }
+
+[profiles.requests.disabled]
+extra_body = { thinking = { type = "disabled" } }
+
+[[profiles]]
+provider_types = ["openai-compatible-responses"]
+base_urls = ["https://api.xiaomimimo.com/v1"]
+models = ["mimo-v2.6-flash", "mimo-v2.6-pro", "mimo-v2.6-pro-ultraspeed"]
+levels = ["enabled", "disabled"]
+default = "enabled"
+checked_on = "2026-10-22"
+source = "https://mimo.mi.com/docs/en-US/api/chat/responses"
+# All non-none effort values currently enable the same behavior, not intensities.
+# The OpenAI SDK serializes reasoning_effort as reasoning.effort for Responses.
+
+[profiles.requests.enabled]
+reasoning_effort = "high"
+
+[profiles.requests.disabled]
+reasoning_effort = "none"

@@ -151,7 +151,11 @@ Markdown 源包用 `<!-- openfic:item` 元数据块区分条目并保留稳定 I
 
 推理强度从当前连接返回的模型元数据读取，不按型号猜测。模型列表支持 `reasoning_efforts`、`capabilities.reasoning_effort` 和 `effort.supported_levels`，服务返回的新档位会直接出现在选择器中；Chat Completions 发送 `reasoning_effort`，Responses 发送 `reasoning.effort`。“默认”不发送强度参数；未声明档位或明确不支持时只保留默认选项，并提示原因。连接能力按地址、协议及凭据隔离缓存，五分钟后重新查询；在设置中刷新模型列表也会更新能力。
 
-ocx 等聚合服务与直连 provider 使用同一套发现流程。DeepSeek 的档位取自接口的 `effort` 元数据；MiMo 当前模型列表未声明强度档位，使用服务默认行为。模型 ID 必须与服务返回值一致，不自动替换旧型号或猜测别名。
+ocx 等聚合服务与直连 provider 使用同一套发现流程。DeepSeek 的档位取自接口的 `effort` 元数据。模型 ID 优先使用服务返回值；文档认可但发现接口未返回的兼容别名不会自动替换，未声明能力时仍使用默认行为。
+
+API 未声明能力时，使用本地维护的 [reasoning_defaults.toml](backend/app/models/clients/reasoning_defaults.toml) 补充文档默认值、可选值和请求映射。配置按连接类型、完整服务地址和模型 ID 匹配；API 明确声明的档位或不支持状态优先，避免覆盖聚合服务自身的行为。修改配置后重启后端，不需要同步依赖。维护时同时核对 `source` 文档并更新 `checked_on`。
+
+MiMo 当前模型列表没有能力字段，配置依据官方文档提供“默认（开启思考）／开启思考／关闭思考”。Chat Completions 显式选择时发送 `thinking.type`；Responses 将开启映射为 `reasoning.effort=high`、关闭映射为 `none`，其中 `high` 只是开启的协议值，不表示更强的推理。选择默认时仍不发送覆盖参数。
 
 ## 开发检查
 

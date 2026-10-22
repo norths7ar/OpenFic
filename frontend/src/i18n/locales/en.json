@@ -2176,6 +2176,8 @@
     "reasoningEffortUnknown": "This model has not declared reasoning effort levels. Use the model default without sending a reasoning effort parameter.",
     "reasoningEffortUnsupported": "This model does not support reasoning effort levels. Use the model default without sending a reasoning effort parameter.",
     "reasoningEffort": {
+      "enabled": "Thinking on",
+      "disabled": "Thinking off",
       "off": "Default",
       "none": "None",
       "minimal": "Minimal",

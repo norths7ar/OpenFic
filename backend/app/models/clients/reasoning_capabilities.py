@@ -3,7 +3,10 @@
 import hashlib
 import json
 import time
+import tomllib
 from dataclasses import dataclass
+from functools import lru_cache
+from pathlib import Path
 from typing import Any, Literal
 
 import httpx
@@ -17,6 +20,7 @@ class ReasoningCapability:
     # None means unadvertised, while an explicit empty list means unsupported.
     levels: tuple[str, ...] | None = None
     default: str | None = None
+    requests: dict[str, dict[str, Any]] | None = None
 
     @property
     def status(self) -> Literal["supported", "unsupported", "unknown"]:
@@ -26,6 +30,25 @@ class ReasoningCapability:
 
 
 _advertised: dict[tuple[str, str, str], tuple[float, dict[str, ReasoningCapability]]] = {}
+
+
+@lru_cache(maxsize=1)
+def _default_profiles() -> list[dict[str, Any]]:
+    with Path(__file__).with_name("reasoning_defaults.toml").open("rb") as source:
+        return tomllib.load(source)["profiles"]
+
+
+def _documented_capability(provider_type: str, model_id: str, base_url: str) -> ReasoningCapability:
+    for profile in _default_profiles():
+        if (
+            provider_type in profile["provider_types"]
+            and base_url.rstrip("/") in profile["base_urls"]
+            and model_id in profile["models"]
+        ):
+            return ReasoningCapability(
+                tuple(profile["levels"]), profile["default"], profile.get("requests")
+            )
+    return ReasoningCapability()
 
 
 def _connection_key(
@@ -115,7 +138,10 @@ def get_reasoning_capability(
     custom_headers: dict[str, str] | None = None,
 ) -> ReasoningCapability:
     cached = _advertised.get(_connection_key(provider_type, base_url, api_key, custom_headers))
-    return cached[1].get(model_id, ReasoningCapability()) if cached else ReasoningCapability()
+    advertised = cached[1].get(model_id, ReasoningCapability()) if cached else ReasoningCapability()
+    if advertised.levels is not None:
+        return advertised
+    return _documented_capability(provider_type, model_id, base_url)
 
 
 def supported_reasoning_efforts(

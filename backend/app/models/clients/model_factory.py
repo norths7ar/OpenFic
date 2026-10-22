@@ -22,7 +22,10 @@ from app.models.clients.model_params import (
     is_non_default,
     with_default,
 )
-from app.models.clients.reasoning_capabilities import resolve_reasoning_effort
+from app.models.clients.reasoning_capabilities import (
+    get_reasoning_capability,
+    resolve_reasoning_effort,
+)
 from app.models.helpers.openrouter_attribution import (
     OPENROUTER_APP_CATEGORIES,
     OPENROUTER_APP_TITLE,
@@ -161,6 +164,19 @@ def _openai_compatible_kwargs(config: ModelConfig) -> dict[str, Any]:
     }
     if extra_body:
         kwargs["extra_body"] = extra_body
+    capability = get_reasoning_capability(
+        config.provider_type,
+        config.model_id,
+        config.base_url,
+        api_key=config.api_key,
+        custom_headers=config.custom_headers,
+    )
+    request = (capability.requests or {}).get(config.reasoning_effort or "")
+    if request is not None:
+        kwargs.pop("reasoning_effort", None)
+        kwargs.update({key: value for key, value in request.items() if key != "extra_body"})
+        if "extra_body" in request:
+            kwargs["extra_body"] = {**extra_body, **request["extra_body"]}
     kwargs.update(_anonymous_openai_client_kwargs(config))
     return kwargs
 

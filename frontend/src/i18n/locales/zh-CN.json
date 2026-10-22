@@ -2340,6 +2340,8 @@
     "reasoningEffortUnknown": "此模型未声明推理档位，使用模型默认设置，不发送推理档位参数。",
     "reasoningEffortUnsupported": "此模型不支持推理档位，使用模型默认设置，不发送推理档位参数。",
     "reasoningEffort": {
+      "enabled": "开启思考",
+      "disabled": "关闭思考",
       "off": "默认",
       "none": "关闭",
       "minimal": "最低",
