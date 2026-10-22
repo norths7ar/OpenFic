@@ -15,7 +15,6 @@ function message(overrides: Partial<AgentMessage> = {}): AgentMessage {
 }
 
 describe("mergeStreamingMessage", () => {
-
   test("keeps a completed text body when the terminal event is empty", () => {
     const previous = message({ content: "完整内容", isStreaming: true });
     const completed = message({ content: "", status: "completed" });
@@ -25,5 +24,4 @@ describe("mergeStreamingMessage", () => {
       isStreaming: false,
     });
   });
-
 });

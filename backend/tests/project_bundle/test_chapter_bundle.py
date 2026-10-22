@@ -1,4 +1,3 @@
-
 import pytest
 
 from app.project_bundle.archive import read_zip

@@ -1,6 +1,5 @@
 """Tests for :mod:`app.agent_runtime.tools.text_match`."""
 
-
 from app.agent_runtime.tools.text_match import (
     FuzzyReplaceResult,
     fuzzy_replace,

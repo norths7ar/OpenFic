@@ -59,8 +59,6 @@ class _SlowStream:
 
 
 class TestTimedStream:
-
-
     @pytest.mark.asyncio
     async def test_chunk_idle_timeout(self) -> None:
         stream = _TimedStream(

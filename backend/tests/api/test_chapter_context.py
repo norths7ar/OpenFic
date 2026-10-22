@@ -73,10 +73,6 @@ async def test_chapters(client: AsyncClient, test_project: dict) -> list[dict]:
 
 @pytest.mark.asyncio
 class TestChapterSummaries:
-
-
-
-
     async def test_summary_stale_is_dynamic_by_content_diff(
         self, client: AsyncClient, session, test_project: dict, test_chapters: list[dict]
     ):

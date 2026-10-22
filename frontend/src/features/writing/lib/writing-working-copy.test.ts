@@ -50,5 +50,4 @@ describe("writing working-copy recovery", () => {
       shouldDelete: true,
     });
   });
-
 });

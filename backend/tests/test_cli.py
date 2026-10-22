@@ -1,4 +1,3 @@
-
 from uvicorn.config import Config
 
 import app.cli as cli

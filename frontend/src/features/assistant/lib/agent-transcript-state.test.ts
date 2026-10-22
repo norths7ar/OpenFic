@@ -48,7 +48,6 @@ describe("applyAgentTranscriptEvent", () => {
     expect(second.state.messages).toHaveLength(1);
     expect(second.state.messages[0]).toMatchObject({ id: "assistant-1", content: "第一段第二段" });
   });
-
 });
 
 test("retry reset removes only the failed model draft and ignores its late chunks", () => {

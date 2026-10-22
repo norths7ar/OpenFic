@@ -151,8 +151,6 @@ def reset_state():
 
 
 class TestSocketIntegration:
-
-
     async def test_join_agent_session_room_receives_room_event(self, server):
         client = socketio_lib.AsyncSimpleClient()
         await client.connect(server, socketio_path="/socket.io")
@@ -169,13 +167,6 @@ class TestSocketIntegration:
         assert event[1] == {"session_id": "s1", "content": "hello"}
 
         await client.disconnect()
-
-
-
-
-
-
-
 
     async def test_background_project_rooms_and_snapshots_are_isolated(
         self, server, socket_db_factory

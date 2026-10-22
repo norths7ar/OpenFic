@@ -15,5 +15,4 @@ describe("shared source and visual draft history", () => {
     expect(history.canUndo).toBe(false);
     expect(history.redo()).toBe(`${original}源码修改`);
   });
-
 });

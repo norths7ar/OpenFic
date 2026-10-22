@@ -101,15 +101,6 @@ async def _seed_agent_target(client: AsyncClient) -> dict[str, str]:
 
 @pytest.mark.asyncio
 class TestAgentAPI:
-
-
-
-
-
-
-
-
-
     async def test_cancel_session_cascades_to_nested_subagent_sessions_without_deactivating_them(
         self,
         client: AsyncClient,
@@ -310,7 +301,6 @@ class TestAgentAPI:
             },
         ]
 
-
     async def test_cancel_subagent_session_cancels_child_task_and_marks_cancelled(
         self,
         client: AsyncClient,
@@ -394,9 +384,6 @@ class TestAgentAPI:
             assert request_row.error == "user cancelled subagent"
         finally:
             await get_agent_run_registry().unregister_child(parent_session_id, child.id)
-
-
-
 
     async def test_cancel_does_not_cancel_run_waiting_to_start(
         self,
@@ -505,7 +492,6 @@ class TestAgentAPI:
         assert run_saw_cancel is False
         assert runner._cancel_event.is_set() is False
 
-
     async def test_cancel_succeeds_when_post_commit_cleanup_fails(
         self,
         client: AsyncClient,
@@ -565,10 +551,6 @@ class TestAgentAPI:
         assert revision.status == "cancelled"
         await asyncio.gather(parent_task, return_exceptions=True)
         assert parent_task.cancelled()
-
-
-
-
 
     async def test_submit_tool_approval_keeps_active_parent_revision_on_child_launch_failure(
         self,
