@@ -23,6 +23,8 @@ interface AgentSidebarProps {
   scrollToBottomKey?: string | null;
   modelId: string;
   reasoningEffort?: ReasoningEffort;
+  modelSpeed?: "standard" | "fast";
+  configurationError?: string;
   deliveryMode?: "steer" | "queue";
   agentKey?: string;
   contextMode?: "global" | "local";
@@ -68,6 +70,8 @@ export function useAgentSidebar({
   scrollToBottomKey,
   modelId,
   reasoningEffort,
+  modelSpeed,
+  configurationError,
   deliveryMode = "steer",
   agentKey,
   contextMode,
@@ -121,6 +125,8 @@ export function useAgentSidebar({
     projectId,
     modelId,
     reasoningEffort,
+    modelSpeed,
+    configurationError,
     agentKey,
     contextMode,
     maxIterations: 5,
@@ -142,8 +148,8 @@ export function useAgentSidebar({
       return;
     }
     if (!inputValue.trim() && attachments.length === 0) return;
-    if (!modelId) {
-      toast.error(i18n.t("writing.aiSidebar.noModelSelected"));
+    if (!modelId || configurationError) {
+      toast.error(configurationError || i18n.t("writing.aiSidebar.noModelSelected"));
       return;
     }
 
@@ -159,6 +165,7 @@ export function useAgentSidebar({
     await startAgentSession(messageToSend, attachments);
   }, [
     inputValue,
+    configurationError,
     agentStatus,
     modelId,
     onClearInput,

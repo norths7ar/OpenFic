@@ -235,6 +235,7 @@ export interface AgentSessionCreateRequest {
   max_iterations?: number;
   agent_key?: string;
   reasoning_effort?: ReasoningEffort;
+  model_speed?: "standard" | "fast";
   context_mode?: "global" | "local";
 }
 
@@ -274,6 +275,7 @@ export interface AgentSendMessageRequest {
   model_id?: string;
   agent_key?: string;
   reasoning_effort?: ReasoningEffort;
+  model_speed?: "standard" | "fast";
 }
 
 export interface AgentImageAttachment {
@@ -288,7 +290,7 @@ export interface AgentImageAttachment {
   url: string;
 }
 
-/** Model-advertised level; "off" is the UI-only default (omit the request parameter). */
+/** Model-advertised level; "off" clears the session override and omits upstream effort. */
 export type ReasoningEffort = string;
 
 export type AgentPendingMessageAction = "queued" | "cancelled" | "consumed";

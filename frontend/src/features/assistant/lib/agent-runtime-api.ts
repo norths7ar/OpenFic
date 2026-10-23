@@ -297,12 +297,14 @@ export async function sendAgentMessage(
   agentKey?: string,
   attachments?: AgentImageAttachment[],
   deliveryMode: "steer" | "queue" = "steer",
+  modelSpeed?: "standard" | "fast",
 ): Promise<AgentSendMessageResponse> {
   const request: AgentSendMessageRequest = {
     message,
     delivery_mode: deliveryMode,
     ...(modelId ? { model_id: modelId } : {}),
     ...(reasoningEffort ? { reasoning_effort: reasoningEffort } : {}),
+    ...(modelSpeed ? { model_speed: modelSpeed } : {}),
     ...(agentKey ? { agent_key: agentKey } : {}),
     ...(attachments?.length ? { attachments: attachments.map((attachment) => attachment.id) } : {}),
   };
@@ -429,11 +431,13 @@ export async function forkAgentSession(
   sourceRevisionId: string,
   modelId: string,
   reasoningEffort?: ReasoningEffort,
+  modelSpeed?: "standard" | "fast",
 ): Promise<AgentForkResponse> {
   const response = await apiClient.post(`/agent/sessions/${sessionId}/fork`, {
     source_revision_id: sourceRevisionId,
     model_id: modelId,
     ...(reasoningEffort ? { reasoning_effort: reasoningEffort } : {}),
+    ...(modelSpeed ? { model_speed: modelSpeed } : {}),
   });
   return response.data;
 }

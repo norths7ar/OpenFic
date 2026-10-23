@@ -24,7 +24,6 @@ import {
   validateAgentImageFiles,
 } from "../../lib/agent-image-attachments";
 import type { AgentInputHistoryDirection } from "../../lib/agent-input-history-state";
-import { constrainReasoningEffort } from "../../lib/assistant-preferences";
 import { appendMentionMarkup, replaceAutomaticMentionMarkup } from "../../lib/mention-text";
 import { AgentComposerEditor, type AgentComposerSuggestionState } from "./agent-composer-editor";
 import { AgentIndexStatusIndicator } from "./agent-index-status-indicator";
@@ -43,6 +42,9 @@ interface AgentInputProps {
   modelId: string;
   models: ModelIdSelectOption[];
   reasoningEffort?: ReasoningEffort;
+  modelSpeed?: "standard" | "fast";
+  onModelSpeedChange?: (speed: "standard" | "fast") => void;
+  configurationError?: string;
   agentKey?: string;
   agentOptions: SelectOption[];
   agentChangeDisabled?: boolean;
@@ -85,6 +87,9 @@ export function AgentInput({
   modelId,
   models,
   reasoningEffort,
+  modelSpeed = "standard",
+  onModelSpeedChange,
+  configurationError,
   agentKey,
   agentOptions,
   agentChangeDisabled = false,
@@ -124,12 +129,14 @@ export function AgentInput({
     readOnly,
   });
   const shouldAbort = isSending && !hasContent;
-  const canSend = canSendAgentInput({
-    hasContent,
-    disabled,
-    readOnly,
-    bodyMode,
-  });
+  const canSend =
+    !configurationError &&
+    canSendAgentInput({
+      hasContent,
+      disabled,
+      readOnly,
+      bodyMode,
+    });
   const shouldShowPendingMessage = hasPendingMessage && bodyMode === "composer" && !readOnly;
   const buttonActive = shouldAbort || canSend;
   const inputContainerRef = useRef<HTMLDivElement>(null);
@@ -166,12 +173,16 @@ export function AgentInput({
       iconPath={selectedModel.providerIconPath}
     />
   ) : null;
-  const reasoningEffortStatus = selectedModel?.reasoningEffortStatus ?? "unknown";
+  const speedCapability = selectedModel?.speedReasoningCapabilities?.[modelSpeed];
+  const reasoningEffortStatus =
+    speedCapability?.status ?? selectedModel?.reasoningEffortStatus ?? "unknown";
   const reasoningEffortLevels =
-    reasoningEffortStatus === "supported" ? selectedModel?.reasoningEffortLevels : undefined;
+    reasoningEffortStatus === "supported"
+      ? (speedCapability?.levels ?? selectedModel?.reasoningEffortLevels)
+      : undefined;
   const getReasoningEffortLabel = (value: string) =>
     t(`assistant.reasoningEffort.${value}`, { defaultValue: value });
-  const defaultReasoningEffort = selectedModel?.reasoningEffortDefault;
+  const defaultReasoningEffort = speedCapability?.default ?? selectedModel?.reasoningEffortDefault;
   const defaultReasoningEffortLabel =
     reasoningEffortStatus === "supported" && defaultReasoningEffort
       ? t("assistant.reasoningEffortDefault", {
@@ -184,10 +195,13 @@ export function AgentInput({
       .filter((value) => value !== "off")
       .map((value) => ({ value, label: getReasoningEffortLabel(value) })),
   ];
-  const effectiveReasoningEffort = constrainReasoningEffort(
-    reasoningEffort ?? "off",
-    reasoningEffortLevels,
-  );
+  const effectiveReasoningEffort = reasoningEffort ?? "off";
+  if (!reasoningEffortOptions.some((option) => option.value === effectiveReasoningEffort)) {
+    reasoningEffortOptions.push({
+      value: effectiveReasoningEffort,
+      label: getReasoningEffortLabel(effectiveReasoningEffort),
+    });
+  }
 
   useEffect(() => {
     if (previousProjectIdRef.current === projectId) return;
@@ -354,6 +368,17 @@ export function AgentInput({
 
   return (
     <Box className="ai-sidebar-input-area">
+      {configurationError ? (
+        <Text
+          as="p"
+          size="1"
+          color="amber"
+          role="status"
+          mb="2"
+        >
+          {configurationError}
+        </Text>
+      ) : null}
       {selectedModel &&
       (selectedModel.upstreamStatus === "not_listed" ||
         selectedModel.discoveryStatus === "error") ? (
@@ -660,6 +685,26 @@ export function AgentInput({
                       }}
                     />
                   </Box>
+                  {selectedModel &&
+                  onModelSpeedChange &&
+                  (selectedModel.speedVariants?.fast || modelSpeed === "fast") ? (
+                    <Box className="ai-sidebar-speed-selector">
+                      <SimpleSelect
+                        value={modelSpeed}
+                        options={[
+                          { value: "standard", label: "Standard" },
+                          ...(selectedModel.speedVariants?.fast
+                            ? [{ value: "fast", label: "Fast" }]
+                            : []),
+                        ]}
+                        placeholder={t("assistant.modelSpeed")}
+                        onChange={(value) => onModelSpeedChange(value as "standard" | "fast")}
+                        disabled={disabled}
+                        size="1"
+                        triggerClassName="ai-sidebar-inline-select-trigger ai-sidebar-speed-trigger"
+                      />
+                    </Box>
+                  ) : null}
                   {selectedModel && onReasoningEffortChange ? (
                     <Tooltip
                       content={
@@ -674,7 +719,11 @@ export function AgentInput({
                           value={effectiveReasoningEffort}
                           options={reasoningEffortOptions}
                           onChange={onReasoningEffortChange}
-                          disabled={disabled || reasoningEffortStatus !== "supported"}
+                          disabled={
+                            disabled ||
+                            (reasoningEffortStatus !== "supported" &&
+                              effectiveReasoningEffort === "off")
+                          }
                           size="1"
                           hideTriggerChevron
                           triggerClassName="ai-sidebar-inline-select-trigger ai-sidebar-reasoning-effort-trigger"

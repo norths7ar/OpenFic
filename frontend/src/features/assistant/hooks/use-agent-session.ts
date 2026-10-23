@@ -172,6 +172,8 @@ interface UseAgentSessionOptions {
   projectId: string;
   modelId: string;
   reasoningEffort?: ReasoningEffort;
+  modelSpeed?: "standard" | "fast";
+  configurationError?: string;
   agentKey?: string;
   contextMode?: "global" | "local";
   maxIterations?: number;
@@ -201,6 +203,8 @@ export function useAgentSession({
   projectId,
   modelId,
   reasoningEffort,
+  modelSpeed,
+  configurationError,
   agentKey,
   contextMode = "local",
   maxIterations = 5,
@@ -825,8 +829,8 @@ export function useAgentSession({
       userRequest: string,
       attachments?: Array<{ file?: File; uploadedAttachment?: AgentImageAttachment }>,
     ) => {
-      if (!modelId) {
-        toast.error(i18n.t("writing.aiSidebar.noModelSelected"));
+      if (!modelId || configurationError) {
+        toast.error(configurationError || i18n.t("writing.aiSidebar.noModelSelected"));
         return;
       }
 
@@ -844,6 +848,7 @@ export function useAgentSession({
           project_id: projectId,
           model_id: modelId,
           ...(reasoningEffort ? { reasoning_effort: reasoningEffort } : {}),
+          ...(modelSpeed ? { model_speed: modelSpeed } : {}),
           max_iterations: maxIterations,
           ...(agentKey ? { agent_key: agentKey } : {}),
           context_mode: agentKey === "build" ? "local" : contextMode,
@@ -903,6 +908,8 @@ export function useAgentSession({
       projectId,
       queryClient,
       reasoningEffort,
+      modelSpeed,
+      configurationError,
       updateTranscriptState,
     ],
   );
@@ -914,6 +921,10 @@ export function useAgentSession({
       deliveryMode: "steer" | "queue" = "steer",
     ) => {
       const activeSessionId = sessionIdRef.current ?? sessionId;
+      if (!modelId || configurationError) {
+        toast.error(configurationError || i18n.t("writing.aiSidebar.noModelSelected"));
+        return;
+      }
       if (!activeSessionId) {
         toast.error(i18n.t("assistant.sessionNotFound"));
         return;
@@ -961,6 +972,7 @@ export function useAgentSession({
           agentKey,
           messageAttachments.length > 0 ? messageAttachments : undefined,
           deliveryMode,
+          modelSpeed,
         );
         if (response.agent_key) onAgentConfirmed?.(response.agent_key);
         onTaskTitleUpdated?.(response.task_id, response.task_title);
@@ -989,6 +1001,8 @@ export function useAgentSession({
       onAgentConfirmed,
       onTaskTitleUpdated,
       reasoningEffort,
+      modelSpeed,
+      configurationError,
       sessionId,
       syncPendingMessageState,
       updateTranscriptState,
@@ -1516,8 +1530,8 @@ export function useAgentSession({
         toast.error(i18n.t("assistant.forkNoRevision"));
         return null;
       }
-      if (!modelId) {
-        toast.error(i18n.t("writing.aiSidebar.noModelSelected"));
+      if (!modelId || configurationError) {
+        toast.error(configurationError || i18n.t("writing.aiSidebar.noModelSelected"));
         return null;
       }
 
@@ -1527,6 +1541,7 @@ export function useAgentSession({
           sourceRevisionId,
           modelId,
           reasoningEffort,
+          modelSpeed,
         );
         queryClient.invalidateQueries({ queryKey: ["tasks", projectId], exact: false });
         toast.success(i18n.t("assistant.forkSuccess"));
@@ -1537,7 +1552,17 @@ export function useAgentSession({
         return null;
       }
     },
-    [isRollbacking, isRunning, modelId, projectId, queryClient, reasoningEffort, sessionId],
+    [
+      isRollbacking,
+      isRunning,
+      modelId,
+      projectId,
+      queryClient,
+      reasoningEffort,
+      modelSpeed,
+      configurationError,
+      sessionId,
+    ],
   );
 
   return {

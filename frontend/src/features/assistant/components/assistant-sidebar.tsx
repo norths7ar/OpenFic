@@ -64,7 +64,6 @@ import {
   type AssistantConversationStackState,
 } from "../lib/assistant-conversation-state";
 import {
-  constrainReasoningEffort,
   getStoredAgentKey,
   getStoredModelId,
   getStoredReasoningEffort,
@@ -259,6 +258,7 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
       ) {
         return selectedModelId;
       }
+      if (selectedModelId) return "";
       const defaultModelId = settings?.defaultModel;
       if (
         defaultModelId &&
@@ -266,7 +266,6 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
       ) {
         return defaultModelId;
       }
-      if (llmModelOptions.length > 0) return getModelValue(llmModelOptions[0]);
       return "";
     }, [selectedModelId, llmModelOptions, settings?.defaultModel]);
 
@@ -275,16 +274,38 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
       [effectiveModelId, llmModelOptions],
     );
     const [deliveryMode, setDeliveryMode] = useState<"steer" | "queue">("steer");
-    const reasoningEffortLevels =
-      currentModel?.reasoningEffortStatus === "supported"
-        ? currentModel.reasoningEffortLevels
-        : undefined;
+    const [speedOverrides, setSpeedOverrides] = useState<
+      Record<string, { speed: "standard" | "fast"; rawModelId?: string }>
+    >({});
+    const speedOverride = speedOverrides[effectiveModelId];
+    // Preserve the selected upstream ID when an independent Fast model becomes paired.
+    const restoredSpeed = speedOverride?.rawModelId
+      ? (["standard", "fast"] as const).find(
+          (speed) => currentModel?.speedVariants?.[speed] === speedOverride.rawModelId,
+        )
+      : undefined;
+    const modelSpeed =
+      restoredSpeed ?? speedOverride?.speed ?? currentModel?.defaultSpeed ?? "standard";
+    const speedCapability = currentModel?.speedReasoningCapabilities?.[modelSpeed];
+    const reasoningStatus =
+      speedCapability?.status ?? currentModel?.reasoningEffortStatus ?? "unknown";
+    const reasoningLevels = speedCapability?.levels ?? currentModel?.reasoningEffortLevels;
     const [reasoningEffort, setReasoningEffort] = useState<ReasoningEffort>(() =>
-      constrainReasoningEffort(
-        getStoredReasoningEffort(effectiveModelId, Boolean(reasoningEffortLevels?.length)),
-        reasoningEffortLevels,
-      ),
+      getStoredReasoningEffort(effectiveModelId, true),
     );
+    const speedUnavailable = modelSpeed === "fast" && !currentModel?.speedVariants?.fast;
+    const effortUnavailable =
+      reasoningEffort !== "off" &&
+      (reasoningStatus === "unsupported" ||
+        (reasoningStatus === "supported" && !reasoningLevels?.includes(reasoningEffort)));
+    const configurationError =
+      !isModelsLoading && selectedModelId && !currentModel
+        ? t("assistant.modelRemoved")
+        : speedUnavailable
+          ? t("assistant.speedUnavailable")
+          : effortUnavailable
+            ? t("assistant.effortUnavailable")
+            : undefined;
     const isToolApprovalBypassEnabled = settings?.agentBypassToolApproval ?? false;
     const agentSidebarRef = useRef<ReturnType<typeof useAgentSidebar> | null>(null);
 
@@ -317,13 +338,8 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
     }, [primaryAgents, selectedAgentKey]);
 
     useEffect(() => {
-      setReasoningEffort(
-        constrainReasoningEffort(
-          getStoredReasoningEffort(effectiveModelId, Boolean(reasoningEffortLevels?.length)),
-          reasoningEffortLevels,
-        ),
-      );
-    }, [reasoningEffortLevels, effectiveModelId]);
+      setReasoningEffort(getStoredReasoningEffort(effectiveModelId, true));
+    }, [effectiveModelId]);
 
     const newTaskFolderRef = useRef<string | null>(null);
     const handleAgentTaskTitleUpdated = useCallback(
@@ -487,15 +503,13 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
       return getAgentSpecialPanels(approvalMessages);
     }, [activeSubagents, isViewingSubagent]);
 
-    const effectiveReasoningEffort = constrainReasoningEffort(
-      reasoningEffort,
-      reasoningEffortLevels,
-    );
     const agentSidebar = useAgentSidebar({
       projectId,
       scrollToBottomKey: currentTaskId,
       modelId: effectiveModelId,
-      reasoningEffort: effectiveReasoningEffort === "off" ? undefined : effectiveReasoningEffort,
+      reasoningEffort,
+      modelSpeed,
+      configurationError,
       deliveryMode,
       agentKey: effectiveAgentKey,
       contextMode,
@@ -615,6 +629,7 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
         setView("tasks");
         setIsLoadingTask(false);
         setCurrentTaskId(null);
+        setSpeedOverrides({});
         setCurrentTaskTitle("");
         setConversationState(createConversationStackState(""));
         setActiveSubagents([]);
@@ -769,16 +784,19 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
             typeof (restoredModelConfig as Record<string, unknown>).model_record_id === "string"
               ? ((restoredModelConfig as Record<string, unknown>).model_record_id as string)
               : undefined;
-          const restoredModelId =
-            restoredModelRecordId &&
-            llmModelOptions.some((model) => getModelValue(model) === restoredModelRecordId)
-              ? restoredModelRecordId
-              : undefined;
-          const restoredModel = restoredModelId
-            ? llmModelOptions.find((model) => getModelValue(model) === restoredModelId)
-            : undefined;
+          setSpeedOverrides({});
+          const restoredModelId = restoredModelRecordId;
           if (restoredModelId) {
             setSelectedModelId(restoredModelId);
+            const speed = (restoredModelConfig as Record<string, unknown>).model_speed;
+            const restoredSpeed = speed === "fast" ? "fast" : "standard";
+            const rawModelId = (restoredModelConfig as Record<string, unknown>).model_id;
+            setSpeedOverrides({
+              [restoredModelId]: {
+                speed: restoredSpeed,
+                rawModelId: typeof rawModelId === "string" ? rawModelId : undefined,
+              },
+            });
           }
 
           const restoredReasoningEffort =
@@ -793,12 +811,7 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
                   | undefined) ?? "off")
               : undefined;
           if (restoredReasoningEffort) {
-            const normalizedReasoningEffort = constrainReasoningEffort(
-              restoredReasoningEffort,
-              restoredModel?.reasoningEffortStatus === "supported"
-                ? restoredModel.reasoningEffortLevels
-                : undefined,
-            );
+            const normalizedReasoningEffort = restoredReasoningEffort;
             if (restoredModelId) {
               storeReasoningEffort(restoredModelId, normalizedReasoningEffort);
             }
@@ -857,7 +870,7 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
           return false;
         }
       },
-      [agentSidebar, currentModel?.contextWindow, llmModelOptions, primaryAgents, t],
+      [agentSidebar, currentModel?.contextWindow, primaryAgents, t],
     );
 
     const loadTask = useCallback(
@@ -895,6 +908,7 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
       setConversationUsageBySession({});
 
       agentSidebar.resetSession();
+      setSpeedOverrides({});
 
       setConversationState(createConversationStackState(""));
       setActiveSubagents([]);
@@ -990,17 +1004,24 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
       storeModelId(nextModelId);
     }, []);
 
+    const handleModelSpeedChange = useCallback(
+      (speed: "standard" | "fast") => {
+        if (!effectiveModelId) return;
+        setSpeedOverrides((current) => ({
+          ...current,
+          [effectiveModelId]: { speed, rawModelId: currentModel?.speedVariants?.[speed] },
+        }));
+      },
+      [effectiveModelId, currentModel?.speedVariants],
+    );
+
     const handleReasoningEffortChange = useCallback(
       (nextReasoningEffort: ReasoningEffort) => {
         if (!effectiveModelId) return;
-        const constrainedEffort = constrainReasoningEffort(
-          nextReasoningEffort,
-          reasoningEffortLevels,
-        );
-        setReasoningEffort(constrainedEffort);
-        storeReasoningEffort(effectiveModelId, constrainedEffort);
+        setReasoningEffort(nextReasoningEffort);
+        storeReasoningEffort(effectiveModelId, nextReasoningEffort);
       },
-      [effectiveModelId, reasoningEffortLevels],
+      [effectiveModelId],
     );
 
     const hasActiveSession = Boolean(parentConversationSessionId);
@@ -1498,6 +1519,9 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
                 modelId={effectiveModelId}
                 models={llmModelOptions}
                 reasoningEffort={reasoningEffort}
+                modelSpeed={modelSpeed}
+                onModelSpeedChange={handleModelSpeedChange}
+                configurationError={configurationError}
                 isSending={isSendingMessage}
                 disabled={isViewingSubagent || isLoadingTask}
                 pendingMessages={isViewingSubagent ? [] : agentSidebar.pendingMessages}

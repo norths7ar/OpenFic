@@ -1172,3 +1172,16 @@
 .ai-sidebar-pending-list .ai-sidebar-pending-shell + .ai-sidebar-pending-shell {
   margin-top: var(--space-1);
 }
+
+.ai-sidebar-speed-selector {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.rt-reset.ai-sidebar-speed-trigger {
+  font-size: var(--font-size-sm);
+  border: none;
+  background: transparent;
+  box-shadow: none;
+}
