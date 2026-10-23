@@ -38,7 +38,7 @@ class ListWorldEntriesInput(BaseModel):
 class ReadWorldEntryInput(BaseModel):
     entry_id: str | None = Field(
         default=None,
-        description="条目 ID；优先使用 list_world_entries 返回的 id",
+        description="条目唯一 ID；使用用户挂载引用中的 entry_id 或 list_world_entries 返回的 id，不要填标题",
     )
     title: str | None = Field(default=None, description="条目标题；兼容未提供 ID 的调用")
 
@@ -335,7 +335,10 @@ class ListWorldEntriesTool(AgentTool):
 @ToolRegistry.register
 class ReadWorldEntryTool(AgentTool):
     name: str = "read_world_entry"
-    description: str = "读取项目世界书中指定的设定条目内容；应优先传入列表返回的条目 ID"
+    description: str = (
+        "读取项目世界书中指定的设定条目内容，包括文件夹内的条目；"
+        "优先传入用户挂载引用的 entry_id 或列表返回的 id；只有标题时使用 title 参数"
+    )
     access_level: str = "readonly"
     args_schema: type[BaseModel] = ReadWorldEntryInput
 

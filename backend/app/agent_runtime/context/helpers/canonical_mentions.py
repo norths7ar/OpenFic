@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import html
+import json
 import re
 from dataclasses import dataclass
 
@@ -404,11 +405,15 @@ async def _build_anchor(
         return None
     display_label = (await resolver.anchor_label(mention)) or _fallback_label(mention)
     anchor = f"@{mention.kind}:{display_label}"
-    if not include_line_range:
-        return anchor
-
-    start_line = mention.attrs.get("line_start", "").strip()
-    end_line = mention.attrs.get("line_end", "").strip()
-    if not start_line or not end_line:
-        return anchor
-    return f"{anchor}:{start_line}-{end_line}"
+    if include_line_range:
+        start_line = mention.attrs.get("line_start", "").strip()
+        end_line = mention.attrs.get("line_end", "").strip()
+        if start_line and end_line:
+            anchor = f"{anchor}:{start_line}-{end_line}"
+    if mention.kind == "world_info_entry":
+        entry_id = mention.attrs.get("world_info_entry_id", "").strip()
+        if entry_id:
+            # Keep the stable identity after resolving a human-readable label;
+            # titles can change or repeat across folders.
+            anchor += f" (entry_id={json.dumps(entry_id, ensure_ascii=False)})"
+    return anchor
