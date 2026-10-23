@@ -418,6 +418,8 @@ export function AgentComposerEditor({
       }
 
       if (event.key !== "Enter") return;
+      // 输入法确认候选词不应发送消息，也不应插入额外换行。
+      if (event.nativeEvent.isComposing || event.keyCode === 229) return;
       if (event.shiftKey) {
         if (!editor) return;
         event.preventDefault();
