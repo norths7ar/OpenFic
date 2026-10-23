@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING, Annotated, Any, Literal, Optional, TypedDict, 
 
 from langchain_core.messages import (
     AIMessage,
+    AIMessageChunk,
     BaseMessage,
     HumanMessage,
     SystemMessage,
@@ -62,7 +63,9 @@ from app.agent_runtime.graph.message_conversion import _to_history_dict
 from app.agent_runtime.persistence import compaction_repo
 from app.agent_runtime.tool_call_recovery import (
     build_malformed_tool_call_error,
+    deduplicate_tool_call_chunk_names,
     is_malformed_tool_call,
+    normalize_tool_input_for_schema,
     recover_message_tool_calls,
 )
 from app.agent_runtime.tools.base import AgentTool
@@ -156,6 +159,15 @@ async def _invoke_model(
     async for chunk in stream:
         if first_token_ms is None:
             first_token_ms = int((time.perf_counter() - start_time) * 1000)
+        if response is not None and isinstance(chunk, AIMessageChunk) and chunk.tool_call_chunks:
+            chunk = chunk.model_copy(
+                update={
+                    "tool_call_chunks": deduplicate_tool_call_chunk_names(
+                        getattr(response, "tool_call_chunks", []),
+                        chunk.tool_call_chunks,
+                    )
+                }
+            )
         response = chunk if response is None else response + chunk
 
     if response is None:
@@ -990,6 +1002,15 @@ def create_react_agent(
                     "latency_ms": int((time.perf_counter() - started_at) * 1000),
                 }
             )
+
+        normalized_tool_args = normalize_tool_input_for_schema(
+            tool_args,
+            getattr(tool_instance, "args_schema", None),
+        )
+        if isinstance(normalized_tool_args, dict):
+            tool_args = normalized_tool_args
+            tool_call = dict(tool_call)
+            tool_call["args"] = tool_args
 
         if phase == "prepare" and not getattr(tool_instance, "_pre_hooks", []):
             payload = {"__openfic_prepared": True}
