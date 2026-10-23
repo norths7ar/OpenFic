@@ -10,6 +10,7 @@ from app.agent_runtime.revisions import (
 )
 from app.agent_runtime.tools.base import AgentTool
 from app.agent_runtime.tools.errors import ToolExecutionError
+from app.agent_runtime.tools.impls._locks import project_write_lock
 from app.agent_runtime.tools.impls.chapter.refs import (
     ChapterRef,
     VolumeRef,
@@ -47,72 +48,75 @@ class MoveChapterToVolumeTool(AgentTool):
             raise ToolExecutionError("缺少当前 revision，无法执行章节跨卷移动")
         session = await create_session()
         try:
-            volumes = await volume_repo.list_by_project(session, self.project_id)
-            source_volume = resolve_volume_from_list(volumes, VolumeRef.model_validate(volume_ref))
-            target_volume = resolve_volume_from_list(
-                volumes, VolumeRef.model_validate(target_volume_ref)
-            )
-            chapter_ref_model = ChapterRef.model_validate(chapter_ref)
-            matched = await chapter_repo.get_by_volume_ref(
-                session,
-                source_volume.id,
-                ref_type=chapter_ref_model.type,
-                ref_value=chapter_ref_model.value,
-            )
-            chapter = resolve_chapter_from_list(
-                [matched] if matched is not None else [], chapter_ref_model
-            )
-            source_order = chapter.order
-            before = images_by_id(
-                await chapter_repo.list_by_volume_from_order(
-                    session, source_volume.id, source_order
+            async with project_write_lock(session, self.project_id, scopes=("chapters", "volumes")):
+                volumes = await volume_repo.list_by_project(session, self.project_id)
+                source_volume = resolve_volume_from_list(
+                    volumes, VolumeRef.model_validate(volume_ref)
                 )
-            )
-            moved = await chapter_service.move_chapter_to_volume(
-                session,
-                chapter.id,
-                target_volume.id,
-                record_activity=False,
-            )
-            after = images_by_id(
-                await chapter_repo.list_by_volume_from_order(
-                    session, source_volume.id, source_order
+                target_volume = resolve_volume_from_list(
+                    volumes, VolumeRef.model_validate(target_volume_ref)
                 )
-                + [moved]
-            )
-            affected = await record_chapter_diffs(
-                session,
-                revision_id=revision_id,
-                project_id=self.project_id,
-                before=before,
-                after=after,
-            )
-            for chapter_id in affected:
-                await record_agent_activity_for_change(
+                chapter_ref_model = ChapterRef.model_validate(chapter_ref)
+                matched = await chapter_repo.get_by_volume_ref(
+                    session,
+                    source_volume.id,
+                    ref_type=chapter_ref_model.type,
+                    ref_value=chapter_ref_model.value,
+                )
+                chapter = resolve_chapter_from_list(
+                    [matched] if matched is not None else [], chapter_ref_model
+                )
+                source_order = chapter.order
+                before = images_by_id(
+                    await chapter_repo.list_by_volume_from_order(
+                        session, source_volume.id, source_order
+                    )
+                )
+                moved = await chapter_service.move_chapter_to_volume(
+                    session,
+                    chapter.id,
+                    target_volume.id,
+                    record_activity=False,
+                )
+                after = images_by_id(
+                    await chapter_repo.list_by_volume_from_order(
+                        session, source_volume.id, source_order
+                    )
+                    + [moved]
+                )
+                affected = await record_chapter_diffs(
                     session,
                     revision_id=revision_id,
-                    task_id=str(self._state.get("task_id") or ""),
-                    agent_session_id=self.session_id,
-                    before=before.get(chapter_id),
-                    after=after.get(chapter_id),
+                    project_id=self.project_id,
+                    before=before,
+                    after=after,
                 )
-            await refresh_project_stats(session, self.project_id)
-            await session.commit()
-            return json.dumps(
-                {
-                    "success": True,
-                    "metadata": {
-                        "chapter_diff": {
-                            "operation": "move",
-                            "chapter_id": moved.id,
-                            "chapter_title": moved.title,
-                            "order": moved.order,
-                            "volume_id": moved.volume_id,
-                        }
+                for chapter_id in affected:
+                    await record_agent_activity_for_change(
+                        session,
+                        revision_id=revision_id,
+                        task_id=str(self._state.get("task_id") or ""),
+                        agent_session_id=self.session_id,
+                        before=before.get(chapter_id),
+                        after=after.get(chapter_id),
+                    )
+                await refresh_project_stats(session, self.project_id)
+                await session.commit()
+                return json.dumps(
+                    {
+                        "success": True,
+                        "metadata": {
+                            "chapter_diff": {
+                                "operation": "move",
+                                "chapter_id": moved.id,
+                                "chapter_title": moved.title,
+                                "order": moved.order,
+                                "volume_id": moved.volume_id,
+                            }
+                        },
                     },
-                },
-                ensure_ascii=False,
-            )
+                    ensure_ascii=False,
+                )
         except Exception:
             await session.rollback()
             raise

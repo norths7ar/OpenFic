@@ -14,7 +14,7 @@ from app.agent_runtime.revisions import (
 )
 from app.agent_runtime.tools.base import AgentTool
 from app.agent_runtime.tools.errors import ToolExecutionError
-from app.agent_runtime.tools.impls._locks import keyed_lock
+from app.agent_runtime.tools.impls._locks import project_write_lock
 from app.agent_runtime.tools.registry import ToolRegistry
 from app.storage.database import create_session
 from app.storage.models.project_folder import ProjectFolder
@@ -64,9 +64,9 @@ class CreateNoteCategoryTool(AgentTool):
             raise ToolExecutionError("缺少当前 revision，无法执行分类创建")
         session = await create_session()
         try:
-            if parent_ref is not None:
-                raise ToolExecutionError("文件夹只能存在一层，不能指定父文件夹")
-            async with await keyed_lock((self.project_id, "note")):
+            async with project_write_lock(session, self.project_id, scopes=("notes",)):
+                if parent_ref is not None:
+                    raise ToolExecutionError("文件夹只能存在一层，不能指定父文件夹")
                 before = note_category_images_by_id(
                     await note_category_repo.list_by_project(session, self.project_id, "note")
                 )

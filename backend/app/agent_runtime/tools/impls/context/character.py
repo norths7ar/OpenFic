@@ -15,7 +15,7 @@ from app.agent_runtime.revisions import (
 )
 from app.agent_runtime.tools.base import AgentTool
 from app.agent_runtime.tools.errors import ToolExecutionError
-from app.agent_runtime.tools.impls._locks import keyed_lock
+from app.agent_runtime.tools.impls._locks import project_write_lock
 from app.agent_runtime.tools.registry import ToolRegistry
 from app.agent_runtime.tools.text_match import fuzzy_replace
 from app.core.editor_content_limits import (
@@ -299,7 +299,7 @@ class CreateCharacterTool(AgentTool):
             raise ToolExecutionError(str(exc)) from exc
         session = await create_session()
         try:
-            async with await keyed_lock(self.project_id):
+            async with project_write_lock(session, self.project_id, scopes=("characters",)):
                 normalized_name = await _ensure_name_available(session, self.project_id, name)
                 character = await character_service.create_character(
                     session,
@@ -411,7 +411,7 @@ class EditCharacterTool(AgentTool):
         revision_id = _require_revision_id(self._state)
         session = await create_session()
         try:
-            async with await keyed_lock(self.project_id):
+            async with project_write_lock(session, self.project_id, scopes=("characters",)):
                 character = await _resolve_character_by_name(
                     session,
                     self.project_id,
@@ -487,32 +487,33 @@ class DeleteCharacterTool(AgentTool):
         revision_id = _require_revision_id(self._state)
         session = await create_session()
         try:
-            character = await _resolve_character_by_name(
-                session,
-                self.project_id,
-                name,
-                scope=get_knowledge_scope(self._state),
-            )
-            before = _preview_from_character(character)
-            before_images = character_images_by_id([character])
-            await character_service.delete_character(session, character.id)
-            await record_character_diffs(
-                session,
-                revision_id=revision_id,
-                project_id=self.project_id,
-                before=before_images,
-                after={},
-            )
-            await session.commit()
-            return json.dumps(
-                {
-                    "success": True,
-                    "metadata": {
-                        "character_diff": _build_character_diff(before, None),
+            async with project_write_lock(session, self.project_id, scopes=("characters",)):
+                character = await _resolve_character_by_name(
+                    session,
+                    self.project_id,
+                    name,
+                    scope=get_knowledge_scope(self._state),
+                )
+                before = _preview_from_character(character)
+                before_images = character_images_by_id([character])
+                await character_service.delete_character(session, character.id)
+                await record_character_diffs(
+                    session,
+                    revision_id=revision_id,
+                    project_id=self.project_id,
+                    before=before_images,
+                    after={},
+                )
+                await session.commit()
+                return json.dumps(
+                    {
+                        "success": True,
+                        "metadata": {
+                            "character_diff": _build_character_diff(before, None),
+                        },
                     },
-                },
-                ensure_ascii=False,
-            )
+                    ensure_ascii=False,
+                )
         except ToolExecutionError:
             raise
         except Exception:

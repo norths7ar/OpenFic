@@ -15,7 +15,7 @@ from app.agent_runtime.revisions import (
 )
 from app.agent_runtime.tools.base import AgentTool
 from app.agent_runtime.tools.errors import ToolExecutionError
-from app.agent_runtime.tools.impls._locks import keyed_lock
+from app.agent_runtime.tools.impls._locks import project_write_lock
 from app.agent_runtime.tools.impls.note.refs import (
     CategoryRef,
     resolve_category_from_list,
@@ -83,20 +83,20 @@ class EditNoteCategoryTool(AgentTool):
             raise ToolExecutionError("缺少当前 revision，无法执行分类重命名")
         session = await create_session()
         try:
-            ref = CategoryRef.model_validate(category_ref)
-            if ref.id is not None:
-                category = await note_category_repo.get_by_id(session, ref.id)
-                if category is None:
-                    raise ToolExecutionError(f"分类不存在: {ref.id}")
-            else:
-                categories = await note_category_repo.list_by_project(
-                    session, self.project_id, "note"
-                )
-                category = resolve_category_from_list(categories, ref)
-            if category.project_id != self.project_id or category.scope != "note":
-                raise ToolExecutionError("分类不属于当前项目或笔记范围")
+            async with project_write_lock(session, self.project_id, scopes=("notes",)):
+                ref = CategoryRef.model_validate(category_ref)
+                if ref.id is not None:
+                    category = await note_category_repo.get_by_id(session, ref.id)
+                    if category is None:
+                        raise ToolExecutionError(f"分类不存在: {ref.id}")
+                else:
+                    categories = await note_category_repo.list_by_project(
+                        session, self.project_id, "note"
+                    )
+                    category = resolve_category_from_list(categories, ref)
+                if category.project_id != self.project_id or category.scope != "note":
+                    raise ToolExecutionError("分类不属于当前项目或笔记范围")
 
-            async with await keyed_lock((self.project_id, "note")):
                 before = note_category_images_by_id(
                     await note_category_repo.list_by_project(session, self.project_id, "note")
                 )

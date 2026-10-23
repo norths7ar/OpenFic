@@ -12,7 +12,7 @@ from app.agent_runtime.revisions import (
 )
 from app.agent_runtime.tools.base import AgentTool
 from app.agent_runtime.tools.errors import ToolExecutionError
-from app.agent_runtime.tools.impls._locks import keyed_lock
+from app.agent_runtime.tools.impls._locks import project_write_lock
 from app.agent_runtime.tools.impls.chapter.diff_preview import (
     build_chapter_diff_preview,
     build_write_chapter_tool_result_preview,
@@ -102,11 +102,11 @@ class WriteChapterTool(AgentTool):
             raise ToolExecutionError(str(exc)) from exc
         session = await create_session()
         try:
-            volume = resolve_volume_from_list(
-                await volume_repo.list_by_project(session, self.project_id),
-                VolumeRef.model_validate(volume_ref),
-            )
-            async with await keyed_lock(volume.id):
+            async with project_write_lock(session, self.project_id, scopes=("chapters", "volumes")):
+                volume = resolve_volume_from_list(
+                    await volume_repo.list_by_project(session, self.project_id),
+                    VolumeRef.model_validate(volume_ref),
+                )
                 max_order = await chapter_repo.get_max_order(session, volume.id)
                 if chapter_ref is not None:
                     ref = ChapterRef.model_validate(chapter_ref)

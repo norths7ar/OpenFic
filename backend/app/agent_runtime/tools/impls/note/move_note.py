@@ -17,6 +17,7 @@ from app.agent_runtime.revisions import (
 )
 from app.agent_runtime.tools.base import AgentTool
 from app.agent_runtime.tools.errors import ToolExecutionError
+from app.agent_runtime.tools.impls._locks import project_write_lock
 from app.agent_runtime.tools.impls.note.refs import (
     CategoryRef,
     NoteRef,
@@ -54,79 +55,80 @@ class MoveNoteTool(AgentTool):
             raise ToolExecutionError("缺少当前 revision，无法执行笔记移动")
         session = await create_session()
         try:
-            ref = NoteRef.model_validate(note_ref)
-            scope = get_knowledge_scope(self._state)
-            if ref.id is not None:
-                note = await note_repo.get_by_id(session, ref.id)
-                if note is None:
-                    raise ToolExecutionError(f"笔记不存在: {ref.id}")
-            else:
-                notes = await note_repo.list_by_project(
-                    session, self.project_id, include_hidden=False
-                )
-                notes = [note for note in notes if note_is_visible(note, scope=scope)]
-                cats = await note_category_repo.list_by_project(session, self.project_id)
-                note = resolve_note_from_list(notes, ref, categories=cats)
-
-            if note.project_id != self.project_id:
-                raise ToolExecutionError("笔记不属于当前项目")
-            if note.is_locked:
-                raise ToolExecutionError("该笔记已锁定，无法移动")
-            if note.agent_visibility == AgentVisibility.NONE:
-                raise ToolExecutionError("该笔记已隐藏")
-            if not note_is_visible(note, scope=scope):
-                raise ToolExecutionError("笔记不在当前上下文范围内")
-
-            target_category_id: str | None = None
-            target_category_title: str | None = None
-            if target_category_ref is not None:
-                tref = CategoryRef.model_validate(target_category_ref)
-                if tref.id is not None:
-                    target = await note_category_repo.get_by_id(session, tref.id)
-                    if target is None:
-                        raise ToolExecutionError(f"分类不存在: {tref.id}")
+            async with project_write_lock(session, self.project_id, scopes=("notes",)):
+                ref = NoteRef.model_validate(note_ref)
+                scope = get_knowledge_scope(self._state)
+                if ref.id is not None:
+                    note = await note_repo.get_by_id(session, ref.id)
+                    if note is None:
+                        raise ToolExecutionError(f"笔记不存在: {ref.id}")
                 else:
+                    notes = await note_repo.list_by_project(
+                        session, self.project_id, include_hidden=False
+                    )
+                    notes = [note for note in notes if note_is_visible(note, scope=scope)]
                     cats = await note_category_repo.list_by_project(session, self.project_id)
-                    target = resolve_category_from_list(cats, tref)
-                if target.project_id != self.project_id:
-                    raise ToolExecutionError("目标分类不属于当前项目")
-                target_category_id = target.id
-                target_category_title = target.title
+                    note = resolve_note_from_list(notes, ref, categories=cats)
 
-            before = note_images_by_id(
-                await note_repo.list_by_project(session, self.project_id, include_hidden=True)
-            )
-            moved = await note_service.move_item(session, "note", note.id, target_category_id)
-            moved_category_id = getattr(moved, "category_id", None)
-            after = note_images_by_id(
-                await note_repo.list_by_project(session, self.project_id, include_hidden=True)
-            )
-            await record_note_diffs(
-                session,
-                revision_id=revision_id,
-                project_id=self.project_id,
-                before=before,
-                after=after,
-            )
-            from app.background.jobs import service as background_service
+                if note.project_id != self.project_id:
+                    raise ToolExecutionError("笔记不属于当前项目")
+                if note.is_locked:
+                    raise ToolExecutionError("该笔记已锁定，无法移动")
+                if note.agent_visibility == AgentVisibility.NONE:
+                    raise ToolExecutionError("该笔记已隐藏")
+                if not note_is_visible(note, scope=scope):
+                    raise ToolExecutionError("笔记不在当前上下文范围内")
 
-            await background_service.commit_and_notify(session)
-            return json.dumps(
-                {
-                    "success": True,
-                    "metadata": {
-                        "note_diff": {
-                            "operation": "move",
-                            "note_id": moved.id,
-                            "note_title": moved.title,
-                            "category_id": moved_category_id,
-                            "target_category_id": target_category_id,
-                            "target_category_title": target_category_title,
-                        }
+                target_category_id: str | None = None
+                target_category_title: str | None = None
+                if target_category_ref is not None:
+                    tref = CategoryRef.model_validate(target_category_ref)
+                    if tref.id is not None:
+                        target = await note_category_repo.get_by_id(session, tref.id)
+                        if target is None:
+                            raise ToolExecutionError(f"分类不存在: {tref.id}")
+                    else:
+                        cats = await note_category_repo.list_by_project(session, self.project_id)
+                        target = resolve_category_from_list(cats, tref)
+                    if target.project_id != self.project_id:
+                        raise ToolExecutionError("目标分类不属于当前项目")
+                    target_category_id = target.id
+                    target_category_title = target.title
+
+                before = note_images_by_id(
+                    await note_repo.list_by_project(session, self.project_id, include_hidden=True)
+                )
+                moved = await note_service.move_item(session, "note", note.id, target_category_id)
+                moved_category_id = getattr(moved, "category_id", None)
+                after = note_images_by_id(
+                    await note_repo.list_by_project(session, self.project_id, include_hidden=True)
+                )
+                await record_note_diffs(
+                    session,
+                    revision_id=revision_id,
+                    project_id=self.project_id,
+                    before=before,
+                    after=after,
+                )
+                from app.background.jobs import service as background_service
+
+                await background_service.commit_and_notify(session)
+                return json.dumps(
+                    {
+                        "success": True,
+                        "metadata": {
+                            "note_diff": {
+                                "operation": "move",
+                                "note_id": moved.id,
+                                "note_title": moved.title,
+                                "category_id": moved_category_id,
+                                "target_category_id": target_category_id,
+                                "target_category_title": target_category_title,
+                            }
+                        },
                     },
-                },
-                ensure_ascii=False,
-            )
+                    ensure_ascii=False,
+                )
         except ToolExecutionError:
             raise
         except Exception:

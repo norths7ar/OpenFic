@@ -20,6 +20,7 @@ from app.agent_runtime.revisions import (
 )
 from app.agent_runtime.tools.base import AgentTool
 from app.agent_runtime.tools.errors import ToolExecutionError
+from app.agent_runtime.tools.impls._locks import project_write_lock
 from app.agent_runtime.tools.impls.note.refs import (
     NoteRef,
     resolve_note_from_list,
@@ -170,72 +171,75 @@ class EditNoteTool(AgentTool):
             raise ToolExecutionError("缺少当前 revision，无法执行笔记编辑")
         session = await create_session()
         try:
-            ref = NoteRef.model_validate(note_ref)
-            scope = get_knowledge_scope(self._state)
-            if ref.id is not None:
-                note = await note_repo.get_by_id(session, ref.id)
-                if note is None:
-                    raise ToolExecutionError(f"笔记不存在: {ref.id}")
-            else:
-                notes = await note_repo.list_by_project(
-                    session, self.project_id, include_hidden=False
+            async with project_write_lock(session, self.project_id, scopes=("notes",)):
+                ref = NoteRef.model_validate(note_ref)
+                scope = get_knowledge_scope(self._state)
+                if ref.id is not None:
+                    note = await note_repo.get_by_id(session, ref.id)
+                    if note is None:
+                        raise ToolExecutionError(f"笔记不存在: {ref.id}")
+                else:
+                    notes = await note_repo.list_by_project(
+                        session, self.project_id, include_hidden=False
+                    )
+                    notes = [note for note in notes if note_is_visible(note, scope=scope)]
+                    cats = await note_category_repo.list_by_project(session, self.project_id)
+                    note = resolve_note_from_list(notes, ref, categories=cats)
+
+                if note.project_id != self.project_id:
+                    raise ToolExecutionError("笔记不属于当前项目")
+                if note.is_locked:
+                    raise ToolExecutionError("该笔记已锁定，无法修改")
+                if note.agent_visibility == AgentVisibility.NONE:
+                    raise ToolExecutionError("该笔记已隐藏")
+                if not note_is_visible(note, scope=scope):
+                    raise ToolExecutionError("笔记不在当前上下文范围内")
+
+                before = note_images_by_id(
+                    await note_repo.list_by_project(session, self.project_id, include_hidden=True)
                 )
-                notes = [note for note in notes if note_is_visible(note, scope=scope)]
-                cats = await note_category_repo.list_by_project(session, self.project_id)
-                note = resolve_note_from_list(notes, ref, categories=cats)
+                before_content = note.content
+                replace_result = fuzzy_replace(
+                    note.content, old_content, new_content, replace_all=True
+                )
+                if replace_result is None:
+                    raise ToolExecutionError("未在笔记内容中找到要替换的文本")
+                note.content = replace_result.new_content
+                try:
+                    validate_editor_content(note.content)
+                except EditorContentLimitError as exc:
+                    raise ToolExecutionError(str(exc)) from exc
+                note.updated_at = datetime.now(UTC)
+                await note_repo.update_note(session, note)
+                after = note_images_by_id(
+                    await note_repo.list_by_project(session, self.project_id, include_hidden=True)
+                )
+                await record_note_diffs(
+                    session,
+                    revision_id=revision_id,
+                    project_id=self.project_id,
+                    before=before,
+                    after=after,
+                )
 
-            if note.project_id != self.project_id:
-                raise ToolExecutionError("笔记不属于当前项目")
-            if note.is_locked:
-                raise ToolExecutionError("该笔记已锁定，无法修改")
-            if note.agent_visibility == AgentVisibility.NONE:
-                raise ToolExecutionError("该笔记已隐藏")
-            if not note_is_visible(note, scope=scope):
-                raise ToolExecutionError("笔记不在当前上下文范围内")
+                diff_lines = _build_diff_lines(before_content, note.content)
+                note_diff = {
+                    "operation": "update",
+                    "sections": [{"type": "content", "lines": diff_lines}],
+                    "note_id": note.id,
+                    "note_title": note.title,
+                }
 
-            before = note_images_by_id(
-                await note_repo.list_by_project(session, self.project_id, include_hidden=True)
-            )
-            before_content = note.content
-            replace_result = fuzzy_replace(note.content, old_content, new_content, replace_all=True)
-            if replace_result is None:
-                raise ToolExecutionError("未在笔记内容中找到要替换的文本")
-            note.content = replace_result.new_content
-            try:
-                validate_editor_content(note.content)
-            except EditorContentLimitError as exc:
-                raise ToolExecutionError(str(exc)) from exc
-            note.updated_at = datetime.now(UTC)
-            await note_repo.update_note(session, note)
-            after = note_images_by_id(
-                await note_repo.list_by_project(session, self.project_id, include_hidden=True)
-            )
-            await record_note_diffs(
-                session,
-                revision_id=revision_id,
-                project_id=self.project_id,
-                before=before,
-                after=after,
-            )
+                from app.background.jobs import service as background_service
 
-            diff_lines = _build_diff_lines(before_content, note.content)
-            note_diff = {
-                "operation": "update",
-                "sections": [{"type": "content", "lines": diff_lines}],
-                "note_id": note.id,
-                "note_title": note.title,
-            }
-
-            from app.background.jobs import service as background_service
-
-            await background_service.commit_and_notify(session)
-            return json.dumps(
-                {
-                    "success": True,
-                    "metadata": {"note_diff": note_diff},
-                },
-                ensure_ascii=False,
-            )
+                await background_service.commit_and_notify(session)
+                return json.dumps(
+                    {
+                        "success": True,
+                        "metadata": {"note_diff": note_diff},
+                    },
+                    ensure_ascii=False,
+                )
         except ToolExecutionError:
             raise
         except Exception:

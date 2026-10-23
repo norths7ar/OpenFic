@@ -4,7 +4,7 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from app.agent_runtime.tools.base import AgentTool
-from app.agent_runtime.tools.impls._locks import keyed_lock
+from app.agent_runtime.tools.impls._locks import project_write_lock
 from app.agent_runtime.tools.registry import ToolRegistry
 from app.storage.database import create_session
 from app.storage.models.project_folder import ProjectFolder
@@ -63,7 +63,7 @@ class CreateVolumeTool(AgentTool):
     async def _execute(self, title: str, description: str | None = None) -> str:
         session = await create_session()
         try:
-            async with await keyed_lock(self.project_id):
+            async with project_write_lock(session, self.project_id, scopes=("volumes",)):
                 max_order = await volume_repo.get_max_order(session, self.project_id)
                 volume = ProjectFolder(
                     scope="writing",

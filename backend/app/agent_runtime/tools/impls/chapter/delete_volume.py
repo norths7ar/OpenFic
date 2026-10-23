@@ -3,6 +3,7 @@ import json
 from pydantic import BaseModel, Field
 
 from app.agent_runtime.tools.base import AgentTool
+from app.agent_runtime.tools.impls._locks import project_write_lock
 from app.agent_runtime.tools.impls.chapter.refs import VolumeRef, resolve_volume_from_list
 from app.agent_runtime.tools.registry import ToolRegistry
 from app.storage.database import create_session
@@ -29,19 +30,20 @@ class DeleteVolumeTool(AgentTool):
     async def _execute(self, volume_ref: dict, cascade: bool = False) -> str:
         session = await create_session()
         try:
-            volume = resolve_volume_from_list(
-                await volume_repo.list_by_project(session, self.project_id),
-                VolumeRef.model_validate(volume_ref),
-            )
-            await volume_service.delete_volume(session, volume.id, cascade=cascade)
-            await refresh_project_stats(session, self.project_id)
-            await session.commit()
-            return json.dumps(
-                {
-                    "success": True,
-                },
-                ensure_ascii=False,
-            )
+            async with project_write_lock(session, self.project_id, scopes=("chapters", "volumes")):
+                volume = resolve_volume_from_list(
+                    await volume_repo.list_by_project(session, self.project_id),
+                    VolumeRef.model_validate(volume_ref),
+                )
+                await volume_service.delete_volume(session, volume.id, cascade=cascade)
+                await refresh_project_stats(session, self.project_id)
+                await session.commit()
+                return json.dumps(
+                    {
+                        "success": True,
+                    },
+                    ensure_ascii=False,
+                )
         except Exception:
             await session.rollback()
             raise
