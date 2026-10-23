@@ -10,18 +10,18 @@ from app.storage.repos import chapter_repo, chapter_summary_repo
 
 
 class ReadChapterSummariesInput(BaseModel):
-    offset: int | None = Field(default=None, description="分页偏移，从0开始")
-    limit: int | None = Field(default=None, description="本次返回的最大摘要数")
+    offset: int | None = Field(default=None, description="分页偏移，从0开始；仅传limit时默认为0")
+    limit: int | None = Field(
+        default=None, description="本次返回的最大摘要数；仅传offset时默认为10"
+    )
     orders: list[int] | None = Field(
         default=None,
-        description="按精确章节order读取摘要；当同时提供offset/limit时忽略该字段",
+        description="按精确章节order读取摘要；当提供offset或limit时忽略该字段",
     )
 
     @model_validator(mode="after")
     def validate_query(self) -> "ReadChapterSummariesInput":
         has_page = self.offset is not None or self.limit is not None
-        if has_page and (self.offset is None or self.limit is None):
-            raise ValueError("offset 和 limit 必须同时传入")
         if not has_page and self.orders is None:
             raise ValueError("必须提供 offset/limit 或 orders")
         return self
@@ -77,12 +77,12 @@ class ReadChapterSummariesTool(AgentTool):
         limit: int | None,
         orders: list[int],
     ) -> list:
-        if offset is not None and limit is not None:
+        if offset is not None or limit is not None:
             return await chapter_repo.list_by_project_page(
                 session,
                 self.project_id,
-                offset=offset,
-                limit=limit,
+                offset=offset if offset is not None else 0,
+                limit=limit if limit is not None else 10,
             )
 
         chapters = await chapter_repo.list_by_project(session, self.project_id)
