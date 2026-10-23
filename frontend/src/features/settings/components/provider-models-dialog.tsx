@@ -1,8 +1,10 @@
+import "./provider-models-dialog.css";
 import {
   Box,
   Button,
   Dialog,
   Flex,
+  IconButton,
   ScrollArea,
   Switch,
   Tabs,
@@ -11,10 +13,11 @@ import {
 } from "@radix-ui/themes";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
-import { CircleCheck, RefreshCw, Search } from "lucide-react";
+import { CircleCheck, Plus, RefreshCw, Search, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import {
   CapabilityIcon,
   ContextBadge,
@@ -25,10 +28,26 @@ import { ModelDiscoveryStatus } from "@/components/model-discovery-status";
 import { Spinner } from "@/components/spinner";
 import { toast } from "@/components/toast";
 import { MODEL_DISCOVERY_QUERY_OPTIONS } from "@/lib/model-discovery";
-import type { AvailableModel, Model, ModelProvider, TaskType } from "@/lib/model.types";
+import type {
+  AvailableModel,
+  Model,
+  ModelProvider,
+  TaskType,
+  ModelCreateRequest,
+  ModelUpdateRequest,
+} from "@/lib/model.types";
 
-import { createModel, fetchModels, updateModel, validateModel } from "../lib/model-api";
+import {
+  createModel,
+  deleteModel,
+  fetchModelUsage,
+  fetchModels,
+  updateModel,
+  validateModel,
+} from "../lib/model-api";
+import { invalidateModelUses } from "../lib/use-model-sync";
 import { useProviderModelsQuery } from "../lib/use-provider-models-query";
+import { ModelFormDialog } from "./model-form-dialog";
 
 interface ProviderModelsDialogProps {
   provider: ModelProvider | null;
@@ -87,26 +106,13 @@ export function ProviderModelsDialog({
   const [searchQuery, setSearchQuery] = useState("");
   const [pendingModelId, setPendingModelId] = useState<string | null>(null);
   const [validatingModelId, setValidatingModelId] = useState<string | null>(null);
-
-  const supportedTaskTypes = useMemo<TaskType[]>(() => {
-    const supported = provider?.supportedTaskTypes ?? [];
-    const ordered = (["llm", "embedding", "rerank"] as TaskType[]).filter((type) =>
-      supported.includes(type),
-    );
-    return ordered.length > 0 ? ordered : ["llm"];
-  }, [provider]);
-
-  useEffect(() => {
-    if (!open) return;
-    setSearchQuery("");
-    setTaskType(supportedTaskTypes[0] ?? "llm");
-  }, [open, provider?.id, supportedTaskTypes]);
-
-  const remoteQuery = useProviderModelsQuery(
-    provider?.id,
-    taskType,
-    open && supportedTaskTypes.includes(taskType),
-  );
+  const [manualAddOpen, setManualAddOpen] = useState(false);
+  const [confirmation, setConfirmation] = useState<{
+    row: ProviderModelRow;
+    action: "disable" | "delete";
+    uses: string[];
+  } | null>(null);
+  const [checkingUsage, setCheckingUsage] = useState(false);
 
   const savedQuery = useQuery({
     ...MODEL_DISCOVERY_QUERY_OPTIONS,
@@ -114,6 +120,32 @@ export function ProviderModelsDialog({
     queryFn: () => fetchModels(undefined, undefined, true),
     enabled: open && Boolean(provider),
   });
+
+  const supportedTaskTypes = useMemo<TaskType[]>(() => {
+    const supported = [
+      ...(provider?.supportedTaskTypes ?? []),
+      ...(savedQuery.data ?? [])
+        .filter((model) => model.providerId === provider?.id)
+        .map((model) => model.taskType),
+    ];
+    const ordered = (["llm", "embedding", "rerank"] as TaskType[]).filter((type) =>
+      supported.includes(type),
+    );
+    return ordered.length > 0 ? ordered : ["llm"];
+  }, [provider, savedQuery.data]);
+
+  const firstTaskType = supportedTaskTypes[0] ?? "llm";
+  useEffect(() => {
+    if (!open) return;
+    setSearchQuery("");
+    setTaskType(firstTaskType);
+  }, [open, provider?.id, firstTaskType]);
+
+  const remoteQuery = useProviderModelsQuery(
+    provider?.id,
+    taskType,
+    open && supportedTaskTypes.includes(taskType),
+  );
 
   const providerModels = useMemo(
     () =>
@@ -132,7 +164,9 @@ export function ProviderModelsDialog({
       remote,
       saved: savedByIdentifier.get(remote.id) ?? null,
     }));
-    const remoteIds = new Set(remoteModels.map((model) => model.id));
+    const remoteIds = new Set(
+      remoteModels.flatMap((model) => [model.id, ...Object.values(model.speedVariants ?? {})]),
+    );
     result.push(
       ...providerModels
         .filter((model) => !remoteIds.has(model.modelId))
@@ -178,7 +212,7 @@ export function ProviderModelsDialog({
       });
     },
     onSuccess: (_model, variables) => {
-      void queryClient.invalidateQueries({ queryKey: ["models"] });
+      void invalidateModelUses(queryClient);
       toast.success(variables.enabled ? t("models.modelEnabled") : t("models.modelDisabled"));
     },
     onError: (error) => {
@@ -186,6 +220,39 @@ export function ProviderModelsDialog({
     },
     onSettled: () => setPendingModelId(null),
   });
+
+  const deleteMutation = useMutation({
+    mutationFn: deleteModel,
+    onSuccess: () => {
+      void invalidateModelUses(queryClient);
+      toast.success(t("models.deleteSuccess"));
+    },
+    onError: (error) => toast.error(getErrorMessage(error, t("models.deleteFailed"))),
+  });
+
+  const manualAddMutation = useMutation({
+    mutationFn: (data: ModelCreateRequest | ModelUpdateRequest) =>
+      createModel(data as ModelCreateRequest),
+    onSuccess: () => {
+      void invalidateModelUses(queryClient);
+      setManualAddOpen(false);
+      toast.success(t("models.createSuccess"));
+    },
+    onError: (error) => toast.error(getErrorMessage(error, t("models.createFailed"))),
+  });
+
+  const requestRemoval = async (row: ProviderModelRow, action: "disable" | "delete") => {
+    if (!row.saved) return;
+    setCheckingUsage(true);
+    try {
+      const uses = await fetchModelUsage(row.saved.id);
+      setConfirmation({ row, action, uses });
+    } catch {
+      toast.error(t("models.usageCheckFailed"));
+    } finally {
+      setCheckingUsage(false);
+    }
+  };
 
   const validateMutation = useMutation({
     mutationFn: async (model: Model) => {
@@ -212,13 +279,17 @@ export function ProviderModelsDialog({
       open={open}
       onOpenChange={onOpenChange}
     >
-      <Dialog.Content style={{ maxWidth: 760 }}>
+      <Dialog.Content
+        className="provider-models-dialog"
+        maxWidth="760px"
+      >
         <Dialog.Title>
           {t("models.manageProviderModels", { provider: provider?.name || provider?.url || "" })}
         </Dialog.Title>
         <Dialog.Description>{t("models.manageProviderModelsDescription")}</Dialog.Description>
 
         <Flex
+          className="provider-models-dialog-body"
           direction="column"
           gap="3"
           mt="4"
@@ -293,6 +364,18 @@ export function ProviderModelsDialog({
           >
             {t("models.autoRefreshModels")}
           </Text>
+          <Flex justify="end">
+            <Button
+              size="2"
+              variant="soft"
+              color="gray"
+              onClick={() => setManualAddOpen(true)}
+              disabled={isAgentSettingsLocked || isTaskUnavailable}
+            >
+              <Plus size={15} />
+              {t("models.manualAddModel")}
+            </Button>
+          </Flex>
           {remoteQuery.isError || remoteQuery.data?.discoveryStatus === "error" ? (
             <Text
               size="2"
@@ -315,7 +398,7 @@ export function ProviderModelsDialog({
               <Spinner size={18} />
             </Flex>
           ) : (
-            <ScrollArea style={{ height: 420 }}>
+            <ScrollArea className="provider-models-dialog-list">
               <Flex direction="column">
                 {filteredRows.map((row) => {
                   const capabilities = getModelCapabilityKeys(row.remote);
@@ -362,6 +445,14 @@ export function ProviderModelsDialog({
                             wrap="wrap"
                           >
                             <Text weight="medium">{row.remote.name}</Text>
+                            {row.remote.speedVariants?.fast ? (
+                              <Text
+                                size="1"
+                                color="gray"
+                              >
+                                Standard / Fast
+                              </Text>
+                            ) : null}
                             {capabilities.map((capability) => (
                               <CapabilityIcon
                                 key={capability}
@@ -392,6 +483,20 @@ export function ProviderModelsDialog({
                             gap="2"
                           >
                             {row.saved ? (
+                              <IconButton
+                                size="1"
+                                variant="ghost"
+                                color="red"
+                                aria-label={t("models.deleteModel")}
+                                onClick={() => requestRemoval(row, "delete")}
+                                disabled={
+                                  isAgentSettingsLocked || checkingUsage || row.saved.isBuiltin
+                                }
+                              >
+                                <Trash2 size={14} />
+                              </IconButton>
+                            ) : null}
+                            {row.saved ? (
                               <Button
                                 variant="soft"
                                 color="gray"
@@ -408,11 +513,16 @@ export function ProviderModelsDialog({
                               disabled={
                                 isAgentSettingsLocked ||
                                 toggleMutation.isPending ||
+                                checkingUsage ||
                                 row.saved?.isBuiltin ||
                                 (isTaskUnavailable && !row.saved)
                               }
                               aria-label={t("models.toggleModel", { model: row.remote.name })}
-                              onCheckedChange={(enabled) => toggleMutation.mutate({ row, enabled })}
+                              onCheckedChange={(enabled) =>
+                                enabled
+                                  ? toggleMutation.mutate({ row, enabled })
+                                  : void requestRemoval(row, "disable")
+                              }
                             />
                           </Flex>
                         )}
@@ -433,6 +543,49 @@ export function ProviderModelsDialog({
             </ScrollArea>
           )}
         </Flex>
+
+        <ModelFormDialog
+          open={manualAddOpen}
+          onOpenChange={setManualAddOpen}
+          fixedProviderId={provider?.id}
+          initialTaskType={taskType}
+          models={savedQuery.data ?? []}
+          onSubmit={async (data) => {
+            await manualAddMutation.mutateAsync(data);
+          }}
+          isSubmitting={manualAddMutation.isPending}
+          isAgentSettingsLocked={isAgentSettingsLocked}
+        />
+        <ConfirmDialog
+          open={Boolean(confirmation)}
+          onOpenChange={(next) => {
+            if (!next) setConfirmation(null);
+          }}
+          title={t(
+            confirmation?.action === "delete" ? "models.deleteModel" : "models.disableModel",
+          )}
+          description={[
+            t(
+              confirmation?.row.saved?.taskType === "llm"
+                ? confirmation.action === "delete"
+                  ? "models.deleteConfirm"
+                  : "models.disableConfirm"
+                : "models.indexModelChangeConfirm",
+            ),
+            confirmation?.uses.length
+              ? t("models.affectedUses", { uses: confirmation.uses.join("、") })
+              : "",
+          ]
+            .filter(Boolean)
+            .join("\n")}
+          onConfirm={() => {
+            if (!confirmation?.row.saved) return;
+            if (confirmation.action === "delete") deleteMutation.mutate(confirmation.row.saved.id);
+            else toggleMutation.mutate({ row: confirmation.row, enabled: false });
+          }}
+          confirmText={t(confirmation?.action === "delete" ? "common.delete" : "common.confirm")}
+          loading={toggleMutation.isPending || deleteMutation.isPending}
+        />
 
         <Flex
           justify="end"

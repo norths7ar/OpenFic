@@ -1,0 +1,16 @@
+.provider-models-dialog {
+  display: flex;
+  flex-direction: column;
+  height: min(780px, calc(100dvh - 2 * var(--space-6)));
+  overflow: hidden;
+}
+
+.provider-models-dialog-body {
+  flex: 1;
+  min-height: 0;
+}
+
+.provider-models-dialog-list {
+  flex: 1;
+  min-height: 0;
+}

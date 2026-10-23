@@ -92,6 +92,7 @@ export function SettingsContent({
   const queryClient = useQueryClient();
   const initialCategory = route?.category ?? DEFAULT_SETTINGS_ROUTE_CATEGORY;
   const [activeCategory, setActiveCategory] = useState<SettingsCategory>(initialCategory);
+  const [managedProviderId, setManagedProviderId] = useState<string | undefined>();
   const [activeModelTab, setActiveModelTab] = useState<ModelSettingsTab>(
     route?.category === "models"
       ? (route.modelTab ?? DEFAULT_MODEL_SETTINGS_TAB)
@@ -388,12 +389,19 @@ export function SettingsContent({
             {activeCategory === "editor" ? <EditorSettings /> : null}
             {activeCategory === "connections" ? (
               <ConnectionsSettings
+                managedProviderId={managedProviderId}
+                onManagedProviderHandled={() => setManagedProviderId(undefined)}
                 isAgentSettingsLocked={isAgentSettingsLocked}
                 isAgentSettingsLockLoading={isAgentSettingsLockLoading}
               />
             ) : null}
             {activeCategory === "models" ? (
               <ModelsSettings
+                onManageProvider={(providerId) => {
+                  setManagedProviderId(providerId);
+                  if (isMobile) handleMobileCategorySelect("connections");
+                  else handleDesktopCategorySelect("connections");
+                }}
                 activeTab={activeModelTab}
                 onActiveTabChange={setActiveModelTab}
                 isAgentSettingsLocked={isAgentSettingsLocked}

@@ -35,6 +35,7 @@ const modelSchema = z.object({
   taskType: z.enum(["llm", "embedding", "rerank"]),
   providerId: z.string().min(1, "providerRequired"),
   modelId: z.string().min(1, "modelIdRequired"),
+  defaultSpeed: z.enum(["standard", "fast"]),
   remark: z.string().optional(),
   temperature: z.number().min(0).max(2),
   topP: z.number().min(0).max(1),
@@ -63,6 +64,9 @@ interface ModelFormDialogProps {
   onSubmit: (data: ModelCreateRequest | ModelUpdateRequest) => Promise<void>;
   isSubmitting: boolean;
   isAgentSettingsLocked: boolean;
+  fixedProviderId?: string;
+  initialTaskType?: TaskType;
+  parametersOnly?: boolean;
 }
 
 export function ModelFormDialog({
@@ -73,6 +77,9 @@ export function ModelFormDialog({
   onSubmit,
   isSubmitting,
   isAgentSettingsLocked,
+  fixedProviderId,
+  initialTaskType = "llm",
+  parametersOnly = false,
 }: ModelFormDialogProps) {
   const { t } = useTranslation();
   const isEditing = !!model;
@@ -91,6 +98,7 @@ export function ModelFormDialog({
       taskType: "llm" as TaskType,
       providerId: "",
       modelId: "",
+      defaultSpeed: "standard",
       remark: "",
       temperature: 1,
       topP: 1,
@@ -120,6 +128,7 @@ export function ModelFormDialog({
           taskType: (model.taskType as TaskType) || "llm",
           providerId: model.providerId || "",
           modelId: model.modelId || "",
+          defaultSpeed: model.defaultSpeed ?? "standard",
           remark: model.remark || "",
           temperature: model.temperature ?? 1,
           topP: model.topP ?? 1,
@@ -141,9 +150,10 @@ export function ModelFormDialog({
         // 新建模式：重置为空
         reset({
           name: "",
-          taskType: "llm" as TaskType,
-          providerId: "",
+          taskType: initialTaskType,
+          providerId: fixedProviderId ?? "",
           modelId: "",
+          defaultSpeed: "standard",
           remark: "",
           temperature: 1,
           topP: 1,
@@ -165,11 +175,13 @@ export function ModelFormDialog({
     } else {
       reset();
     }
-  }, [open, model, reset]);
+  }, [open, model, reset, fixedProviderId, initialTaskType]);
 
   const providerId = useWatch({ control, name: "providerId" });
   const taskType = useWatch({ control, name: "taskType" });
   const name = useWatch({ control, name: "name" });
+  const selectedModelId = useWatch({ control, name: "modelId" });
+  const defaultSpeed = useWatch({ control, name: "defaultSpeed" });
   const hasDuplicateName = models.some((entry) => entry.id !== model?.id && entry.name === name);
   // 获取提供商列表
   const { data: providers } = useQuery({
@@ -210,6 +222,10 @@ export function ModelFormDialog({
   );
   const availableModels = useMemo(() => remoteQuery.data?.models ?? [], [remoteQuery.data?.models]);
   const loadingModels = remoteQuery.isLoading;
+  const speedVariants =
+    availableModels.find((entry) => entry.id === selectedModelId)?.speedVariants ??
+    model?.speedVariants;
+  const speedUnavailable = defaultSpeed === "fast" && !speedVariants?.fast;
   const modelsError = remoteQuery.isError
     ? remoteQuery.error?.message || t("models.fetchModelsFailed")
     : remoteQuery.data?.discoveryStatus === "error"
@@ -290,6 +306,7 @@ export function ModelFormDialog({
         task_type: data.taskType,
         provider_id: data.providerId,
         model_id: data.modelId,
+        default_speed: data.defaultSpeed,
         remark: data.remark || "",
         temperature: data.taskType === "llm" ? data.temperature : null,
         top_p: data.taskType === "llm" ? data.topP : null,
@@ -347,6 +364,9 @@ export function ModelFormDialog({
         }}
       >
         <Dialog.Title>{isEditing ? t("models.editModel") : t("models.createModel")}</Dialog.Title>
+        {!isEditing && fixedProviderId && taskType === "llm" ? (
+          <Dialog.Description size="1">{t("models.manualAddSyncHint")}</Dialog.Description>
+        ) : null}
 
         <Box
           style={{
@@ -449,7 +469,7 @@ export function ModelFormDialog({
                       onChange={handleTaskTypeChange}
                       triggerStyle={{ width: "100%" }}
                       placeholder={t("models.taskTypePlaceholder")}
-                      disabled={isAgentSettingsLocked}
+                      disabled={isAgentSettingsLocked || parametersOnly}
                     />
                   )}
                 />
@@ -494,7 +514,7 @@ export function ModelFormDialog({
                       onChange={handleProviderChange}
                       triggerStyle={{ width: "100%" }}
                       placeholder={t("models.providerPlaceholder")}
-                      disabled={isAgentSettingsLocked}
+                      disabled={isAgentSettingsLocked || parametersOnly || Boolean(fixedProviderId)}
                     />
                   )}
                 />
@@ -547,10 +567,10 @@ export function ModelFormDialog({
                       models={availableModels}
                       isLoading={loadingModels}
                       placeholder={t("models.modelIdPlaceholder")}
-                      disabled={isAgentSettingsLocked || isModelSelectionDisabled}
+                      disabled={isAgentSettingsLocked || isModelSelectionDisabled || parametersOnly}
                       taskType={taskType as TaskType}
                       error={modelsError}
-                      showRefreshButton
+                      showRefreshButton={!parametersOnly}
                       onRefresh={remoteQuery.refresh}
                       isRefreshing={remoteQuery.isFetching || remoteQuery.isRefreshing}
                       refreshDisabled={
@@ -658,6 +678,43 @@ export function ModelFormDialog({
               {/* 高级参数 - 仅 LLM 模式 */}
               {taskType === "llm" && (
                 <>
+                  {speedVariants?.fast || defaultSpeed === "fast" ? (
+                    <Flex
+                      direction="column"
+                      gap="2"
+                    >
+                      <Text
+                        size="2"
+                        weight="medium"
+                        color="gray"
+                      >
+                        {t("models.defaultSpeed")}
+                      </Text>
+                      <Controller
+                        name="defaultSpeed"
+                        control={control}
+                        render={({ field }) => (
+                          <LabeledSelect
+                            value={field.value}
+                            onChange={field.onChange}
+                            disabled={isAgentSettingsLocked}
+                            options={[
+                              { value: "standard", label: "Standard" },
+                              { value: "fast", label: "Fast", disabled: !speedVariants?.fast },
+                            ]}
+                          />
+                        )}
+                      />
+                      {speedUnavailable ? (
+                        <Text
+                          size="1"
+                          color="amber"
+                        >
+                          {t("models.speedNoLongerAvailable")}
+                        </Text>
+                      ) : null}
+                    </Flex>
+                  ) : null}
                   <ModelMetadataSection
                     control={control}
                     modelId={model?.id}
@@ -689,7 +746,9 @@ export function ModelFormDialog({
                 </Dialog.Close>
                 <Button
                   type="submit"
-                  disabled={isAgentSettingsLocked || isSubmitting || hasDuplicateName}
+                  disabled={
+                    isAgentSettingsLocked || isSubmitting || hasDuplicateName || speedUnavailable
+                  }
                 >
                   {isSubmitting ? <Spinner size={18} /> : null}
                   {isEditing ? t("common.save") : t("common.create")}

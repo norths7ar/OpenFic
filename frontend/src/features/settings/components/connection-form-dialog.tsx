@@ -7,6 +7,7 @@ import { useTranslation } from "react-i18next";
 import { z } from "zod";
 
 import { ProviderIdSelect, Spinner } from "@/components";
+import { LabeledSelect } from "@/components/select";
 import type { ModelProvider, ModelProviderCatalogProvider } from "@/lib/model.types";
 
 import { validateProvider } from "../lib/model-api";
@@ -27,6 +28,7 @@ const connectionSchema = z.object({
   url: z.string().optional(),
   apiKey: z.string().optional(),
   providerType: z.string().min(1, "providerTypeRequired"),
+  catalogMode: z.enum(["generic", "ocx"]),
   customHeaders: z.array(
     z.object({
       key: z.string(),
@@ -89,6 +91,7 @@ export function ConnectionFormDialog({
             url: connection.url || "",
             apiKey: "",
             providerType: connection.providerType || "",
+            catalogMode: connection.catalogMode ?? "generic",
             customHeaders: (connection.customHeaderNames || []).map((key) => ({
               key,
               value: MASKED_CUSTOM_HEADER_VALUE,
@@ -99,6 +102,7 @@ export function ConnectionFormDialog({
             url: "",
             apiKey: "",
             providerType: "",
+            catalogMode: "generic",
             customHeaders: [],
           },
     [connection],
@@ -247,6 +251,7 @@ export function ConnectionFormDialog({
 
       formData.append("url", finalUrl);
       formData.append("provider_type", data.providerType);
+      formData.append("catalog_mode", data.catalogMode);
 
       // 只有在提供了 API Key 时才包含它
       if (data.apiKey) {
@@ -443,6 +448,40 @@ export function ConnectionFormDialog({
                 )}
               </Flex>
             )}
+
+            <Flex
+              direction="column"
+              gap="2"
+            >
+              <Text
+                size="2"
+                weight="medium"
+                color="gray"
+              >
+                {t("connections.catalogMode")}
+              </Text>
+              <Controller
+                name="catalogMode"
+                control={control}
+                render={({ field }) => (
+                  <LabeledSelect
+                    value={field.value}
+                    options={[
+                      { value: "generic", label: t("connections.catalogModeGeneric") },
+                      { value: "ocx", label: t("connections.catalogModeOcx") },
+                    ]}
+                    onChange={field.onChange}
+                    disabled={isAgentSettingsLocked}
+                  />
+                )}
+              />
+              <Text
+                size="1"
+                color="gray"
+              >
+                {t("connections.catalogModeHint")}
+              </Text>
+            </Flex>
 
             {/* API Key */}
             <Flex

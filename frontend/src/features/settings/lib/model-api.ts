@@ -22,6 +22,9 @@ import type {
   TaskType,
   ModelUpdateRequest,
   ModelDiscoveryStatus,
+  ModelSpeed,
+  SpeedReasoningCapability,
+  ModelProviderSyncResponse,
 } from "@/lib/model.types";
 
 interface ModelProviderCatalogProviderResponse {
@@ -53,6 +56,12 @@ interface ModelProviderCatalogModelResponse {
 }
 
 interface ModelProviderAvailableModelApiResponse {
+  default_speed?: ModelSpeed;
+  speed_variants?: Partial<Record<ModelSpeed, string>>;
+  speed_reasoning_capabilities?: Partial<Record<ModelSpeed, SpeedReasoningCapability>>;
+  reasoning_effort_levels?: string[];
+  reasoning_effort_status?: "supported" | "unsupported" | "unknown";
+  reasoning_effort_default?: string | null;
   id: string;
   name: string;
   task_type?: TaskType | null;
@@ -129,6 +138,7 @@ function transformProvider(raw: ModelProviderResponse): ModelProvider {
     name: raw.name,
     url: raw.url,
     providerType: raw.provider_type as ModelProvider["providerType"],
+    catalogMode: raw.catalog_mode ?? "generic",
     customHeaderNames: raw.custom_header_names ?? [],
     supportedTaskTypes: raw.supported_task_types as ModelProvider["supportedTaskTypes"],
     unavailableTaskTypes: (raw.unavailable_task_types ??
@@ -146,6 +156,9 @@ function transformProvider(raw: ModelProviderResponse): ModelProvider {
  */
 function transformModel(raw: ModelResponse): Model {
   return {
+    defaultSpeed: raw.default_speed ?? "standard",
+    speedVariants: raw.speed_variants,
+    speedReasoningCapabilities: raw.speed_reasoning_capabilities,
     upstreamStatus: raw.upstream_status ?? "unknown",
     discoveryStatus: raw.discovery_status ?? "unknown",
     discoveryCheckedAt: raw.discovery_checked_at,
@@ -225,6 +238,12 @@ function transformAvailableModel(
   const metadata = raw.metadata ?? null;
 
   return {
+    defaultSpeed: raw.default_speed ?? "standard",
+    speedVariants: raw.speed_variants,
+    speedReasoningCapabilities: raw.speed_reasoning_capabilities,
+    reasoningEffortLevels: raw.reasoning_effort_levels,
+    reasoningEffortStatus: raw.reasoning_effort_status,
+    reasoningEffortDefault: raw.reasoning_effort_default,
     id: raw.id,
     name: raw.name,
     taskType: raw.task_type ?? null,
@@ -326,6 +345,38 @@ export async function fetchProviderModels(
     discoveryCheckedAt: response.data.discovery_checked_at,
     models: (response.data.models || []).map((model) => transformAvailableModel(model, "remote")),
   };
+}
+
+/** Explicit reconciliation; GET directory endpoints never remove saved models. */
+export async function syncProviderModels(
+  providerId: string,
+  refresh = false,
+): Promise<ModelProviderSyncResponse> {
+  const response = await apiClient.post<
+    ModelProviderValidateApiResponse & {
+      removed_models: { id: string; name: string; model_id: string }[];
+      affected_uses: string[];
+    }
+  >(`/model-providers/${providerId}/models/sync`, undefined, { params: { refresh } });
+  const raw = response.data;
+  return {
+    success: raw.success,
+    message: raw.message,
+    discoveryStatus: raw.discovery_status ?? "unknown",
+    discoveryCheckedAt: raw.discovery_checked_at,
+    models: (raw.models ?? []).map((model) => transformAvailableModel(model, "remote")),
+    removedModels: (raw.removed_models ?? []).map((model) => ({
+      id: model.id,
+      name: model.name,
+      modelId: model.model_id,
+    })),
+    affectedUses: raw.affected_uses ?? [],
+  };
+}
+
+export async function fetchModelUsage(id: string): Promise<string[]> {
+  const response = await apiClient.get<{ uses: string[] }>(`/models/${id}/usage`);
+  return response.data.uses;
 }
 
 export async function fetchModelProviderCatalogProviders(): Promise<

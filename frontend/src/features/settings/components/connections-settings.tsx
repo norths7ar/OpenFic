@@ -6,6 +6,7 @@
 
 import { Box, Flex, Text, Button, IconButton, Tooltip, Badge } from "@radix-ui/themes";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import axios from "axios";
 import { Plus, Trash2, Edit, ListFilter } from "lucide-react";
 import { useState, useCallback, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
@@ -18,6 +19,8 @@ import type { ModelProvider } from "@/lib/model.types";
 import {
   fetchProviders,
   fetchModelProviderCatalogProviders,
+  fetchModels,
+  fetchModelUsage,
   createProvider,
   updateProvider,
   deleteProvider,
@@ -28,16 +31,21 @@ import {
   isCustomProviderType,
   resolveProviderDisplayName,
 } from "../lib/provider-utils";
+import { invalidateModelUses, useModelSync } from "../lib/use-model-sync";
 import { AgentSettingsLockNotice } from "./agent-settings-lock-notice";
 import { ConnectionFormDialog } from "./connection-form-dialog";
 import { ProviderModelsDialog } from "./provider-models-dialog";
 
 interface ConnectionsSettingsProps {
+  managedProviderId?: string;
+  onManagedProviderHandled?: () => void;
   isAgentSettingsLocked: boolean;
   isAgentSettingsLockLoading: boolean;
 }
 
 export function ConnectionsSettings({
+  managedProviderId,
+  onManagedProviderHandled,
   isAgentSettingsLocked,
   isAgentSettingsLockLoading,
 }: ConnectionsSettingsProps) {
@@ -48,6 +56,7 @@ export function ConnectionsSettings({
   const [editingConnection, setEditingConnection] = useState<ModelProvider | null>(null);
   const [deletingConnection, setDeletingConnection] = useState<ModelProvider | null>(null);
   const [modelsConnection, setModelsConnection] = useState<ModelProvider | null>(null);
+  const [deletingUses, setDeletingUses] = useState<string[]>([]);
 
   useEffect(() => {
     if (!isAgentSettingsLocked) return;
@@ -58,14 +67,18 @@ export function ConnectionsSettings({
   }, [isAgentSettingsLocked]);
 
   // 获取所有连接
-  const {
-    data: connections,
-    isLoading: isConnectionsLoading,
-    isFetching: isConnectionsFetching,
-  } = useQuery({
+  const { data: connections, isLoading: isConnectionsLoading } = useQuery({
     queryKey: ["model-providers"],
     queryFn: fetchProviders,
   });
+  useModelSync(connections);
+
+  useEffect(() => {
+    if (!managedProviderId || !connections) return;
+    const connection = connections.find((entry) => entry.id === managedProviderId);
+    if (connection) setModelsConnection(connection);
+    onManagedProviderHandled?.();
+  }, [managedProviderId, connections, onManagedProviderHandled]);
 
   const externalConnections = useMemo(
     () => connections?.filter((c) => !c.isBuiltin) ?? [],
@@ -93,14 +106,17 @@ export function ConnectionsSettings({
   // 更新连接
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: FormData }) => updateProvider(id, data),
-    onSuccess: () => {
+    onSuccess: (_provider, { id }) => {
       queryClient.invalidateQueries({ queryKey: ["model-providers"] });
+      void queryClient.invalidateQueries({ queryKey: ["provider-models", id] });
+      void invalidateModelUses(queryClient);
       setFormOpen(false);
       setEditingConnection(null);
       toast.success(t("connections.updateSuccess"));
     },
-    onError: () => {
-      toast.error(t("connections.updateFailed"));
+    onError: (error) => {
+      const detail = axios.isAxiosError(error) ? error.response?.data?.detail : undefined;
+      toast.error(typeof detail === "string" ? detail : t("connections.updateFailed"));
     },
   });
 
@@ -109,6 +125,7 @@ export function ConnectionsSettings({
     mutationFn: deleteProvider,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["model-providers"] });
+      void invalidateModelUses(queryClient);
       setDeletingConnection(null);
       toast.success(t("connections.deleteSuccess"));
     },
@@ -145,9 +162,19 @@ export function ConnectionsSettings({
   );
 
   // 确认删除
-  const handleDelete = useCallback((connection: ModelProvider) => {
-    setDeletingConnection(connection);
-  }, []);
+  const handleDelete = useCallback(
+    async (connection: ModelProvider) => {
+      try {
+        const models = await fetchModels(connection.id, undefined, true);
+        const uses = await Promise.all(models.map((model) => fetchModelUsage(model.id)));
+        setDeletingUses([...new Set(uses.flat())]);
+        setDeletingConnection(connection);
+      } catch {
+        toast.error(t("models.usageCheckFailed"));
+      }
+    },
+    [t],
+  );
 
   // 执行删除
   const handleConfirmDelete = useCallback(async () => {
@@ -157,10 +184,7 @@ export function ConnectionsSettings({
   }, [deletingConnection, deleteMutation]);
 
   const isContentLoading =
-    isConnectionsLoading ||
-    isConnectionsFetching ||
-    isCatalogProvidersLoading ||
-    isAgentSettingsLockLoading;
+    isConnectionsLoading || isCatalogProvidersLoading || isAgentSettingsLockLoading;
 
   if (isContentLoading) {
     return (
@@ -385,7 +409,14 @@ export function ConnectionsSettings({
         open={!!deletingConnection}
         onOpenChange={(open) => !open && setDeletingConnection(null)}
         title={t("connections.deleteConnection")}
-        description={t("connections.deleteConfirm")}
+        description={[
+          t("connections.deleteConfirm"),
+          deletingUses.length > 0
+            ? t("models.affectedUses", { uses: deletingUses.join("、") })
+            : "",
+        ]
+          .filter(Boolean)
+          .join("\n")}
         onConfirm={handleConfirmDelete}
         confirmText={t("common.delete")}
         cancelText={t("common.cancel")}

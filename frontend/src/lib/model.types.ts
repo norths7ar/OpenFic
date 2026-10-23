@@ -13,6 +13,20 @@ export type ProviderType = string;
 export type TaskType = "llm" | "embedding" | "rerank";
 
 export type ReasoningEffortStatus = "supported" | "unsupported" | "unknown";
+export type ModelSpeed = "standard" | "fast";
+export type ProviderCatalogMode = "generic" | "ocx";
+
+export interface SpeedReasoningCapability {
+  levels: ReasoningEffort[];
+  status: ReasoningEffortStatus;
+  default: ReasoningEffort | null;
+}
+
+export interface ModelSpeedFields {
+  defaultSpeed?: ModelSpeed;
+  speedVariants?: Partial<Record<ModelSpeed, string>>;
+  speedReasoningCapabilities?: Partial<Record<ModelSpeed, SpeedReasoningCapability>>;
+}
 
 export type ModelDiscoveryStatus = "ok" | "error" | "unsupported" | "unknown";
 export type UpstreamModelStatus = "listed" | "not_listed" | "unknown";
@@ -29,6 +43,7 @@ export interface ModelProvider {
   name: string;
   url: string;
   providerType: ProviderType;
+  catalogMode?: ProviderCatalogMode;
   customHeaderNames: string[];
   supportedTaskTypes: TaskType[];
   unavailableTaskTypes: TaskType[];
@@ -57,6 +72,7 @@ export interface ModelProviderResponse {
   name: string;
   url: string;
   provider_type: string;
+  catalog_mode?: ProviderCatalogMode;
   custom_header_names?: string[];
   supported_task_types: string[];
   unavailable_task_types?: string[];
@@ -92,7 +108,7 @@ export interface ModelProviderCustomHeader {
 }
 
 /** 可用模型 */
-export interface AvailableModel extends ModelDiscoveryFields {
+export interface AvailableModel extends ModelDiscoveryFields, ModelSpeedFields {
   reasoningEffortLevels?: ReasoningEffort[];
   reasoningEffortStatus?: ReasoningEffortStatus;
   reasoningEffortDefault?: ReasoningEffort | null;
@@ -122,6 +138,11 @@ export interface ModelProviderValidateResponse {
   models: AvailableModel[];
 }
 
+export interface ModelProviderSyncResponse extends ModelProviderValidateResponse {
+  removedModels: { id: string; name: string; modelId: string }[];
+  affectedUses: string[];
+}
+
 export type ModelValidationErrorCode =
   | "authentication_failed"
   | "connection_failed"
@@ -140,7 +161,7 @@ export interface ModelValidationResponse {
 }
 
 /** 模型 */
-export interface Model extends ModelDiscoveryFields {
+export interface Model extends ModelDiscoveryFields, ModelSpeedFields {
   reasoningEffortLevels?: ReasoningEffort[];
   reasoningEffortStatus?: ReasoningEffortStatus;
   reasoningEffortDefault?: ReasoningEffort | null;
@@ -173,6 +194,9 @@ export interface Model extends ModelDiscoveryFields {
 
 /** 模型响应（后端格式） */
 export interface ModelResponse {
+  default_speed?: ModelSpeed;
+  speed_variants?: Partial<Record<ModelSpeed, string>>;
+  speed_reasoning_capabilities?: Partial<Record<ModelSpeed, SpeedReasoningCapability>>;
   upstream_status?: UpstreamModelStatus;
   discovery_status?: ModelDiscoveryStatus;
   discovery_checked_at?: string | null;
@@ -208,6 +232,7 @@ export interface ModelResponse {
 
 /** 创建模型请求 */
 export interface ModelCreateRequest {
+  default_speed?: ModelSpeed;
   name: string;
   provider_id: string;
   model_id: string;
@@ -233,6 +258,7 @@ export interface ModelCreateRequest {
 
 /** 更新模型请求 */
 export interface ModelUpdateRequest {
+  default_speed?: ModelSpeed;
   name?: string;
   remark?: string;
   provider_id?: string;

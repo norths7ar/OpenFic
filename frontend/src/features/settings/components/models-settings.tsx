@@ -4,14 +4,13 @@
  * 模型设置面板，管理和配置 AI 模型。
  */
 
-import { Badge, Box, DropdownMenu, Flex, IconButton, Tabs, Text } from "@radix-ui/themes";
+import { Badge, Box, Button, Flex, IconButton, Tabs, Text } from "@radix-ui/themes";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Edit, MoreHorizontal, Trash2 } from "lucide-react";
+import { Edit, ExternalLink } from "lucide-react";
 import { useState, useCallback, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 
 import { Spinner } from "@/components";
-import { ConfirmDialog } from "@/components/confirm-dialog";
 import {
   CapabilityIcon,
   ContextBadge,
@@ -28,24 +27,23 @@ import {
   fetchModelProviderCatalogModels,
   fetchModels,
   fetchProviders,
-  createModel,
   updateModel,
-  deleteModel,
 } from "../lib/model-api";
 import {
-  hasSelectableModelProvider,
   resolveProviderCatalogType,
   resolveProviderDisplayName,
   resolveProviderIconPath,
 } from "../lib/provider-utils";
 import { fetchSettings, updateSettings } from "../lib/settings-api";
 import { DEFAULT_MODEL_SETTINGS_TAB, type ModelSettingsTab } from "../lib/settings-route";
+import { useModelSync } from "../lib/use-model-sync";
 import { AgentSettingsLockNotice } from "./agent-settings-lock-notice";
 import { ModelFormDialog } from "./model-form-dialog";
 
 interface ModelsSettingsProps {
   activeTab?: ModelSettingsTab;
   onActiveTabChange?: (tab: ModelSettingsTab) => void;
+  onManageProvider: (providerId: string) => void;
   isAgentSettingsLocked: boolean;
   isAgentSettingsLockLoading: boolean;
 }
@@ -55,19 +53,18 @@ export function ModelsSettings({
   onActiveTabChange,
   isAgentSettingsLocked,
   isAgentSettingsLockLoading,
+  onManageProvider,
 }: ModelsSettingsProps) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
 
   const [formOpen, setFormOpen] = useState(false);
   const [editingModel, setEditingModel] = useState<Model | null>(null);
-  const [deletingModel, setDeletingModel] = useState<Model | null>(null);
 
   useEffect(() => {
     if (!isAgentSettingsLocked) return;
     setFormOpen(false);
     setEditingModel(null);
-    setDeletingModel(null);
   }, [isAgentSettingsLocked]);
 
   // 获取所有模型
@@ -82,6 +79,8 @@ export function ModelsSettings({
     queryKey: ["model-providers"],
     queryFn: fetchProviders,
   });
+
+  useModelSync(providers);
 
   // 获取设置
   const { data: settings, isLoading: isSettingsLoading } = useQuery({
@@ -112,7 +111,10 @@ export function ModelsSettings({
     [updateSettingsMutation],
   );
 
-  const llmModels = useMemo(() => models?.filter((m) => m.taskType === "llm") ?? [], [models]);
+  const llmModels = useMemo(
+    () => models?.filter((m) => m.taskType === "llm" && m.isEnabled) ?? [],
+    [models],
+  );
   const llmCatalogProviderTypes = useMemo(() => {
     if (!providers || llmModels.length === 0) {
       return [];
@@ -191,19 +193,6 @@ export function ModelsSettings({
     return map;
   }, [llmModelOptions]);
 
-  // 创建模型
-  const createMutation = useMutation({
-    mutationFn: createModel,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["models"] });
-      setFormOpen(false);
-      toast.success(t("models.createSuccess"));
-    },
-    onError: () => {
-      toast.error(t("models.createFailed"));
-    },
-  });
-
   // 更新模型
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: ModelUpdateRequest }) => updateModel(id, data),
@@ -217,25 +206,6 @@ export function ModelsSettings({
       toast.error(t("models.updateFailed"));
     },
   });
-
-  // 删除模型
-  const deleteMutation = useMutation({
-    mutationFn: deleteModel,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["models"] });
-      setDeletingModel(null);
-      toast.success(t("models.deleteSuccess"));
-    },
-    onError: () => {
-      toast.error(t("models.deleteFailed"));
-    },
-  });
-
-  // 打开创建对话框
-  const handleCreate = useCallback(() => {
-    setEditingModel(null);
-    setFormOpen(true);
-  }, []);
 
   // 打开编辑对话框
   const handleEdit = useCallback((model: Model) => {
@@ -251,24 +221,10 @@ export function ModelsSettings({
           id: editingModel.id,
           data: data as ModelUpdateRequest,
         });
-      } else {
-        await createMutation.mutateAsync(data as ModelCreateRequest);
       }
     },
-    [editingModel, createMutation, updateMutation],
+    [editingModel, updateMutation],
   );
-
-  // 确认删除
-  const handleDelete = useCallback((model: Model) => {
-    setDeletingModel(model);
-  }, []);
-
-  // 执行删除
-  const handleConfirmDelete = useCallback(async () => {
-    if (deletingModel) {
-      await deleteMutation.mutateAsync(deletingModel.id);
-    }
-  }, [deletingModel, deleteMutation]);
 
   // 获取提供商名称
   const getProviderName = useCallback(
@@ -280,9 +236,7 @@ export function ModelsSettings({
     [providers],
   );
 
-  const filteredModels = models?.filter((m) => m.taskType === activeTab) || [];
-  const hasLlmModels = llmModelOptions.length > 0;
-  const hasProviders = providers ? hasSelectableModelProvider(providers) : false;
+  const filteredModels = models?.filter((m) => m.taskType === activeTab && m.isEnabled) || [];
   const isContentLoading =
     isModelsLoading || isProvidersLoading || isSettingsLoading || isAgentSettingsLockLoading;
 
@@ -353,13 +307,11 @@ export function ModelsSettings({
               value={settings?.defaultModel || ""}
               onChange={handleDefaultModelChange}
               models={llmModelOptions}
-              placeholder={
-                hasLlmModels ? t("models.selectModelPlaceholder") : t("models.noModelPlaceholder")
-              }
+              placeholder={t("models.chooseEachTime")}
               editable={false}
               allowCustomValue={false}
-              disabled={isAgentSettingsLocked || !hasLlmModels}
-              emptyOptionLabel={`（${t("models.selectModelPlaceholder")}）`}
+              disabled={isAgentSettingsLocked}
+              emptyOptionLabel={t("models.chooseEachTime")}
             />
           </Flex>
 
@@ -385,38 +337,13 @@ export function ModelsSettings({
               value={settings?.lightModel || ""}
               onChange={handleLightModelChange}
               models={llmModelOptions}
-              placeholder={
-                hasLlmModels ? t("models.selectModelPlaceholder") : t("models.noModelPlaceholder")
-              }
+              placeholder={t("models.followDefault")}
               editable={false}
               allowCustomValue={false}
-              disabled={isAgentSettingsLocked || !hasLlmModels}
-              emptyOptionLabel={`（${t("models.selectModelPlaceholder")}）`}
+              disabled={isAgentSettingsLocked}
+              emptyOptionLabel={t("models.followDefault")}
             />
           </Flex>
-        </Flex>
-
-        {/* 手动添加仅作为无法探测远端模型时的备用入口 */}
-        <Flex justify="end">
-          <DropdownMenu.Root>
-            <DropdownMenu.Trigger>
-              <IconButton
-                variant="ghost"
-                color="gray"
-                aria-label={t("models.moreActions")}
-              >
-                <MoreHorizontal size={18} />
-              </IconButton>
-            </DropdownMenu.Trigger>
-            <DropdownMenu.Content align="end">
-              <DropdownMenu.Item
-                onSelect={handleCreate}
-                disabled={isAgentSettingsLocked || !hasProviders}
-              >
-                {t("models.manualAddModel")}
-              </DropdownMenu.Item>
-            </DropdownMenu.Content>
-          </DropdownMenu.Root>
         </Flex>
 
         {/* Tab导航 */}
@@ -547,27 +474,15 @@ export function ModelsSettings({
                           >
                             <Edit size={16} />
                           </IconButton>
-                          <DropdownMenu.Root>
-                            <DropdownMenu.Trigger>
-                              <IconButton
-                                variant="ghost"
-                                color="gray"
-                                aria-label={t("models.moreActions")}
-                                disabled={isAgentSettingsLocked}
-                              >
-                                <MoreHorizontal size={16} />
-                              </IconButton>
-                            </DropdownMenu.Trigger>
-                            <DropdownMenu.Content align="end">
-                              <DropdownMenu.Item
-                                color="red"
-                                onSelect={() => handleDelete(model)}
-                              >
-                                <Trash2 size={14} />
-                                {t("models.permanentDelete")}
-                              </DropdownMenu.Item>
-                            </DropdownMenu.Content>
-                          </DropdownMenu.Root>
+                          <Button
+                            size="1"
+                            variant="ghost"
+                            color="gray"
+                            onClick={() => onManageProvider(model.providerId)}
+                          >
+                            <ExternalLink size={14} />
+                            {t("models.manageThisProvider")}
+                          </Button>
                         </>
                       )}
                     </Flex>
@@ -611,20 +526,9 @@ export function ModelsSettings({
         model={editingModel || undefined}
         models={models ?? []}
         onSubmit={handleSubmit}
-        isSubmitting={createMutation.isPending || updateMutation.isPending}
+        parametersOnly
+        isSubmitting={updateMutation.isPending}
         isAgentSettingsLocked={isAgentSettingsLocked}
-      />
-
-      {/* 删除确认对话框 */}
-      <ConfirmDialog
-        open={!!deletingModel}
-        onOpenChange={(open) => !open && setDeletingModel(null)}
-        title={t("models.deleteModel")}
-        description={t("models.deleteConfirm")}
-        onConfirm={handleConfirmDelete}
-        confirmText={t("common.delete")}
-        cancelText={t("common.cancel")}
-        loading={deleteMutation.isPending}
       />
     </Box>
   );

@@ -11,6 +11,7 @@ import {
   resolveProviderCatalogType,
   resolveProviderIconPath,
 } from "@/features/settings/lib/provider-utils";
+import { useModelSync } from "@/features/settings/lib/use-model-sync";
 import { MODEL_DISCOVERY_QUERY_OPTIONS } from "@/lib/model-discovery";
 
 export interface UseLlmModelOptionsResult {
@@ -34,9 +35,10 @@ export function useLlmModelOptions(): UseLlmModelOptionsResult {
     queryKey: ["model-providers"],
     queryFn: fetchProviders,
   });
+  useModelSync(providers);
 
   const llmModels = useMemo(
-    () => (models ?? []).filter((model) => model.taskType === "llm"),
+    () => (models ?? []).filter((model) => model.taskType === "llm" && model.isEnabled),
     [models],
   );
 
@@ -77,6 +79,9 @@ export function useLlmModelOptions(): UseLlmModelOptionsResult {
 
       return {
         value: model.id,
+        defaultSpeed: model.defaultSpeed ?? "standard",
+        speedVariants: model.speedVariants,
+        speedReasoningCapabilities: model.speedReasoningCapabilities,
         upstreamStatus: model.upstreamStatus,
         discoveryStatus: model.discoveryStatus,
         discoveryCheckedAt: model.discoveryCheckedAt,
