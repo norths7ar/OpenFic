@@ -3,7 +3,7 @@ ModelProvider Router - 模型服务提供商 API。
 """
 
 import json
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import (
     APIRouter,
@@ -23,6 +23,7 @@ from app.api.schemas.model_provider import (
     CatalogMatchResponse,
     CustomHeaderEntry,
     ModelProviderResponse,
+    ModelProviderSyncResponse,
     ModelProviderValidateRequest,
     ModelProviderValidateResponse,
 )
@@ -53,6 +54,21 @@ def get_provider_service(
 ) -> ModelProviderService:
     """获取提供商服务实例。"""
     return ModelProviderService(encryption_service, catalog_service)
+
+
+@router.post("/{provider_id}/models/sync", response_model=ModelProviderSyncResponse)
+async def sync_provider_models(
+    provider_id: str,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    service: Annotated[ModelProviderService, Depends(get_provider_service)],
+    refresh: bool = Query(False),
+) -> ModelProviderSyncResponse:
+    try:
+        return ModelProviderSyncResponse.model_validate(
+            await service.sync_models(session, provider_id, refresh=refresh)
+        )
+    except NotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 def _parse_custom_headers(raw_headers: str | None) -> list[dict[str, str]] | None:
@@ -92,6 +108,7 @@ async def _build_provider_response(
         name=provider.name,
         url=provider.url,
         provider_type=provider.provider_type,
+        catalog_mode=provider.catalog_mode,
         custom_header_names=service.get_custom_header_names(provider),
         supported_task_types=supported_task_types,
         unavailable_task_types=unavailable_task_types,
@@ -173,6 +190,7 @@ async def create_provider(
     name: Annotated[str, Form()] = "",
     api_key: Annotated[str | None, Form()] = None,
     custom_headers: Annotated[str | None, Form()] = None,
+    catalog_mode: Annotated[Literal["generic", "ocx"], Form()] = "generic",
     session: AsyncSession = Depends(get_session),
     service: ModelProviderService = Depends(get_provider_service),
 ) -> ModelProviderResponse:
@@ -201,6 +219,7 @@ async def create_provider(
             api_key=api_key or "",
             provider_type=provider_type,
             custom_headers=_parse_custom_headers(custom_headers),
+            catalog_mode=catalog_mode,
         )
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
@@ -220,6 +239,7 @@ async def update_provider(
     api_key: Annotated[str | None, Form()] = None,
     provider_type: Annotated[str | None, Form()] = None,
     custom_headers: Annotated[str | None, Form()] = None,
+    catalog_mode: Annotated[Literal["generic", "ocx"] | None, Form()] = None,
     session: AsyncSession = Depends(get_session),
     service: ModelProviderService = Depends(get_provider_service),
 ) -> ModelProviderResponse:
@@ -253,6 +273,7 @@ async def update_provider(
             api_key=api_key,
             provider_type=provider_type,
             custom_headers=_parse_custom_headers(custom_headers),
+            catalog_mode=catalog_mode,
         )
 
         return await _build_provider_response(provider, service)

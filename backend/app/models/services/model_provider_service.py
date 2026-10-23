@@ -4,17 +4,21 @@ Model Provider Service - 模型服务提供商业务逻辑层。
 Service作为Executor，是唯一发起调用的地方，负责处理重试、熔断、fallback和观测。
 """
 
+import asyncio
 import json
 from collections.abc import Mapping
 from typing import Any
 
 import httpx
 from loguru import logger
+from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import col
 
 from app.core.encryption import EncryptionService
 from app.core.errors import NotFoundError
 from app.models.catalog import CatalogMatch, ModelProviderCatalogService
+from app.models.clients.model_variants import visible_directory
 from app.models.clients.provider_discovery import (
     DiscoverySnapshot,
     discover_provider_models,
@@ -22,7 +26,11 @@ from app.models.clients.provider_discovery import (
 )
 from app.models.entities.model_provider import ModelProvider
 from app.models.registry import AdapterRegistry
-from app.models.repos import model_provider_repo
+from app.models.repos import model_provider_repo, model_repo
+from app.models.services.model_lifecycle import release_model_references
+from app.models.services.ocx_model_pairs import paired_records, require_unambiguous_pairs
+
+_sync_locks: dict[str, asyncio.Lock] = {}
 
 CUSTOM_PROVIDER_TYPES = frozenset(
     {
@@ -194,6 +202,7 @@ class ModelProviderService:
         api_key: str,
         provider_type: str,
         custom_headers: list[dict[str, str]] | None = None,
+        catalog_mode: str = "generic",
     ) -> ModelProvider:
         """
         创建提供商。
@@ -226,6 +235,7 @@ class ModelProviderService:
             url=url,
             api_key_encrypted=encrypted_key,
             provider_type=provider_type,
+            catalog_mode=catalog_mode,
             custom_headers_encrypted=encrypted_headers,
         )
         await session.commit()
@@ -254,6 +264,7 @@ class ModelProviderService:
         url: str | None = None,
         api_key: str | None = None,
         provider_type: str | None = None,
+        catalog_mode: str | None = None,
         custom_headers: list[dict[str, str]] | None = None,
     ) -> ModelProvider:
         """
@@ -279,6 +290,9 @@ class ModelProviderService:
             raise NotFoundError(f"Provider with id {provider_id} not found")
         if existing.is_builtin:
             raise ValueError("内置提供商不允许编辑")
+        if catalog_mode == "ocx" and existing.catalog_mode != "ocx":
+            saved = await model_repo.get_by_provider_id(session, provider_id, include_disabled=True)
+            require_unambiguous_pairs(paired_records(saved))
 
         # 加密 API Key（如果提供）
         encrypted_key = None
@@ -309,6 +323,7 @@ class ModelProviderService:
             api_key_encrypted=encrypted_key,
             custom_headers_encrypted=encrypted_headers,
             provider_type=provider_type,
+            catalog_mode=catalog_mode,
         )
 
         if not provider:
@@ -334,10 +349,134 @@ class ModelProviderService:
             raise NotFoundError(f"Provider with id {provider_id} not found")
         if provider.is_builtin:
             raise ValueError("内置提供商不允许删除")
+        models = await model_repo.get_by_provider_id(session, provider_id, include_disabled=True)
+        for model in models:
+            await release_model_references(session, model)
         success = await model_provider_repo.delete_by_id(session, provider_id)
         if not success:
             raise NotFoundError(f"Provider with id {provider_id} not found")
         await session.commit()
+
+    async def sync_models(
+        self,
+        session: AsyncSession,
+        provider_id: str,
+        *,
+        refresh: bool = False,
+    ) -> dict[str, Any]:
+        """Explicit LLM synchronization. Raw, complete directories alone authorize retirement."""
+        async with _sync_locks.setdefault(provider_id, asyncio.Lock()):
+            provider = await self.get_provider_by_id(session, provider_id)
+            if provider.is_builtin:
+                return dict(
+                    success=True,
+                    message="静态目录不执行清理",
+                    models=[],
+                    discovery_status="unsupported",
+                )
+            # Do not hold a read transaction over network IO. Keep an independent copy
+            # because rollback expires ORM attributes.
+            provider = ModelProvider.model_validate(provider.model_dump())
+            signature = {
+                key: getattr(provider, key)
+                for key in (
+                    "url",
+                    "provider_type",
+                    "api_key_encrypted",
+                    "custom_headers_encrypted",
+                    "catalog_mode",
+                )
+            }
+            await session.rollback()
+            try:
+                api_key, headers = self.get_discovery_credentials(provider)
+                snapshot = await discover_provider_models(
+                    provider.provider_type,
+                    provider.url,
+                    api_key,
+                    headers,
+                    refresh=refresh,
+                )
+            except ValueError as exc:
+                return dict(success=False, message=str(exc), models=[], discovery_status="error")
+            result = dict(
+                success=snapshot.status != "error",
+                message=snapshot.error or "模型目录已同步",
+                models=[],
+                discovery_status=snapshot.status,
+                discovery_checked_at=snapshot.checked_at,
+                removed_models=[],
+                affected_uses=[],
+            )
+            if snapshot.status != "error":
+                result["models"] = await self.enrich_models_with_catalog_metadata(
+                    provider,
+                    "llm",
+                    visible_directory(provider, snapshot, api_key, headers),
+                )
+            if snapshot.status != "ok":
+                return result
+            try:
+                # Conditional write both verifies the connection and obtains a DB write
+                # lock until commit; a concurrent connection edit cannot slip between
+                # verification and deletion (including SQLite, where FOR UPDATE is ignored).
+                claim = await session.execute(
+                    update(ModelProvider)
+                    .where(
+                        col(ModelProvider.id) == provider_id,
+                        *(getattr(ModelProvider, key) == value for key, value in signature.items()),
+                    )
+                    .values(catalog_mode=provider.catalog_mode)
+                    .execution_options(synchronize_session=False)
+                )
+                if not getattr(claim, "rowcount", 0):
+                    await session.rollback()
+                    return dict(
+                        success=False,
+                        message="连接配置已变化，请重新同步",
+                        models=[],
+                        discovery_status="unknown",
+                    )
+                models = await model_repo.get_by_provider_id(
+                    session, provider_id, include_disabled=True
+                )
+                raw_identifiers = {model.id: model.model_id for model in models}
+                if provider.catalog_mode == "ocx":
+                    groups = paired_records(models, snapshot.models)
+                    try:
+                        require_unambiguous_pairs(groups)
+                    except ValueError as exc:
+                        await session.rollback()
+                        result.update(success=False, message=str(exc))
+                        return result
+                    for base, records in groups.items():
+                        model = records[0]
+                        if model.model_id == base + "--fast":
+                            await model_repo.update(
+                                session,
+                                model.id,
+                                model_identifier=base,
+                                default_speed="fast",
+                            )
+                affected: list[str] = []
+                removed: list[dict[str, str]] = []
+                for model in models:
+                    if (
+                        model.task_type != "llm"
+                        or model.is_builtin
+                        or raw_identifiers[model.id] in snapshot.models
+                    ):
+                        continue
+                    affected.extend(await release_model_references(session, model))
+                    removed.append(dict(id=model.id, name=model.name, model_id=model.model_id))
+                    await model_repo.delete_by_id(session, model.id)
+                await session.commit()
+                result["removed_models"] = removed
+                result["affected_uses"] = list(dict.fromkeys(affected))
+                return result
+            except BaseException:
+                await session.rollback()
+                raise
 
     # ========================
     # API Key 操作
@@ -433,7 +572,7 @@ class ModelProviderService:
 
     async def get_available_models(
         self, provider: ModelProvider, task_type: str, *, refresh: bool = False
-    ) -> list[dict[str, str]]:
+    ) -> list[dict[str, Any]]:
         """
         获取指定provider和task_type的可用模型列表（Executor执行点）。
 
@@ -456,7 +595,8 @@ class ModelProviderService:
             snapshot = await discover_provider_models(
                 provider.provider_type, provider.url, api_key, headers, refresh=refresh
             )
-            return self._discovered_models(snapshot)
+            self._discovered_models(snapshot)
+            return visible_directory(provider, snapshot, api_key, headers)
 
         logger.info(
             f"Fetching available models for provider={provider.provider_type}, task_type={task_type}"
@@ -526,12 +666,13 @@ class ModelProviderService:
         self,
         provider: ModelProvider,
         task_type: str,
-        models: list[dict[str, str]],
+        models: list[dict[str, Any]],
     ) -> list[dict[str, Any]]:
         """按 model id 将远端返回模型与 catalog 元数据对齐。"""
 
         enriched_models: list[dict[str, Any]] = [
             {
+                **model,
                 "id": model["id"],
                 "name": model["name"],
                 "task_type": task_type,

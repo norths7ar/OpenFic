@@ -28,6 +28,7 @@ class AgentSessionCreateRequest(BaseModel):
         default="build",
         description="主智能体标识，用于选择启用的 primary agent",
     )
+    model_speed: Literal["standard", "fast"] | None = None
     reasoning_effort: ReasoningEffort | None = Field(
         default=None,
         description="当前会话推理强度，仅 reasoning 模型可用",
@@ -84,6 +85,7 @@ class AgentSendMessageRequest(BaseModel):
     attachments: list[str] = Field(default_factory=list, description="图片附件 ID 列表")
     model_id: str | None = Field(default=None, description="下一轮执行使用的模型ID")
     agent_key: str | None = Field(default=None, description="下一轮执行使用的主智能体标识")
+    model_speed: Literal["standard", "fast"] | None = None
     reasoning_effort: ReasoningEffort | None = Field(
         default=None,
         description="当前轮推理强度，仅 reasoning 模型可用",
@@ -144,7 +146,13 @@ class AgentCompactionResponse(BaseModel):
     summary_tokens: int = Field(default=0, description="摘要 token 数")
 
 
-class AgentQuestionAnswerRequest(BaseModel):
+class AgentResumeModelOptions(BaseModel):
+    model_id: str | None = None
+    model_speed: Literal["standard", "fast"] | None = None
+    reasoning_effort: ReasoningEffort | None = None
+
+
+class AgentQuestionAnswerRequest(AgentResumeModelOptions):
     """提交 Agent 澄清问题回答请求。"""
 
     action_id: str = Field(..., description="澄清请求ID")
@@ -161,7 +169,7 @@ class AgentQuestionAnswerItem(BaseModel):
     answer: str = Field(..., min_length=1, description="选项标签或用户输入")
 
 
-class AgentToolApprovalRequest(BaseModel):
+class AgentToolApprovalRequest(AgentResumeModelOptions):
     """Agent工具审批请求。"""
 
     approval_id: str = Field(..., description="审批ID")
@@ -183,7 +191,7 @@ class AgentInterruptResponseItem(BaseModel):
     skipped: bool | None = Field(default=None, description="是否忽略本次提问")
 
 
-class AgentInterruptResumeRequest(BaseModel):
+class AgentInterruptResumeRequest(AgentResumeModelOptions):
     """批量恢复同一轮并行中断。"""
 
     batch_id: str = Field(..., description="中断批次ID")
@@ -301,6 +309,7 @@ class AgentForkRequest(BaseModel):
 
     source_revision_id: str = Field(..., description="分叉来源用户消息 revision ID")
     model_id: str = Field(..., description="Fork 会话后续使用的模型 ID")
+    model_speed: Literal["standard", "fast"] | None = None
     reasoning_effort: ReasoningEffort | None = Field(
         default=None,
         description="Fork 会话后续使用的推理强度",

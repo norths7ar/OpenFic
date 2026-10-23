@@ -42,6 +42,7 @@ class ModelProvider(SQLModel, table=True):
             "amazon-nova, deepseek, openai-compatible, openai-compatible-responses"
         ),
     )
+    catalog_mode: str = Field(default="generic", max_length=20)
     is_builtin: bool = Field(default=False, description="是否为内置提供商（不可删除/编辑）")
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))

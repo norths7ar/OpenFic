@@ -5,12 +5,10 @@ from dataclasses import dataclass
 from loguru import logger
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.encryption import EncryptionService
 from app.models.clients import LLMClient, LLMConfig
 from app.models.entities.model import Model
 from app.models.entities.model_provider import ModelProvider
 from app.models.repos import model_provider_repo, model_repo
-from app.models.services.model_provider_service import ModelProviderService
 from app.settings import settings
 from app.storage.repos import setting_repo
 
@@ -38,6 +36,10 @@ async def resolve_background_llm(
         setting = await setting_repo.get_by_key(session, "light_model")
         effective_model_id = setting.value.strip() if setting and setting.value else ""
 
+    if not effective_model_id and model_policy in {"light_model", "default_model"}:
+        setting = await setting_repo.get_by_key(session, "default_model")
+        effective_model_id = setting.value.strip() if setting and setting.value else ""
+
     if not effective_model_id:
         logger.warning(f"后台任务模型未配置，model_policy={model_policy}")
         raise BackgroundModelUnavailableError(f"后台任务模型未配置: {model_policy}")
@@ -52,26 +54,14 @@ async def resolve_background_llm(
         logger.warning(f"后台任务模型提供商不存在: {model.provider_id}")
         raise BackgroundModelUnavailableError(f"模型提供商不存在: {model.provider_id}")
 
-    encryption_service = EncryptionService(settings.encryption_key)
-    api_key = encryption_service.decrypt(provider.api_key_encrypted)
-    custom_headers = ModelProviderService(encryption_service).get_decrypted_custom_headers(provider)
+    from app.agent_runtime.model_resolution import resolve_model_config
+
+    config = await resolve_model_config(session, model.id)
+    fields = LLMConfig.__dataclass_fields__
     return ResolvedLLM(
         client=LLMClient(
             LLMConfig(
-                provider_type=provider.provider_type,
-                base_url=provider.url,
-                api_key=api_key,
-                model_id=model.model_id,
-                custom_headers=custom_headers or None,
-                temperature=model.temperature,
-                top_p=model.top_p,
-                top_k=model.top_k,
-                min_p=model.min_p,
-                top_a=model.top_a,
-                max_tokens=model.max_tokens,
-                frequency_penalty=model.frequency_penalty,
-                presence_penalty=model.presence_penalty,
-                repetition_penalty=model.repetition_penalty,
+                **{key: value for key, value in config.items() if key in fields},
                 request_timeout=int(settings.llm_request_timeout),
             )
         ),

@@ -14,6 +14,7 @@ from app.api.schemas.model import (
     ModelCreateRequest,
     ModelResponse,
     ModelUpdateRequest,
+    ModelUsageResponse,
     ModelValidationResponse,
     TaskType,
 )
@@ -78,6 +79,8 @@ async def _model_response(session: AsyncSession, model) -> ModelResponse:
 
 def _to_response(m, provider=None) -> ModelResponse:
     capability = ReasoningCapability()
+    api_key = ""
+    headers = {}
     discovery = DiscoverySnapshot()
     if provider is not None and m.task_type == "llm" and not provider.is_builtin:
         service = ModelProviderService(EncryptionService(settings.encryption_key))
@@ -95,7 +98,16 @@ def _to_response(m, provider=None) -> ModelResponse:
             discovery = DiscoverySnapshot(status="error")
     elif provider is not None and m.task_type == "llm" and provider.is_builtin:
         discovery = DiscoverySnapshot(status="unsupported")
+    from app.models.clients.model_variants import model_speed_fields
+
+    speed_fields = (
+        model_speed_fields(m.model_id, provider, discovery, api_key, headers)
+        if m.task_type == "llm" and provider is not None
+        else {}
+    )
     return ModelResponse(
+        default_speed=m.default_speed,
+        **speed_fields,
         id=m.id,
         name=m.name,
         remark=m.remark,
@@ -294,6 +306,7 @@ async def create_model(
             cache_write_price=request.cache_write_price,
             dimensions=request.dimensions,
             is_enabled=request.is_enabled,
+            default_speed=request.default_speed,
         )
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
@@ -355,6 +368,7 @@ async def update_model(
             cache_write_price=request.cache_write_price,
             dimensions=request.dimensions,
             is_enabled=request.is_enabled,
+            default_speed=request.default_speed,
         )
 
         return await _model_response(session, model)
@@ -394,3 +408,16 @@ async def delete_model(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+
+
+@router.get("/{model_id}/usage", response_model=ModelUsageResponse)
+async def get_model_usage(
+    model_id: str,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    service: Annotated[ModelService, Depends(get_model_service)],
+) -> ModelUsageResponse:
+    try:
+        await service.get_model_by_id(session, model_id)
+        return ModelUsageResponse(uses=await service._get_model_usage_labels(session, model_id))
+    except NotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc

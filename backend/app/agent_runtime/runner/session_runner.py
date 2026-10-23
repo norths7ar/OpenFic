@@ -132,6 +132,8 @@ class SessionRunner:
         self.last_run_completed = False
         self._received_user_message_ids: set[str] = set()
         self._pending_delivery_modes: dict[str, str] = {}
+        self._queued_model_configs: dict[str, dict] = {}
+        self._next_model_config: dict | None = None
         self._inject_queue: asyncio.Queue[tuple[str | None, str, str]] = asyncio.Queue()
         self._queued_user_messages: dict[str, tuple[str, datetime]] = {}
         self._queued_user_message_attachments: dict[str, list[dict[str, Any]]] = {}
@@ -154,9 +156,13 @@ class SessionRunner:
                 "model_config.max_context_tokens must be a non-negative int",
             )
 
-    def update_model_config(self, model_config: dict) -> None:
+    def update_model_config(
+        self, model_config: dict, *, clear_pending_selection: bool = False
+    ) -> None:
         self._validate_model_config(model_config)
         self.model_config = dict(model_config)
+        if clear_pending_selection:
+            self._next_model_config = None
 
     async def _get_graph(self) -> CompiledStateGraph:
         if self._graph is None:
@@ -559,6 +565,9 @@ class SessionRunner:
                 self._queued_user_messages = {message_id: queued, **self._queued_user_messages}
                 raise
             self._received_user_message_ids.add(message_id)
+            self._next_model_config = (
+                self._queued_model_configs.pop(message_id, None) or self._next_model_config
+            )
             self._queued_user_message_attachments.pop(message_id, None)
             await self._emit_pending_user_message(
                 content,
@@ -784,6 +793,27 @@ class SessionRunner:
         attachments: list[dict[str, Any]] | None = None,
         user_message_id: str | None = None,
     ) -> None:
+        if self._next_model_config is not None or self.model_config.get("model_record_id"):
+            from app.agent_runtime.model_resolution import (
+                align_saved_model_speed,
+                resolve_model_config,
+            )
+
+            pending_config = self._next_model_config or self.model_config
+            selection_session = await create_session()
+            try:
+                pending_config = await align_saved_model_speed(selection_session, pending_config)
+                self.update_model_config(
+                    await resolve_model_config(
+                        selection_session,
+                        pending_config["model_record_id"],
+                        pending_config.get("reasoning_effort"),
+                        pending_config.get("model_speed"),
+                    )
+                )
+                self._next_model_config = None
+            finally:
+                await selection_session.close()
         runtime_session = await create_session()
         runtime_context: dict[str, Any] = {}
         self._persister = self._make_persister()
@@ -990,9 +1020,12 @@ class SessionRunner:
         *,
         attachments: list[dict[str, Any]] | None = None,
         delivery_mode: Literal["steer", "queue"] = "steer",
+        model_config: dict | None = None,
     ) -> dict[str, str]:
         message_id = generate_id()
         self._pending_delivery_modes[message_id] = delivery_mode
+        if model_config is not None:
+            self._queued_model_configs[message_id] = dict(model_config)
         created_at = datetime.now(UTC)
         self._queued_user_messages[message_id] = (content, created_at)
         self._queued_user_message_attachments[message_id] = attachments or []
@@ -1018,6 +1051,7 @@ class SessionRunner:
         if queued is None:
             return None
         self._cancelled_user_message_ids.add(message_id)
+        self._queued_model_configs.pop(message_id, None)
         content, created_at = queued
         attachments = self._queued_user_message_attachments.pop(message_id, [])
         created_at_iso = _format_utc_iso_datetime(created_at)
@@ -1083,6 +1117,9 @@ class SessionRunner:
             }
             raise
         self._received_user_message_ids.add(message_id)
+        self._next_model_config = (
+            self._queued_model_configs.pop(message_id, None) or self._next_model_config
+        )
         self._queued_user_message_attachments.pop(message_id, None)
         next_queue: asyncio.Queue[tuple[str | None, str, str]] = asyncio.Queue()
         while not self._inject_queue.empty():
@@ -1218,7 +1255,9 @@ class SessionRunner:
                 resume_value = {resume_id: payload}
             stream_options = {"durability": "exit"} if is_terminal_skip_resume else {}
             async for event in graph.astream_events(
-                Command(resume=resume_value),
+                Command(
+                    resume=resume_value, update={"model_config": without_api_key(self.model_config)}
+                ),
                 config=config,
                 version="v2",
                 **stream_options,

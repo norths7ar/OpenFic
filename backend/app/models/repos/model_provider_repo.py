@@ -52,6 +52,7 @@ async def create(
     api_key_encrypted: str,
     provider_type: str,
     custom_headers_encrypted: str = "",
+    catalog_mode: str = "generic",
 ) -> ModelProvider:
     """
     创建提供商。
@@ -72,6 +73,7 @@ async def create(
         api_key_encrypted=api_key_encrypted,
         custom_headers_encrypted=custom_headers_encrypted,
         provider_type=provider_type,
+        catalog_mode=catalog_mode,
     )
     session.add(provider)
     await session.flush()
@@ -87,6 +89,7 @@ async def update(
     api_key_encrypted: str | None = None,
     custom_headers_encrypted: str | None = None,
     provider_type: str | None = None,
+    catalog_mode: str | None = None,
 ) -> ModelProvider | None:
     """
     更新提供商。
@@ -106,6 +109,8 @@ async def update(
     if not provider:
         return None
 
+    if catalog_mode is not None:
+        provider.catalog_mode = catalog_mode
     if name is not None:
         provider.name = name
     if url is not None:

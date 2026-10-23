@@ -29,6 +29,7 @@ from app.agent_runtime.context.compaction.service import CompactionError
 from app.agent_runtime.fork import fork_agent_session_at_revision
 from app.agent_runtime.model_config import without_api_key
 from app.agent_runtime.model_resolution import (
+    align_saved_model_speed,
     build_model_config,
     resolve_legacy_model_config,
     resolve_model_config,
@@ -311,6 +312,7 @@ async def _get_runner(
     session_id: str,
     session: AsyncSession | None = None,
     model_config: dict | None = None,
+    model_selection: dict | None = None,
 ) -> SessionRunner:
     runner = _SESSION_RUNNERS.get(session_id)
     if runner is not None:
@@ -346,25 +348,31 @@ async def _get_runner(
     restored_model_config = values.get("model_config")
     if not _is_valid_model_config(restored_model_config):
         raise NotFoundError(f"会话不存在: {session_id}")
+    restored_model_config = await align_saved_model_speed(session, restored_model_config)
     model_record_id = restored_model_config.get("model_record_id")
     if model_config is not None:
         runner.model_config = model_config
-    elif isinstance(model_record_id, str) and model_record_id:
-        restored_reasoning_effort = restored_model_config.get("reasoning_effort")
-        runner.model_config = await _resolve_model_config(session, model_record_id)
-        from app.models.clients.reasoning_capabilities import supported_reasoning_efforts
-
-        supported_efforts = supported_reasoning_efforts(
-            runner.model_config["provider_type"],
-            runner.model_config["model_id"],
-            runner.model_config["base_url"],
-            api_key=runner.model_config.get("api_key", ""),
-            custom_headers=runner.model_config.get("custom_headers"),
+    elif model_selection is not None and (model_selection.get("model_id") or model_record_id):
+        runner.model_config = await _resolve_selection(
+            session, model_selection, restored_model_config
         )
-        if restored_reasoning_effort in supported_efforts:
-            runner.model_config["reasoning_effort"] = restored_reasoning_effort
-        # Old saved choices may no longer be supported; resume with provider default.
-        # New explicit requests still pass strict validation in model_resolution.
+    elif isinstance(model_record_id, str) and model_record_id:
+        runner.model_config = await _resolve_model_config(
+            session,
+            model_record_id,
+            cast(
+                str | None,
+                (model_selection or {}).get(
+                    "reasoning_effort", restored_model_config.get("reasoning_effort")
+                ),
+            ),
+            cast(
+                str | None,
+                (model_selection or {}).get(
+                    "model_speed", restored_model_config.get("model_speed")
+                ),
+            ),
+        )
     else:
         runner.model_config = await _resolve_legacy_model_config(
             session,
@@ -569,9 +577,43 @@ async def _validate_primary_agent(session: AsyncSession, agent_key: str) -> Agen
 
 
 async def _resolve_model_config(
-    session: AsyncSession, model_id: str, reasoning_effort: str | None = None
+    session: AsyncSession,
+    model_id: str,
+    reasoning_effort: str | None = None,
+    model_speed: str | None = None,
 ) -> dict:
-    return await resolve_model_config(session, model_id, reasoning_effort)
+    return await resolve_model_config(session, model_id, reasoning_effort, model_speed)
+
+
+async def _resolve_selection(session: AsyncSession, selection: dict, current: dict) -> dict:
+    current = await align_saved_model_speed(session, current)
+    record_id = selection.get("model_id") or current.get("model_record_id")
+    if not record_id:
+        return await _resolve_legacy_model_config(session, current)
+    same_model = record_id == current.get("model_record_id")
+    effort = selection.get("reasoning_effort")
+    if (
+        "reasoning_effort" not in selection
+        and same_model
+        and (not selection.get("model_id") or selection.get("model_speed") is not None)
+    ):
+        effort = current.get("reasoning_effort")
+    speed = selection.get("model_speed")
+    if speed is None and same_model:
+        speed = current.get("model_speed")
+    return await _resolve_model_config(session, record_id, effort, speed)
+
+
+async def _runner_for_resume(session_id: str, session: AsyncSession, body) -> SessionRunner:
+    selection = body.model_dump(
+        include={"model_id", "model_speed", "reasoning_effort"}, exclude_unset=True
+    )
+    runner = await _get_runner(session_id, session, model_selection=selection)
+    runner.update_model_config(
+        await _resolve_selection(session, selection, runner.model_config),
+        clear_pending_selection=bool(selection),
+    )
+    return runner
 
 
 async def _resolve_legacy_model_config(
@@ -902,7 +944,7 @@ async def create_agent_session(
             supports_global=supports_global_context(definition),
         )
         model_config = await _resolve_model_config(
-            session, request.model_id, request.reasoning_effort
+            session, request.model_id, request.reasoning_effort, request.model_speed
         )
         session_id = f"agent_{generate_id()}"
         task = await task_service.create_task(
@@ -1065,21 +1107,10 @@ async def send_agent_message(
 ) -> AgentSendMessageResponse:
     if not body.message.strip() and not body.attachments:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="消息或图片不能为空")
-    requested_model_config: dict | None = None
-    if body.model_id and session_id not in _SESSION_RUNNERS:
-        try:
-            requested_model_config = await _resolve_model_config(
-                session, body.model_id, body.reasoning_effort
-            )
-        except NotFoundError as exc:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
-        except ValueError as exc:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=str(exc),
-            ) from exc
-
-    runner = await _get_runner(session_id, session, requested_model_config)
+    selection = body.model_dump(
+        include={"model_id", "reasoning_effort", "model_speed"}, exclude_unset=True
+    )
+    runner = await _get_runner(session_id, session, model_selection=selection)
     try:
         attachments = await load_session_attachments(
             session,
@@ -1111,6 +1142,10 @@ async def send_agent_message(
             queue_kwargs = {"attachments": attachment_metadata} if attachment_metadata else {}
             if body.delivery_mode != "steer":
                 queue_kwargs["delivery_mode"] = body.delivery_mode
+            if selection:
+                queue_kwargs["model_config"] = await _resolve_selection(
+                    session, selection, runner.model_config
+                )
             pending_message = await runner.queue_pending_user_message(body.message, **queue_kwargs)
             return AgentSendMessageResponse(
                 success=True,
@@ -1123,28 +1158,11 @@ async def send_agent_message(
                 task_title=task.title,
                 pending_message=AgentPendingMessageResponse.model_validate(pending_message),
             )
-        model_updated = False
-        if body.model_id:
-            try:
-                if requested_model_config is None:
-                    requested_model_config = await _resolve_model_config(
-                        session, body.model_id, body.reasoning_effort
-                    )
-                runner.update_model_config(requested_model_config)
-                model_updated = True
-            except NotFoundError as exc:
-                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
-            except ValueError as exc:
-                raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail=str(exc),
-                ) from exc
-        elif body.reasoning_effort is not None:
-            model_record_id = runner.model_config.get("model_record_id")
-            if isinstance(model_record_id, str) and model_record_id:
-                runner.update_model_config(
-                    await _resolve_model_config(session, model_record_id, body.reasoning_effort)
-                )
+        runner.update_model_config(
+            await _resolve_selection(session, selection, runner.model_config),
+            clear_pending_selection=bool(selection),
+        )
+        model_updated = bool(selection)
         if body.agent_key:
             definition = await _validate_primary_agent(session, body.agent_key)
             _ensure_scope_change(
@@ -1373,7 +1391,7 @@ async def submit_agent_question_answer(
     session: AsyncSession = Depends(get_session),
 ) -> dict:
     await _ensure_agent_session_resumable(session, session_id)
-    runner = await _get_runner(session_id, session)
+    runner = await _runner_for_resume(session_id, session, body)
     status_session_factory = _make_status_session_factory(session)
     payload = {
         "action_type": "clarification",
@@ -1409,7 +1427,7 @@ async def submit_agent_interrupt_resume(
     session: AsyncSession = Depends(get_session),
 ) -> dict:
     await _ensure_agent_session_resumable(session, session_id)
-    runner = await _get_runner(session_id, session)
+    runner = await _runner_for_resume(session_id, session, body)
     status_session_factory = _make_status_session_factory(session)
     responses = [item.model_dump(mode="json", exclude_none=True) for item in body.responses]
     registry = get_agent_run_registry()
@@ -1439,7 +1457,7 @@ async def submit_agent_tool_approval(
     session: AsyncSession = Depends(get_session),
 ) -> dict:
     await _ensure_agent_session_resumable(session, session_id)
-    runner = await _get_runner(session_id, session)
+    runner = await _runner_for_resume(session_id, session, body)
     status_session_factory = _make_status_session_factory(session)
     payload = {
         "action_type": "tool_approval",
@@ -1848,6 +1866,7 @@ async def fork_agent_session(
             session,
             request.model_id,
             request.reasoning_effort,
+            request.model_speed,
         )
         result = await fork_agent_session_at_revision(
             session,

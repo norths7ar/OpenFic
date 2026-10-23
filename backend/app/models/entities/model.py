@@ -76,6 +76,7 @@ class Model(SQLModel, table=True):
     # Embedding parameters (nullable)
     dimensions: int | None = Field(default=None, ge=1, description="Embedding dimensions")
 
+    default_speed: str = Field(default="standard", max_length=20)
     is_builtin: bool = Field(default=False, description="是否为内置模型（不可删除/编辑）")
     is_enabled: bool = Field(default=True, index=True, description="是否在模型选择器中启用")
 

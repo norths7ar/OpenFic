@@ -19,11 +19,59 @@ from app.models.clients.model_params import (
 )
 from app.models.entities.model import Model
 from app.models.repos import model_repo
-from app.storage.repos import agent_definition_repo, retrieval_index_repo, setting_repo
+from app.models.services.model_lifecycle import model_uses, release_model_references
+from app.storage.repos import retrieval_index_repo
 
 
 class ModelService:
     """模型 Service。"""
+
+    async def _normalize_variant(
+        self,
+        session: AsyncSession,
+        provider_id: str,
+        raw_id: str,
+        default_speed: str | None,
+        *,
+        exclude_id: str | None = None,
+    ) -> tuple[str, str | None]:
+        from app.core.encryption import EncryptionService
+        from app.models.repos import model_provider_repo
+        from app.models.services.model_provider_service import ModelProviderService
+        from app.settings import settings
+
+        provider = await model_provider_repo.get_by_id(session, provider_id)
+        if provider is None:
+            raise NotFoundError(f"Provider with id {provider_id} not found")
+        if provider.catalog_mode != "ocx":
+            return raw_id, default_speed
+        service = ModelProviderService(EncryptionService(settings.encryption_key))
+        # Read the authenticated live snapshot, not a guessed suffix relationship.
+        try:
+            await service.get_available_models(provider, "llm")
+        except ValueError:
+            pass
+        try:
+            snapshot = service.get_llm_discovery_snapshot(provider)
+        except ValueError:
+            return raw_id, default_speed
+        base_id = raw_id.removesuffix("--fast") if raw_id.endswith("--fast") else raw_id
+        if (
+            snapshot.checked_at is None
+            or base_id not in snapshot.models
+            or base_id + "--fast" not in snapshot.models
+        ):
+            return raw_id, default_speed
+        for existing in await model_repo.get_by_provider_id(
+            session, provider_id, include_disabled=True
+        ):
+            if (
+                existing.id != exclude_id
+                and existing.task_type == "llm"
+                and existing.model_id in {base_id, base_id + "--fast"}
+            ):
+                raise ValueError("该 OCX 模型已有共享配置，请编辑现有模型，不要重复添加速度变体")
+        return base_id, "fast" if raw_id != base_id else default_speed
 
     async def get_all_models(
         self, session: AsyncSession, *, include_disabled: bool = False
@@ -108,6 +156,7 @@ class ModelService:
         cache_write_price: float = 0.0,
         dimensions: int | None = None,
         is_enabled: bool = True,
+        default_speed: str = "standard",
     ) -> Model:
         """
         创建模型。
@@ -132,6 +181,14 @@ class ModelService:
         Returns:
             创建的模型实例。
         """
+        if task_type == "llm":
+            model_id, normalized_speed = await self._normalize_variant(
+                session,
+                provider_id,
+                model_id,
+                default_speed,
+            )
+            default_speed = normalized_speed or "standard"
         if await model_repo.exists_by_name(session, name):
             raise ValueError("模型名称已存在")
 
@@ -177,6 +234,7 @@ class ModelService:
             cache_write_price=cache_write_price,
             dimensions=dimensions,
             is_enabled=is_enabled,
+            default_speed=default_speed,
         )
         await session.commit()
         return model
@@ -206,6 +264,7 @@ class ModelService:
         cache_write_price: float | None = None,
         dimensions: int | None = None,
         is_enabled: bool | None = None,
+        default_speed: str | None = None,
     ) -> Model:
         """
         更新模型。
@@ -237,10 +296,21 @@ class ModelService:
         existing = await self.get_model_by_id(session, model_id)
         if existing.is_builtin:
             raise ValueError("内置模型不允许编辑")
+        if (task_type or existing.task_type) == "llm":
+            model_identifier, default_speed = await self._normalize_variant(
+                session,
+                provider_id or existing.provider_id,
+                model_identifier or existing.model_id,
+                default_speed,
+                exclude_id=existing.id,
+            )
         if is_enabled is False and existing.is_enabled:
-            usage_labels = await self._get_model_usage_labels(session, model_id)
-            if usage_labels:
-                raise ValueError("模型正在被以下配置使用，不能停用：" + "、".join(usage_labels))
+            if existing.task_type == "llm":
+                await release_model_references(session, existing)
+            else:
+                usage_labels = await self._get_model_usage_labels(session, model_id)
+                if usage_labels:
+                    raise ValueError("模型正在被以下配置使用，不能停用：" + "、".join(usage_labels))
         if name is not None and await model_repo.exists_by_name(
             session, name, exclude_model_id=model_id
         ):
@@ -283,6 +353,7 @@ class ModelService:
             cache_write_price=cache_write_price,
             dimensions=dimensions,
             is_enabled=is_enabled,
+            default_speed=default_speed,
         )
 
         if not model:
@@ -292,28 +363,7 @@ class ModelService:
         return model
 
     async def _get_model_usage_labels(self, session: AsyncSession, model_id: str) -> list[str]:
-        setting_labels = {
-            "default_model": "默认模型",
-            "light_model": "轻量模型",
-            "default_embedding_model": "默认 Embedding 模型",
-            "default_rerank_model": "默认 Rerank 模型",
-        }
-        usage_labels: list[str] = []
-        for key, label in setting_labels.items():
-            setting = await setting_repo.get_by_key(session, key)
-            if setting and setting.value == model_id:
-                usage_labels.append(label)
-
-        definitions = await agent_definition_repo.list_all(session)
-        usage_labels.extend(
-            f"Agent：{definition.display_name}"
-            for definition in definitions
-            if definition.model_id == model_id
-        )
-
-        if await retrieval_index_repo.exists_by_embedding_model_ref_id(session, model_id):
-            usage_labels.append("章节检索索引")
-        return usage_labels
+        return await model_uses(session, model_id)
 
     async def delete_model(self, session: AsyncSession, model_id: str) -> None:
         """
@@ -332,6 +382,7 @@ class ModelService:
             raise NotFoundError(f"Model with id {model_id} not found")
         if model.is_builtin:
             raise ValueError("内置模型不允许删除")
+        await release_model_references(session, model)
         success = await model_repo.delete_by_id(session, model_id)
         if not success:
             raise NotFoundError(f"Model with id {model_id} not found")

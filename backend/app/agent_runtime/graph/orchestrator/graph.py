@@ -22,7 +22,7 @@ from app.agent_runtime.graph.config import build_child_config, get_inject_queue
 from app.agent_runtime.graph.node_events import with_node_events
 from app.agent_runtime.graph.orchestrator.state import OrchestratorState
 from app.agent_runtime.graph.react_agent import create_react_agent
-from app.agent_runtime.model_config import to_client_model_config
+from app.agent_runtime.model_config import to_client_model_config, without_api_key
 from app.agent_runtime.tools import ToolRegistry
 from app.agent_runtime.tools.hooks.auth import auth_hook
 from app.agent_runtime.tools.hooks.chapter_refresh import chapter_refresh_post_hook
@@ -239,7 +239,11 @@ async def primary_node(
         config=build_child_config(config, effective_state),
     )
 
-    return {"is_completed": True, "active_agent": agent_key}
+    return {
+        "is_completed": True,
+        "active_agent": agent_key,
+        "model_config": without_api_key(runtime_model_config),
+    }
 
 
 def build_orchestrator_graph(checkpointer=None) -> CompiledStateGraph:

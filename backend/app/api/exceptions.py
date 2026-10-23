@@ -14,6 +14,7 @@ from app.core.errors import (
     NotFoundError,
     OpenFicError,
     ProjectAlreadyBoundError,
+    ValidationError,
 )
 
 
@@ -54,8 +55,11 @@ def register_exception_handlers(app: FastAPI) -> None:
             content={"detail": str(exc)},
         )
 
+    @app.exception_handler(ValidationError)
     @app.exception_handler(ValueError)
-    async def value_error_handler(request: Request, exc: ValueError) -> JSONResponse:
+    async def value_error_handler(
+        request: Request, exc: ValueError | ValidationError
+    ) -> JSONResponse:
         """处理值错误（通常是无效参数）。"""
         logger.opt(exception=True).debug("request failed: {} {}", request.method, request.url.path)
         return JSONResponse(

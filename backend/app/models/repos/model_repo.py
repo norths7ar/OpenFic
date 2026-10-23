@@ -136,6 +136,7 @@ async def create(
     cache_write_price: float = 0.0,
     dimensions: int | None = None,
     is_enabled: bool = True,
+    default_speed: str = "standard",
 ) -> Model:
     """
     创建模型。
@@ -182,6 +183,7 @@ async def create(
         cache_write_price=cache_write_price,
         dimensions=dimensions,
         is_enabled=is_enabled,
+        default_speed=default_speed,
     )
     session.add(model)
     await session.flush()
@@ -213,6 +215,7 @@ async def update(
     cache_write_price: float | None = None,
     dimensions: int | None = None,
     is_enabled: bool | None = None,
+    default_speed: str | None = None,
 ) -> Model | None:
     """
     更新模型。
@@ -242,6 +245,8 @@ async def update(
     if not model:
         return None
 
+    if default_speed is not None:
+        model.default_speed = default_speed
     if name is not None:
         model.name = name
     if remark is not None:

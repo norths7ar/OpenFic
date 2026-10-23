@@ -125,7 +125,7 @@ def resolve_reasoning_effort(
         provider_type, model_id, base_url, api_key=api_key, custom_headers=custom_headers
     )
     if capability.levels is None:
-        raise ValidationError("当前连接未声明此模型的推理档位，请使用默认值")
+        return effort
     if effort not in capability.levels:
         raise ValidationError(f"当前模型连接不支持推理档位 {effort}，请使用默认值或可用档位")
     return effort

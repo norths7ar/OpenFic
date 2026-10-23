@@ -55,16 +55,9 @@ from app.agent_runtime.usage_cost import (
     extract_cache_write_tokens,
 )
 from app.audit import AuditContext
-from app.core.encryption import EncryptionService
 from app.core.knowledge_scope import KnowledgeScope
 from app.models.clients.model_factory import ModelConfig, create_chat_model
-from app.models.clients.reasoning_capabilities import (
-    refresh_advertised_efforts,
-    supported_reasoning_efforts,
-)
 from app.models.repos import model_provider_repo, model_repo
-from app.models.services.model_provider_service import ModelProviderService
-from app.settings import settings
 from app.socket import emit
 from app.socket.handlers import (
     agent_session_room,
@@ -176,30 +169,9 @@ async def _build_model_config_from_record(session: Any, record_id: str) -> dict[
     if provider is None:
         return None
 
-    encryption_service = EncryptionService(settings.encryption_key)
-    api_key = encryption_service.decrypt(provider.api_key_encrypted)
-    custom_headers = ModelProviderService(encryption_service).get_decrypted_custom_headers(provider)
-    return {
-        "provider_type": provider.provider_type,
-        "base_url": provider.url,
-        "api_key": api_key,
-        "model_id": model.model_id,
-        **({"custom_headers": custom_headers} if custom_headers else {}),
-        "max_context_tokens": model.context_length,
-        "input_price": getattr(model, "input_price", 0.0),
-        "output_price": getattr(model, "output_price", 0.0),
-        "cache_read_price": getattr(model, "cache_read_price", 0.0),
-        "cache_write_price": getattr(model, "cache_write_price", 0.0),
-        "temperature": model.temperature,
-        "top_p": model.top_p,
-        "top_k": model.top_k,
-        "min_p": model.min_p,
-        "top_a": model.top_a,
-        "max_tokens": model.max_tokens,
-        "frequency_penalty": model.frequency_penalty,
-        "presence_penalty": model.presence_penalty,
-        "repetition_penalty": model.repetition_penalty,
-    }
+    from app.agent_runtime.model_resolution import resolve_model_config
+
+    return await resolve_model_config(session, record_id)
 
 
 async def _resolve_agent_model_config(
@@ -221,13 +193,20 @@ async def _resolve_agent_model_config(
     )
     if record_id:
         resolved = await _build_model_config_from_record(session, record_id)
-        if resolved is not None:
-            await refresh_advertised_efforts(
-                resolved["provider_type"],
-                resolved["base_url"],
-                resolved["api_key"],
-                resolved.get("custom_headers"),
+        if resolved is None:
+            raise ValueError("配置的子 Agent 模型已不存在，请重新选择")
+        if inherited_config.get("model_record_id") == record_id:
+            from app.agent_runtime.model_resolution import resolve_model_config
+
+            resolved = await resolve_model_config(
+                session,
+                record_id,
+                inherited_config.get("reasoning_effort"),
             )
+        else:
+            from app.models.clients.reasoning_capabilities import supported_reasoning_efforts
+
+            effort = inherited_config.get("reasoning_effort")
             supported = supported_reasoning_efforts(
                 resolved["provider_type"],
                 resolved["model_id"],
@@ -235,10 +214,11 @@ async def _resolve_agent_model_config(
                 api_key=resolved["api_key"],
                 custom_headers=resolved.get("custom_headers"),
             )
-            reasoning_effort = inherited_config.get("reasoning_effort")
-            if reasoning_effort in supported:
-                resolved["reasoning_effort"] = reasoning_effort
-            return resolved
+            if effort in supported:
+                resolved["reasoning_effort"] = effort
+        return resolved
+    if configured_model_id in {SYSTEM_DEFAULT_MODEL_REFERENCE, SYSTEM_LIGHT_MODEL_REFERENCE}:
+        raise ValueError("系统默认模型未配置，请先选择默认模型")
     return dict(inherited_config)
 
 

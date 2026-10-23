@@ -26,6 +26,7 @@ class ModelProviderResponse(BaseModel):
     name: str = Field(description="提供商名称/备注")
     url: str = Field(description="服务 URL")
     provider_type: str = Field(description="提供商类型")
+    catalog_mode: Literal["generic", "ocx"] = "generic"
     custom_header_names: list[str] = Field(
         default_factory=list,
         description="已配置的自定义请求头名称（不返回请求头值）",
@@ -81,6 +82,10 @@ class AvailableModel(BaseModel):
 
     id: str = Field(description="模型 ID")
     name: str = Field(description="模型名称")
+    speed_variants: dict[str, str] = Field(default_factory=dict, exclude_if=lambda value: not value)
+    speed_reasoning_capabilities: dict[str, dict[str, Any]] = Field(
+        default_factory=dict, exclude_if=lambda value: not value
+    )
     task_type: str | None = Field(default=None, description="任务类型")
     metadata: AvailableModelMetadata | None = Field(
         default=None, description="匹配到的 catalog 元数据"
@@ -97,3 +102,14 @@ class ModelProviderValidateResponse(BaseModel):
     discovery_checked_at: str | None = Field(
         default=None, description="最后一次成功查询真实上游目录的 UTC ISO 时间"
     )
+
+
+class RemovedModel(BaseModel):
+    id: str
+    name: str
+    model_id: str
+
+
+class ModelProviderSyncResponse(ModelProviderValidateResponse):
+    removed_models: list[RemovedModel] = Field(default_factory=list)
+    affected_uses: list[str] = Field(default_factory=list)

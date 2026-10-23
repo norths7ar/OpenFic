@@ -2,7 +2,7 @@
 Model API Schemas - 模型请求/响应模型。
 """
 
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -68,13 +68,22 @@ class ModelResponse(BaseModel):
     discovery_checked_at: str | None = Field(
         default=None, description="最后一次成功查询真实上游目录的 UTC ISO 时间"
     )
+    default_speed: Literal["standard", "fast"] = "standard"
+    speed_variants: dict[str, str] = Field(default_factory=dict)
+    speed_reasoning_capabilities: dict[str, dict[str, Any]] = Field(default_factory=dict)
     is_enabled: bool = Field(default=True, description="是否启用模型")
     created_at: str = Field(description="创建时间")
     updated_at: str = Field(description="更新时间")
 
 
+class ModelUsageResponse(BaseModel):
+    uses: list[str]
+
+
 class ModelCreateRequest(BaseModel):
     """创建模型请求。"""
+
+    default_speed: Literal["standard", "fast"] = "standard"
 
     name: str = Field(description="模型名称")
     provider_id: str = Field(description="关联的提供商 ID")
@@ -101,6 +110,8 @@ class ModelCreateRequest(BaseModel):
 
 class ModelUpdateRequest(BaseModel):
     """更新模型请求。"""
+
+    default_speed: Literal["standard", "fast"] | None = None
 
     name: str | None = Field(default=None, description="模型名称")
     remark: str | None = Field(default=None, description="备注")
