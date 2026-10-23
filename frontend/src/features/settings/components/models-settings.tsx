@@ -4,9 +4,9 @@
  * 模型设置面板，管理和配置 AI 模型。
  */
 
-import { Badge, Box, Button, Flex, IconButton, Tabs, Text } from "@radix-ui/themes";
+import { Badge, Box, Button, Flex, Link, Tabs, Text } from "@radix-ui/themes";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Edit, ExternalLink } from "lucide-react";
+import { Edit } from "lucide-react";
 import { useState, useCallback, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -39,6 +39,8 @@ import { DEFAULT_MODEL_SETTINGS_TAB, type ModelSettingsTab } from "../lib/settin
 import { useModelSync } from "../lib/use-model-sync";
 import { AgentSettingsLockNotice } from "./agent-settings-lock-notice";
 import { ModelFormDialog } from "./model-form-dialog";
+
+import "./models-settings.css";
 
 interface ModelsSettingsProps {
   activeTab?: ModelSettingsTab;
@@ -374,11 +376,12 @@ export function ModelsSettings({
                   <Flex
                     align="center"
                     justify="between"
+                    gap="3"
                   >
                     <Flex
                       direction="column"
                       gap="1"
-                      style={{ flex: 1 }}
+                      className="models-settings-model-info"
                     >
                       {/* 模型名称 + 元数据标签 */}
                       <Flex
@@ -429,13 +432,32 @@ export function ModelsSettings({
                       <Flex
                         align="center"
                         gap="2"
+                        wrap="wrap"
                       >
-                        <Text
-                          size="2"
-                          color="gray"
-                        >
-                          {getProviderName(model.providerId)}
-                        </Text>
+                        {model.isBuiltin ? (
+                          <Text
+                            size="2"
+                            color="gray"
+                          >
+                            {getProviderName(model.providerId)}
+                          </Text>
+                        ) : (
+                          <Link
+                            asChild
+                            size="2"
+                            color="gray"
+                            underline="hover"
+                          >
+                            <button
+                              type="button"
+                              className="models-settings-provider-link"
+                              title={t("models.manageThisProvider")}
+                              onClick={() => onManageProvider(model.providerId)}
+                            >
+                              {getProviderName(model.providerId)}
+                            </button>
+                          </Link>
+                        )}
                         <Text
                           size="2"
                           color="gray"
@@ -462,28 +484,19 @@ export function ModelsSettings({
                     </Flex>
 
                     {/* 操作按钮 */}
-                    <Flex gap="2">
+                    <Flex flexShrink="0">
                       {model.isBuiltin ? null : (
-                        <>
-                          <IconButton
-                            variant="ghost"
-                            color="gray"
-                            onClick={() => handleEdit(model)}
-                            aria-label={t("models.editModel")}
-                            disabled={isAgentSettingsLocked}
-                          >
-                            <Edit size={16} />
-                          </IconButton>
-                          <Button
-                            size="1"
-                            variant="ghost"
-                            color="gray"
-                            onClick={() => onManageProvider(model.providerId)}
-                          >
-                            <ExternalLink size={14} />
-                            {t("models.manageThisProvider")}
-                          </Button>
-                        </>
+                        <Button
+                          size="2"
+                          variant="soft"
+                          color="gray"
+                          onClick={() => handleEdit(model)}
+                          aria-label={t("models.editModel")}
+                          disabled={isAgentSettingsLocked}
+                        >
+                          <Edit size={14} />
+                          {t("common.edit")}
+                        </Button>
                       )}
                     </Flex>
                   </Flex>
