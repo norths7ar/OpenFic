@@ -422,12 +422,13 @@ async def cleanup_chapter_export_files(session: AsyncSession) -> int:
         job = await background_service.get_job(session, job_id)
         should_keep = False
         if job is not None and job.type == EXPORT_JOB_TYPE:
-            if path.suffix in {".part", ".txt"}:
-                should_keep = job.status in {
-                    JOB_STATUS_PENDING,
-                    JOB_STATUS_RUNNING,
-                    JOB_STATUS_CANCEL_REQUESTED,
-                }
+            # 成品落盘可能早于成功状态提交；进行中的任务保留两种文件。
+            if job.status in {
+                JOB_STATUS_PENDING,
+                JOB_STATUS_RUNNING,
+                JOB_STATUS_CANCEL_REQUESTED,
+            }:
+                should_keep = True
             elif path.suffix == ".txt" and job.status == JOB_STATUS_SUCCEEDED:
                 expires_at = _parse_datetime(
                     background_service.parse_json_object(job.result_json).get("expires_at")
