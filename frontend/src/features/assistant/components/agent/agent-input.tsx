@@ -7,6 +7,7 @@ import { useTranslation } from "react-i18next";
 import { PhotoProvider, PhotoView } from "react-photo-view";
 
 import "react-photo-view/dist/react-photo-view.css";
+import "./agent-input.css";
 
 import { ModelIdSelect, Spinner, type ModelIdSelectOption } from "@/components";
 import { toast } from "@/components";
@@ -24,20 +25,24 @@ import {
   validateAgentImageFiles,
 } from "../../lib/agent-image-attachments";
 import type { AgentInputHistoryDirection } from "../../lib/agent-input-history-state";
-import { appendMentionMarkup, replaceAutomaticMentionMarkup } from "../../lib/mention-text";
+import { getMentionDisplayLabel, parseAssistantMarkup } from "../../lib/mention-text";
 import { AgentComposerEditor, type AgentComposerSuggestionState } from "./agent-composer-editor";
 import { AgentIndexStatusIndicator } from "./agent-index-status-indicator";
 import { canSendAgentInput, getAgentInputBodyMode, isAgentInputLocked } from "./agent-input-state";
 import { AgentMentionSuggestions } from "./agent-mention-suggestions";
 import { DeliveryModeSelect } from "./delivery-mode-select";
+import { MentionChip } from "./mention-chip";
 import { AgentPendingMessageCard } from "./pending-message-card";
 
 interface AgentInputProps {
   header?: ReactNode;
   projectId: string;
   value: string;
+  submissionValue?: string;
+  contextMode?: "global" | "local";
   automaticComposerMarkup?: string | null;
-  restorePersistedDraft?: boolean;
+  onRemoveAutomaticComposerMarkup?: () => void;
+  onHistoryRecallChange?: (recalled: boolean) => void;
   attachments: PendingAgentImageAttachment[];
   modelId: string;
   models: ModelIdSelectOption[];
@@ -81,8 +86,11 @@ export function AgentInput({
   header,
   projectId,
   value,
+  submissionValue = value,
+  contextMode,
   automaticComposerMarkup = null,
-  restorePersistedDraft = true,
+  onRemoveAutomaticComposerMarkup,
+  onHistoryRecallChange,
   attachments,
   modelId,
   models,
@@ -122,13 +130,14 @@ export function AgentInput({
 }: AgentInputProps) {
   const { t } = useTranslation();
   const bodyMode = getAgentInputBodyMode(agentStatus, Boolean(specialPanels), forceSpecialPanels);
-  const hasContent = value.trim().length > 0 || attachments.length > 0;
+  const hasDraftContent = value.trim().length > 0 || attachments.length > 0;
+  const hasContent = submissionValue.trim().length > 0 || attachments.length > 0;
   const hasPendingMessage = pendingMessages.length > 0;
   const isComposerLocked = isAgentInputLocked({
     disabled,
     readOnly,
   });
-  const shouldAbort = isSending && !hasContent;
+  const shouldAbort = isSending && !hasDraftContent;
   const canSend =
     !configurationError &&
     canSendAgentInput({
@@ -147,22 +156,28 @@ export function AgentInput({
   const {
     draft: persistedDraft,
     handleInputChange: handleHistoryInputChange,
+    historyState,
     isDraftLoaded,
     navigate: navigateInputHistory,
     record: recordInputHistory,
   } = useAgentInputHistory(projectId);
   const historyValueRef = useRef<string | null>(null);
+  const restoredDraftProjectIdRef = useRef<string | null>(null);
   const previousProjectIdRef = useRef(projectId);
+  const attachmentKey = attachments.map((attachment) => attachment.id).join(":");
+  const previousAttachmentKeyRef = useRef(attachmentKey);
+  const automaticMention = useMemo(
+    () =>
+      parseAssistantMarkup(automaticComposerMarkup ?? "").find(
+        (segment) => typeof segment !== "string" && segment.markup === "mention",
+      ),
+    [automaticComposerMarkup],
+  );
   const selectedModel = useMemo(
     () => models.find((model) => model.value === modelId || model.id === modelId),
     [modelId, models],
   );
   const [isDraggingImages, setIsDraggingImages] = useState(false);
-  const getPersistableValue = useCallback(
-    (currentValue: string) =>
-      replaceAutomaticMentionMarkup(currentValue, automaticComposerMarkup, null),
-    [automaticComposerMarkup],
-  );
   const canAttachImages = modelAllowsAgentImages(
     selectedModel?.inputModalities,
     selectedModel?.isCatalogMatched === true,
@@ -207,66 +222,61 @@ export function AgentInput({
     if (previousProjectIdRef.current === projectId) return;
     previousProjectIdRef.current = projectId;
     historyValueRef.current = "";
+    onHistoryRecallChange?.(false);
     onChange("");
-  }, [onChange, projectId]);
-
-  useEffect(() => {
-    if (
-      !restorePersistedDraft ||
-      !isDraftLoaded ||
-      !persistedDraft ||
-      getPersistableValue(value) !== ""
-    )
-      return;
-    const restoredValue = automaticComposerMarkup
-      ? appendMentionMarkup(persistedDraft, automaticComposerMarkup)
-      : persistedDraft;
-    historyValueRef.current = restoredValue;
-    onChange(restoredValue);
-  }, [
-    automaticComposerMarkup,
-    getPersistableValue,
-    isDraftLoaded,
-    onChange,
-    persistedDraft,
-    restorePersistedDraft,
-    value,
-  ]);
+  }, [onChange, onHistoryRecallChange, projectId]);
 
   useEffect(() => {
     if (!isDraftLoaded) return;
+    if (restoredDraftProjectIdRef.current !== projectId) {
+      restoredDraftProjectIdRef.current = projectId;
+      if (persistedDraft && !value.trim()) {
+        historyValueRef.current = persistedDraft;
+        onChange(persistedDraft);
+        return;
+      }
+    }
     if (historyValueRef.current === value) {
       historyValueRef.current = null;
       return;
     }
     historyValueRef.current = null;
-    handleHistoryInputChange(getPersistableValue(value));
-  }, [getPersistableValue, handleHistoryInputChange, isDraftLoaded, value]);
+    handleHistoryInputChange(value);
+  }, [handleHistoryInputChange, isDraftLoaded, onChange, persistedDraft, projectId, value]);
+
+  useEffect(() => {
+    if (previousAttachmentKeyRef.current === attachmentKey) return;
+    previousAttachmentKeyRef.current = attachmentKey;
+    handleHistoryInputChange(value, true);
+    onHistoryRecallChange?.(false);
+  }, [attachmentKey, handleHistoryInputChange, onHistoryRecallChange, value]);
 
   const handleComposerChange = useCallback(
     (nextValue: string) => {
       historyValueRef.current = null;
-      handleHistoryInputChange(getPersistableValue(nextValue));
+      handleHistoryInputChange(nextValue);
+      if (nextValue !== value) onHistoryRecallChange?.(false);
       onChange(nextValue);
     },
-    [getPersistableValue, handleHistoryInputChange, onChange],
+    [handleHistoryInputChange, onChange, onHistoryRecallChange, value],
   );
 
   const handleHistoryNavigate = useCallback(
     (direction: AgentInputHistoryDirection): boolean => {
-      const nextValue = navigateInputHistory(direction, value);
-      if (nextValue === null) return false;
-      historyValueRef.current = nextValue;
-      onChange(nextValue);
+      const result = navigateInputHistory(direction, value, attachments.length > 0);
+      if (result === null) return false;
+      historyValueRef.current = result.value;
+      onHistoryRecallChange?.(result.isHistoryEntry);
+      onChange(result.value);
       return true;
     },
-    [navigateInputHistory, onChange, value],
+    [attachments.length, navigateInputHistory, onChange, onHistoryRecallChange, value],
   );
 
   const handleSubmit = useCallback(() => {
-    recordInputHistory(value);
+    recordInputHistory(submissionValue);
     onSend();
-  }, [onSend, recordInputHistory, value]);
+  }, [onSend, recordInputHistory, submissionValue]);
 
   useLayoutEffect(() => {
     const container = inputContainerRef.current;
@@ -409,6 +419,7 @@ export function AgentInput({
               items={mentionSuggestions.items}
               selectedIndex={mentionSuggestions.selectedIndex}
               status={mentionSuggestions.status}
+              browser={mentionSuggestions.browser}
               visible
               onSelect={mentionSuggestions.onSelect}
               onSelectedIndexChange={mentionSuggestions.onSelectedIndexChange}
@@ -518,6 +529,37 @@ export function AgentInput({
                 exit={{ opacity: 0, y: -8 }}
                 transition={{ duration: 0.18, ease: "easeOut" }}
               >
+                {automaticMention && automaticMention.markup === "mention" ? (
+                  <div className="agent-input-current-entry">
+                    <Text
+                      size="1"
+                      color="gray"
+                      className="agent-input-current-entry-label"
+                    >
+                      {t("writing.aiSidebar.currentEntryReference")}
+                    </Text>
+                    <div className="agent-input-current-entry-chip">
+                      <MentionChip
+                        kind={automaticMention.kind}
+                        label={getMentionDisplayLabel(automaticMention)}
+                      />
+                      <button
+                        type="button"
+                        className="agent-input-current-entry-remove"
+                        disabled={isComposerLocked}
+                        aria-label={t("writing.aiSidebar.removeCurrentEntryReference", {
+                          label: getMentionDisplayLabel(automaticMention),
+                        })}
+                        onClick={onRemoveAutomaticComposerMarkup}
+                      >
+                        <X
+                          size={12}
+                          aria-hidden="true"
+                        />
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
                 {attachments.length > 0 ? (
                   <PhotoProvider>
                     <div className="agent-image-attachment-strip">
@@ -559,6 +601,7 @@ export function AgentInput({
                 ) : null}
                 <AgentComposerEditor
                   projectId={projectId}
+                  contextMode={contextMode}
                   placeholder={getPlaceholder()}
                   value={value}
                   disabled={isComposerLocked}
@@ -568,6 +611,7 @@ export function AgentInput({
                   onDropFiles={handleDroppedFiles}
                   onChange={handleComposerChange}
                   onHistoryNavigate={handleHistoryNavigate}
+                  historyNavigationActive={historyState.index !== null}
                   onSubmit={handleSubmit}
                 />
               </motion.div>

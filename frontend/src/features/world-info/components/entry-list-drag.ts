@@ -20,6 +20,7 @@ interface DragTargetPosition {
 interface SortableEntry {
   id: string;
   order: number;
+  folderId?: string | null;
 }
 
 interface EntryDragOffsetPosition {
@@ -72,11 +73,36 @@ export function reorderEntries<T extends SortableEntry>(
 ): T[] | null {
   const oldIndex = entries.findIndex((entry) => entry.id === activeId);
   if (oldIndex === -1 || oldIndex === newIndex) return null;
+  const active = entries[oldIndex];
+  const target = entries[newIndex];
+  if (!target || target.folderId !== active.folderId) return null;
 
-  const reordered = [...entries];
-  const [movedEntry] = reordered.splice(oldIndex, 1);
-  reordered.splice(newIndex, 0, movedEntry);
-  return reordered.map((entry, index) => ({ ...entry, order: index + 1 }));
+  const siblings = entries.filter((entry) => entry.folderId === active.folderId);
+  const oldSiblingIndex = siblings.findIndex((entry) => entry.id === activeId);
+  const newSiblingIndex = siblings.findIndex((entry) => entry.id === target.id);
+  const [movedEntry] = siblings.splice(oldSiblingIndex, 1);
+  siblings.splice(newSiblingIndex, 0, movedEntry);
+
+  // Rotate existing sibling order slots, preserving zero-based/gapped orders and other folders.
+  let siblingIndex = 0;
+  return entries.map((entry) =>
+    entry.folderId === active.folderId
+      ? { ...siblings[siblingIndex++], order: entry.order }
+      : entry,
+  );
+}
+
+/** The move API accepts a one-based position within the entry's current folder, not an order value. */
+export function getEntryMovePosition<T extends SortableEntry>(
+  entries: T[],
+  entryId: string,
+): number {
+  const entry = entries.find((item) => item.id === entryId);
+  return (
+    entries
+      .filter((item) => item.folderId === entry?.folderId)
+      .findIndex((item) => item.id === entryId) + 1
+  );
 }
 
 export function getEntryDragOffset({

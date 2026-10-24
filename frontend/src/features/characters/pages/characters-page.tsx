@@ -458,11 +458,10 @@ export function CharactersPage() {
                   <AssistantSidebarHost
                     projectId={currentProjectId}
                     preferredAgentKey="discuss"
-                    initialComposerMarkup={buildCharacterMentionTag({
+                    automaticComposerMarkup={buildCharacterMentionTag({
                       characterId: selectedCharacter.id,
                       label: selectedCharacter.name,
                     })}
-                    replaceComposerWithInitialMarkup
                     onStateChange={setAssistantState}
                     isMobileOverlay={false}
                   />
@@ -565,7 +564,7 @@ export function CharactersPage() {
         <AssistantSidebarHost
           projectId={currentProjectId}
           preferredAgentKey="discuss"
-          initialComposerMarkup={
+          automaticComposerMarkup={
             selectedCharacter
               ? buildCharacterMentionTag({
                   characterId: selectedCharacter.id,
@@ -573,7 +572,6 @@ export function CharactersPage() {
                 })
               : undefined
           }
-          replaceComposerWithInitialMarkup
           onStateChange={setAssistantState}
           isMobileOverlay
         />

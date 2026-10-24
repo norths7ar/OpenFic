@@ -14,8 +14,7 @@ export interface AssistantSidebarHostRegistration {
   isMobileOverlay: boolean;
   isOpen: boolean;
   preferredAgentKey?: string;
-  initialComposerMarkup?: string;
-  replaceComposerWithInitialMarkup?: boolean;
+  automaticComposerMarkup?: string;
   discussionWorkspace?: boolean;
   onStateChange?: (state: AssistantSidebarState) => void;
   onOpenMentionChapter?: (chapterId: string, chapterTitle: string) => void;

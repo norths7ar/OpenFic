@@ -449,12 +449,12 @@ async def move_entry(
     new_order: int,
 ) -> WorldInfoEntry:
     """
-    移动世界书条目到新位置。
+    移动条目到同文件夹内从 1 开始的位置，轮换已有 order 槽位。
 
     Args:
         session: 数据库 session。
         entry_id: 条目 ID。
-        new_order: 新排序位置。
+        new_order: 同文件夹内从 1 开始的目标位置，不是持久化 order 值。
 
     Returns:
         更新后的条目实例。
@@ -464,32 +464,22 @@ async def move_entry(
         ValueError: 新位置无效。
     """
     entry = await get_entry(session, entry_id)
-    old_order = entry.order
-    world_info_id = entry.world_info_id
 
     if new_order < 1:
         raise ValueError("排序位置必须大于 0")
 
-    max_order = await world_info_entry_repo.get_max_order(session, world_info_id)
-    if new_order > max_order:
-        new_order = max_order
-
-    if old_order == new_order:
+    entries = await world_info_entry_repo.list_all_by_world_info(session, entry.world_info_id)
+    siblings = [item for item in entries if item.folder_id == entry.folder_id]
+    old_index = next(index for index, item in enumerate(siblings) if item.id == entry_id)
+    new_index = min(new_order, len(siblings)) - 1
+    if old_index == new_index:
         return entry
 
-    # 调整其他条目的 order
-    if new_order < old_order:
-        # 向前移动：[new_order, old_order) 的条目 order +1
-        await world_info_entry_repo.shift_orders(
-            session, world_info_id, new_order, old_order - 1, 1
-        )
-    else:
-        # 向后移动：(old_order, new_order] 的条目 order -1
-        await world_info_entry_repo.shift_orders(
-            session, world_info_id, old_order + 1, new_order, -1
-        )
-
-    entry.order = new_order
+    # Preserve zero-based/gapped orders and every other folder's slots.
+    orders = [item.order for item in siblings]
+    siblings.insert(new_index, siblings.pop(old_index))
+    for item, order in zip(siblings, orders, strict=True):
+        item.order = order
     return await world_info_entry_repo.update_entry(session, entry)
 
 

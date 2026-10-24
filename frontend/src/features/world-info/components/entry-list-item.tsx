@@ -363,20 +363,5 @@ function EntryListItemComponent({
   );
 }
 
-// 使用 memo 包装组件，自定义比较函数优化性能
-export const EntryListItem = memo(
-  EntryListItemComponent,
-  (prev, next) =>
-    prev.entry.id === next.entry.id &&
-    prev.entry.name === next.entry.name &&
-    prev.entry.tokenCount === next.entry.tokenCount &&
-    prev.entry.agentVisibility === next.entry.agentVisibility &&
-    prev.entry.updatedAt === next.entry.updatedAt &&
-    prev.isSelected === next.isSelected &&
-    prev.showDragHandle === next.showDragHandle &&
-    prev.isMultiSelect === next.isMultiSelect &&
-    prev.isChecked === next.isChecked &&
-    prev.isDragSource === next.isDragSource &&
-    prev.dragOffset === next.dragOffset &&
-    prev.isDragOverlay === next.isDragOverlay,
-);
+// Compare every prop, including landing state and callbacks that capture the current order.
+export const EntryListItem = memo(EntryListItemComponent);

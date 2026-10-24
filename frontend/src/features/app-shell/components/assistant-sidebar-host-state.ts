@@ -16,8 +16,7 @@ export function registerAssistantSidebarHost(
     current.isMobileOverlay === registration.isMobileOverlay &&
     current.isOpen === registration.isOpen &&
     current.preferredAgentKey === registration.preferredAgentKey &&
-    current.initialComposerMarkup === registration.initialComposerMarkup &&
-    current.replaceComposerWithInitialMarkup === registration.replaceComposerWithInitialMarkup &&
+    current.automaticComposerMarkup === registration.automaticComposerMarkup &&
     current.discussionWorkspace === registration.discussionWorkspace &&
     current.onStateChange === registration.onStateChange &&
     current.onOpenMentionChapter === registration.onOpenMentionChapter &&

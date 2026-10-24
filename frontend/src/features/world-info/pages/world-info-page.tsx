@@ -7,7 +7,7 @@ import { Box, Flex, Text, Dialog, Button, Skeleton, IconButton, Tooltip } from "
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { List } from "lucide-react";
 import { motion } from "motion/react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useParams, useSearchParams } from "react-router";
 
@@ -37,6 +37,7 @@ import type {
 
 import { EntryEditor } from "../components/entry-editor";
 import { EntryList } from "../components/entry-list";
+import { reorderEntries } from "../components/entry-list-drag";
 import { ImportWorldInfoDialog } from "../components/import-world-info-dialog";
 import {
   batchDeleteWorldInfoEntries,
@@ -433,9 +434,17 @@ export function WorldInfoPage() {
     }
   }, [entryToDelete, deleteEntryMutation]);
 
+  const orderSaveQueues = useRef(
+    new Map<string | null, { tail: Promise<void>; pending: number }>(),
+  );
+
   /** 乐观更新条目顺序 */
   const handleReorderEntries = useCallback(
     (reorderedEntries: WorldInfoEntryBrief[]) => {
+      // An older reconciliation must not overwrite a newer local move.
+      void queryClient.cancelQueries({
+        queryKey: projectDataQueryKeys.worldInfo.entries(currentWorldInfoId),
+      });
       queryClient.setQueryData(
         projectDataQueryKeys.worldInfo.entries(currentWorldInfoId),
         (oldData: WorldInfoEntryBriefListResponse | undefined) => {
@@ -455,19 +464,37 @@ export function WorldInfoPage() {
     [currentWorldInfoId, queryClient],
   );
 
-  /** 保存单条拖拽排序 */
+  /** 同一本世界书串行保存，只在最后一次移动完成后回读。 */
   const handleSaveDragOrder = useCallback(
-    async (entryId: string, newOrder: number) => {
-      try {
-        await moveWorldInfoEntry(entryId, newOrder);
-        toast.success(t("worldInfo.entryOrderUpdated"));
-      } catch (error) {
-        console.error("Failed to save drag order:", error);
-        toast.error(t("worldInfo.entryOrderUpdateFailed"));
-        queryClient.invalidateQueries({
-          queryKey: projectDataQueryKeys.worldInfo.entries(currentWorldInfoId),
-        });
+    (entryId: string, newOrder: number) => {
+      let queue = orderSaveQueues.current.get(currentWorldInfoId);
+      if (!queue) {
+        queue = { tail: Promise.resolve(), pending: 0 };
+        orderSaveQueues.current.set(currentWorldInfoId, queue);
       }
+      const activeQueue = queue;
+      activeQueue.pending += 1;
+      const save = activeQueue.tail
+        .catch(() => undefined)
+        .then(async () => {
+          try {
+            await moveWorldInfoEntry(entryId, newOrder);
+            toast.success(t("worldInfo.entryOrderUpdated"));
+          } catch (error) {
+            console.error("Failed to save drag order:", error);
+            toast.error(t("worldInfo.entryOrderUpdateFailed"));
+          } finally {
+            activeQueue.pending -= 1;
+            if (activeQueue.pending === 0) {
+              await queryClient.invalidateQueries({
+                queryKey: projectDataQueryKeys.worldInfo.entries(currentWorldInfoId),
+              });
+              if (activeQueue.pending === 0) orderSaveQueues.current.delete(currentWorldInfoId);
+            }
+          }
+        });
+      activeQueue.tail = save;
+      return save;
     },
     [currentWorldInfoId, queryClient, t],
   );
@@ -489,17 +516,11 @@ export function WorldInfoPage() {
   const handlePinEntry = useCallback(
     (entry: WorldInfoEntryBrief) => {
       const orderedEntries = [...entries].sort((a, b) => a.order - b.order);
-      const currentIndex = orderedEntries.findIndex((item) => item.id === entry.id);
-      if (currentIndex <= 0) return;
-
-      const pinnedEntries = [
-        orderedEntries[currentIndex],
-        ...orderedEntries.slice(0, currentIndex),
-        ...orderedEntries.slice(currentIndex + 1),
-      ].map((item, index) => ({
-        ...item,
-        order: index + 1,
-      }));
+      const firstSiblingIndex = orderedEntries.findIndex(
+        (item) => item.folderId === entry.folderId,
+      );
+      const pinnedEntries = reorderEntries(orderedEntries, entry.id, firstSiblingIndex);
+      if (!pinnedEntries) return;
 
       handleReorderEntries(pinnedEntries);
       void handleSaveDragOrder(entry.id, 1);
@@ -626,7 +647,7 @@ export function WorldInfoPage() {
       <AssistantSidebarHost
         projectId={currentProjectId}
         preferredAgentKey="discuss"
-        initialComposerMarkup={
+        automaticComposerMarkup={
           selectedEntry
             ? buildWorldInfoEntryMentionTag({
                 worldInfoEntryId: selectedEntry.id,
@@ -634,7 +655,6 @@ export function WorldInfoPage() {
               })
             : undefined
         }
-        replaceComposerWithInitialMarkup
         onStateChange={setAssistantState}
         isMobileOverlay={isMobile}
       />

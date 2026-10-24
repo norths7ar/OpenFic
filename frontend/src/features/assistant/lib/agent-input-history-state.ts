@@ -34,7 +34,9 @@ export function createAgentInputHistoryState(entries: string[]): AgentInputHisto
 export function applyAgentInputChange(
   state: AgentInputHistoryState,
   value: string,
+  forceExit = false,
 ): AgentInputHistoryState {
+  if (!forceExit && state.index !== null && state.entries[state.index] === value) return state;
   return {
     ...state,
     index: null,
@@ -46,7 +48,12 @@ export function navigateAgentInputHistory(
   state: AgentInputHistoryState,
   direction: AgentInputHistoryDirection,
   currentValue: string,
+  hasAttachments = false,
 ): AgentInputHistoryNavigationResult {
+  if (state.index === null && (currentValue.trim() || hasAttachments)) {
+    return { state, value: currentValue, handled: false };
+  }
+
   if (direction === "older") {
     const nextIndex = state.index === null ? state.entries.length - 1 : state.index - 1;
     if (nextIndex < 0) {

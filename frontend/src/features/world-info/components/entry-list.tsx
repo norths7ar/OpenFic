@@ -67,6 +67,7 @@ import {
   ENTRY_LIST_ITEM_HEIGHT,
   getAutoScrollSpeed,
   getEntryDragOffset,
+  getEntryMovePosition,
   reorderEntries,
 } from "./entry-list-drag";
 import { EntryListItem } from "./entry-list-item";
@@ -94,7 +95,7 @@ interface EntryListProps {
   onPinEntry: (entry: WorldInfoEntryBrief) => void;
   /** 重新排序条目回调（乐观更新） */
   onReorderEntries: (reorderedEntries: WorldInfoEntryBrief[]) => void;
-  /** 保存单条拖拽排序回调 */
+  /** 保存同文件夹内从 1 开始的目标位置 */
   onSaveDragOrder?: (entryId: string, newOrder: number) => Promise<void> | void;
   /** 是否正在加载 */
   isLoading?: boolean;
@@ -151,12 +152,9 @@ export function EntryList({
     activeIndex: number;
     targetIndex: number;
   } | null>(null);
-  const [dropPending, setDropPending] = useState<{
-    entryId: string;
-    targetIndex: number;
-    dy: number;
-  } | null>(null);
   const [landingEntryId, setLandingEntryId] = useState<string | null>(null);
+  const landingAnimationRef = useRef<Animation | null>(null);
+  const landingTimeoutRef = useRef<number | null>(null);
   const dragTargetIndexRef = useRef<number | null>(null);
   const draggedEntriesRef = useRef<WorldInfoEntryBrief[] | null>(null);
   const lastDragClientYRef = useRef(0);
@@ -450,14 +448,29 @@ export function EntryList({
     }
   }, []);
 
+  const cancelLandingAnimation = useCallback(() => {
+    if (landingTimeoutRef.current !== null) {
+      window.clearTimeout(landingTimeoutRef.current);
+      landingTimeoutRef.current = null;
+    }
+    const animation = landingAnimationRef.current;
+    landingAnimationRef.current = null;
+    if (animation) {
+      animation.onfinish = null;
+      animation.oncancel = null;
+      animation.cancel();
+    }
+  }, []);
+
   const clearDragState = useCallback(() => {
+    cancelLandingAnimation();
     setActiveEntryId(null);
     dragTargetIndexRef.current = null;
     draggedEntriesRef.current = null;
+    dragSlotsRef.current = [];
     setDragState(null);
-    setDropPending(null);
     setLandingEntryId(null);
-  }, []);
+  }, [cancelLandingAnimation]);
 
   const startAutoScroll = useCallback(() => {
     if (autoScrollFrameRef.current !== null) return;
@@ -511,21 +524,45 @@ export function EntryList({
       const dy = slotTop != null ? pointerTop - slotTop : 0;
 
       flushSync(() => {
-        setDragState(null);
+        clearDragState();
         setLocalEntries(reordered);
         onReorderEntries(reordered);
+        setLandingEntryId(String(active.id));
       });
 
-      // 保持源项隐藏，直到 Virtuoso 应用重排后再在目标槽位揭示并滑入
-      setDropPending({ entryId: String(active.id), targetIndex: newIndex, dy });
+      // The grouped list is now at its destination; never leave a filled transform behind.
+      const finishLanding = () => {
+        cancelLandingAnimation();
+        setLandingEntryId(null);
+      };
+      const node = scrollContainer?.querySelector<HTMLElement>(`[data-entry-id="${active.id}"]`);
+      if (node && dy !== 0) {
+        const animation = node.animate(
+          [{ transform: `translateY(${dy}px)` }, { transform: "translateY(0px)" }],
+          { duration: 140, easing: "ease" },
+        );
+        landingAnimationRef.current = animation;
+        animation.onfinish = finishLanding;
+        animation.oncancel = finishLanding;
+      }
+      landingTimeoutRef.current = window.setTimeout(finishLanding, 180);
 
       if (onSaveDragOrder) {
-        void Promise.resolve(onSaveDragOrder(String(active.id), newIndex + 1)).catch((error) => {
+        void Promise.resolve(
+          onSaveDragOrder(String(active.id), getEntryMovePosition(reordered, String(active.id))),
+        ).catch((error) => {
           console.error("Failed to save drag order:", error);
         });
       }
     },
-    [clearDragState, onReorderEntries, onSaveDragOrder, shouldShowDragHandle, stopAutoScroll],
+    [
+      cancelLandingAnimation,
+      clearDragState,
+      onReorderEntries,
+      onSaveDragOrder,
+      shouldShowDragHandle,
+      stopAutoScroll,
+    ],
   );
 
   const handleDragStart = useCallback(
@@ -546,7 +583,8 @@ export function EntryList({
       const activeIndex = sortedEntries.findIndex((entry) => entry.id === event.active.id);
       dragTargetIndexRef.current = activeIndex;
       setDragState({ activeIndex, targetIndex: activeIndex });
-      lastDragClientYRef.current = event.active.rect.current.initial?.top ?? 0;
+      const initialRect = event.active.rect.current.initial;
+      lastDragClientYRef.current = initialRect ? initialRect.top + initialRect.height / 2 : 0;
     },
     [clearDragState, sortedEntries, stopAutoScroll],
   );
@@ -574,7 +612,7 @@ export function EntryList({
       onReorderEntries(reordered);
       if (onSaveDragOrder) {
         void Promise.resolve(
-          onSaveDragOrder(entryId, reordered[newIndex]?.order ?? newIndex + 1),
+          onSaveDragOrder(entryId, getEntryMovePosition(reordered, entryId)),
         ).catch((error) => {
           console.error("Failed to save keyboard order:", error);
         });
@@ -620,31 +658,13 @@ export function EntryList({
   useEffect(() => {
     return () => {
       stopAutoScroll();
-      clearDragState();
+      cancelLandingAnimation();
     };
-  }, [clearDragState, stopAutoScroll]);
+  }, [cancelLandingAnimation, stopAutoScroll]);
 
   useEffect(() => {
-    if (!dropPending) return;
-    const { entryId, dy, targetIndex } = dropPending;
-    if (sortedEntries[targetIndex]?.id !== entryId) return;
-
-    setDropPending(null);
-    setActiveEntryId(null);
-    setLandingEntryId(entryId);
-    if (dy !== 0) {
-      queueMicrotask(() => {
-        flushSync(() => {});
-        const el = document.querySelector<HTMLDivElement>(`[data-entry-id="${entryId}"]`);
-        el?.animate([{ transform: `translateY(${dy}px)` }, { transform: "translateY(0px)" }], {
-          duration: 140,
-          easing: "ease",
-          fill: "both",
-        });
-      });
-    }
-    window.setTimeout(() => setLandingEntryId(null), 180);
-  }, [dropPending, sortedEntries]);
+    handleDragCancel();
+  }, [projectId, currentWorldInfoId, shouldShowDragHandle, handleDragCancel]);
 
   function getSortIcon(field: SortField) {
     if (sortField !== field) return null;

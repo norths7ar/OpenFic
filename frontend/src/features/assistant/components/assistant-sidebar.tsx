@@ -15,10 +15,7 @@ import { useTranslation } from "react-i18next";
 import { useAppShell } from "@/app/app-shell-context";
 import { ConfirmDialog, Spinner, toast, getModelValue } from "@/components";
 import { AgentBrandIcon } from "@/components/agent-brand-icon";
-import {
-  appendMentionMarkup,
-  replaceAutomaticMentionMarkup,
-} from "@/features/assistant/lib/mention-text";
+import { appendMentionMarkup, parseAssistantMarkup } from "@/features/assistant/lib/mention-text";
 import { usePendingProjectChangeCount } from "@/features/pending-project-changes/hooks";
 import { moveProjectFolderItem } from "@/features/project-folders/lib/project-folder-api";
 import { ProjectNavShell } from "@/features/project-navigation/components/project-nav-shell";
@@ -107,8 +104,7 @@ import { RecentTasksCard } from "./tasks/recent-tasks-card";
 interface AssistantSidebarProps {
   projectId: string;
   preferredAgentKey?: string;
-  initialComposerMarkup?: string;
-  replaceComposerWithInitialMarkup?: boolean;
+  automaticComposerMarkup?: string;
   discussionWorkspace?: boolean;
   onStateChange?: (state: AssistantSidebarState) => void;
   onOpenMentionChapter?: (chapterId: string, chapterTitle: string) => void;
@@ -151,8 +147,7 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
     {
       projectId,
       preferredAgentKey,
-      initialComposerMarkup,
-      replaceComposerWithInitialMarkup = false,
+      automaticComposerMarkup,
       discussionWorkspace = false,
       onStateChange,
       onOpenMentionChapter,
@@ -179,6 +174,51 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
     );
     const [activeSubagents, setActiveSubagents] = useState<ActiveSubagentState[]>([]);
     const [inputValue, setInputValue] = useState("");
+    const [hasRecalledInput, setHasRecalledInput] = useState(false);
+    const automaticMarkup = automaticComposerMarkup?.trim() || null;
+    const automaticMention = useMemo(
+      () =>
+        parseAssistantMarkup(automaticMarkup ?? "").find(
+          (segment) => typeof segment !== "string" && segment.markup === "mention",
+        ),
+      [automaticMarkup],
+    );
+    const automaticReferenceKey =
+      automaticMention?.markup === "mention"
+        ? `${projectId}:${automaticMention.kind}:${automaticMention.attrs[`${automaticMention.kind}_id`]}`
+        : null;
+    const [automaticReference, setAutomaticReference] = useState({
+      key: automaticReferenceKey,
+      removed: false,
+    });
+    if (automaticReference.key !== automaticReferenceKey) {
+      setAutomaticReference({ key: automaticReferenceKey, removed: false });
+    }
+    const activeAutomaticMarkup =
+      automaticReference.key === automaticReferenceKey && automaticReference.removed
+        ? null
+        : hasRecalledInput && inputValue.trim()
+          ? null
+          : automaticMarkup;
+    // Only the send payload contains the automatic reference; the editor and saved draft do not.
+    const submissionValue = useMemo(() => {
+      if (!activeAutomaticMarkup) return inputValue;
+      const alreadyReferenced =
+        automaticMention?.markup === "mention" &&
+        parseAssistantMarkup(inputValue).some(
+          (segment) =>
+            typeof segment !== "string" &&
+            segment.markup === "mention" &&
+            segment.kind === automaticMention.kind &&
+            segment.attrs[`${segment.kind}_id`] ===
+              automaticMention.attrs[`${automaticMention.kind}_id`] &&
+            !segment.attrs.line_start &&
+            !segment.attrs.line_end,
+        );
+      return alreadyReferenced
+        ? inputValue
+        : appendMentionMarkup(inputValue, activeAutomaticMarkup);
+    }, [activeAutomaticMarkup, automaticMention, inputValue]);
     const [pendingAttachments, setPendingAttachments] = useState<PendingAgentImageAttachment[]>([]);
     const [view, setView] = useState<AssistantView>("tasks");
     const [isLoadingTask, setIsLoadingTask] = useState(false);
@@ -195,8 +235,6 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
     >({});
     const [isMessagesAtBottom, setIsMessagesAtBottom] = useState(true);
     const handledPreferredAgentRef = useRef<string | null>(null);
-    const handledInitialComposerMarkupRef = useRef<string | null>(null);
-    const automaticComposerMarkupRef = useRef<string | null>(null);
     const scrollToBottomFnRef = useRef<(() => void) | null>(null);
     const prepareSceneDraftActionRef = useRef<(request: SceneDraftRequest) => void>(() => {});
 
@@ -513,9 +551,12 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
       deliveryMode,
       agentKey: effectiveAgentKey,
       contextMode,
-      inputValue,
+      inputValue: submissionValue,
       attachments: pendingAttachments,
-      onClearInput: () => setInputValue(""),
+      onClearInput: () => {
+        setInputValue("");
+        setHasRecalledInput(false);
+      },
       onClearAttachments: () => {
         pendingAttachments.forEach((attachment) => {
           if (attachment.file) URL.revokeObjectURL(attachment.previewUrl);
@@ -626,6 +667,7 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
       queueMicrotask(() => {
         if (cancelled) return;
         setInputValue("");
+        setHasRecalledInput(false);
         setView("tasks");
         setIsLoadingTask(false);
         setCurrentTaskId(null);
@@ -932,6 +974,7 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
         setContextMode(request.contextMode);
         setSelectedAgentKey("draft");
         setInputValue(request.prompt);
+        setHasRecalledInput(false);
         setView("tasks");
       },
       [agentSidebar.isRunning, agentSidebar.pendingMessage, backToTaskList, t],
@@ -964,7 +1007,7 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
       handleSummaryWarningOpenChange,
     } = useSummarySendGuard(
       projectId,
-      Boolean(inputValue.trim()) || pendingAttachments.length > 0,
+      Boolean(submissionValue.trim()) || pendingAttachments.length > 0,
       performSend,
     );
 
@@ -1148,28 +1191,6 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
       primaryAgents,
       projectId,
     ]);
-
-    useEffect(() => {
-      const nextMarkup = initialComposerMarkup?.trim() || null;
-      const requestKey = `${projectId}:${replaceComposerWithInitialMarkup ? "replace" : "merge"}:${nextMarkup ?? ""}`;
-      if (handledInitialComposerMarkupRef.current === requestKey) return;
-      handledInitialComposerMarkupRef.current = requestKey;
-      const previousMarkup = automaticComposerMarkupRef.current;
-      automaticComposerMarkupRef.current = nextMarkup;
-
-      let cancelled = false;
-      queueMicrotask(() => {
-        if (cancelled) return;
-        setInputValue((current) =>
-          replaceComposerWithInitialMarkup
-            ? (nextMarkup ?? "")
-            : replaceAutomaticMentionMarkup(current, previousMarkup, nextMarkup),
-        );
-      });
-      return () => {
-        cancelled = true;
-      };
-    }, [initialComposerMarkup, projectId, replaceComposerWithInitialMarkup]);
 
     const agentSelectorOptions = useMemo(
       () =>
@@ -1512,8 +1533,13 @@ export const AssistantSidebar = forwardRef<AssistantSidebarHandle, AssistantSide
                   )
                 }
                 value={inputValue}
-                automaticComposerMarkup={automaticComposerMarkupRef.current}
-                restorePersistedDraft={!replaceComposerWithInitialMarkup}
+                submissionValue={submissionValue}
+                contextMode={contextMode}
+                automaticComposerMarkup={activeAutomaticMarkup}
+                onRemoveAutomaticComposerMarkup={() =>
+                  setAutomaticReference({ key: automaticReferenceKey, removed: true })
+                }
+                onHistoryRecallChange={setHasRecalledInput}
                 attachments={pendingAttachments}
                 projectId={projectId}
                 modelId={effectiveModelId}

@@ -143,19 +143,27 @@ export function useAgentInputHistory(projectId: string) {
   );
 
   const handleInputChange = useCallback(
-    (value: string) => {
-      commitState(applyAgentInputChange(historyStateRef.current, value));
+    (value: string, forceExit = false) => {
+      const currentState = historyStateRef.current;
+      const nextState = applyAgentInputChange(currentState, value, forceExit);
+      if (nextState === currentState) return;
+      commitState(nextState);
       scheduleDraftSave(value);
     },
     [commitState, scheduleDraftSave],
   );
 
   const navigate = useCallback(
-    (direction: AgentInputHistoryDirection, currentValue: string): string | null => {
-      const result = navigateAgentInputHistory(historyStateRef.current, direction, currentValue);
+    (direction: AgentInputHistoryDirection, currentValue: string, hasAttachments = false) => {
+      const result = navigateAgentInputHistory(
+        historyStateRef.current,
+        direction,
+        currentValue,
+        hasAttachments,
+      );
       if (!result.handled) return null;
       commitState(result.state);
-      return result.value;
+      return { value: result.value, isHistoryEntry: result.state.index !== null };
     },
     [commitState],
   );

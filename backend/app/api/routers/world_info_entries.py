@@ -396,7 +396,7 @@ async def move_entry(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> WorldInfoEntryBriefResponse:
     """
-    移动世界书条目到新位置。
+    移动条目到同文件夹内从 1 开始的位置，保留已有 order 槽位。
 
     Args:
         entry_id: 条目 ID。
@@ -409,7 +409,7 @@ async def move_entry(
     Raises:
         HTTPException: 条目不存在或位置无效。
     """
-    logger.info(f"移动条目: {entry_id} -> order={data.new_order}")
+    logger.info(f"移动条目: {entry_id} -> sibling position={data.new_order}")
     entry = await world_info_entry_service.move_entry(session, entry_id, data.new_order)
     return _entry_to_brief_response(entry)
 

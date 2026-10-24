@@ -69,11 +69,10 @@ export function DocumentWorkspacePage({ documentType }: DocumentWorkspacePagePro
     <AssistantSidebarHost
       projectId={projectId}
       preferredAgentKey="discuss"
-      initialComposerMarkup={buildNoteMentionTag({
+      automaticComposerMarkup={buildNoteMentionTag({
         noteId: selectedNoteId,
         label: selectedTitle,
       })}
-      replaceComposerWithInitialMarkup
       onStateChange={setAssistantState}
       isMobileOverlay={false}
     />
@@ -106,7 +105,7 @@ export function DocumentWorkspacePage({ documentType }: DocumentWorkspacePagePro
         <AssistantSidebarHost
           projectId={projectId}
           preferredAgentKey="discuss"
-          initialComposerMarkup={
+          automaticComposerMarkup={
             selectedNoteId
               ? buildNoteMentionTag({
                   noteId: selectedNoteId,
@@ -114,7 +113,6 @@ export function DocumentWorkspacePage({ documentType }: DocumentWorkspacePagePro
                 })
               : undefined
           }
-          replaceComposerWithInitialMarkup
           onStateChange={setAssistantState}
           isMobileOverlay
         />
