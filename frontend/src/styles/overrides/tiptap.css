@@ -276,14 +276,16 @@
   border-collapse: collapse;
   border-top: 2px solid var(--gray-8);
   border-bottom: 2px solid var(--gray-8);
-  table-layout: fixed;
+  table-layout: auto;
 }
 
 .tiptap-editor table th,
 .tiptap-editor table td {
+  min-width: 4em;
   padding: 0.5em 0.75em;
   border: 0;
   vertical-align: top;
+  overflow-wrap: anywhere;
 }
 
 .tiptap-editor table tbody > tr:first-child {
