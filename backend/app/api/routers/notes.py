@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.schemas.chapter import (
     MentionCandidateItem,
     MentionCandidateSearchResponse,
+    MentionFolderItem,
 )
 from app.api.schemas.note import (
     DocumentType,
@@ -34,6 +35,7 @@ from app.api.schemas.note import (
     ReorderResponse,
 )
 from app.background.jobs import service as background_service
+from app.core.knowledge_scope import KnowledgeScope
 from app.storage.database import get_session
 from app.storage.services import mention_service, note_service
 
@@ -298,6 +300,13 @@ async def search_mention_candidates(
     session: Annotated[AsyncSession, Depends(get_session)],
     query: Annotated[str, Query(description="mention 检索词")] = "",
     limit: Annotated[int, Query(ge=1, le=50, description="返回的最大候选数")] = 20,
+    offset: Annotated[int, Query(ge=0, description="过滤后候选项的分页偏移量")] = 0,
+    context_mode: Annotated[
+        KnowledgeScope, Query(description="会话资料范围")
+    ] = KnowledgeScope.LOCAL,
+    folder_id: Annotated[
+        str | None, Query(description="文件夹 ID；root 表示未分类，省略表示全部")
+    ] = None,
     kind: Annotated[
         Literal[
             "volume",
@@ -311,12 +320,15 @@ async def search_mention_candidates(
         Query(description="候选类型过滤"),
     ] = None,
 ) -> MentionCandidateSearchResponse:
-    items = await mention_service.search_all_mention_candidates(
+    page = await mention_service.search_mention_page(
         session,
         project_id,
         query,
         limit=limit,
+        offset=offset,
         kind=kind,
+        context_mode=context_mode,
+        folder_id=folder_id,
     )
     return MentionCandidateSearchResponse(
         items=[
@@ -326,9 +338,13 @@ async def search_mention_candidates(
                 title=item.title,
                 label=item.label,
                 description=item.description,
+                folder_id=item.folder_id,
+                folder_name=item.folder_name,
             )
-            for item in items
-        ]
+            for item in page.items
+        ],
+        folders=[MentionFolderItem(id=folder.id, title=folder.title) for folder in page.folders],
+        has_more=page.has_more,
     )
 
 

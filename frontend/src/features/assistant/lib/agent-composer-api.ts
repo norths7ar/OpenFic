@@ -1,6 +1,9 @@
 import { apiClient } from "@/lib/api-transport";
 import type { AssistantCommandCandidate } from "@/lib/command.types";
-import type { AssistantMentionCandidate } from "@/lib/mention.types";
+import type {
+  AssistantMentionCandidate,
+  AssistantMentionSearchResponse,
+} from "@/lib/mention.types";
 
 function transformMentionCandidate(raw: Record<string, unknown>): AssistantMentionCandidate {
   return {
@@ -33,16 +36,26 @@ export async function searchMentionCandidates(
   limit = 20,
   kind?: "volume" | "chapter" | "note" | "note_category" | "world_info_entry" | "character",
   signal?: AbortSignal,
-): Promise<AssistantMentionCandidate[]> {
+  options: { contextMode?: "global" | "local"; folderId?: string; offset?: number } = {},
+): Promise<AssistantMentionSearchResponse> {
   const response = await apiClient.get<Record<string, unknown>>(`/projects/${projectId}/mentions`, {
     params: {
       query,
       limit,
       ...(kind ? { kind } : {}),
+      context_mode: options.contextMode ?? "local",
+      ...(options.folderId !== undefined ? { folder_id: options.folderId } : {}),
+      offset: options.offset ?? 0,
     },
     signal,
   });
-  return ((response.data.items as Record<string, unknown>[]) ?? []).map(transformMentionCandidate);
+  return {
+    items: ((response.data.items as Record<string, unknown>[]) ?? []).map(
+      transformMentionCandidate,
+    ),
+    folders: (response.data.folders as { id: string; title: string }[]) ?? [],
+    hasMore: response.data.has_more === true,
+  };
 }
 
 export async function searchCommands(

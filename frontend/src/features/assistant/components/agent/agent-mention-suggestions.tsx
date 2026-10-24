@@ -1,3 +1,4 @@
+import { Button, Flex, Select } from "@radix-ui/themes";
 import {
   BookOpen,
   FileText,
@@ -16,9 +17,11 @@ import type {
   AgentComposerSuggestionItem,
   AgentComposerSuggestionMode,
   AgentComposerSuggestionStatus,
+  AgentMentionBrowser,
 } from "./agent-composer-editor";
 
 interface AgentMentionSuggestionsProps {
+  browser?: AgentMentionBrowser;
   clearanceHeight: number;
   mode: AgentComposerSuggestionMode;
   items: AgentComposerSuggestionItem[];
@@ -80,6 +83,7 @@ function getStateMessage(
 }
 
 export function AgentMentionSuggestions({
+  browser,
   clearanceHeight,
   mode,
   items,
@@ -129,6 +133,9 @@ export function AgentMentionSuggestions({
     if (!visible) return undefined;
 
     const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.isComposing || event.keyCode === 229) return;
+      if (!(event.target instanceof Element) || !event.target.closest(".agent-composer-editor"))
+        return;
       const hasSelectableItems = status === "ready" && items.length > 0;
       switch (event.key) {
         case "ArrowDown":
@@ -228,7 +235,85 @@ export function AgentMentionSuggestions({
             exit={{ opacity: 0, height: 0 }}
             transition={{ duration: 0.18, ease: "easeOut" }}
           >
+            {mode === "mention" && browser && (
+              <Flex
+                gap="2"
+                wrap="wrap"
+                className="agent-mention-filters"
+              >
+                <Select.Root
+                  value={browser.kind}
+                  onValueChange={(kind) =>
+                    browser.onKindChange(kind as AgentMentionBrowser["kind"])
+                  }
+                  size="1"
+                >
+                  <Select.Trigger aria-label={t("assistant.mentionSearch.type")} />
+                  <Select.Content position="popper">
+                    <Select.Item value="all">{t("assistant.mentionSearch.allTypes")}</Select.Item>
+                    {(
+                      [
+                        "world_info_entry",
+                        "character",
+                        "chapter",
+                        "volume",
+                        "note",
+                        "note_category",
+                      ] as const
+                    ).map((kind) => (
+                      <Select.Item
+                        key={kind}
+                        value={kind}
+                      >
+                        {t(
+                          `assistant.mentionKind.${kind === "world_info_entry" ? "worldInfoEntry" : kind === "note_category" ? "noteCategory" : kind}`,
+                        )}
+                      </Select.Item>
+                    ))}
+                  </Select.Content>
+                </Select.Root>
+                {["world_info_entry", "character", "chapter", "note"].includes(browser.kind) && (
+                  <Select.Root
+                    value={browser.folderId}
+                    onValueChange={browser.onFolderChange}
+                    size="1"
+                  >
+                    <Select.Trigger aria-label={t("assistant.mentionSearch.folder")} />
+                    <Select.Content position="popper">
+                      <Select.Item value="all">
+                        {t("assistant.mentionSearch.allFolders")}
+                      </Select.Item>
+                      <Select.Item value="root">{t("assistant.mentionSearch.root")}</Select.Item>
+                      {browser.folders.map((folder) => (
+                        <Select.Item
+                          key={folder.id}
+                          value={folder.id}
+                        >
+                          {folder.title}
+                        </Select.Item>
+                      ))}
+                    </Select.Content>
+                  </Select.Root>
+                )}
+              </Flex>
+            )}
             {suggestionContent}
+            {mode === "mention" && browser?.hasMore && (
+              <Flex
+                justify="center"
+                p="2"
+              >
+                <Button
+                  size="1"
+                  variant="ghost"
+                  loading={browser.isLoadingMore}
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={browser.onLoadMore}
+                >
+                  {t("assistant.mentionSearch.loadMore")}
+                </Button>
+              </Flex>
+            )}
           </motion.div>
           <div
             aria-hidden="true"

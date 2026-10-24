@@ -9,6 +9,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy import update as sql_update
 from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import QueryableAttribute, load_only
 from sqlmodel import col
 
 from app.core.agent_visibility import AgentVisibility, values_for_scope
@@ -101,6 +102,39 @@ async def list_enabled_by_world_info(
             col(WorldInfoEntry.agent_visibility).in_(values_for_scope(KnowledgeScope.LOCAL)),
         )
         .order_by(col(WorldInfoEntry.order))
+    )
+    return list(result.scalars().all())
+
+
+async def list_visible_directory_by_world_info(
+    session: AsyncSession,
+    world_info_id: str,
+    *,
+    scope: KnowledgeScope = KnowledgeScope.LOCAL,
+) -> list[WorldInfoEntry]:
+    """Load only visible directory metadata, never entry bodies."""
+    result = await session.execute(
+        select(WorldInfoEntry)
+        .options(
+            load_only(
+                *(
+                    cast(QueryableAttribute[Any], attribute)
+                    for attribute in (
+                        WorldInfoEntry.id,
+                        WorldInfoEntry.name,
+                        WorldInfoEntry.uid,
+                        WorldInfoEntry.order,
+                        WorldInfoEntry.folder_id,
+                        WorldInfoEntry.agent_visibility,
+                    )
+                )
+            )
+        )
+        .where(
+            col(WorldInfoEntry.world_info_id) == world_info_id,
+            col(WorldInfoEntry.agent_visibility).in_(values_for_scope(scope)),
+        )
+        .order_by(col(WorldInfoEntry.order), col(WorldInfoEntry.id))
     )
     return list(result.scalars().all())
 

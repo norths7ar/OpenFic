@@ -1,5 +1,6 @@
 import json
 import unicodedata
+from collections import Counter
 from dataclasses import dataclass
 from typing import Any
 
@@ -27,12 +28,15 @@ from app.core.editor_content_limits import (
 from app.core.knowledge_scope import KnowledgeScope
 from app.storage.database import create_session
 from app.storage.models.world_info_entry import WorldInfoEntry
-from app.storage.repos import world_info_entry_repo, world_info_repo
+from app.storage.repos import project_folder_repo, world_info_entry_repo, world_info_repo
 from app.storage.services import world_info_entry_service
 
 
 class ListWorldEntriesInput(BaseModel):
-    pass
+    folder_id: str | None = Field(
+        default=None,
+        description="可选文件夹 ID；root 表示未分类，省略返回完整目录；只返回结构，不含正文",
+    )
 
 
 class ReadWorldEntryInput(BaseModel):
@@ -293,38 +297,61 @@ def _require_revision_id(state: dict) -> str:
 @ToolRegistry.register
 class ListWorldEntriesTool(AgentTool):
     name: str = "list_world_entries"
-    description: str = "获取项目世界书中启用的设定条目列表"
+    description: str = (
+        "获取当前资料范围可见的世界书目录，包括文件夹及其可见条目数、条目所属文件夹；"
+        "可用 folder_id 筛选，root 表示未分类；只返回结构，不含正文"
+    )
     access_level: str = "readonly"
     args_schema: type[BaseModel] = ListWorldEntriesInput
 
-    async def _execute(self) -> str:
+    async def _execute(self, folder_id: str | None = None) -> str:
         session = await create_session()
         try:
             world_info = await _get_project_world_info(session, self.project_id)
             scope = get_knowledge_scope(self._state)
-            entries = (
-                await world_info_entry_repo.list_all_by_world_info(
-                    session,
-                    world_info.id,
-                )
-                if scope == KnowledgeScope.GLOBAL
-                else await world_info_entry_repo.list_enabled_by_world_info(
-                    session,
-                    world_info.id,
-                )
+            entries = await world_info_entry_repo.list_visible_directory_by_world_info(
+                session, world_info.id, scope=scope
             )
-            entries = [entry for entry in entries if world_entry_is_visible(entry, scope=scope)]
+            folders = await project_folder_repo.list_by_project_scope(
+                session, self.project_id, "world"
+            )
+            folder_names = {folder.id: folder.title for folder in folders}
+            if folder_id not in (None, "root") and folder_id not in folder_names:
+                raise ToolExecutionError(f"世界书文件夹不存在: {folder_id}")
+            entry_counts = Counter(entry.folder_id for entry in entries)
+            if folder_id is not None:
+                target_id = None if folder_id == "root" else folder_id
+                entries = [entry for entry in entries if entry.folder_id == target_id]
             return json.dumps(
                 {
+                    "folders": [
+                        {
+                            "id": "root",
+                            "name": "未分类",
+                            "order": -1,
+                            "entry_count": entry_counts[None],
+                        },
+                        *[
+                            {
+                                "id": folder.id,
+                                "name": folder.title,
+                                "order": folder.order,
+                                "entry_count": entry_counts[folder.id],
+                            }
+                            for folder in folders
+                        ],
+                    ],
                     "entries": [
                         {
                             "id": entry.id,
                             "title": entry.name,
                             "uid": entry.uid,
                             "order": entry.order,
+                            "folder_id": entry.folder_id,
+                            "folder_name": folder_names.get(entry.folder_id, "未分类"),
                         }
                         for entry in entries
-                    ]
+                    ],
                 },
                 ensure_ascii=False,
             )

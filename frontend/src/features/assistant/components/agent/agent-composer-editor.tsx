@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import Placeholder from "@tiptap/extension-placeholder";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import type { Editor } from "@tiptap/react";
@@ -40,9 +40,21 @@ export type AgentComposerSuggestionStatus = "idle" | "loading" | "empty" | "read
 export type AgentComposerSuggestionMode = "mention" | "command";
 export type AgentComposerSuggestionItem = AssistantMentionCandidate | AssistantCommandCandidate;
 
+export interface AgentMentionBrowser {
+  kind: AssistantMentionCandidate["kind"] | "all";
+  folderId: string;
+  folders: { id: string; title: string }[];
+  hasMore: boolean;
+  isLoadingMore: boolean;
+  onKindChange: (kind: AssistantMentionCandidate["kind"] | "all") => void;
+  onFolderChange: (folderId: string) => void;
+  onLoadMore: () => void;
+}
+
 const EMPTY_SUGGESTION_ITEMS: AgentComposerSuggestionItem[] = [];
 
 export interface AgentComposerSuggestionState {
+  browser?: AgentMentionBrowser;
   mode: AgentComposerSuggestionMode;
   items: AgentComposerSuggestionItem[];
   selectedIndex: number;
@@ -54,6 +66,7 @@ export interface AgentComposerSuggestionState {
 
 interface AgentComposerEditorProps {
   projectId: string;
+  contextMode?: "global" | "local";
   value: string;
   placeholder: string;
   disabled: boolean;
@@ -64,6 +77,7 @@ interface AgentComposerEditorProps {
   onChange: (value: string) => void;
   onSubmit: () => void;
   onHistoryNavigate?: (direction: AgentInputHistoryDirection) => boolean;
+  historyNavigationActive?: boolean;
 }
 
 interface MentionQueryState {
@@ -178,6 +192,7 @@ function createCommandNodeAttrs(
 
 export function AgentComposerEditor({
   projectId,
+  contextMode = "local",
   value,
   placeholder,
   disabled,
@@ -188,31 +203,59 @@ export function AgentComposerEditor({
   onChange,
   onSubmit,
   onHistoryNavigate,
+  historyNavigationActive = false,
 }: AgentComposerEditorProps) {
   const isApplyingExternalValueRef = useRef(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [mentionKind, setMentionKind] = useState<AgentMentionBrowser["kind"]>("all");
+  const [folderId, setFolderId] = useState("all");
   const [mentionQuery, setMentionQuery] = useState<MentionQueryState>(
     createClosedMentionQueryState,
   );
 
   const normalizedQuery = mentionQuery.query.trim();
-  const shouldSearchSuggestionItems =
-    mentionQuery.visible &&
-    projectId.trim().length > 0 &&
-    (mentionQuery.mode === "command" || normalizedQuery.length > 0);
-  const { data: remoteSuggestionItems, isFetching: isSearchingSuggestionItems } = useQuery<
-    AgentComposerSuggestionItem[]
-  >({
-    queryKey: ["assistant-composer-candidates", projectId, mentionQuery.mode, normalizedQuery],
-    queryFn: ({ signal }): Promise<AgentComposerSuggestionItem[]> =>
-      mentionQuery.mode === "command"
-        ? searchCommands(projectId, normalizedQuery, 20, "skill", signal)
-        : searchMentionCandidates(projectId, normalizedQuery, 20, undefined, signal),
-    enabled: shouldSearchSuggestionItems,
+  const shouldSearchSuggestionItems = mentionQuery.visible && projectId.trim().length > 0;
+  const commandQuery = useQuery({
+    queryKey: ["assistant-composer-commands", projectId, normalizedQuery],
+    queryFn: ({ signal }) => searchCommands(projectId, normalizedQuery, 20, "skill", signal),
+    enabled: shouldSearchSuggestionItems && mentionQuery.mode === "command",
     staleTime: 30 * 1000,
   });
+  const candidatesQuery = useInfiniteQuery({
+    queryKey: [
+      "assistant-composer-candidates",
+      projectId,
+      contextMode,
+      normalizedQuery,
+      mentionKind,
+      folderId,
+    ],
+    initialPageParam: 0,
+    queryFn: ({ signal, pageParam }) =>
+      searchMentionCandidates(
+        projectId,
+        normalizedQuery,
+        20,
+        mentionKind === "all" ? undefined : mentionKind,
+        signal,
+        { contextMode, folderId: folderId === "all" ? undefined : folderId, offset: pageParam },
+      ),
+    getNextPageParam: (page, pages) =>
+      page.hasMore ? pages.reduce((count, item) => count + item.items.length, 0) : undefined,
+    enabled: shouldSearchSuggestionItems && mentionQuery.mode === "mention",
+    staleTime: 30 * 1000,
+  });
+  const mentionItems = useMemo(
+    () => candidatesQuery.data?.pages.flatMap((page) => page.items),
+    [candidatesQuery.data],
+  );
+  const isSearchingSuggestionItems =
+    mentionQuery.mode === "command"
+      ? commandQuery.isFetching
+      : candidatesQuery.isFetching && !candidatesQuery.isFetchingNextPage;
   const suggestionItems = shouldSearchSuggestionItems
-    ? (remoteSuggestionItems ?? EMPTY_SUGGESTION_ITEMS)
+    ? ((mentionQuery.mode === "command" ? commandQuery.data : mentionItems) ??
+      EMPTY_SUGGESTION_ITEMS)
     : EMPTY_SUGGESTION_ITEMS;
   const suggestionStatus: AgentComposerSuggestionStatus | null = !mentionQuery.visible
     ? null
@@ -220,9 +263,37 @@ export function AgentComposerEditor({
       ? "loading"
       : suggestionItems.length > 0
         ? "ready"
-        : normalizedQuery.length === 0 && mentionQuery.mode === "mention"
-          ? "idle"
-          : "empty";
+        : "empty";
+  const { fetchNextPage } = candidatesQuery;
+  const browser = useMemo<AgentMentionBrowser>(
+    () => ({
+      kind: mentionKind,
+      folderId,
+      folders: candidatesQuery.data?.pages[0]?.folders ?? [],
+      hasMore: candidatesQuery.hasNextPage,
+      isLoadingMore: candidatesQuery.isFetchingNextPage,
+      onKindChange: (kind) => {
+        setMentionKind(kind);
+        setFolderId("all");
+        setSelectedIndex(0);
+      },
+      onFolderChange: (id) => {
+        setFolderId(id);
+        setSelectedIndex(0);
+      },
+      onLoadMore: () => {
+        void fetchNextPage();
+      },
+    }),
+    [
+      mentionKind,
+      folderId,
+      candidatesQuery.data,
+      candidatesQuery.hasNextPage,
+      candidatesQuery.isFetchingNextPage,
+      fetchNextPage,
+    ],
+  );
   const effectiveSelectedIndex =
     suggestionStatus === "ready" && suggestionItems.length > 0
       ? Math.min(selectedIndex, suggestionItems.length - 1)
@@ -392,6 +463,7 @@ export function AgentComposerEditor({
 
   const handleEditorKeyDownCapture = useCallback(
     (event: ReactKeyboardEvent<HTMLDivElement>) => {
+      if (event.nativeEvent.isComposing || event.keyCode === 229) return;
       if (
         !disabled &&
         !mentionQuery.visible &&
@@ -408,7 +480,7 @@ export function AgentComposerEditor({
           (event.key === "ArrowUp"
             ? selection.from <= 1
             : selection.to >= editor.state.doc.content.size - 1);
-        if (isAtBoundary) {
+        if (historyNavigationActive || isAtBoundary) {
           const direction = event.key === "ArrowUp" ? "older" : "newer";
           if (onHistoryNavigate?.(direction)) {
             event.preventDefault();
@@ -435,6 +507,7 @@ export function AgentComposerEditor({
       editor,
       mentionQuery.visible,
       onHistoryNavigate,
+      historyNavigationActive,
       onSubmit,
       suggestionItems.length,
       suggestionStatus,
@@ -475,6 +548,7 @@ export function AgentComposerEditor({
     }
 
     onMentionSuggestionsChange({
+      browser: mentionQuery.mode === "mention" ? browser : undefined,
       mode: mentionQuery.mode,
       items: suggestionItems,
       selectedIndex: effectiveSelectedIndex,
@@ -484,6 +558,7 @@ export function AgentComposerEditor({
       onSelectedIndexChange: setSelectedIndex,
     });
   }, [
+    browser,
     closeSuggestions,
     effectiveSelectedIndex,
     handleSelectSuggestion,

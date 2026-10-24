@@ -462,6 +462,8 @@
     "backToProjects": "Back to projects",
     "selectChapter": "Select a chapter to start editing",
     "aiSidebar": {
+      "currentEntryReference": "Current entry",
+      "removeCurrentEntryReference": "Remove current entry reference: {{label}}",
       "thinking": "AI is thinking...",
       "inputPlaceholder": "Ask your question...",
       "noModelsTooltip": "No models found, click to go to settings",
@@ -1859,6 +1861,12 @@
       "character": "Character"
     },
     "mentionSearch": {
+      "type": "Reference type",
+      "allTypes": "All types",
+      "folder": "Folder",
+      "allFolders": "All folders",
+      "root": "Unfiled",
+      "loadMore": "Load more",
       "idle": "Type to search",
       "loading": "Searching",
       "empty": "No matching content found"

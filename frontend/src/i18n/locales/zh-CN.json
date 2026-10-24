@@ -462,6 +462,8 @@
     "backToProjects": "返回项目列表",
     "selectChapter": "选择一个章节开始编辑",
     "aiSidebar": {
+      "currentEntryReference": "当前条目",
+      "removeCurrentEntryReference": "移除当前条目引用：{{label}}",
       "thinking": "AI 思考中...",
       "inputPlaceholder": "输入你的问题...",
       "noModelsTooltip": "未找到模型，点击前往设置",
@@ -2023,6 +2025,12 @@
       "character": "角色"
     },
     "mentionSearch": {
+      "type": "引用类型",
+      "allTypes": "全部类型",
+      "folder": "所属目录",
+      "allFolders": "全部目录",
+      "root": "未分类",
+      "loadMore": "加载更多",
       "idle": "输入内容以检索",
       "loading": "检索中",
       "empty": "未找到匹配内容"

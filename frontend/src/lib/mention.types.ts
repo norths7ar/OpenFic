@@ -8,4 +8,6 @@ export interface AssistantMentionCandidate {
 
 export interface AssistantMentionSearchResponse {
   items: AssistantMentionCandidate[];
+  folders: { id: string; title: string }[];
+  hasMore: boolean;
 }

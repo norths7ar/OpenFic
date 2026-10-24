@@ -107,16 +107,27 @@ class MentionCandidateItem(BaseModel):
         "world_info_entry",
         "character",
     ] = Field(description="候选类型")
-    id: str = Field(description="卷或章节 ID")
+    id: str = Field(description="候选 ID")
     title: str = Field(description="候选标题")
     label: str = Field(description="插入 mention 时使用的标签")
     description: str | None = Field(default=None, description="附加说明")
+    folder_id: str | None = Field(default=None, description="所属文件夹 ID；未分类为 null")
+    folder_name: str | None = Field(default=None, description="所属文件夹名称；未分类为 null")
+
+
+class MentionFolderItem(BaseModel):
+    """当前候选类型对应的单层文件夹导航。"""
+
+    id: str
+    title: str
 
 
 class MentionCandidateSearchResponse(BaseModel):
     """mention 候选检索结果。"""
 
     items: list[MentionCandidateItem] = Field(description="匹配到的候选项")
+    folders: list[MentionFolderItem] = Field(default_factory=list, description="完整文件夹导航")
+    has_more: bool = Field(default=False, description="是否还有下一页候选项")
 
 
 class ChapterSearchMatch(BaseModel):
