@@ -131,19 +131,35 @@ Markdown 源包用 `<!-- openfic:item` 元数据块区分条目并保留稳定 I
 
 ### 导出到文档备份仓库
 
-在 OpenFic 中写作、用独立 Git 仓库保存文档历史时，运行：
+保持 OpenFic 服务运行，在仓库根目录用 PowerShell 7 执行。不带参数备份配置中的全部书籍，也可以按完整书名选一本：
 
 ```powershell
-./scripts/export-document-backup.ps1 -ProjectId '项目 ID' -Destination '../小说备份目录'
+# 备份配置中的全部书籍
+./scripts/export-document-backup.ps1
+
+# 只备份一本
+./scripts/export-document-backup.ps1 -Book '示例书名'
 ```
+
+书名、项目 ID 和目标目录统一保存在本地配置 `scripts/document-backups.json`（已加入 `.gitignore`，不提交到仓库），相对目录以配置文件所在目录为准，与启动命令时的工作目录无关。可用 `-ConfigPath` 选择其他配置；临时导出仍支持 `-ProjectId '项目 ID' -Destination '../小说备份目录'`，显式 `-Destination` 的相对路径以当前工作目录为准。
 
 目标目录须已存在。脚本调用本机正式服务的 Markdown 源包 API，完整下载并解压后更新目标目录；可用 `-BaseUrl` 指定其他服务。根目录的 `.git`、`.gitignore`、`.gitattributes`、`archives`、`README` 和 `AGENTS`（包括带扩展名的名称，不区分大小写）保留，其余内容替换为本次导出。需要长期保留的私人原稿请先放入 `archives/`。应用删除或移动条目后，旧文件不会继续残留在当前备份中。
 
-备份方向是 OpenFic → 文档仓库，日常写作在 OpenFic 中完成。已有 Git 仓库若有未提交修改，脚本会停止，先核对处理已有工作再导出。脚本不初始化仓库、不提交或推送；完成后检查 Git 差异，按授权提交并推送以保存这次快照。新备份目录可自行执行 `git init`。
+备份方向是 OpenFic → 文档仓库，日常写作在 OpenFic 中完成。脚本先检查所有选中目标的目录和 Git 状态；任一仓库有未提交修改，就在导出前停止并指出目录。每本书完成后汇总新增、修改和删除的文件数量，没有变化时不替换目标文件。批量备份不是跨仓库事务：若后一本下载或写入失败，已完成的前一本保留。脚本不初始化仓库、不提交或推送；完成后检查 Git 差异，按授权提交并推送以保存这次快照。新备份目录可自行执行 `git init`。
 
-本机的 `fanpai-dashijie` 和 `just-us-four` 分别备份《反派大师姐想活下去》和《四个人，刚刚好》，均位于 OpenFic 相邻目录。各仓库的 `AGENTS.md` 保存对应的导出命令、归档说明及 GitHub、Gitea 双远端推送规则。
+首次使用时创建 `scripts/document-backups.json`，按以下结构填写实际信息；数组中可配置多本书：
 
-本次导出 ZIP、导出信息和替换前的文件副本保存在 `output/exports/document-backup-时间/`；写入失败时可从其中的 `before/` 恢复被替换的文件。这是当前文档备份，不包含应用历史与会话，也不会重启服务。
+```json
+[
+  {
+    "name": "示例书名",
+    "project_id": "项目 ID",
+    "destination": "../../document-backup"
+  }
+]
+```
+
+本次导出 ZIP 保存在 `output/exports/document-backup-时间-标识/`；有变化时还保存导出信息和替换前副本，写入失败时可从其中的 `before/` 恢复被替换的文件。这是当前文档备份，不包含应用历史与会话，也不会重启服务。
 
 ## 模型接入
 
