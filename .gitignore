@@ -27,3 +27,6 @@ AGENTS.md
 CLAUDE.md
 docs/superpowers
 *.db
+
+/scripts/document-backups.json
+/docs/upstream-review.md
