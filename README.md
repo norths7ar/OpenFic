@@ -66,12 +66,11 @@ uv remove --group deployment langchain-anthropic
 ```powershell
 ./scripts/openfic-service.ps1 start
 ./scripts/openfic-service.ps1 status
-./scripts/openfic-service.ps1 logs
 ./scripts/openfic-service.ps1 restart
 ./scripts/openfic-service.ps1 stop
 ```
 
-服务数据位于仓库根目录的 `data`，本机路径为 `E:\Projects\novel\OpenFic\data`。日志在 `data/logs`，运行状态在 `data/runtime/openfic.json`。
+服务数据默认位于仓库根目录的 `data`，端口为 `18081`。日志在 `data/logs`，运行状态在 `data/runtime/openfic.json`。`status` 返回单个 JSON 对象；外部管理器的调用、退出码和互斥规则见 [独立服务管理接口](docs/service-management.md)。运行记录及关闭凭据由 OpenFic 管理，外部界面只调用脚本。
 
 服务管理脚本通过 `OPENFIC_DATA_DIR` 指定数据目录。未设置该变量时，使用 CLI（`openfic serve`）启动默认使用用户目录下的 `~/.openfic`；绕过 CLI、直接加载后端应用时才回退到 `backend/data/`。`backend/data/` 及现有数据继续保留，独立运行后端时应明确选择数据目录。
 

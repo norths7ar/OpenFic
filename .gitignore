@@ -30,3 +30,5 @@ docs/superpowers
 
 /scripts/document-backups.json
 /docs/upstream-review.md
+
+/.tmp/
