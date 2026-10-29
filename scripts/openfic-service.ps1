@@ -288,7 +288,7 @@ with open(sys.argv[1], "ab", buffering=0) as stdout, open(sys.argv[2], "ab", buf
         stdout=stdout,
         stderr=stderr,
         close_fds=True,
-        creationflags=subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP,
+        creationflags=subprocess.CREATE_NO_WINDOW | subprocess.CREATE_NEW_PROCESS_GROUP,
     )
     print(process.pid, flush=True)
 '@
