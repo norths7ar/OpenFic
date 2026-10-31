@@ -109,6 +109,7 @@ async def _build_provider_response(
         url=provider.url,
         provider_type=provider.provider_type,
         catalog_mode=provider.catalog_mode,
+        has_api_key=bool(provider.api_key_encrypted),
         custom_header_names=service.get_custom_header_names(provider),
         supported_task_types=supported_task_types,
         unavailable_task_types=unavailable_task_types,
@@ -237,6 +238,7 @@ async def update_provider(
     name: Annotated[str | None, Form()] = None,
     url: Annotated[str | None, Form()] = None,
     api_key: Annotated[str | None, Form()] = None,
+    clear_api_key: Annotated[bool, Form()] = False,
     provider_type: Annotated[str | None, Form()] = None,
     custom_headers: Annotated[str | None, Form()] = None,
     catalog_mode: Annotated[Literal["generic", "ocx"] | None, Form()] = None,
@@ -262,6 +264,8 @@ async def update_provider(
         HTTPException: 如果提供商不存在。
     """
     await require_agent_settings_unlocked(session)
+    if clear_api_key and api_key:
+        raise HTTPException(status_code=400, detail="不能同时替换和清除 API Key")
     logger.info(f"更新提供商: {provider_id}")
 
     try:
@@ -270,7 +274,7 @@ async def update_provider(
             provider_id=provider_id,
             name=name,
             url=url,
-            api_key=api_key,
+            api_key="" if clear_api_key else api_key,
             provider_type=provider_type,
             custom_headers=_parse_custom_headers(custom_headers),
             catalog_mode=catalog_mode,

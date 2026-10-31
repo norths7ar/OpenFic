@@ -4,10 +4,12 @@ Dashboard API Schemas - LLM API 统计仪表盘响应模型。
 
 from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import Field
+
+from app.api.schemas.base import APIModel
 
 
-class DashboardSummary(BaseModel):
+class DashboardSummary(APIModel):
     """仪表盘总览指标。"""
 
     calls_total: int = Field(description="LLM API 调用总数")
@@ -19,7 +21,7 @@ class DashboardSummary(BaseModel):
     avg_first_token_ms: float = Field(description="平均首 token 延迟（毫秒）")
 
 
-class DashboardModelTimeSeriesPoint(BaseModel):
+class DashboardModelTimeSeriesPoint(APIModel):
     """按日期和模型聚合的趋势数据点。"""
 
     date: str = Field(description="日期，格式 YYYY-MM-DD")
@@ -30,7 +32,7 @@ class DashboardModelTimeSeriesPoint(BaseModel):
     avg_latency_ms: float = Field(description="平均延迟（毫秒）")
 
 
-class DashboardBreakdownItem(BaseModel):
+class DashboardBreakdownItem(APIModel):
     """分组统计项。"""
 
     key: str = Field(description="分组键")
@@ -39,14 +41,14 @@ class DashboardBreakdownItem(BaseModel):
     tokens_total: int = Field(description="总 token 消耗")
 
 
-class DashboardFilterOptionItem(BaseModel):
+class DashboardFilterOptionItem(APIModel):
     """筛选选项显示项。"""
 
     value: str = Field(description="筛选值")
     label: str = Field(description="显示名称")
 
 
-class DashboardAuditRecord(BaseModel):
+class DashboardAuditRecord(APIModel):
     """仪表盘审计记录列表项。"""
 
     id: str = Field(description="审计记录 ID")
@@ -79,14 +81,14 @@ class DashboardAuditRecord(BaseModel):
     response_tool_calls: str | None = Field(default=None, description="模型工具调用 JSON")
 
 
-class DashboardRecordPrompt(BaseModel):
+class DashboardRecordPrompt(APIModel):
     """调用记录输入提示词详情。"""
 
     id: str = Field(description="审计记录 ID")
     request_messages: str | None = Field(default=None, description="输入提示词消息 JSON")
 
 
-class DashboardRecordList(BaseModel):
+class DashboardRecordList(APIModel):
     """分页审计记录列表。"""
 
     items: list[DashboardAuditRecord] = Field(description="记录列表")
@@ -95,14 +97,14 @@ class DashboardRecordList(BaseModel):
     page_size: int = Field(description="每页数量")
 
 
-class WritingActivitySummary(BaseModel):
+class WritingActivitySummary(APIModel):
     """写作活动事件汇总。"""
 
     active_days: int = Field(description="有写作活动的天数")
     creative_chapters: int = Field(description="有创作活动的章节数")
 
 
-class WritingActivityTimeSeriesPoint(BaseModel):
+class WritingActivityTimeSeriesPoint(APIModel):
     """按日期聚合的写作活动数据点。"""
 
     date: str = Field(description="日期，格式 YYYY-MM-DD")
@@ -111,14 +113,14 @@ class WritingActivityTimeSeriesPoint(BaseModel):
     import_word_delta: int = Field(description="导入初始化字数变化")
 
 
-class WritingDashboardResponse(BaseModel):
+class WritingDashboardResponse(APIModel):
     """写作统计仪表盘响应。"""
 
     summary: WritingActivitySummary = Field(description="写作活动汇总")
     time_series: list[WritingActivityTimeSeriesPoint] = Field(description="写作活动趋势")
 
 
-class DashboardFilterOptions(BaseModel):
+class DashboardFilterOptions(APIModel):
     """仪表盘筛选选项。"""
 
     project_ids: list[str] = Field(description="项目 ID 列表")
@@ -135,7 +137,7 @@ class DashboardFilterOptions(BaseModel):
     )
 
 
-class DashboardStatsResponse(BaseModel):
+class DashboardStatsResponse(APIModel):
     """LLM API 统计仪表盘响应。"""
 
     summary: DashboardSummary = Field(description="总览指标")
@@ -147,7 +149,7 @@ class DashboardStatsResponse(BaseModel):
     options: DashboardFilterOptions = Field(description="筛选选项")
 
 
-class DashboardRecordsResponse(BaseModel):
+class DashboardRecordsResponse(APIModel):
     """LLM API 调用记录响应。"""
 
     options: DashboardFilterOptions = Field(description="筛选选项")

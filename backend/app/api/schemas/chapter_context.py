@@ -2,16 +2,18 @@
 
 from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import ConfigDict, Field
+
+from app.api.schemas.base import APIModel
 
 
-class ContextFieldResponse(BaseModel):
+class ContextFieldResponse(APIModel):
     """单个上下文字段响应（纯文本）。"""
 
     content: str = Field(description="字段内容")
 
 
-class SummaryStatusResponse(BaseModel):
+class SummaryStatusResponse(APIModel):
     """章节摘要状态响应。"""
 
     chapter_id: str
@@ -22,7 +24,7 @@ class SummaryStatusResponse(BaseModel):
     updated_at: datetime | None = None
 
 
-class EnqueueSummaryRequest(BaseModel):
+class EnqueueSummaryRequest(APIModel):
     """手动加入摘要任务请求。"""
 
     summary_type: str = Field(default="chapter", description="chapter、long_term 或 all")
@@ -32,7 +34,7 @@ class EnqueueSummaryRequest(BaseModel):
     model_id: str | None = Field(default=None, description="可选模型 ID")
 
 
-class EnqueueSummaryResponse(BaseModel):
+class EnqueueSummaryResponse(APIModel):
     """摘要任务加入队列响应。"""
 
     summary_id: str | None = None
@@ -41,7 +43,7 @@ class EnqueueSummaryResponse(BaseModel):
     item_count: int = 0
 
 
-class MissingChapterSummaryItem(BaseModel):
+class MissingChapterSummaryItem(APIModel):
     """摘要维护面板中的章节摘要项。"""
 
     chapter_id: str
@@ -57,7 +59,7 @@ class MissingChapterSummaryItem(BaseModel):
     progress_message: str | None = None
 
 
-class SkippedChapterSummaryItem(BaseModel):
+class SkippedChapterSummaryItem(APIModel):
     """因字数不足而跳过摘要的章节项。"""
 
     chapter_id: str
@@ -69,7 +71,7 @@ class SkippedChapterSummaryItem(BaseModel):
     word_count: int
 
 
-class MissingLongTermSummaryItem(BaseModel):
+class MissingLongTermSummaryItem(APIModel):
     """摘要维护面板中的区间摘要项。"""
 
     start_order: int
@@ -84,10 +86,10 @@ class MissingLongTermSummaryItem(BaseModel):
     progress_message: str | None = None
 
 
-class SummaryBatchProgressItem(BaseModel):
+class SummaryBatchProgressItem(APIModel):
     """摘要批处理队列的聚合进度。"""
 
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True)
 
     job_id: str
     status: str
@@ -103,7 +105,7 @@ class SummaryBatchProgressItem(BaseModel):
     updated_at: datetime
 
 
-class SummaryMaintenanceResponse(BaseModel):
+class SummaryMaintenanceResponse(APIModel):
     """摘要维护状态。"""
 
     auto_generation_blocked: bool = False
@@ -120,10 +122,10 @@ class SummaryMaintenanceResponse(BaseModel):
     active_jobs: list["SummaryBackgroundJobItem"] = Field(default_factory=list)
 
 
-class SummaryBackgroundJobItem(BaseModel):
+class SummaryBackgroundJobItem(APIModel):
     """摘要相关后台任务状态。"""
 
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True)
 
     job_id: str
     job_type: str
@@ -140,20 +142,20 @@ class SummaryBackgroundJobItem(BaseModel):
     updated_at: datetime
 
 
-class SummaryPanelResponse(BaseModel):
+class SummaryPanelResponse(APIModel):
     """摘要面板响应。"""
 
     maintenance: SummaryMaintenanceResponse
 
 
-class SummaryRealtimeSnapshotSummaryResponse(BaseModel):
+class SummaryRealtimeSnapshotSummaryResponse(APIModel):
     """摘要实时快照中的 summary payload。"""
 
     statuses: list[SummaryStatusResponse] = Field(default_factory=list)
     maintenance: SummaryMaintenanceResponse
 
 
-class SummaryRealtimeSnapshotResponse(BaseModel):
+class SummaryRealtimeSnapshotResponse(APIModel):
     """章节摘要实时快照响应。"""
 
     project_id: str
@@ -161,7 +163,7 @@ class SummaryRealtimeSnapshotResponse(BaseModel):
     summary: SummaryRealtimeSnapshotSummaryResponse
 
 
-class ChapterSummaryListItemResponse(BaseModel):
+class ChapterSummaryListItemResponse(APIModel):
     """章节摘要面板列表项。"""
 
     chapter_id: str
@@ -182,7 +184,7 @@ class ChapterSummaryListItemResponse(BaseModel):
     updated_at: datetime | None = None
 
 
-class ChapterSummaryListResponse(BaseModel):
+class ChapterSummaryListResponse(APIModel):
     """章节摘要面板列表响应。"""
 
     items: list[ChapterSummaryListItemResponse] = Field(default_factory=list)
@@ -191,7 +193,7 @@ class ChapterSummaryListResponse(BaseModel):
     page_size: int
 
 
-class LongTermSummaryListItemResponse(BaseModel):
+class LongTermSummaryListItemResponse(APIModel):
     """区间摘要面板列表项。"""
 
     start_order: int
@@ -210,7 +212,7 @@ class LongTermSummaryListItemResponse(BaseModel):
     updated_at: datetime | None = None
 
 
-class LongTermSummaryListResponse(BaseModel):
+class LongTermSummaryListResponse(APIModel):
     """区间摘要面板列表响应。"""
 
     items: list[LongTermSummaryListItemResponse] = Field(default_factory=list)
@@ -219,13 +221,13 @@ class LongTermSummaryListResponse(BaseModel):
     page_size: int
 
 
-class DeleteChapterSummariesRequest(BaseModel):
+class DeleteChapterSummariesRequest(APIModel):
     """删除章节摘要请求。"""
 
     chapter_ids: list[str] = Field(default_factory=list, description="要删除摘要的章节 ID 列表")
 
 
-class DeleteLongTermSummariesRequest(BaseModel):
+class DeleteLongTermSummariesRequest(APIModel):
     """删除区间摘要请求。"""
 
     ranges: list[tuple[int, int]] = Field(
@@ -234,7 +236,7 @@ class DeleteLongTermSummariesRequest(BaseModel):
     )
 
 
-class ContextPartResponse(BaseModel):
+class ContextPartResponse(APIModel):
     """上下文部分响应。"""
 
     content: str = Field(description="上下文内容")
@@ -242,7 +244,7 @@ class ContextPartResponse(BaseModel):
     chapter_range: tuple[int, int] = Field(description="章节范围 (start, end)")
 
 
-class BuiltContextResponse(BaseModel):
+class BuiltContextResponse(APIModel):
     """构建的上下文响应。"""
 
     latest_field: ContextPartResponse = Field(description="最新章节上下文")

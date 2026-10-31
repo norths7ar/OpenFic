@@ -2,10 +2,12 @@
 Import API Schemas - 导入请求/响应模型。
 """
 
-from pydantic import BaseModel, Field
+from pydantic import Field
+
+from app.api.schemas.base import APIModel
 
 
-class PreviewChapter(BaseModel):
+class PreviewChapter(APIModel):
     """预览章节信息。"""
 
     title: str = Field(description="章节标题")
@@ -13,7 +15,7 @@ class PreviewChapter(BaseModel):
     content_preview: str = Field(description="内容预览（前 200 字）")
 
 
-class PreviewVolume(BaseModel):
+class PreviewVolume(APIModel):
     """预览卷信息。"""
 
     title: str = Field(description="卷标题")
@@ -21,7 +23,7 @@ class PreviewVolume(BaseModel):
     chapters: list[PreviewChapter] = Field(description="卷内章节列表")
 
 
-class ImportPreviewResponse(BaseModel):
+class ImportPreviewResponse(APIModel):
     """导入预览响应。"""
 
     volumes: list[PreviewVolume] = Field(description="卷列表")
@@ -30,14 +32,14 @@ class ImportPreviewResponse(BaseModel):
     detected_encoding: str = Field(description="检测到的编码")
 
 
-class ImportConfirmRequest(BaseModel):
+class ImportConfirmRequest(APIModel):
     """确认导入请求。"""
 
     title: str = Field(min_length=1, max_length=200, description="书名")
     description: str | None = Field(default=None, description="简介")
 
 
-class ImportConfirmResponse(BaseModel):
+class ImportConfirmResponse(APIModel):
     """确认导入响应。"""
 
     project_id: str = Field(description="创建的项目 ID")

@@ -32,7 +32,11 @@ async def maintenance_check() -> MaintenanceResponse:
     return MaintenanceResponse(**snapshot.__dict__)
 
 
-@router.post("/shutdown", status_code=status.HTTP_202_ACCEPTED)
+@router.post(
+    "/shutdown",
+    status_code=status.HTTP_202_ACCEPTED,
+    responses={202: {"content": {"application/json": {"schema": {"type": "null"}}}}},
+)
 async def request_shutdown(
     request: Request,
     shutdown_token: str | None = Header(default=None, alias="X-OpenFic-Shutdown-Token"),

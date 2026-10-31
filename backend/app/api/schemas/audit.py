@@ -4,10 +4,12 @@ Audit API Schemas - 审计日志请求/响应模型。
 
 from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import Field
+
+from app.api.schemas.base import APIModel
 
 
-class ToolCallResult(BaseModel):
+class ToolCallResult(APIModel):
     """工具调用结果。"""
 
     tool_name: str = Field(description="工具名称")
@@ -17,7 +19,7 @@ class ToolCallResult(BaseModel):
     latency_ms: int = Field(default=0, description="耗时（毫秒）")
 
 
-class LLMAuditLogResponse(BaseModel):
+class LLMAuditLogResponse(APIModel):
     """LLM 审计日志响应。"""
 
     id: str = Field(description="审计记录ID")
@@ -71,14 +73,14 @@ class LLMAuditLogResponse(BaseModel):
     tool_calls_failed_count: int = Field(default=0, description="失败工具调用数")
 
 
-class LLMAuditLogListResponse(BaseModel):
+class LLMAuditLogListResponse(APIModel):
     """LLM 审计日志列表响应。"""
 
     items: list[LLMAuditLogResponse] = Field(description="审计日志列表")
     total: int = Field(description="总数")
 
 
-class TaskAuditAggregation(BaseModel):
+class TaskAuditAggregation(APIModel):
     """Task级别审计聚合结果。"""
 
     task_id: str = Field(description="Task ID")

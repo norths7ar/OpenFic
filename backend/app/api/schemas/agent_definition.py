@@ -2,12 +2,13 @@
 
 from typing import Any
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import ConfigDict, Field, field_validator
 
 from app.agent_runtime.agents.definitions import AgentCapabilities, AgentKind, AgentSource
+from app.api.schemas.base import APIModel
 
 
-class _AgentMetadataRequest(BaseModel):
+class _AgentMetadataRequest(APIModel):
     @field_validator("metadata", check_fields=False)
     @classmethod
     def validate_capabilities(cls, value: dict[str, Any] | None) -> dict[str, Any] | None:
@@ -16,7 +17,7 @@ class _AgentMetadataRequest(BaseModel):
         return value
 
 
-class AgentDefinitionResponse(BaseModel):
+class AgentDefinitionResponse(APIModel):
     key: str
     display_name: str
     description: str = ""
@@ -47,7 +48,7 @@ class AgentDefinitionCreateRequest(_AgentMetadataRequest):
     icon: str | None = Field(default=None, max_length=30)
     delegatable_agents: list[str] = Field(default_factory=list)
 
-    model_config = {"extra": "forbid"}
+    model_config = ConfigDict(extra="forbid")
 
 
 class AgentDefinitionUpdateRequest(_AgentMetadataRequest):
@@ -64,18 +65,18 @@ class AgentDefinitionUpdateRequest(_AgentMetadataRequest):
     icon: str | None = Field(default=None, max_length=30)
     delegatable_agents: list[str] | None = None
 
-    model_config = {"extra": "forbid"}
+    model_config = ConfigDict(extra="forbid")
 
 
-class AgentDefinitionListResponse(BaseModel):
+class AgentDefinitionListResponse(APIModel):
     definitions: list[AgentDefinitionResponse]
 
 
-class AgentToolCategoryResponse(BaseModel):
+class AgentToolCategoryResponse(APIModel):
     key: str
     name: str
     tool_keys: list[str] = Field(default_factory=list)
 
 
-class AgentToolCategoryListResponse(BaseModel):
+class AgentToolCategoryListResponse(APIModel):
     categories: list[AgentToolCategoryResponse]

@@ -4,24 +4,26 @@ Project API Schemas - 项目请求/响应模型。
 
 from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import ConfigDict, Field
+
+from app.api.schemas.base import APIModel
 
 
-class ProjectCreate(BaseModel):
+class ProjectCreate(APIModel):
     """创建项目请求。"""
 
     title: str = Field(min_length=1, max_length=200, description="项目标题")
     description: str | None = Field(default=None, description="项目简介")
 
 
-class ProjectUpdate(BaseModel):
+class ProjectUpdate(APIModel):
     """更新项目请求。"""
 
     title: str | None = Field(default=None, min_length=1, max_length=200, description="项目标题")
     description: str | None = Field(default=None, description="项目简介")
 
 
-class ProjectResponse(BaseModel):
+class ProjectResponse(APIModel):
     """项目响应。"""
 
     id: str = Field(description="项目 ID")
@@ -33,10 +35,10 @@ class ProjectResponse(BaseModel):
     created_at: datetime = Field(description="创建时间")
     updated_at: datetime = Field(description="上次修改时间")
 
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True)
 
 
-class ProjectListResponse(BaseModel):
+class ProjectListResponse(APIModel):
     """项目列表响应。"""
 
     items: list[ProjectResponse] = Field(description="项目列表")

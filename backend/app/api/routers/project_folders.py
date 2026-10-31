@@ -5,6 +5,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.schemas.http_contracts import UpdatedCountResponse
 from app.api.schemas.project_folder import (
     ProjectFolderCreate,
     ProjectFolderItemMove,
@@ -96,7 +97,7 @@ async def move_project_folder_item(
     await background_service.commit_and_notify(session)
 
 
-@router.post("/projects/{project_id}/folders/reorder")
+@router.post("/projects/{project_id}/folders/reorder", response_model=UpdatedCountResponse)
 async def reorder_project_folders(
     project_id: str,
     data: ProjectFolderReorder,

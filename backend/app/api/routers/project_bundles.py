@@ -5,6 +5,11 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, s
 from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.schemas.http_contracts import (
+    BundleApplyResponse,
+    BundlePreviewResponse,
+    SourceBundleResponse,
+)
 from app.core.errors import NotFoundError
 from app.project_bundle.apply import BundleApplyConflictError, apply_project_bundle
 from app.project_bundle.archive import BundleFormatError
@@ -54,7 +59,16 @@ def _source_item_response(item: MappedSourceItem) -> dict:
     }
 
 
-@router.get("/projects/{project_id}/bundle/export")
+@router.get(
+    "/projects/{project_id}/bundle/export",
+    response_class=Response,
+    responses={
+        200: {
+            "content": {"application/zip": {"schema": {"type": "string", "format": "binary"}}},
+            "headers": {"Content-Disposition": {"schema": {"type": "string"}}},
+        }
+    },
+)
 async def export_bundle(
     project_id: str,
     session: AsyncSession = Depends(get_session),  # noqa: B008
@@ -82,7 +96,16 @@ async def export_bundle(
     )
 
 
-@router.get("/projects/{project_id}/bundle/source/export")
+@router.get(
+    "/projects/{project_id}/bundle/source/export",
+    response_class=Response,
+    responses={
+        200: {
+            "content": {"application/zip": {"schema": {"type": "string", "format": "binary"}}},
+            "headers": {"Content-Disposition": {"schema": {"type": "string"}}},
+        }
+    },
+)
 async def export_source_bundle(
     project_id: str,
     session: AsyncSession = Depends(get_session),  # noqa: B008
@@ -110,7 +133,7 @@ async def export_source_bundle(
     )
 
 
-@router.post("/projects/{project_id}/bundle/import/preview")
+@router.post("/projects/{project_id}/bundle/import/preview", response_model=BundlePreviewResponse)
 async def preview_bundle_import(
     project_id: str,
     file: UploadFile = File(...),  # noqa: B008
@@ -134,7 +157,7 @@ async def preview_bundle_import(
     }
 
 
-@router.post("/projects/{project_id}/bundle/import/apply")
+@router.post("/projects/{project_id}/bundle/import/apply", response_model=BundleApplyResponse)
 async def apply_bundle_import(
     project_id: str,
     file: UploadFile = File(...),  # noqa: B008
@@ -172,7 +195,7 @@ async def apply_bundle_import(
     }
 
 
-@router.post("/projects/{project_id}/bundle/source/preview")
+@router.post("/projects/{project_id}/bundle/source/preview", response_model=SourceBundleResponse)
 async def preview_source_bundle_import(
     project_id: str,
     file: UploadFile = File(...),  # noqa: B008
@@ -200,7 +223,7 @@ async def preview_source_bundle_import(
     }
 
 
-@router.post("/projects/{project_id}/bundle/source/apply")
+@router.post("/projects/{project_id}/bundle/source/apply", response_model=SourceBundleResponse)
 async def apply_source_bundle_import(
     project_id: str,
     file: UploadFile = File(...),  # noqa: B008

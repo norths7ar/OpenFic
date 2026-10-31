@@ -4,8 +4,9 @@ Model API Schemas - 模型请求/响应模型。
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import Field
 
+from app.api.schemas.base import APIModel
 from app.models.clients.model_params import (
     DEFAULT_CONTEXT_LENGTH,
     DEFAULT_FREQUENCY_PENALTY,
@@ -32,7 +33,7 @@ ModelValidationErrorCode = Literal[
 ]
 
 
-class ModelResponse(BaseModel):
+class ModelResponse(APIModel):
     """模型响应。"""
 
     id: str = Field(description="模型 ID")
@@ -76,11 +77,11 @@ class ModelResponse(BaseModel):
     updated_at: str = Field(description="更新时间")
 
 
-class ModelUsageResponse(BaseModel):
+class ModelUsageResponse(APIModel):
     uses: list[str]
 
 
-class ModelCreateRequest(BaseModel):
+class ModelCreateRequest(APIModel):
     """创建模型请求。"""
 
     default_speed: Literal["standard", "fast"] = "standard"
@@ -108,7 +109,7 @@ class ModelCreateRequest(BaseModel):
     is_enabled: bool = Field(default=True, description="是否启用模型")
 
 
-class ModelUpdateRequest(BaseModel):
+class ModelUpdateRequest(APIModel):
     """更新模型请求。"""
 
     default_speed: Literal["standard", "fast"] | None = None
@@ -138,7 +139,7 @@ class ModelUpdateRequest(BaseModel):
     is_enabled: bool | None = Field(default=None, description="是否启用模型")
 
 
-class ModelValidationResponse(BaseModel):
+class ModelValidationResponse(APIModel):
     """Specific saved-model validation result."""
 
     success: bool = Field(description="验证是否成功")

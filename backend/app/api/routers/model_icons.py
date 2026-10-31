@@ -14,7 +14,14 @@ def get_catalog_icon_proxy_service(request: Request) -> CatalogIconProxyService:
     return request.app.state.catalog_icon_proxy_service
 
 
-@router.get("/catalog/{provider_file}", summary="Get a catalog provider icon")
+@router.get(
+    "/catalog/{provider_file}",
+    summary="Get a catalog provider icon",
+    response_class=Response,
+    responses={
+        200: {"content": {"image/svg+xml": {"schema": {"type": "string", "format": "binary"}}}}
+    },
+)
 async def get_catalog_provider_icon(
     provider_file: str,
     service: Annotated[CatalogIconProxyService, Depends(get_catalog_icon_proxy_service)],

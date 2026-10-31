@@ -5,31 +5,32 @@ Note API Schemas - 笔记请求/响应模型。
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import ConfigDict, Field
 
+from app.api.schemas.base import APIModel
 from app.core.agent_visibility import AgentVisibility
 
 DocumentType = Literal["note", "outline"]
 
 
-class NoteCategoryCreate(BaseModel):
+class NoteCategoryCreate(APIModel):
     parent_id: str | None = Field(default=None, description="父分类 ID")
     title: str = Field(min_length=1, max_length=200, description="分类标题")
     document_type: DocumentType = Field(default="note", description="文档类型")
 
 
-class NoteCategoryUpdate(BaseModel):
+class NoteCategoryUpdate(APIModel):
     title: str | None = Field(default=None, min_length=1, max_length=200, description="分类标题")
 
 
-class NoteCreate(BaseModel):
+class NoteCreate(APIModel):
     category_id: str | None = Field(default=None, description="所属分类 ID")
     title: str = Field(min_length=1, max_length=200, description="笔记标题")
     content: str = Field(default="", description="笔记内容")
     document_type: DocumentType = Field(default="note", description="文档类型")
 
 
-class NoteUpdate(BaseModel):
+class NoteUpdate(APIModel):
     title: str | None = Field(default=None, min_length=1, max_length=200, description="笔记标题")
     content: str | None = Field(default=None, description="笔记内容")
     agent_visibility: AgentVisibility | None = Field(
@@ -41,39 +42,39 @@ class NoteUpdate(BaseModel):
     base_content: str | None = Field(default=None, description="编辑开始时的正文")
 
 
-class NoteLockToggle(BaseModel):
+class NoteLockToggle(APIModel):
     is_locked: bool = Field(description="是否锁定")
 
 
-class NoteItemMove(BaseModel):
+class NoteItemMove(APIModel):
     kind: Literal["category", "note"] = Field(description="移动类型")
     item_id: str = Field(description="被移动的分类/笔记 ID")
     target_category_id: str | None = Field(default=None, description="目标分类 ID")
 
 
-class NoteItemsReorderRequest(BaseModel):
+class NoteItemsReorderRequest(APIModel):
     kind: Literal["category", "note"]
     parent_id: str | None = None
     ordered_ids: list[str]
     document_type: DocumentType = "note"
 
 
-class NoteOrderedItem(BaseModel):
+class NoteOrderedItem(APIModel):
     kind: Literal["category", "note"]
     id: str
 
 
-class NoteItemsMixedReorderRequest(BaseModel):
+class NoteItemsMixedReorderRequest(APIModel):
     parent_id: str | None = None
     ordered_items: list[NoteOrderedItem]
     document_type: DocumentType = "note"
 
 
-class ReorderResponse(BaseModel):
+class ReorderResponse(APIModel):
     updated_count: int
 
 
-class NoteResponse(BaseModel):
+class NoteResponse(APIModel):
     id: str = Field(description="笔记 ID")
     project_id: str = Field(description="所属项目 ID")
     category_id: str | None = Field(description="所属分类 ID")
@@ -86,10 +87,10 @@ class NoteResponse(BaseModel):
     created_at: datetime = Field(description="创建时间")
     updated_at: datetime = Field(description="上次修改时间")
 
-    model_config = {"from_attributes": True, "populate_by_name": True}
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
 
-class NoteListItem(BaseModel):
+class NoteListItem(APIModel):
     id: str = Field(description="笔记 ID")
     project_id: str = Field(description="所属项目 ID")
     category_id: str | None = Field(description="所属分类 ID")
@@ -101,10 +102,10 @@ class NoteListItem(BaseModel):
     created_at: datetime = Field(description="创建时间")
     updated_at: datetime = Field(description="上次修改时间")
 
-    model_config = {"from_attributes": True, "populate_by_name": True}
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
 
-class NoteCategoryResponse(BaseModel):
+class NoteCategoryResponse(APIModel):
     description: str | None = None
     id: str = Field(description="分类 ID")
     project_id: str = Field(description="所属项目 ID")
@@ -115,10 +116,10 @@ class NoteCategoryResponse(BaseModel):
     created_at: datetime = Field(description="创建时间")
     updated_at: datetime = Field(description="上次修改时间")
 
-    model_config = {"from_attributes": True, "populate_by_name": True}
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
 
-class NoteCategoryItem(BaseModel):
+class NoteCategoryItem(APIModel):
     description: str | None = None
     id: str = Field(description="分类 ID")
     project_id: str = Field(description="所属项目 ID")
@@ -131,16 +132,16 @@ class NoteCategoryItem(BaseModel):
     categories: list["NoteCategoryItem"] = Field(description="子分类列表")
     notes: list[NoteListItem] = Field(description="分类下笔记列表")
 
-    model_config = {"from_attributes": True, "populate_by_name": True}
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
 
-class NoteTreeResponse(BaseModel):
+class NoteTreeResponse(APIModel):
     categories: list[NoteCategoryItem] = Field(description="分类树")
     root_notes: list[NoteListItem] = Field(description="根级笔记")
     total_notes: int = Field(description="笔记总数")
 
 
-class NoteMoveResult(BaseModel):
+class NoteMoveResult(APIModel):
     kind: Literal["category", "note"] = Field(description="移动类型")
     note: NoteResponse | None = Field(default=None, description="移动的笔记")
     category: NoteCategoryResponse | None = Field(default=None, description="移动的分类")
@@ -149,14 +150,14 @@ class NoteMoveResult(BaseModel):
 NoteCategoryItem.model_rebuild()
 
 
-class NoteSearchMatch(BaseModel):
+class NoteSearchMatch(APIModel):
     """笔记内容搜索匹配行。"""
 
     line_number: int = Field(description="匹配行号")
     line_text: str = Field(description="匹配行文本")
 
 
-class NoteSearchResult(BaseModel):
+class NoteSearchResult(APIModel):
     """笔记内容搜索结果。"""
 
     note_id: str = Field(description="笔记 ID")
@@ -165,7 +166,7 @@ class NoteSearchResult(BaseModel):
     matches: list[NoteSearchMatch] = Field(description="匹配行列表")
 
 
-class NoteSearchResponse(BaseModel):
+class NoteSearchResponse(APIModel):
     """笔记内容搜索响应。"""
 
     results: list[NoteSearchResult] = Field(description="搜索结果列表")

@@ -20,6 +20,42 @@ class RestoreRequest(BaseModel):
     base_updated_at: datetime
 
 
+class HistoryItemResponse(BaseModel):
+    id: str
+    document_id: str
+    kind: service.DocumentKind
+    title: str
+    source: str
+    created_at: datetime
+
+
+class HistoryDetailResponse(HistoryItemResponse):
+    content: str
+
+
+class HistoryListResponse(BaseModel):
+    items: list[HistoryItemResponse]
+    current_updated_at: datetime
+
+
+class RestoredDocumentResponse(BaseModel):
+    document_id: str
+    kind: service.DocumentKind
+
+
+class TrashItemResponse(BaseModel):
+    id: str
+    document_id: str
+    kind: service.DocumentKind
+    title: str
+    content: str
+    deleted_at: datetime
+
+
+class TrashListResponse(BaseModel):
+    items: list[TrashItemResponse]
+
+
 def history_response(item, *, detail=False):
     result = {
         "id": item.id,
@@ -34,7 +70,7 @@ def history_response(item, *, detail=False):
     return result
 
 
-@router.get(PREFIX)
+@router.get(PREFIX, response_model=HistoryListResponse)
 async def list_history(
     project_id: str, kind: service.DocumentKind, document_id: str, session: Session
 ):
@@ -44,7 +80,7 @@ async def list_history(
     return {"items": [history_response(item) for item in items], "current_updated_at": updated_at}
 
 
-@router.get(PREFIX + "/{history_id}")
+@router.get(PREFIX + "/{history_id}", response_model=HistoryDetailResponse)
 async def get_history(
     project_id: str, kind: service.DocumentKind, document_id: str, history_id: str, session: Session
 ):
@@ -52,7 +88,7 @@ async def get_history(
     return history_response(item, detail=True)
 
 
-@router.post(PREFIX + "/{history_id}/restore")
+@router.post(PREFIX + "/{history_id}/restore", response_model=RestoredDocumentResponse)
 async def restore_history(
     project_id: str,
     kind: service.DocumentKind,
@@ -68,7 +104,7 @@ async def restore_history(
     return {"document_id": document_id, "kind": kind}
 
 
-@router.get("/projects/{project_id}/trash")
+@router.get("/projects/{project_id}/trash", response_model=TrashListResponse)
 async def list_trash(project_id: str, session: Session):
     items = await service.trash_list(session, project_id)
     return {
@@ -86,7 +122,9 @@ async def list_trash(project_id: str, session: Session):
     }
 
 
-@router.post("/projects/{project_id}/trash/{trash_id}/restore")
+@router.post(
+    "/projects/{project_id}/trash/{trash_id}/restore", response_model=RestoredDocumentResponse
+)
 async def restore_trash(project_id: str, trash_id: str, session: Session):
     document_id, kind = await service.restore_trash(session, project_id, trash_id)
     await background_service.commit_and_notify(session)

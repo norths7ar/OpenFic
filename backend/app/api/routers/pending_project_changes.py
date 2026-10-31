@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi import status as http_status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.schemas.http_contracts import CountResponse
 from app.api.schemas.pending_project_change import (
     PendingProjectChangeApply,
     PendingProjectChangeCreate,
@@ -189,6 +190,7 @@ async def revise_pending_change(
 @router.get(
     "/projects/{project_id}/pending-changes/count",
     summary="获取项目待审变更数量",
+    response_model=CountResponse,
 )
 async def get_pending_change_count(
     project_id: str,

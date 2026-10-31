@@ -2,10 +2,12 @@
 
 from datetime import date, datetime
 
-from pydantic import BaseModel, Field
+from pydantic import Field
+
+from app.api.schemas.base import APIModel
 
 
-class ChapterExportCreate(BaseModel):
+class ChapterExportCreate(APIModel):
     """创建章节导出任务。"""
 
     selected_volume_ids: list[str] = Field(default_factory=list)
@@ -14,7 +16,7 @@ class ChapterExportCreate(BaseModel):
     local_date: date
 
 
-class ChapterExportResponse(BaseModel):
+class ChapterExportResponse(APIModel):
     """章节导出任务状态。"""
 
     id: str

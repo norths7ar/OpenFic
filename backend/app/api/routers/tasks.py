@@ -16,6 +16,7 @@ from app.agent_runtime.persistence.task_projection import (
     load_task_messages_for_archive,
 )
 from app.agent_runtime.runner.checkpointer import delete_checkpoints_for_thread, get_checkpointer
+from app.api.schemas.http_contracts import DeletedTasksResponse
 from app.api.schemas.task import (
     TaskListItem,
     TaskListResponse,
@@ -297,7 +298,11 @@ async def delete_task(
         ) from e
 
 
-@router.delete("/projects/{project_id}/tasks", status_code=status.HTTP_200_OK)
+@router.delete(
+    "/projects/{project_id}/tasks",
+    status_code=status.HTTP_200_OK,
+    response_model=DeletedTasksResponse,
+)
 async def delete_all_tasks(
     project_id: str,
     session: AsyncSession = Depends(get_session),

@@ -5,10 +5,12 @@ Chapter API Schemas - 章节请求/响应模型。
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import ConfigDict, Field
+
+from app.api.schemas.base import APIModel
 
 
-class ChapterCreate(BaseModel):
+class ChapterCreate(APIModel):
     """创建章节请求。"""
 
     volume_id: str | None = Field(default=None, description="所属卷 ID")
@@ -17,7 +19,7 @@ class ChapterCreate(BaseModel):
     word_count: int | None = Field(default=None, ge=0, description="章节字数（前端计算）")
 
 
-class ChapterUpdate(BaseModel):
+class ChapterUpdate(APIModel):
     """更新章节请求。"""
 
     title: str | None = Field(default=None, min_length=1, max_length=200, description="章节标题")
@@ -28,20 +30,20 @@ class ChapterUpdate(BaseModel):
     base_content: str | None = Field(default=None, description="编辑开始时的正文")
 
 
-class ChapterReorder(BaseModel):
+class ChapterReorder(APIModel):
     """批量重排章节请求。"""
 
     volume_id: str | None = Field(default=None, description="卷 ID")
     chapter_ids: list[str] = Field(description="按新顺序排列的章节 ID 列表")
 
 
-class ChapterMoveToVolume(BaseModel):
+class ChapterMoveToVolume(APIModel):
     """跨卷移动章节请求。"""
 
     volume_id: str | None = Field(default=None, description="目标卷 ID")
 
 
-class ChapterResponse(BaseModel):
+class ChapterResponse(APIModel):
     """章节响应（完整版，包含正文）。"""
 
     id: str = Field(description="章节 ID")
@@ -54,10 +56,10 @@ class ChapterResponse(BaseModel):
     created_at: datetime = Field(description="创建时间")
     updated_at: datetime = Field(description="上次修改时间")
 
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True)
 
 
-class ChapterListItem(BaseModel):
+class ChapterListItem(APIModel):
     """章节列表项（精简版，不含正文，用于列表展示）。"""
 
     id: str = Field(description="章节 ID")
@@ -69,10 +71,10 @@ class ChapterListItem(BaseModel):
     created_at: datetime = Field(description="创建时间")
     updated_at: datetime = Field(description="上次修改时间")
 
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True)
 
 
-class VolumeTreeItem(BaseModel):
+class VolumeTreeItem(APIModel):
     """卷-章树中的卷节点。"""
 
     id: str = Field(description="卷 ID")
@@ -85,10 +87,10 @@ class VolumeTreeItem(BaseModel):
     updated_at: datetime = Field(description="上次修改时间")
     chapters: list[ChapterListItem] = Field(description="卷内章节列表")
 
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True)
 
 
-class VolumeTreeResponse(BaseModel):
+class VolumeTreeResponse(APIModel):
     """卷-章树响应。"""
 
     volumes: list[VolumeTreeItem] = Field(description="卷列表")
@@ -96,7 +98,7 @@ class VolumeTreeResponse(BaseModel):
     root_chapters: list[ChapterListItem] = Field(default_factory=list)
 
 
-class MentionCandidateItem(BaseModel):
+class MentionCandidateItem(APIModel):
     """对话 mention 候选项。"""
 
     kind: Literal[
@@ -115,14 +117,14 @@ class MentionCandidateItem(BaseModel):
     folder_name: str | None = Field(default=None, description="所属文件夹名称；未分类为 null")
 
 
-class MentionFolderItem(BaseModel):
+class MentionFolderItem(APIModel):
     """当前候选类型对应的单层文件夹导航。"""
 
     id: str
     title: str
 
 
-class MentionCandidateSearchResponse(BaseModel):
+class MentionCandidateSearchResponse(APIModel):
     """mention 候选检索结果。"""
 
     items: list[MentionCandidateItem] = Field(description="匹配到的候选项")
@@ -130,14 +132,14 @@ class MentionCandidateSearchResponse(BaseModel):
     has_more: bool = Field(default=False, description="是否还有下一页候选项")
 
 
-class ChapterSearchMatch(BaseModel):
+class ChapterSearchMatch(APIModel):
     """章节内容搜索匹配行。"""
 
     line_number: int = Field(description="匹配行号")
     line_text: str = Field(description="匹配行文本")
 
 
-class ChapterSearchResult(BaseModel):
+class ChapterSearchResult(APIModel):
     """章节内容搜索结果。"""
 
     chapter_id: str = Field(description="章节 ID")
@@ -146,7 +148,7 @@ class ChapterSearchResult(BaseModel):
     matches: list[ChapterSearchMatch] = Field(description="匹配行列表")
 
 
-class ChapterSearchResponse(BaseModel):
+class ChapterSearchResponse(APIModel):
     """章节内容搜索响应。"""
 
     results: list[ChapterSearchResult] = Field(description="搜索结果列表")

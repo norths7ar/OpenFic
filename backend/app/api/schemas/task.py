@@ -4,13 +4,14 @@ Task API Schemas - 任务请求/响应模型。
 
 from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import ConfigDict, Field
 
 from app.agent_runtime.modes import AgentMode
+from app.api.schemas.base import APIModel
 from app.core.knowledge_scope import KnowledgeScope
 
 
-class TaskMessage(BaseModel):
+class TaskMessage(APIModel):
     """任务消息。"""
 
     id: str = Field(description="消息ID")
@@ -30,16 +31,16 @@ class TaskMessage(BaseModel):
     updated_at: datetime | None = Field(default=None, description="消息更新时间")
 
 
-class TaskUpdateRequest(BaseModel):
+class TaskUpdateRequest(APIModel):
     """更新任务请求。"""
 
     title: str | None = Field(default=None, description="任务标题")
     is_favorited: bool | None = Field(default=None, description="是否收藏")
 
-    model_config = {"extra": "forbid"}
+    model_config = ConfigDict(extra="forbid")
 
 
-class TaskResponse(BaseModel):
+class TaskResponse(APIModel):
     """任务响应。"""
 
     id: str = Field(description="任务 ID")
@@ -66,7 +67,7 @@ class TaskResponse(BaseModel):
     updated_at: datetime = Field(description="更新时间")
 
 
-class TaskListItem(BaseModel):
+class TaskListItem(APIModel):
     """任务列表项。"""
 
     id: str = Field(description="任务 ID")
@@ -87,7 +88,7 @@ class TaskListItem(BaseModel):
     updated_at: datetime = Field(description="更新时间")
 
 
-class TaskListResponse(BaseModel):
+class TaskListResponse(APIModel):
     """任务列表响应。"""
 
     items: list[TaskListItem] = Field(description="任务列表")

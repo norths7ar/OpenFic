@@ -2,12 +2,14 @@
 ModelProvider API Schemas - 模型服务提供商请求/响应模型。
 """
 
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import Field, WithJsonSchema
+
+from app.api.schemas.base import APIModel
 
 
-class CatalogMatchResponse(BaseModel):
+class CatalogMatchResponse(APIModel):
     """Matched catalog provider metadata for a saved provider."""
 
     catalog_provider_type: str = Field(description="匹配到的 catalog provider_type")
@@ -16,10 +18,12 @@ class CatalogMatchResponse(BaseModel):
     api: str | None = Field(default=None, description="Models.dev api 字段")
     icon_path: str | None = Field(default=None, description="内置图标路径")
     models_dev_provider_id: str | None = Field(default=None, description="Models.dev provider id")
-    matched_via: str = Field(description="provider_type 或 api")
+    matched_via: Annotated[
+        str, WithJsonSchema({"type": "string", "enum": ["provider_type", "api"]})
+    ] = Field(description="provider_type 或 api")
 
 
-class ModelProviderResponse(BaseModel):
+class ModelProviderResponse(APIModel):
     """提供商响应。"""
 
     id: str = Field(description="提供商 ID")
@@ -27,6 +31,7 @@ class ModelProviderResponse(BaseModel):
     url: str = Field(description="服务 URL")
     provider_type: str = Field(description="提供商类型")
     catalog_mode: Literal["generic", "ocx"] = "generic"
+    has_api_key: bool = Field(description="Whether an API key is configured; never its value")
     custom_header_names: list[str] = Field(
         default_factory=list,
         description="已配置的自定义请求头名称（不返回请求头值）",
@@ -47,14 +52,14 @@ class ModelProviderResponse(BaseModel):
     updated_at: str = Field(description="更新时间")
 
 
-class CustomHeaderEntry(BaseModel):
+class CustomHeaderEntry(APIModel):
     """单条自定义请求头。"""
 
     key: str = Field(description="请求头名称")
     value: str = Field(description="请求头值")
 
 
-class ModelProviderValidateRequest(BaseModel):
+class ModelProviderValidateRequest(APIModel):
     """验证提供商连接请求。"""
 
     provider_type: str = Field(description="提供商类型")
@@ -66,7 +71,7 @@ class ModelProviderValidateRequest(BaseModel):
     )
 
 
-class AvailableModelMetadata(BaseModel):
+class AvailableModelMetadata(APIModel):
     """模型展示元数据。"""
 
     release_date: str | None = Field(default=None, description="模型发布日期")
@@ -77,7 +82,7 @@ class AvailableModelMetadata(BaseModel):
     cost: dict[str, Any] | str | int | None = Field(default=None, description="价格元数据")
 
 
-class AvailableModel(BaseModel):
+class AvailableModel(APIModel):
     """可用模型。"""
 
     id: str = Field(description="模型 ID")
@@ -86,13 +91,16 @@ class AvailableModel(BaseModel):
     speed_reasoning_capabilities: dict[str, dict[str, Any]] = Field(
         default_factory=dict, exclude_if=lambda value: not value
     )
-    task_type: str | None = Field(default=None, description="任务类型")
+    task_type: (
+        Annotated[str, WithJsonSchema({"type": "string", "enum": ["llm", "embedding", "rerank"]})]
+        | None
+    ) = Field(default=None, description="任务类型")
     metadata: AvailableModelMetadata | None = Field(
         default=None, description="匹配到的 catalog 元数据"
     )
 
 
-class ModelProviderValidateResponse(BaseModel):
+class ModelProviderValidateResponse(APIModel):
     """验证提供商连接响应。"""
 
     success: bool = Field(description="是否验证成功")
@@ -104,7 +112,7 @@ class ModelProviderValidateResponse(BaseModel):
     )
 
 
-class RemovedModel(BaseModel):
+class RemovedModel(APIModel):
     id: str
     name: str
     model_id: str

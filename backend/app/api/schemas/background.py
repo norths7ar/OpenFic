@@ -3,10 +3,12 @@
 from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import Field
+
+from app.api.schemas.base import APIModel
 
 
-class BackgroundJobResponse(BaseModel):
+class BackgroundJobResponse(APIModel):
     id: str = Field(description="Job ID")
     type: str = Field(description="Job type")
     status: str = Field(description="Job status")
@@ -34,7 +36,7 @@ class BackgroundJobResponse(BaseModel):
     finished_at: datetime | None = Field(default=None)
 
 
-class BackgroundJobEventResponse(BaseModel):
+class BackgroundJobEventResponse(APIModel):
     id: str
     job_id: str
     item_id: str | None = None
@@ -44,7 +46,7 @@ class BackgroundJobEventResponse(BaseModel):
     created_at: datetime
 
 
-class BackgroundJobItemResponse(BaseModel):
+class BackgroundJobItemResponse(APIModel):
     id: str
     job_id: str
     item_key: str
@@ -61,17 +63,17 @@ class BackgroundJobItemResponse(BaseModel):
     finished_at: datetime | None = None
 
 
-class BackgroundJobListResponse(BaseModel):
+class BackgroundJobListResponse(APIModel):
     items: list[BackgroundJobResponse]
 
 
-class BackgroundJobEventListResponse(BaseModel):
+class BackgroundJobEventListResponse(APIModel):
     items: list[BackgroundJobEventResponse]
 
 
-class BackgroundJobItemListResponse(BaseModel):
+class BackgroundJobItemListResponse(APIModel):
     items: list[BackgroundJobItemResponse]
 
 
-class BackgroundCancelJobRequest(BaseModel):
+class BackgroundCancelJobRequest(APIModel):
     reason: str | None = Field(default=None, max_length=500)

@@ -194,6 +194,8 @@ async def confirm_import(
 
 @router.post(
     "/confirm-stream",
+    response_class=StreamingResponse,
+    responses={200: {"content": {"text/event-stream": {"schema": {"type": "string"}}}}},
     summary="确认导入（流式进度）",
 )
 async def confirm_import_stream(

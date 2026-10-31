@@ -4,12 +4,13 @@ from dataclasses import asdict
 
 from fastapi import APIRouter
 
+from app.api.schemas.http_contracts import AgentVisibilityCatalogResponse
 from app.core.agent_visibility import AGENT_VISIBILITY_STATES, DEFAULT_AGENT_VISIBILITY
 
 router = APIRouter(tags=["agent-visibility"])
 
 
-@router.get("/agent-visibility")
+@router.get("/agent-visibility", response_model=AgentVisibilityCatalogResponse)
 async def get_agent_visibility_catalog() -> dict:
     return {
         "default": DEFAULT_AGENT_VISIBILITY,

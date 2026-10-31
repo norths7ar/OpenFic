@@ -4,17 +4,17 @@ Health check response schemas.
 
 from typing import Literal
 
-from pydantic import BaseModel
+from app.api.schemas.base import APIModel
 
 
-class HealthResponse(BaseModel):
+class HealthResponse(APIModel):
     """Health check response."""
 
     status: str
     version: str
 
 
-class MaintenanceResponse(BaseModel):
+class MaintenanceResponse(APIModel):
     """Local database maintenance status."""
 
     status: Literal["pending", "running", "ready", "failed"]

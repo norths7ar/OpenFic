@@ -1,12 +1,34 @@
 """Schemas for project retrieval index APIs."""
 
-from pydantic import BaseModel, Field
+from typing import Annotated
 
-IndexStatus = str
-IndexMode = str
+from pydantic import Field, WithJsonSchema
+
+from app.api.schemas.base import APIModel
+
+IndexStatus = Annotated[
+    str,
+    WithJsonSchema(
+        {
+            "type": "string",
+            "enum": [
+                "disabled",
+                "not_configured",
+                "no_chapters",
+                "no_index",
+                "indexing",
+                "needs_rebuild",
+                "stale",
+                "fresh",
+                "failed",
+            ],
+        }
+    ),
+]
+IndexMode = Annotated[str, WithJsonSchema({"type": "string", "enum": ["off", "all", "selected"]})]
 
 
-class IndexProjectStatusResponse(BaseModel):
+class IndexProjectStatusResponse(APIModel):
     """单个项目的索引状态汇总（不含内部 ID）。"""
 
     project_id: str
@@ -23,7 +45,7 @@ class IndexProjectStatusResponse(BaseModel):
     progress: float = 0.0
 
 
-class IndexOverallStatusResponse(BaseModel):
+class IndexOverallStatusResponse(APIModel):
     """索引总体状态（跨启用项目聚合）。"""
 
     mode: IndexMode
@@ -37,7 +59,7 @@ class IndexOverallStatusResponse(BaseModel):
     projects: list[IndexProjectStatusResponse] = Field(default_factory=list)
 
 
-class IndexStartResponse(BaseModel):
+class IndexStartResponse(APIModel):
     """手动开始索引的响应。"""
 
     project_id: str
@@ -45,7 +67,7 @@ class IndexStartResponse(BaseModel):
     skipped_count: int = 0
 
 
-class IndexStopResponse(BaseModel):
+class IndexStopResponse(APIModel):
     """手动停止索引的响应。"""
 
     project_id: str

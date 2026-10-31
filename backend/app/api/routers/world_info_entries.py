@@ -10,6 +10,7 @@ from fastapi.responses import StreamingResponse
 from loguru import logger
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.schemas.http_contracts import DeletedCountResponse
 from app.api.schemas.world_info import (
     WorldInfoEntryBatchDeleteRequest,
     WorldInfoEntryBatchDeleteResponse,
@@ -136,6 +137,8 @@ async def preview_world_info_import(
 
 @router.post(
     "/world-info/{world_info_id}/entries/import-stream",
+    response_class=StreamingResponse,
+    responses={200: {"content": {"text/event-stream": {"schema": {"type": "string"}}}}},
     response_model=None,
     summary="流式导入世界书条目",
 )
@@ -342,6 +345,7 @@ async def update_entry(
     "/world-info/{world_info_id}/entries",
     status_code=status.HTTP_200_OK,
     summary="删除世界书的所有条目",
+    response_model=DeletedCountResponse,
 )
 async def delete_all_entries(
     world_info_id: str,

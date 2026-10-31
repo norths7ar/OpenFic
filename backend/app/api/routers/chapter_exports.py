@@ -91,6 +91,13 @@ async def cancel_chapter_export(
 @router.get(
     "/projects/{project_id}/chapter-exports/{job_id}/download",
     summary="下载章节导出文件",
+    response_class=FileResponse,
+    responses={
+        200: {
+            "content": {"text/plain": {"schema": {"type": "string", "format": "binary"}}},
+            "headers": {"Content-Disposition": {"schema": {"type": "string"}}},
+        }
+    },
 )
 async def download_chapter_export(
     project_id: str,

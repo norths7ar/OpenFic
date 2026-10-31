@@ -2,37 +2,44 @@
 Setting API Schemas - 设置请求/响应模型。
 """
 
-from pydantic import BaseModel, Field
+from typing import Annotated
+
+from pydantic import Field, WithJsonSchema
+
+from app.api.schemas.base import APIModel
 
 
-class AgentToolPermissionItem(BaseModel):
+class AgentToolPermissionItem(APIModel):
     """Agent 工具权限设置项。"""
 
     tool_name: str = Field(..., description="工具名称")
-    mode: str = Field(..., description="权限模式：allow / ask / deny")
+    mode: Annotated[
+        str,
+        WithJsonSchema({"type": "string", "enum": ["allow", "ask", "deny"]}, mode="serialization"),
+    ] = Field(..., description="权限模式：allow / ask / deny")
 
 
-class AgentSettingsLockResponse(BaseModel):
+class AgentSettingsLockResponse(APIModel):
     """Agent 会话是否正在锁定相关设置。"""
 
     is_locked: bool = Field(..., description="是否存在未结束的 Agent 或子智能体会话")
 
 
-class AuditDetailsStorageResponse(BaseModel):
+class AuditDetailsStorageResponse(APIModel):
     """LLM 调用详情的存储概览。"""
 
     detail_records_count: int = Field(description="包含详情的调用记录数")
     detail_bytes: int = Field(description="详情字段 UTF-8 字节数估算")
 
 
-class ClearAuditDetailsResponse(BaseModel):
+class ClearAuditDetailsResponse(APIModel):
     """清空 LLM 调用详情的结果。"""
 
     cleared_records_count: int = Field(description="已清空详情的调用记录数")
     cleared_detail_bytes: int = Field(description="已清空详情字段的 UTF-8 字节数估算")
 
 
-class SettingsResponse(BaseModel):
+class SettingsResponse(APIModel):
     """设置响应。"""
 
     language: str = Field(default="zh-CN", description="语言")
@@ -44,15 +51,17 @@ class SettingsResponse(BaseModel):
     default_model: str = Field(default="", description="默认模型 ID")
     light_model: str = Field(default="", description="轻量模型 ID")
     default_embedding_model: str = Field(default="", description="默认 Embedding 模型 ID")
-    index_mode: str = Field(default="off", description="索引启用模式：off/all/selected")
+    index_mode: Annotated[
+        str, WithJsonSchema({"type": "string", "enum": ["off", "all", "selected"]})
+    ] = Field(default="off", description="索引启用模式：off/all/selected")
     index_enabled_projects: list[str] = Field(
         default_factory=list, description="启用索引的项目 ID 列表（mode=selected 时生效）"
     )
     index_chunk_size: int = Field(default=800, description="索引分块大小")
     index_chunk_overlap: int = Field(default=100, description="索引分块重叠")
-    index_auto_strategy: str = Field(
-        default="off", description="自动索引策略：immediate/agent_decided/off"
-    )
+    index_auto_strategy: Annotated[
+        str, WithJsonSchema({"type": "string", "enum": ["off", "immediate", "agent_decided"]})
+    ] = Field(default="off", description="自动索引策略：immediate/agent_decided/off")
     index_rerank_enabled: bool = Field(
         default=False,
         description="是否启用检索 rerank 二次排序",
@@ -88,7 +97,7 @@ class SettingsResponse(BaseModel):
     )
 
 
-class SettingsUpdateRequest(BaseModel):
+class SettingsUpdateRequest(APIModel):
     """设置更新请求。"""
 
     language: str | None = Field(default=None, description="语言")

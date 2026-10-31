@@ -5,15 +5,16 @@ Agent API Schemas。
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import ConfigDict, Field
 
 from app.agent_runtime.types import DEFAULT_AGENT_MAX_ITERATIONS
+from app.api.schemas.base import APIModel
 from app.api.schemas.task import TaskMessage
 from app.core.knowledge_scope import KnowledgeScope
 from app.models.clients.model_params import ReasoningEffort
 
 
-class AgentSessionCreateRequest(BaseModel):
+class AgentSessionCreateRequest(APIModel):
     """创建 Agent 会话请求。"""
 
     project_id: str = Field(..., description="项目ID")
@@ -35,10 +36,10 @@ class AgentSessionCreateRequest(BaseModel):
     )
     context_mode: KnowledgeScope = Field(default=KnowledgeScope.LOCAL)
 
-    model_config = {"extra": "forbid"}
+    model_config = ConfigDict(extra="forbid")
 
 
-class AgentSessionCreateResponse(BaseModel):
+class AgentSessionCreateResponse(APIModel):
     """创建 Agent 会话响应。"""
 
     session_id: str = Field(..., description="会话ID")
@@ -52,18 +53,18 @@ class AgentSessionCreateResponse(BaseModel):
     context_mode: KnowledgeScope = Field(default=KnowledgeScope.LOCAL)
 
 
-class AgentKnowledgeScopeRequest(BaseModel):
+class AgentKnowledgeScopeRequest(APIModel):
     context_mode: KnowledgeScope
     agent_key: str | None = None
 
-    model_config = {"extra": "forbid"}
+    model_config = ConfigDict(extra="forbid")
 
 
-class AgentKnowledgeScopeResponse(BaseModel):
+class AgentKnowledgeScopeResponse(APIModel):
     context_mode: KnowledgeScope
 
 
-class AgentAttachmentResponse(BaseModel):
+class AgentAttachmentResponse(APIModel):
     """Agent 图片附件元数据。"""
 
     id: str = Field(..., description="附件 ID")
@@ -77,7 +78,7 @@ class AgentAttachmentResponse(BaseModel):
     url: str = Field(..., description="图片展示地址")
 
 
-class AgentSendMessageRequest(BaseModel):
+class AgentSendMessageRequest(APIModel):
     """发送用户消息请求。"""
 
     delivery_mode: Literal["steer", "queue"] = "steer"
@@ -92,7 +93,7 @@ class AgentSendMessageRequest(BaseModel):
     )
 
 
-class AgentPendingMessageResponse(BaseModel):
+class AgentPendingMessageResponse(APIModel):
     """运行中排队的用户消息。"""
 
     delivery_mode: Literal["steer", "queue"] = "steer"
@@ -101,7 +102,7 @@ class AgentPendingMessageResponse(BaseModel):
     created_at: str = Field(..., description="进入 pending 的时间")
 
 
-class AgentSendMessageResponse(BaseModel):
+class AgentSendMessageResponse(APIModel):
     """发送用户消息响应。"""
 
     success: bool = Field(..., description="是否成功")
@@ -118,13 +119,13 @@ class AgentSendMessageResponse(BaseModel):
     )
 
 
-class AgentCancelPendingMessageRequest(BaseModel):
+class AgentCancelPendingMessageRequest(APIModel):
     """取消待消费用户消息请求。"""
 
     message_id: str = Field(..., description="待取消的 pending message ID")
 
 
-class AgentCancelPendingMessageResponse(BaseModel):
+class AgentCancelPendingMessageResponse(APIModel):
     """取消待消费用户消息响应。"""
 
     success: bool = Field(..., description="是否成功")
@@ -134,7 +135,7 @@ class AgentCancelPendingMessageResponse(BaseModel):
     attachments: list[dict] = Field(default_factory=list)
 
 
-class AgentCompactionResponse(BaseModel):
+class AgentCompactionResponse(APIModel):
     """手动压缩响应。"""
 
     success: bool = Field(..., description="是否成功")
@@ -146,7 +147,7 @@ class AgentCompactionResponse(BaseModel):
     summary_tokens: int = Field(default=0, description="摘要 token 数")
 
 
-class AgentResumeModelOptions(BaseModel):
+class AgentResumeModelOptions(APIModel):
     model_id: str | None = None
     model_speed: Literal["standard", "fast"] | None = None
     reasoning_effort: ReasoningEffort | None = None
@@ -162,7 +163,7 @@ class AgentQuestionAnswerRequest(AgentResumeModelOptions):
     skipped: bool = Field(default=False, description="是否忽略本次提问")
 
 
-class AgentQuestionAnswerItem(BaseModel):
+class AgentQuestionAnswerItem(APIModel):
     """单个澄清问题回答。"""
 
     question: str = Field(..., min_length=1, description="问题标题")
@@ -176,7 +177,7 @@ class AgentToolApprovalRequest(AgentResumeModelOptions):
     approved: bool = Field(..., description="是否批准")
 
 
-class AgentInterruptResponseItem(BaseModel):
+class AgentInterruptResponseItem(APIModel):
     """单个并行中断响应。"""
 
     interrupt_id: str = Field(..., description="LangGraph 中断ID")
@@ -203,14 +204,14 @@ class AgentInterruptResumeRequest(AgentResumeModelOptions):
     )
 
 
-class AgentToolMetadataResponse(BaseModel):
+class AgentToolMetadataResponse(APIModel):
     """Agent 工具权限元数据。"""
 
     key: str = Field(..., description="权限配置键")
     is_readonly: bool = Field(..., description="是否只读")
 
 
-class AgentSessionStateResponse(BaseModel):
+class AgentSessionStateResponse(APIModel):
     """会话状态响应。"""
 
     session_id: str = Field(..., description="会话ID")
@@ -219,7 +220,7 @@ class AgentSessionStateResponse(BaseModel):
     interrupts: list[dict] = Field(default_factory=list, description="待处理的可恢复中断")
 
 
-class ActiveSubagentStateResponse(BaseModel):
+class ActiveSubagentStateResponse(APIModel):
     """父会话下活跃子代理的只读状态行。"""
 
     child_run_id: str = Field(..., description="子运行ID")
@@ -235,7 +236,7 @@ class ActiveSubagentStateResponse(BaseModel):
     )
 
 
-class SubagentSessionResponse(BaseModel):
+class SubagentSessionResponse(APIModel):
     """子代理会话详情。"""
 
     child_run_id: str = Field(..., description="子运行ID")
@@ -275,15 +276,15 @@ class SubagentSessionResponse(BaseModel):
     )
 
 
-class AgentRollbackRequest(BaseModel):
+class AgentRollbackRequest(APIModel):
     """Agent回滚请求。"""
 
     revision_id: str = Field(..., description="目标revision ID")
 
-    model_config = {"extra": "forbid"}
+    model_config = ConfigDict(extra="forbid")
 
 
-class AgentRollbackResponse(BaseModel):
+class AgentRollbackResponse(APIModel):
     """Agent回滚响应。"""
 
     success: bool = Field(..., description="是否成功")
@@ -304,7 +305,7 @@ class AgentRollbackResponse(BaseModel):
     )
 
 
-class AgentForkRequest(BaseModel):
+class AgentForkRequest(APIModel):
     """Agent会话分叉请求。"""
 
     source_revision_id: str = Field(..., description="分叉来源用户消息 revision ID")
@@ -315,10 +316,10 @@ class AgentForkRequest(BaseModel):
         description="Fork 会话后续使用的推理强度",
     )
 
-    model_config = {"extra": "forbid"}
+    model_config = ConfigDict(extra="forbid")
 
 
-class AgentForkResponse(BaseModel):
+class AgentForkResponse(APIModel):
     """Agent会话分叉响应。"""
 
     session_id: str = Field(..., description="新 Agent 会话 ID")
@@ -328,7 +329,7 @@ class AgentForkResponse(BaseModel):
     task_updated_at: str = Field(..., description="新 Task 更新时间")
 
 
-class AgentCancelResponse(BaseModel):
+class AgentCancelResponse(APIModel):
     """Agent取消响应。"""
 
     success: bool = Field(..., description="是否成功")

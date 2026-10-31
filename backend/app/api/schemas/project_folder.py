@@ -3,36 +3,38 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import ConfigDict, Field
+
+from app.api.schemas.base import APIModel
 
 ProjectFolderScope = Literal["writing", "discussion", "world", "character", "outline", "note"]
 
 
-class ProjectFolderCreate(BaseModel):
-    model_config = {"extra": "forbid"}
+class ProjectFolderCreate(APIModel):
+    model_config = ConfigDict(extra="forbid")
     scope: ProjectFolderScope
     title: str = Field(min_length=1, max_length=200)
     description: str | None = None
 
 
-class ProjectFolderUpdate(BaseModel):
-    model_config = {"extra": "forbid"}
+class ProjectFolderUpdate(APIModel):
+    model_config = ConfigDict(extra="forbid")
     title: str | None = Field(default=None, min_length=1, max_length=200)
     description: str | None = None
 
 
-class ProjectFolderReorder(BaseModel):
+class ProjectFolderReorder(APIModel):
     scope: ProjectFolderScope
     ordered_ids: list[str]
 
 
-class ProjectFolderItemMove(BaseModel):
+class ProjectFolderItemMove(APIModel):
     scope: ProjectFolderScope
     item_id: str
     folder_id: str | None = None
 
 
-class ProjectFolderResponse(BaseModel):
+class ProjectFolderResponse(APIModel):
     id: str
     project_id: str
     scope: ProjectFolderScope
@@ -42,8 +44,8 @@ class ProjectFolderResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
 
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True)
 
 
-class ProjectFolderListResponse(BaseModel):
+class ProjectFolderListResponse(APIModel):
     items: list[ProjectFolderResponse]

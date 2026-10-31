@@ -3,7 +3,11 @@
 from datetime import UTC, datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import ConfigDict, Field, field_validator, model_validator
+
+from app.api.schemas.base import APIModel
+
+type JsonValue = str | int | float | bool | None | list["JsonValue"] | dict[str, "JsonValue"]
 
 PendingProjectChangeOperation = Literal["create", "update", "delete"]
 PendingProjectChangeStatus = Literal["pending", "applying", "rejected", "applied"]
@@ -15,18 +19,18 @@ PendingProjectChangeTargetType = Literal[
 ]
 
 
-class PendingProjectChangeCreate(BaseModel):
+class PendingProjectChangeCreate(APIModel):
     """创建待审项目变更请求。"""
 
     target_type: PendingProjectChangeTargetType
     target_id: str | None = Field(default=None, max_length=200)
     operation: PendingProjectChangeOperation
-    after: Any = None
+    after: JsonValue = None
     source_task_id: str | None = Field(default=None, max_length=128)
     source_message_id: str | None = Field(default=None, max_length=128)
     model_id: str | None = Field(default=None, max_length=200)
 
-    model_config = {"extra": "forbid"}
+    model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
     def validate_operation_shape(self) -> "PendingProjectChangeCreate":
@@ -48,11 +52,11 @@ class PendingProjectChangeCreate(BaseModel):
         return self
 
 
-class PendingProjectChangeReview(BaseModel):
+class PendingProjectChangeReview(APIModel):
     """Proposal version guard for a review action."""
 
     expected_updated_at: datetime
-    model_config = {"extra": "forbid"}
+    model_config = ConfigDict(extra="forbid")
 
 
 class PendingProjectChangeApply(PendingProjectChangeReview):
@@ -60,10 +64,10 @@ class PendingProjectChangeApply(PendingProjectChangeReview):
     revision_id: str = Field(min_length=1)
 
 
-class PendingProjectChangeRevisionResponse(BaseModel):
+class PendingProjectChangeRevisionResponse(APIModel):
     id: str
     change_id: str
-    after: Any
+    after: JsonValue
     source: Literal["manual", "ai", "migration"]
     source_task_id: str | None
     source_message_id: str | None
@@ -75,7 +79,7 @@ class PendingProjectChangeRevisionResponse(BaseModel):
     def ensure_utc(cls, value: datetime) -> datetime:
         return value.replace(tzinfo=UTC) if value.tzinfo is None else value
 
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True)
 
 
 class PendingProjectChangeRevise(PendingProjectChangeReview):
@@ -84,7 +88,7 @@ class PendingProjectChangeRevise(PendingProjectChangeReview):
     patch: dict[str, Any]
 
 
-class PendingProjectChangeResponse(BaseModel):
+class PendingProjectChangeResponse(APIModel):
     """待审项目变更响应。"""
 
     id: str
@@ -93,9 +97,9 @@ class PendingProjectChangeResponse(BaseModel):
     target_id: str | None
     operation: PendingProjectChangeOperation
     base_hash: str | None
-    before: Any
-    after: Any
-    current: Any = None
+    before: JsonValue
+    after: JsonValue
+    current: JsonValue = None
     current_hash: str | None = None
     current_revision_id: str | None
     applied_revision_id: str | None
@@ -116,4 +120,4 @@ class PendingProjectChangeResponse(BaseModel):
             return value.replace(tzinfo=UTC)
         return value
 
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True)

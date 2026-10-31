@@ -4,12 +4,13 @@ WorldInfo API Schemas - 世界书请求/响应模型。
 
 from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import ConfigDict, Field
 
+from app.api.schemas.base import APIModel
 from app.core.agent_visibility import AgentVisibility
 
 
-class WorldInfoResponse(BaseModel):
+class WorldInfoResponse(APIModel):
     """世界书响应。"""
 
     id: str = Field(description="世界书 ID")
@@ -19,10 +20,10 @@ class WorldInfoResponse(BaseModel):
     created_at: datetime = Field(description="创建时间")
     updated_at: datetime = Field(description="更新时间")
 
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True)
 
 
-class WorldInfoListResponse(BaseModel):
+class WorldInfoListResponse(APIModel):
     """世界书列表响应。"""
 
     items: list[WorldInfoResponse] = Field(description="世界书列表")
@@ -34,7 +35,7 @@ class WorldInfoListResponse(BaseModel):
 # ============== 世界书条目 Schemas ==============
 
 
-class WorldInfoEntryCreate(BaseModel):
+class WorldInfoEntryCreate(APIModel):
     """创建世界书条目请求。"""
 
     name: str = Field(min_length=1, max_length=200, description="条目名称")
@@ -46,7 +47,7 @@ class WorldInfoEntryCreate(BaseModel):
     )
 
 
-class WorldInfoEntryUpdate(BaseModel):
+class WorldInfoEntryUpdate(APIModel):
     """更新世界书条目请求。"""
 
     name: str | None = Field(default=None, min_length=1, max_length=200)
@@ -56,38 +57,38 @@ class WorldInfoEntryUpdate(BaseModel):
     agent_visibility: AgentVisibility | None = None
 
 
-class WorldInfoEntryMoveRequest(BaseModel):
+class WorldInfoEntryMoveRequest(APIModel):
     """移动世界书条目请求。"""
 
     new_order: int = Field(ge=1, description="新排序位置")
 
 
-class WorldInfoEntryBatchToggleRequest(BaseModel):
+class WorldInfoEntryBatchToggleRequest(APIModel):
     """批量切换条目开关请求。"""
 
     entry_ids: list[str] = Field(min_length=1, description="要切换的条目 ID 列表")
     agent_visibility: AgentVisibility = Field(description="目标 Agent 可见范围")
 
 
-class WorldInfoEntryBatchDeleteRequest(BaseModel):
+class WorldInfoEntryBatchDeleteRequest(APIModel):
     """批量删除条目请求。"""
 
     entry_ids: list[str] = Field(min_length=1, description="要删除的条目 ID 列表")
 
 
-class WorldInfoEntryBatchToggleResponse(BaseModel):
+class WorldInfoEntryBatchToggleResponse(APIModel):
     """批量切换条目开关响应。"""
 
     updated_count: int = Field(description="已更新的条目数量")
 
 
-class WorldInfoEntryBatchDeleteResponse(BaseModel):
+class WorldInfoEntryBatchDeleteResponse(APIModel):
     """批量删除条目响应。"""
 
     deleted_count: int = Field(description="已删除的条目数量")
 
 
-class WorldInfoEntryResponse(BaseModel):
+class WorldInfoEntryResponse(APIModel):
     """世界书条目响应。"""
 
     id: str = Field(description="条目 ID")
@@ -103,10 +104,10 @@ class WorldInfoEntryResponse(BaseModel):
     created_at: datetime = Field(description="创建时间")
     updated_at: datetime = Field(description="更新时间")
 
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True)
 
 
-class WorldInfoEntryBriefResponse(BaseModel):
+class WorldInfoEntryBriefResponse(APIModel):
     """世界书条目轻量响应（列表用，不含 content）。"""
 
     id: str = Field(description="条目 ID")
@@ -121,17 +122,17 @@ class WorldInfoEntryBriefResponse(BaseModel):
     created_at: datetime = Field(description="创建时间")
     updated_at: datetime = Field(description="更新时间")
 
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True)
 
 
-class WorldInfoEntryBriefListResponse(BaseModel):
+class WorldInfoEntryBriefListResponse(APIModel):
     """世界书条目轻量列表响应。"""
 
     items: list[WorldInfoEntryBriefResponse] = Field(description="条目列表")
     total: int = Field(description="总数")
 
 
-class WorldInfoImportPreviewEntry(BaseModel):
+class WorldInfoImportPreviewEntry(APIModel):
     """世界书导入预览条目。"""
 
     uid: int = Field(description="原始条目 UID")
@@ -141,7 +142,7 @@ class WorldInfoImportPreviewEntry(BaseModel):
     agent_visibility: AgentVisibility = Field(description="导入后的 Agent 可见范围")
 
 
-class WorldInfoImportPreviewResponse(BaseModel):
+class WorldInfoImportPreviewResponse(APIModel):
     """世界书导入预览响应。"""
 
     entry_count: int = Field(description="条目总数")
@@ -149,14 +150,14 @@ class WorldInfoImportPreviewResponse(BaseModel):
     entries: list[WorldInfoImportPreviewEntry] = Field(description="预览条目列表")
 
 
-class WorldInfoImportResponse(BaseModel):
+class WorldInfoImportResponse(APIModel):
     """世界书导入响应。"""
 
     world_info_id: str = Field(description="目标世界书 ID")
     imported_count: int = Field(description="成功导入的条目数")
 
 
-class WorldInfoImportMode(BaseModel):
+class WorldInfoImportMode(APIModel):
     """世界书导入模式。"""
 
     mode: str = Field(description="导入模式：append 或 overwrite")
@@ -165,14 +166,14 @@ class WorldInfoImportMode(BaseModel):
 # ============== 搜索 Schemas ==============
 
 
-class WorldInfoEntrySearchMatch(BaseModel):
+class WorldInfoEntrySearchMatch(APIModel):
     """搜索匹配项。"""
 
     line_number: int = Field(description="匹配行号（从 1 开始）")
     line_text: str = Field(description="匹配行文本")
 
 
-class WorldInfoEntrySearchResult(BaseModel):
+class WorldInfoEntrySearchResult(APIModel):
     """单个条目的搜索结果。"""
 
     entry_id: str = Field(description="条目 ID")
@@ -181,7 +182,7 @@ class WorldInfoEntrySearchResult(BaseModel):
     matches: list[WorldInfoEntrySearchMatch] = Field(description="匹配项列表")
 
 
-class WorldInfoEntrySearchResponse(BaseModel):
+class WorldInfoEntrySearchResponse(APIModel):
     """搜索响应。"""
 
     results: list[WorldInfoEntrySearchResult] = Field(description="搜索结果列表")

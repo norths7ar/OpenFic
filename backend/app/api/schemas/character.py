@@ -2,12 +2,13 @@
 
 from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import Field
 
+from app.api.schemas.base import APIModel
 from app.core.agent_visibility import AgentVisibility
 
 
-class CharacterResponse(BaseModel):
+class CharacterResponse(APIModel):
     """角色响应。"""
 
     id: str = Field(description="角色 ID")
@@ -23,7 +24,7 @@ class CharacterResponse(BaseModel):
     updated_at: datetime = Field(description="更新时间")
 
 
-class CharacterListItemResponse(BaseModel):
+class CharacterListItemResponse(APIModel):
     """角色列表项响应。"""
 
     id: str = Field(description="角色 ID")
@@ -39,21 +40,21 @@ class CharacterListItemResponse(BaseModel):
     updated_at: datetime = Field(description="更新时间")
 
 
-class CharacterListResponse(BaseModel):
+class CharacterListResponse(APIModel):
     """角色列表响应。"""
 
     items: list[CharacterListItemResponse] = Field(description="角色列表")
     total: int = Field(description="总数")
 
 
-class CharacterSearchMatch(BaseModel):
+class CharacterSearchMatch(APIModel):
     """角色搜索匹配项。"""
 
     line_number: int = Field(description="匹配行号（从 1 开始）")
     line_text: str = Field(description="匹配行文本")
 
 
-class CharacterSearchResult(BaseModel):
+class CharacterSearchResult(APIModel):
     """单个角色的搜索结果。"""
 
     character_id: str = Field(description="角色 ID")
@@ -61,7 +62,7 @@ class CharacterSearchResult(BaseModel):
     matches: list[CharacterSearchMatch] = Field(description="匹配项列表")
 
 
-class CharacterSearchResponse(BaseModel):
+class CharacterSearchResponse(APIModel):
     """角色搜索响应。"""
 
     results: list[CharacterSearchResult] = Field(description="搜索结果列表")
@@ -69,34 +70,34 @@ class CharacterSearchResponse(BaseModel):
     total_matches: int = Field(description="匹配项总数")
 
 
-class CharacterBatchFavoriteRequest(BaseModel):
+class CharacterBatchFavoriteRequest(APIModel):
     """批量收藏角色请求。"""
 
     character_ids: list[str] = Field(min_length=1, description="要更新的角色 ID 列表")
     is_favorited: bool = Field(description="目标收藏状态")
 
 
-class CharacterBatchDeleteRequest(BaseModel):
+class CharacterBatchDeleteRequest(APIModel):
     """批量删除角色请求。"""
 
     character_ids: list[str] = Field(min_length=1, description="要删除的角色 ID 列表")
 
 
-class CharacterBatchFavoriteResponse(BaseModel):
+class CharacterBatchFavoriteResponse(APIModel):
     """批量收藏角色响应。"""
 
     updated_count: int = Field(description="已更新的角色数量")
 
 
-class CharacterBatchDeleteResponse(BaseModel):
+class CharacterBatchDeleteResponse(APIModel):
     """批量删除角色响应。"""
 
     deleted_count: int = Field(description="已删除的角色数量")
 
 
-class CharacterReorderRequest(BaseModel):
+class CharacterReorderRequest(APIModel):
     ordered_ids: list[str] = Field(description="按新顺序排列的角色 ID")
 
 
-class ReorderResponse(BaseModel):
+class ReorderResponse(APIModel):
     updated_count: int = Field(description="已更新的条目数量")
