@@ -117,19 +117,23 @@ class Settings(BaseSettings):
     llm_empty_response_retries: int = 2
 
     # Security - Encryption key for sensitive data (API keys, etc.)
-    encryption_key: str = _ensure_encryption_key()
+    encryption_key: str = ""
+
+    def initialize_storage(self) -> None:
+        """Initialize runtime storage, never while importing API contracts."""
+        BACKEND_DATA_DIR.mkdir(parents=True, exist_ok=True)
+        if not self.encryption_key:
+            self.encryption_key = _ensure_encryption_key()
 
     @property
     def database_url(self) -> str:
         data_dir = BACKEND_DATA_DIR
-        data_dir.mkdir(parents=True, exist_ok=True)
         return f"sqlite+aiosqlite:///{data_dir}/openfic.db"
 
     @property
     def checkpoint_db_path(self) -> Path:
         data_dir = BACKEND_DATA_DIR
-        data_dir.mkdir(parents=True, exist_ok=True)
         return data_dir / "checkpoints.db"
 
 
-settings = Settings()
+settings = Settings.model_construct() if os.getenv("OPENFIC_SCHEMA_EXPORT") == "1" else Settings()

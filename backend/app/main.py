@@ -518,6 +518,11 @@ def _print_startup_banner(version: str) -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Application lifespan manager."""
+    app_settings.initialize_storage()
+    app.state.catalog_icon_proxy_service = model_icons.CatalogIconProxyService()
+    ensure_covers_dir()
+    ensure_character_images_dir()
+    ensure_agent_attachments_dir()
     logger.info(f"Starting {app_settings.app_name} v{app_settings.app_version}")
     await init_db()
     cleared_tasks = await _reset_task_running_state()
@@ -570,7 +575,6 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
     app.state.auth_service = AuthService(app_settings.auth_password)
-    app.state.catalog_icon_proxy_service = model_icons.CatalogIconProxyService()
 
     # CORS middleware
     app.add_middleware(
@@ -624,20 +628,20 @@ def create_app() -> FastAPI:
     app.include_router(model_icons.router)
 
     # 挂载静态文件服务（封面图片）
-    covers_dir = ensure_covers_dir()
-    app.mount("/covers", StaticFiles(directory=str(covers_dir)), name="covers")
+    covers_dir = app_settings.covers_dir
+    app.mount("/covers", StaticFiles(directory=str(covers_dir), check_dir=False), name="covers")
 
-    character_images_dir = ensure_character_images_dir()
+    character_images_dir = app_settings.character_images_dir
     app.mount(
         "/character-images",
-        StaticFiles(directory=str(character_images_dir)),
+        StaticFiles(directory=str(character_images_dir), check_dir=False),
         name="character_images",
     )
 
-    agent_attachments_dir = ensure_agent_attachments_dir()
+    agent_attachments_dir = app_settings.agent_attachments_dir
     app.mount(
         "/agent-attachments",
-        StaticFiles(directory=str(agent_attachments_dir)),
+        StaticFiles(directory=str(agent_attachments_dir), check_dir=False),
         name="agent_attachments",
     )
 
