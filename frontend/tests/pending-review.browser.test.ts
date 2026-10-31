@@ -1,6 +1,6 @@
 // Run from frontend: node --test tests/pending-review.browser.test.ts
 import assert from "node:assert/strict";
-import { mkdir } from "node:fs/promises";
+import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { after, before, test } from "node:test";
 import { fileURLToPath } from "node:url";
 
@@ -9,15 +9,23 @@ import react from "@vitejs/plugin-react";
 import { createServer, type InlineConfig, type Plugin, type ViteDevServer } from "vite-plus";
 
 const frontend = fileURLToPath(new URL("../", import.meta.url));
-const scratch = fileURLToPath(
-  new URL("../../tmp/gap-tests-validation/frontend-review/", import.meta.url),
-);
+const scratchRoot = fileURLToPath(new URL("../../.tmp/", import.meta.url));
+let scratch: string;
 let server: ViteDevServer;
 let browser: Browser;
 let origin: string;
 
 before(async () => {
-  await mkdir(scratch, { recursive: true });
+  await mkdir(scratchRoot, { recursive: true });
+  const day = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Shanghai",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  })
+    .format(new Date())
+    .replaceAll("-", "");
+  scratch = await mkdtemp(`${scratchRoot}${day}-frontend-review-`);
   // Playwright's temporary browser profile also stays in the validation directory.
   process.env.TEMP = scratch;
   process.env.TMP = scratch;
@@ -61,8 +69,15 @@ before(async () => {
 });
 
 after(async () => {
-  await browser?.close();
-  await server?.close();
+  try {
+    await browser?.close();
+  } finally {
+    try {
+      await server?.close();
+    } finally {
+      if (scratch) await rm(scratch, { recursive: true, force: true });
+    }
+  }
 });
 
 async function isolatedPage() {

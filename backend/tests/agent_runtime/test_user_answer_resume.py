@@ -1,8 +1,10 @@
 """真实编排图的用户提问、持久化等待与回答恢复主流程。"""
 
 import json
+from datetime import datetime
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from zoneinfo import ZoneInfo
 
 import pytest
 import pytest_asyncio
@@ -75,9 +77,10 @@ class _ClarifyingModel(BaseChatModel):
 
 @pytest_asyncio.fixture
 async def answer_runtime(monkeypatch):
-    scratch = Path(__file__).resolve().parents[3] / "tmp" / "gap-tests-validation"
+    scratch = Path(__file__).resolve().parents[3] / ".tmp"
     scratch.mkdir(parents=True, exist_ok=True)
-    with TemporaryDirectory(prefix="user-answer-resume-", dir=scratch) as directory:
+    day = datetime.now(ZoneInfo("Asia/Shanghai")).strftime("%Y%m%d")
+    with TemporaryDirectory(prefix=f"{day}-user-answer-resume-", dir=scratch) as directory:
         root = Path(directory)
         monkeypatch.setenv("AGENT_CHECKPOINT_DB", str(root / "checkpoints.db"))
         monkeypatch.setenv("TIKTOKEN_CACHE_DIR", str(root / "tiktoken"))
