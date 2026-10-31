@@ -1,0 +1,4 @@
+.error-message__details,
+.rt-Text.error-message__details {
+  color: var(--red-11);
+}

@@ -1,3 +1,4 @@
+import "./agent-index-status-indicator.css";
 import { Tooltip } from "@radix-ui/themes";
 import { Database } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -35,15 +36,8 @@ export function AgentIndexStatusIndicator({ projectId }: AgentIndexStatusIndicat
     <Tooltip content={t(labelKey)}>
       <span
         aria-label={t(labelKey)}
-        style={{
-          display: "inline-flex",
-          alignItems: "center",
-          justifyContent: "center",
-          width: "26px",
-          height: "26px",
-          borderRadius: "999px",
-          color,
-        }}
+        className="agent-index-status-indicator__indicator"
+        style={{ color }}
       >
         <Database size={14} />
       </span>

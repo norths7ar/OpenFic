@@ -1,3 +1,4 @@
+import "./error-message.css";
 import { Flex, HoverCard, Text } from "@radix-ui/themes";
 import { AlertCircle } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -48,8 +49,7 @@ export function ErrorMessage({ message }: ErrorMessageProps) {
       >
         <Text
           size="2"
-          className="agent-status-message-detail"
-          style={{ color: "var(--red-11)" }}
+          className="agent-status-message-detail error-message__details"
         >
           {detail}
         </Text>

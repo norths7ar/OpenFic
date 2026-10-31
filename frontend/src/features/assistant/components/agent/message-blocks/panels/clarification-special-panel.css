@@ -7,3 +7,9 @@
 .agent-clarification-skip-button:hover {
   background: transparent;
 }
+
+.clarification-special-panel__description,
+.rt-Text.clarification-special-panel__description {
+  display: block;
+  margin-top: 4px;
+}

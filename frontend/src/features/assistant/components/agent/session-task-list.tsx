@@ -3,10 +3,9 @@ import { ChevronDown, ListChecks } from "lucide-react";
 import { useId, useLayoutEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { apiClient } from "@/lib/api-transport";
+import * as http from "@/api/generated/openfic";
 
 import { PlanTodoList } from "./message-blocks/tools/plan/plan-tool-message";
-import type { PlanTodoPayload } from "./message-blocks/tools/shared/tool-message-utils";
 
 import "./session-task-list.css";
 
@@ -27,9 +26,7 @@ export function SessionTaskList({
   const { data } = useQuery({
     queryKey: ["agent-task-list", sessionId, isRunning],
     queryFn: async () => {
-      const response = await apiClient.get<{ todos: PlanTodoPayload[] }>(
-        `/agent/sessions/${sessionId}/todos`,
-      );
+      const response = await http.getAgentTodosApiV1AgentSessionsSessionIdTodosGet(sessionId);
       return response.data.todos;
     },
     enabled: Boolean(sessionId),

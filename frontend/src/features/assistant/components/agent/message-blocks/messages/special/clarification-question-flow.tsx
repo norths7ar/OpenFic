@@ -1,3 +1,4 @@
+import "./clarification-question-flow.css";
 import { Box, Button, Flex, Text } from "@radix-ui/themes";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { ReactNode } from "react";
@@ -63,12 +64,7 @@ export function ClarificationQuestionBody({
       ))}
       <Text
         size="1"
-        style={{
-          display: "block",
-          color: "var(--gray-10)",
-          marginTop: "12px",
-          fontStyle: "italic",
-        }}
+        className="clarification-question-flow__question"
       >
         {t("assistant.clarification.multiSelectHint")}
       </Text>
@@ -91,7 +87,7 @@ export function ClarificationQuestionActions({
       <Flex
         align="center"
         justify="between"
-        style={{ width: "100%" }}
+        className="clarification-question-flow__actions"
       >
         <Flex
           align="center"
@@ -147,7 +143,7 @@ export function ClarificationQuestionActions({
     <Flex
       align="center"
       justify="between"
-      style={{ width: "100%" }}
+      className="clarification-question-flow__actions"
     >
       {leadingAction}
       <Button

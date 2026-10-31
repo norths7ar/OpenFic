@@ -1,3 +1,4 @@
+import "./clarification-special-panel.css";
 import { Box, Button, Flex, IconButton, Text, Tooltip } from "@radix-ui/themes";
 import { ChevronDown, ChevronUp, HelpCircle } from "lucide-react";
 import { useState } from "react";
@@ -117,7 +118,7 @@ function ClarificationSpecialPanelContent({
             <Text
               size="1"
               color="gray"
-              style={{ display: "block", marginTop: "4px" }}
+              className="clarification-special-panel__description"
             >
               {question.description}
             </Text>

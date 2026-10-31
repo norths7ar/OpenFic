@@ -1,0 +1,6 @@
+.agent-special-panels__stack,
+.rt-Flex.agent-special-panels__stack {
+  width: 100%;
+  position: relative;
+  z-index: 0;
+}

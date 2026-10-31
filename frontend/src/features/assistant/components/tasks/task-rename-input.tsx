@@ -1,3 +1,4 @@
+import "./task-rename-input.css";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 interface TaskRenameInputProps {
@@ -56,21 +57,7 @@ export function TaskRenameInput({
       onBlur={handleSubmit}
       onKeyDown={handleKeyDown}
       onClick={(event) => event.stopPropagation()}
-      style={{
-        width: "100%",
-        height: "20px",
-        padding: 0,
-        margin: 0,
-        border: "none",
-        outline: "none",
-        background: "transparent",
-        fontFamily: "inherit",
-        fontSize: "var(--font-size-base)",
-        fontWeight: 500,
-        lineHeight: "20px",
-        color: "var(--gray-12)",
-        boxSizing: "border-box",
-      }}
+      className="task-rename-input__field"
     />
   );
 }

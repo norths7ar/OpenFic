@@ -1,3 +1,4 @@
+import "./agent-special-panels.css";
 import { Flex } from "@radix-ui/themes";
 
 import { type AgentSpecialPanel, getAgentSpecialPanelVariant } from "./agent-special-panels-state";
@@ -37,15 +38,12 @@ export function AgentSpecialPanels({
     <Flex
       direction="column-reverse"
       gap="2"
-      className="agent-special-panel-stack"
+      className="agent-special-panel-stack agent-special-panels__stack"
       data-embedded={embedded ? "true" : "false"}
       data-variant={variant}
       style={{
         gridArea: embedded ? "auto" : "stack",
         alignSelf: embedded ? "stretch" : "end",
-        width: "100%",
-        position: "relative",
-        zIndex: 0,
         pointerEvents: embedded ? "auto" : "none",
         filter: embedded ? "none" : undefined,
       }}

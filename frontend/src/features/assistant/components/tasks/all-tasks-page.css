@@ -1,0 +1,38 @@
+.all-tasks-page__root,
+.rt-Box.all-tasks-page__root {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-panel);
+}
+
+.all-tasks-page__scroll-region,
+.rt-Box.all-tasks-page__scroll-region {
+  flex: 1;
+  overflow: auto;
+}
+
+.all-tasks-page__loading,
+.rt-Flex.all-tasks-page__loading {
+  padding: 32px;
+}
+
+.all-tasks-page__empty-state,
+.rt-Flex.all-tasks-page__empty-state {
+  padding: 32px;
+  color: var(--gray-9);
+}
+
+.all-tasks-page__rename-dialog,
+.rt-DialogContent.all-tasks-page__rename-dialog {
+  max-width: 400px;
+}
+
+.all-tasks-page__rename-input {
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 12px;
+  min-height: 70px;
+  background: var(--color-background);
+  color: var(--gray-12);
+}

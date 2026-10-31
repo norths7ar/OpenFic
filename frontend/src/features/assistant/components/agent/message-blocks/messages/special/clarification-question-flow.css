@@ -1,0 +1,12 @@
+.clarification-question-flow__question,
+.rt-Text.clarification-question-flow__question {
+  display: block;
+  color: var(--gray-10);
+  margin-top: 12px;
+  font-style: italic;
+}
+
+.clarification-question-flow__actions,
+.rt-Flex.clarification-question-flow__actions {
+  width: 100%;
+}

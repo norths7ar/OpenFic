@@ -1,0 +1,13 @@
+.clarification-message-card__message,
+.rt-Flex.clarification-message-card__message {
+  margin-bottom: 12px;
+}
+
+.clarification-message-card__icon {
+  color: var(--gray-11);
+}
+
+.clarification-message-card__details,
+.rt-Text.clarification-message-card__details {
+  color: var(--gray-12);
+}

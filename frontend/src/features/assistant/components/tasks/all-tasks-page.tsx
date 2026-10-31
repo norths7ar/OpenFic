@@ -1,3 +1,4 @@
+import "./all-tasks-page.css";
 import {
   Box,
   Button,
@@ -230,14 +231,7 @@ export function AllTasksPage({
       ]
     : [];
   return (
-    <Box
-      style={{
-        height: "100%",
-        display: "flex",
-        flexDirection: "column",
-        background: "var(--color-panel)",
-      }}
-    >
+    <Box className="all-tasks-page__root">
       <ProjectNavToolbar
         searchExpanded={searchExpanded}
         search={
@@ -350,17 +344,12 @@ export function AllTasksPage({
       />
 
       {/* 任务列表 */}
-      <Box
-        style={{
-          flex: 1,
-          overflow: "auto",
-        }}
-      >
+      <Box className="all-tasks-page__scroll-region">
         {isLoading ? (
           <Flex
             align="center"
             justify="center"
-            style={{ padding: "32px" }}
+            className="all-tasks-page__loading"
           >
             <Spinner size={18} />
           </Flex>
@@ -368,7 +357,7 @@ export function AllTasksPage({
           <Flex
             align="center"
             justify="center"
-            style={{ padding: "32px", color: "var(--gray-9)" }}
+            className="all-tasks-page__empty-state"
           >
             <Text size="2">
               {searchQuery
@@ -517,7 +506,7 @@ export function AllTasksPage({
           if (!open) setFolderDialog(null);
         }}
       >
-        <Dialog.Content style={{ maxWidth: 400 }}>
+        <Dialog.Content className="all-tasks-page__rename-dialog">
           <Dialog.Title>
             {t(
               folderDialog?.mode === "rename"
@@ -535,14 +524,7 @@ export function AllTasksPage({
             placeholder={t("volume.menu.editDescription")}
             value={folderDescription}
             onChange={(event) => setFolderDescription(event.target.value)}
-            style={{
-              width: "100%",
-              boxSizing: "border-box",
-              marginTop: 12,
-              minHeight: 70,
-              background: "var(--color-background)",
-              color: "var(--gray-12)",
-            }}
+            className="all-tasks-page__rename-input"
           />
           <Flex
             gap="3"

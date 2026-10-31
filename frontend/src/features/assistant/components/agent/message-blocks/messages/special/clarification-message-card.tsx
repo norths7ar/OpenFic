@@ -1,3 +1,4 @@
+import "./clarification-message-card.css";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import { AlertCircle } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -55,16 +56,16 @@ function ClarificationMessageCardContent({
       <Flex
         align="center"
         gap="2"
-        style={{ marginBottom: "12px" }}
+        className="clarification-message-card__message"
       >
         <AlertCircle
           size={16}
-          style={{ color: "var(--gray-11)" }}
+          className="clarification-message-card__icon"
         />
         <Text
           size="2"
           weight="medium"
-          style={{ color: "var(--gray-12)" }}
+          className="clarification-message-card__details"
         >
           {t("assistant.clarificationCardTitle")}
         </Text>

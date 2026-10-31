@@ -506,18 +506,7 @@ export function AgentInput({
                 exit={{ opacity: 0, y: -8 }}
                 transition={{ duration: 0.18, ease: "easeOut" }}
               >
-                <Box
-                  style={{
-                    padding: "12px 14px",
-                    borderRadius: "10px",
-                    background: "var(--gray-a3)",
-                    color: "var(--gray-11)",
-                    fontSize: "var(--font-size-sm)",
-                    lineHeight: 1.5,
-                  }}
-                >
-                  {readOnlyMessage}
-                </Box>
+                <Box className="agent-input__notice">{readOnlyMessage}</Box>
               </motion.div>
             ) : (
               <motion.div
@@ -630,13 +619,13 @@ export function AgentInput({
             align="center"
             gap="2"
             wrap="wrap"
-            style={{ flex: "1 1 auto", minWidth: 0 }}
+            className="agent-input__controls"
           >
             {isModelsLoading ? (
               <Flex
                 align="center"
                 gap="2"
-                style={{ flex: "0 0 auto" }}
+                className="agent-input__actions"
               >
                 <Spinner size={18} />
                 <Text
@@ -680,10 +669,7 @@ export function AgentInput({
             ) : (
               <>
                 {agentOptions.length > 0 && onAgentChange ? (
-                  <Box
-                    className="ai-sidebar-model-selector"
-                    style={{ flex: "0 0 auto", minWidth: 0, marginRight: 4 }}
-                  >
+                  <Box className="ai-sidebar-model-selector agent-input__agent-selector">
                     <SimpleSelect
                       value={agentKey ?? ""}
                       options={agentOptions}
@@ -707,10 +693,7 @@ export function AgentInput({
                   gap="2"
                   className="ai-sidebar-model-reasoning-group"
                 >
-                  <Box
-                    className="ai-sidebar-model-selector"
-                    style={{ flex: "0 1 auto", minWidth: 0 }}
-                  >
+                  <Box className="ai-sidebar-model-selector agent-input__model-selector">
                     <ModelIdSelect
                       value={modelId}
                       models={models}
@@ -817,14 +800,10 @@ export function AgentInput({
                     ? t("writing.aiSidebar.toolApprovalBypassOn")
                     : t("writing.aiSidebar.toolApprovalBypassOff")
                 }
+                className="agent-input__action"
                 style={{
-                  width: "26px",
-                  height: "26px",
-                  padding: 0,
-                  borderRadius: "999px",
                   background: toolApprovalBypassEnabled ? "var(--green-a3)" : "transparent",
                   color: toolApprovalBypassEnabled ? "var(--green-11)" : "#111111",
-                  border: "none",
                 }}
               >
                 <ShieldCheck size={14} />
@@ -837,26 +816,16 @@ export function AgentInput({
                 scale: 1,
               }}
               transition={{ duration: 0.15, ease: "easeOut" }}
-              style={{ display: "flex" }}
+              className="agent-input__send-animation"
             >
               <IconButton
                 variant="solid"
                 size="1"
-                className="ai-sidebar-send-button"
+                className="ai-sidebar-send-button agent-input__send"
                 onClick={shouldAbort ? onAbort : handleSubmit}
                 disabled={shouldAbort ? false : !canSend}
                 aria-disabled={!buttonActive || undefined}
-                style={{
-                  width: "26px",
-                  height: "26px",
-                  borderRadius: "50%",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  padding: 0,
-                  opacity: 1,
-                  pointerEvents: buttonActive ? undefined : "none",
-                }}
+                style={{ pointerEvents: buttonActive ? undefined : "none" }}
               >
                 {shouldAbort ? (
                   <Square
