@@ -198,6 +198,18 @@ MiMo 当前模型列表没有能力字段，配置依据官方文档提供“默
 
 后端使用 Python 3.12/3.13、uv 和 Ruff；前端使用 pnpm。
 
+### 代码职责与检查范围
+
+前端以功能领域组织代码。TanStack Query 管理服务器快照和请求状态，React Hook Form + Zod 管理复杂表单草稿与验证；编辑器工作副本、撤销历史和持久恢复状态继续由编辑器、Zustand 与 Dexie 按各自职责管理。实时事件更新服务器投影，不应覆盖尚未保存的编辑内容。静态视觉样式归组件 CSS 或 Radix props，共同视觉值归设计变量，运行时计算值可以使用 inline style；具体规则见 [前端设计与维护约束](docs/frontend-design.md)。
+
+普通 HTTP 接口以 FastAPI 的 OpenAPI 契约为源，由 Orval 生成 TypeScript 类型和请求函数。生成代码不手改；请求基础设施负责认证、后端地址与超时，领域适配负责界面数据转换和下载行为，Query hooks 负责缓存与刷新。Socket.IO 和流式输出保留各自的协议、取消与恢复生命周期。
+
+接口声明变更后，在 `frontend/` 执行 `pnpm api:generate`，并将 `openapi.json` 与 `src/api/generated/` 一起提交。`pnpm api:check` 在隔离临时目录重新生成并比较，不修改已保存的契约。两条命令使用本地后端依赖，不启动服务、不读取用户设置或秘密；常规质量检查也包含契约一致性检查。
+
+`lint` 检查代码规则与循环依赖；`format:check` 检查格式而不写文件；`type-check` 分别检查应用、构建与生成配置、现有测试代码，再执行类型感知 lint。测试配置覆盖 `src/**/*.test.ts(x)` 和 `tests/`，单元测试与浏览器测试仍使用原有运行入口。`build` 生成网页与预缓存清单，不启动后端。检查通过不代替实际页面的交互与视觉验收。
+
+后端路由负责 HTTP 边界，领域操作负责业务规则和生命周期，持久化模块负责数据访问。普通请求沿用 session 依赖的提交和回滚；长任务或跨资源操作的阶段提交由对应业务操作明确负责，不假设主数据库、checkpoint 和文件能够跨资源原子提交。启动配置与运行时设置分别管理；密钥文件和加密值保留在原存储位置，普通查询不返回原始秘密。连接编辑时留空密钥表示保留，输入新值表示替换，清除必须显式选择。
+
 ## 来源
 
 本项目基于 [syrizelink/OpenFic](https://github.com/syrizelink/OpenFic) 持续改造，采用 [Apache License 2.0](./LICENSE)。
