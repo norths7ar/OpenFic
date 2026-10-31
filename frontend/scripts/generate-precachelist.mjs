@@ -1,8 +1,10 @@
 import { readFileSync, readdirSync, statSync, unlinkSync, writeFileSync } from "node:fs";
-import { join, relative, sep } from "node:path";
+import { join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const distDir = fileURLToPath(new URL("../dist", import.meta.url));
+const distDir = process.argv[2]
+  ? resolve(process.argv[2])
+  : fileURLToPath(new URL("../dist", import.meta.url));
 
 const EXCLUDE_FILES = new Set(["font-faces.css", "sw.js", "sw-precache.js"]);
 const EXCLUDE_EXTS = new Set([".woff2", ".woff", ".ttf", ".otf", ".eot", ".map"]);
