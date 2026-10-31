@@ -1,0 +1,19 @@
+.sidebar-actions__item {
+  width: 100%;
+}
+
+.sidebar-actions__icon,
+.rt-Box.sidebar-actions__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.sidebar-actions__icon {
+  width: 40px;
+  height: 40px;
+}
+.sidebar-actions__item {
+  height: 40px;
+}

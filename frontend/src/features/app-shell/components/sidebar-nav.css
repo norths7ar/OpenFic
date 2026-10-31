@@ -94,3 +94,30 @@
   white-space: nowrap;
   overflow: hidden;
 }
+
+.sidebar-nav__item,
+.rt-Flex.sidebar-nav__item {
+  display: flex;
+  align-items: center;
+}
+
+.sidebar-nav__icon,
+.rt-Box.sidebar-nav__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.sidebar-nav__link {
+  display: block;
+  width: 100%;
+}
+
+.sidebar-nav__icon {
+  width: 40px;
+  height: 40px;
+}
+.sidebar-nav__item {
+  height: 40px;
+}

@@ -3,11 +3,7 @@ import { motion } from "motion/react";
 import { Link } from "react-router";
 
 import "./sidebar-nav.css";
-import {
-  SIDEBAR_ICON_SIZE,
-  SIDEBAR_ITEM_HEIGHT,
-  type AppSidebarNavItem,
-} from "./app-sidebar.constants";
+import { SIDEBAR_ICON_SIZE, type AppSidebarNavItem } from "./app-sidebar.constants";
 
 const MotionFlex = motion.create(Flex);
 
@@ -21,27 +17,12 @@ function SidebarNavItem({ item, isExpanded }: { item: AppSidebarNavItem; isExpan
   const content = (
     <MotionFlex
       align="center"
-      className="app-sidebar-nav-item"
+      className="app-sidebar-nav-item sidebar-nav__item"
       data-active={item.active ? "true" : "false"}
-      style={{
-        display: "flex",
-        alignItems: "center",
-        height: SIDEBAR_ITEM_HEIGHT,
-      }}
       whileTap={{ scale: 0.97 }}
       transition={{ duration: 0.15 }}
     >
-      <Box
-        className="app-sidebar-nav-item__icon-box"
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          width: SIDEBAR_ITEM_HEIGHT,
-          height: SIDEBAR_ITEM_HEIGHT,
-          flexShrink: 0,
-        }}
-      >
+      <Box className="app-sidebar-nav-item__icon-box sidebar-nav__icon">
         <Icon
           size={SIDEBAR_ICON_SIZE}
           color="currentColor"
@@ -73,8 +54,7 @@ function SidebarNavItem({ item, isExpanded }: { item: AppSidebarNavItem; isExpan
       to={item.href}
       aria-label={item.label}
       aria-current={item.active ? "page" : undefined}
-      className="app-sidebar-nav-link"
-      style={{ display: "block", width: "100%" }}
+      className="app-sidebar-nav-link sidebar-nav__link"
     >
       {content}
     </Link>

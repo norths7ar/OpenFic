@@ -39,3 +39,43 @@
   mask: url("/brand.svg") -28.12px center / 108.4px 24px no-repeat;
   -webkit-mask: url("/brand.svg") -28.12px center / 108.4px 24px no-repeat;
 }
+
+.sidebar-brand__slot,
+:is(.rt-Flex, .rt-Box).sidebar-brand__slot {
+  flex-shrink: 0;
+}
+
+.sidebar-brand__brand-action,
+.rt-Flex.sidebar-brand__brand-action {
+  cursor: pointer;
+  border-radius: var(--radius-3);
+  justify-content: flex-start;
+  overflow: hidden;
+  position: relative;
+}
+
+.sidebar-brand__actions {
+  display: flex;
+}
+
+.sidebar-brand__collapse-action,
+.rt-IconButton.sidebar-brand__collapse-action {
+  cursor: pointer;
+}
+
+.sidebar-brand__slot {
+  height: 40px;
+}
+.sidebar-brand__brand-action {
+  min-width: 40px;
+  height: 40px;
+}
+.sidebar-brand__active-icon {
+  color: var(--gray-12);
+}
+.sidebar-brand__collapse-action {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-3);
+  color: var(--gray-11);
+}

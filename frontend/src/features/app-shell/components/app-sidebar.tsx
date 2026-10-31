@@ -1,3 +1,4 @@
+import "./app-sidebar.css";
 import { Box, Button, Flex, Text } from "@radix-ui/themes";
 import { useQuery } from "@tanstack/react-query";
 import axios from "axios";
@@ -263,15 +264,7 @@ export function AppSidebar() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
-            style={{
-              position: "fixed",
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: "var(--app-status-bar-height)",
-              background: "rgba(0, 0, 0, 0.36)",
-              zIndex: 99,
-            }}
+            className="app-sidebar__backdrop"
             onClick={closeSidebar}
           />
         )}
@@ -291,12 +284,8 @@ export function AppSidebar() {
             }
             exit={isMobile ? { x: -SIDEBAR_EXPANDED_WIDTH } : undefined}
             transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
+            className="app-sidebar__surface"
             style={{
-              borderRight: "1px solid var(--gray-a5)",
-              background: "color-mix(in srgb, var(--color-background) 92%, transparent)",
-              backdropFilter: "blur(12px)",
-              zIndex: 100,
-              overflow: "hidden",
               boxShadow: isMobile ? "var(--shadow-5)" : undefined,
               clipPath: isMobile ? "inset(0 -64px 0 0)" : undefined,
             }}
@@ -319,17 +308,7 @@ export function AppSidebar() {
                 onPointerMove={handleLogoPointerMove}
               />
 
-              <Box
-                style={{
-                  width: "100%",
-                  height: 13,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "flex-start",
-                  margin: "6px 0",
-                  flexShrink: 0,
-                }}
-              >
+              <Box className="app-sidebar__divider-slot">
                 <MotionBox
                   initial={false}
                   animate={{
@@ -337,10 +316,7 @@ export function AppSidebar() {
                     marginLeft: isMobile || isExpanded ? 8 : 4,
                   }}
                   transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
-                  style={{
-                    height: 1,
-                    background: "var(--gray-a5)",
-                  }}
+                  className="app-sidebar__divider"
                 />
               </Box>
 
@@ -402,7 +378,7 @@ export function AppSidebar() {
                       color="gray"
                       size="1"
                       onClick={() => handleProjectChange(project.id)}
-                      style={{ width: "100%", justifyContent: "flex-start" }}
+                      className="app-sidebar__action"
                     >
                       <Text truncate>{project.title}</Text>
                     </Button>

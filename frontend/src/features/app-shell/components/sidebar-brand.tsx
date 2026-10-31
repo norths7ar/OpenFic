@@ -7,10 +7,8 @@ import "./sidebar-brand.css";
 
 import {
   SIDEBAR_EXPANDED_WIDTH,
-  SIDEBAR_ICON_ACTIVE_COLOR,
   SIDEBAR_ICON_SIZE,
   SIDEBAR_ITEM_HEIGHT,
-  sidebarActionButtonStyle,
 } from "./app-sidebar.constants";
 
 const MotionFlex = motion.create(Flex);
@@ -52,7 +50,7 @@ export function SidebarBrand({
     <Flex
       align="center"
       gap="0"
-      style={{ height: SIDEBAR_ITEM_HEIGHT, flexShrink: 0 }}
+      className="sidebar-brand__slot"
     >
       <MotionFlex
         align="center"
@@ -72,16 +70,10 @@ export function SidebarBrand({
         animate={{
           width: isExpanded ? SIDEBAR_EXPANDED_WIDTH - 72 : SIDEBAR_ITEM_HEIGHT,
         }}
+        className="sidebar-brand__brand-action"
         style={{
-          minWidth: SIDEBAR_ITEM_HEIGHT,
-          height: SIDEBAR_ITEM_HEIGHT,
           width: isExpanded ? SIDEBAR_EXPANDED_WIDTH - 72 : SIDEBAR_ITEM_HEIGHT,
-          cursor: "pointer",
-          borderRadius: "var(--radius-3)",
           backgroundColor: !isExpanded && isHovered ? "var(--gray-a3)" : "transparent",
-          justifyContent: "flex-start",
-          overflow: "hidden",
-          position: "relative",
         }}
         transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
         whileTap={{ scale: 0.97 }}
@@ -98,12 +90,12 @@ export function SidebarBrand({
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.1 }}
-                style={{ display: "flex" }}
+                className="sidebar-brand__actions"
               >
                 <PanelLeft
                   size={SIDEBAR_ICON_SIZE}
                   color="currentColor"
-                  style={{ color: SIDEBAR_ICON_ACTIVE_COLOR }}
+                  className="sidebar-brand__active-icon"
                 />
               </motion.div>
             ) : (
@@ -113,7 +105,7 @@ export function SidebarBrand({
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.1 }}
-                style={{ display: "flex" }}
+                className="sidebar-brand__actions"
               >
                 <span
                   className="sidebar-brand-logo"
@@ -141,7 +133,7 @@ export function SidebarBrand({
       {isExpanded && (
         <Box
           ml="auto"
-          style={{ flexShrink: 0 }}
+          className="sidebar-brand__slot"
         >
           <Tooltip content={collapseLabel}>
             <IconButton
@@ -149,7 +141,7 @@ export function SidebarBrand({
               size="2"
               onClick={onToggleExpanded}
               aria-label={collapseLabel}
-              style={{ ...sidebarActionButtonStyle, cursor: "pointer" }}
+              className="sidebar-brand__collapse-action"
             >
               <PanelLeft
                 size={SIDEBAR_ICON_SIZE}
