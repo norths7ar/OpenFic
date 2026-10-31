@@ -4,6 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "api:check": "node scripts/api-contract.mjs --check",
+    "api:generate": "node scripts/api-contract.mjs",
     "build": "vp build && node scripts/generate-precachelist.mjs",
     "dev": "vp dev",
     "format": "oxfmt . --write",
@@ -13,7 +15,7 @@
     "test": "pnpm run test:unit && pnpm run test:browser",
     "test:browser": "node --test tests/*.browser.test.ts",
     "test:unit": "vp test --run src",
-    "type-check": "oxlint . --type-aware --type-check"
+    "type-check": "tsc -p tsconfig.app.json && tsc -p tsconfig.node.json && tsc -p tsconfig.tests.json && oxlint . --type-aware --type-check"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -114,13 +116,15 @@
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.3",
     "eslint-plugin-react-refresh": "^0.5.3",
+    "orval": "8.45.0",
     "oxfmt": "^0.57.0",
     "oxlint": "^1.72.0",
     "oxlint-tsgolint": "^0.24.0",
     "react-refresh": "^0.18.0",
     "typecheck": "^0.1.2",
     "typescript": "~5.9.3",
-    "vite-plus": "^0.2.4"
+    "vite-plus": "^0.2.4",
+    "vitest": "4.1.10"
   },
   "packageManager": "pnpm@11.8.0"
 }

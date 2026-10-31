@@ -1,0 +1,18 @@
+import { defineConfig } from "orval";
+
+export default defineConfig({
+  openfic: {
+    input: "./openapi.json",
+    output: {
+      target: "./src/api/generated/openfic.ts",
+      schemas: "./src/api/generated/models",
+      client: "axios-functions",
+      mode: "split",
+      override: {
+        mutator: { path: "./src/lib/api-transport.ts", name: "request" },
+        formData: false,
+        formUrlEncoded: false,
+      },
+    },
+  },
+});

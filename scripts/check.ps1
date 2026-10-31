@@ -46,6 +46,7 @@ if (-not $SkipBackend) {
 if (-not $SkipFrontend) {
     Push-Location -LiteralPath $frontendPath
     try {
+        Invoke-QualityCommand -Command 'pnpm' -Arguments @('run', 'api:check')
         Invoke-QualityCommand -Command 'pnpm' -Arguments @('run', 'format:check')
         Invoke-QualityCommand -Command 'pnpm' -Arguments @('run', 'lint')
         Invoke-QualityCommand -Command 'pnpm' -Arguments @('run', 'type-check')
