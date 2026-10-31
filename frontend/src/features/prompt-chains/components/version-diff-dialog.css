@@ -1,0 +1,149 @@
+.version-diff-dialog__removed-text {
+  background: var(--red-a5);
+  color: var(--red-12);
+  text-decoration: line-through;
+}
+
+.version-diff-dialog__added-text {
+  background: var(--green-a5);
+  color: var(--green-12);
+}
+
+.version-diff-dialog__line,
+.rt-Flex.version-diff-dialog__line {
+  min-height: 20px;
+  font-size: var(--font-size-sm);
+  font-family: var(--code-font-family, monospace);
+}
+
+.version-diff-dialog__line-number,
+.rt-Box.version-diff-dialog__line-number {
+  width: 50px;
+  flex-shrink: 0;
+  text-align: right;
+  padding-right: 8px;
+  padding-left: 4px;
+  color: var(--gray-11);
+  user-select: none;
+  border-right: 1px solid var(--gray-a5);
+}
+
+.version-diff-dialog__line-content,
+.rt-Box.version-diff-dialog__line-content {
+  flex: 1;
+  padding-left: 8px;
+  padding-right: 8px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+
+.version-diff-dialog__entry-header,
+.rt-Flex.version-diff-dialog__entry-header {
+  background: var(--gray-a2);
+  user-select: none;
+}
+
+.version-diff-dialog__entry-title,
+.rt-Flex.version-diff-dialog__entry-title {
+  flex: 1;
+}
+
+.version-diff-dialog__expand-action,
+.rt-IconButton.version-diff-dialog__expand-action {
+  cursor: pointer;
+}
+
+.version-diff-dialog__expand-placeholder,
+.rt-Box.version-diff-dialog__expand-placeholder {
+  width: 24px;
+}
+
+.version-diff-dialog__role-icon {
+  color: var(--gray-10);
+}
+
+.version-diff-dialog__removed-count,
+.rt-Text.version-diff-dialog__removed-count {
+  color: var(--red-9);
+  font-family: var(--code-font-family, monospace);
+}
+
+.version-diff-dialog__added-count,
+.rt-Text.version-diff-dialog__added-count {
+  color: var(--green-9);
+  font-family: var(--code-font-family, monospace);
+}
+
+.version-diff-dialog__summary-separator {
+  height: 16px;
+}
+
+.version-diff-dialog__token-count,
+.rt-Text.version-diff-dialog__token-count {
+  font-family: var(--code-font-family, monospace);
+}
+
+.version-diff-dialog__entry-reveal {
+  overflow: hidden;
+}
+
+.version-diff-dialog__missing-side,
+.rt-Box.version-diff-dialog__missing-side {
+  flex: 1;
+  background: var(--gray-a2);
+  min-width: 0;
+}
+
+.version-diff-dialog__new-side,
+.rt-Box.version-diff-dialog__new-side {
+  flex: 1;
+  min-width: 0;
+}
+
+.version-diff-dialog__old-side,
+.rt-Box.version-diff-dialog__old-side {
+  flex: 1;
+  border-right: 1px solid var(--gray-a5);
+  min-width: 0;
+}
+
+.version-diff-dialog__content,
+.rt-DialogContent.version-diff-dialog__content {
+  max-width: 1200px;
+  max-height: 90vh;
+}
+
+.version-diff-dialog__heading,
+.rt-Flex.version-diff-dialog__heading {
+  align-items: center;
+}
+
+.version-diff-dialog__heading-icon {
+  color: var(--gray-11);
+  flex-shrink: 0;
+}
+
+.version-diff-dialog__title {
+  margin: 0;
+}
+
+.version-diff-dialog__entries,
+.rt-ScrollAreaRoot.version-diff-dialog__entries {
+  max-height: calc(90vh - 180px);
+}
+
+.version-diff-dialog__empty-state,
+.rt-Box.version-diff-dialog__empty-state {
+  text-align: center;
+  color: var(--gray-a9);
+  border: 1px dashed var(--gray-a5);
+  border-radius: var(--radius-2);
+}
+
+.version-diff-dialog__entry {
+  border: 1px solid var(--gray-a5);
+  border-radius: var(--radius-2);
+  overflow: hidden;
+  margin-bottom: 16px;
+}

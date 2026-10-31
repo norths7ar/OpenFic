@@ -1,0 +1,4 @@
+.pending-project-changes-panel__details,
+.rt-Text.pending-project-changes-panel__details {
+  padding: var(--space-4);
+}

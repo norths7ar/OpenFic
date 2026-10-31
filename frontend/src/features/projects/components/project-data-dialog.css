@@ -1,0 +1,14 @@
+.project-data-dialog__choice,
+.rt-Card.project-data-dialog__choice {
+  cursor: pointer;
+}
+
+.project-data-dialog__preview,
+.rt-ScrollAreaRoot.project-data-dialog__preview {
+  max-height: 220px;
+}
+
+.project-data-dialog__details,
+.rt-Box.project-data-dialog__details {
+  min-width: 0;
+}

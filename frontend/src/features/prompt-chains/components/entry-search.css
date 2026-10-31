@@ -1,0 +1,109 @@
+.entry-search__match {
+  background: var(--accent-a4);
+  color: inherit;
+  padding: 0 2px;
+  border-radius: 2px;
+}
+
+.entry-search__group-heading,
+.rt-Flex.entry-search__group-heading {
+  padding: 6px 12px;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.1s ease;
+}
+
+.entry-search__group-chevron {
+  color: var(--gray-a9);
+  flex-shrink: 0;
+}
+
+.entry-search__group-title,
+.rt-Text.entry-search__group-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.entry-search__match-count,
+.rt-Box.entry-search__match-count {
+  min-width: 20px;
+  height: 18px;
+  border-radius: 999px;
+  background: var(--blue-a4);
+  color: var(--blue-11);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 5px;
+  flex-shrink: 0;
+}
+
+.entry-search__count-label,
+.rt-Text.entry-search__count-label {
+  line-height: 1;
+}
+
+.entry-search__matches,
+.rt-Box.entry-search__matches {
+  position: relative;
+  margin-left: 19px;
+  padding-left: 8px;
+}
+
+.entry-search__group-guide,
+.rt-Box.entry-search__group-guide {
+  position: absolute;
+  left: 0;
+  top: 4px;
+  bottom: 4px;
+  width: 1px;
+  background: var(--gray-a5);
+}
+
+.entry-search__match-row,
+.rt-Box.entry-search__match-row {
+  padding-top: 2px;
+  padding-bottom: 2px;
+  padding-right: 12px;
+  cursor: pointer;
+  transition: background 0.1s ease;
+}
+
+.entry-search__match-text,
+.rt-Text.entry-search__match-text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+}
+
+.entry-search__trigger {
+  border: none;
+  background: transparent;
+  padding: 0;
+  width: 100%;
+}
+
+.entry-search__content,
+.rt-PopoverContent.entry-search__content {
+  width: 360px;
+  max-width: 360px;
+  padding: 0;
+}
+
+.entry-search__results,
+.rt-Box.entry-search__results {
+  max-height: 400px;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.entry-search__header,
+.rt-Flex.entry-search__header {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--gray-a5);
+  background: var(--gray-a2);
+}

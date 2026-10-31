@@ -1,9 +1,9 @@
+import "./version-diff-dialog.css";
 /**
  * VersionDiffDialog Component
  *
  * 版本差异对比弹窗 - GitHub 风格的并排 diff 视图
  */
-
 import {
   Dialog,
   Flex,
@@ -257,11 +257,7 @@ export function VersionDiffDialog({
           return (
             <span
               key={idx}
-              style={{
-                background: "var(--red-a5)",
-                color: "var(--red-12)",
-                textDecoration: "line-through",
-              }}
+              className="version-diff-dialog__removed-text"
             >
               {value}
             </span>
@@ -281,7 +277,7 @@ export function VersionDiffDialog({
           return (
             <span
               key={idx}
-              style={{ background: "var(--green-a5)", color: "var(--green-12)" }}
+              className="version-diff-dialog__added-text"
             >
               {value}
             </span>
@@ -319,38 +315,16 @@ export function VersionDiffDialog({
 
     return (
       <Flex
-        style={{
-          background: isVisible ? bgColor : "var(--gray-a2)",
-          minHeight: "20px",
-          fontSize: "var(--font-size-sm)",
-          fontFamily: "var(--code-font-family, monospace)",
-        }}
+        className="version-diff-dialog__line"
+        style={{ background: isVisible ? bgColor : "var(--gray-a2)" }}
       >
         <Box
-          style={{
-            width: "50px",
-            flexShrink: 0,
-            textAlign: "right",
-            paddingRight: "8px",
-            paddingLeft: "4px",
-            background: isVisible ? lineNumBg : "var(--gray-a3)",
-            color: "var(--gray-11)",
-            userSelect: "none",
-            borderRight: "1px solid var(--gray-a5)",
-          }}
+          className="version-diff-dialog__line-number"
+          style={{ background: isVisible ? lineNumBg : "var(--gray-a3)" }}
         >
           {isVisible && lineNum !== null ? lineNum : ""}
         </Box>
-        <Box
-          style={{
-            flex: 1,
-            paddingLeft: "8px",
-            paddingRight: "8px",
-            whiteSpace: "pre-wrap",
-            wordBreak: "break-word",
-            overflowWrap: "break-word",
-          }}
-        >
+        <Box className="version-diff-dialog__line-content">
           {isVisible && content !== null
             ? inlineDiffs
               ? type === "old"
@@ -429,11 +403,10 @@ export function VersionDiffDialog({
         align="center"
         gap="2"
         p="2"
+        className="version-diff-dialog__entry-header"
         style={{
-          background: "var(--gray-a2)",
           borderBottom: isCollapsed ? "none" : "1px solid var(--gray-a5)",
           cursor: canToggle ? "pointer" : "default",
-          userSelect: "none",
         }}
         onClick={() => canToggle && toggleCollapse(key)}
       >
@@ -441,18 +414,18 @@ export function VersionDiffDialog({
         <Flex
           align="center"
           gap="2"
-          style={{ flex: 1 }}
+          className="version-diff-dialog__entry-title"
         >
           {canToggle ? (
             <IconButton
               size="1"
               variant="ghost"
-              style={{ cursor: "pointer" }}
+              className="version-diff-dialog__expand-action"
             >
               {isCollapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
             </IconButton>
           ) : (
-            <Box style={{ width: "24px" }} /> // 占位，保持对齐
+            <Box className="version-diff-dialog__expand-placeholder" /> // 占位，保持对齐
           )}
           <ChangeIcon
             size={16}
@@ -473,7 +446,7 @@ export function VersionDiffDialog({
               </Text>
               <BaseRoleIcon
                 size={16}
-                style={{ color: "var(--gray-10)" }}
+                className="version-diff-dialog__role-icon"
               />
               <ArrowRight size={14} />
               <Text
@@ -484,7 +457,7 @@ export function VersionDiffDialog({
               </Text>
               <CompareRoleIcon
                 size={16}
-                style={{ color: "var(--gray-10)" }}
+                className="version-diff-dialog__role-icon"
               />
             </>
           ) : (
@@ -497,7 +470,7 @@ export function VersionDiffDialog({
               </Text>
               <CompareRoleIcon
                 size={16}
-                style={{ color: "var(--gray-10)" }}
+                className="version-diff-dialog__role-icon"
               />
             </>
           )}
@@ -517,10 +490,7 @@ export function VersionDiffDialog({
               {deletedLines > 0 && (
                 <Text
                   size="1"
-                  style={{
-                    color: "var(--red-9)",
-                    fontFamily: "var(--code-font-family, monospace)",
-                  }}
+                  className="version-diff-dialog__removed-count"
                 >
                   -{deletedLines}
                 </Text>
@@ -528,10 +498,7 @@ export function VersionDiffDialog({
               {addedLines > 0 && (
                 <Text
                   size="1"
-                  style={{
-                    color: "var(--green-9)",
-                    fontFamily: "var(--code-font-family, monospace)",
-                  }}
+                  className="version-diff-dialog__added-count"
                 >
                   +{addedLines}
                 </Text>
@@ -543,7 +510,7 @@ export function VersionDiffDialog({
           {(addedLines > 0 || deletedLines > 0) && (baseTokens > 0 || compareTokens > 0) && (
             <Separator
               orientation="vertical"
-              style={{ height: "16px" }}
+              className="version-diff-dialog__summary-separator"
             />
           )}
 
@@ -556,17 +523,15 @@ export function VersionDiffDialog({
               <Text
                 size="1"
                 color="gray"
-                style={{ fontFamily: "var(--code-font-family, monospace)" }}
+                className="version-diff-dialog__token-count"
               >
                 {baseTokens} → {compareTokens}
               </Text>
               {compareTokens !== baseTokens && (
                 <Text
                   size="1"
-                  style={{
-                    color: compareTokens > baseTokens ? "var(--green-9)" : "var(--red-9)",
-                    fontFamily: "var(--code-font-family, monospace)",
-                  }}
+                  className="version-diff-dialog__token-count"
+                  style={{ color: compareTokens > baseTokens ? "var(--green-9)" : "var(--red-9)" }}
                 >
                   ({compareTokens > baseTokens ? "+" : ""}
                   {compareTokens - baseTokens})
@@ -578,7 +543,7 @@ export function VersionDiffDialog({
             <Text
               size="1"
               color="gray"
-              style={{ fontFamily: "var(--code-font-family, monospace)" }}
+              className="version-diff-dialog__token-count"
             >
               {compareTokens} tokens
             </Text>
@@ -587,7 +552,7 @@ export function VersionDiffDialog({
             <Text
               size="1"
               color="gray"
-              style={{ fontFamily: "var(--code-font-family, monospace)" }}
+              className="version-diff-dialog__token-count"
             >
               {baseTokens} tokens
             </Text>
@@ -596,18 +561,11 @@ export function VersionDiffDialog({
       </Flex>
     );
 
-    const containerStyle = {
-      border: "1px solid var(--gray-a5)",
-      borderRadius: "var(--radius-2)",
-      overflow: "hidden",
-      marginBottom: "16px",
-    };
-
     // 新增条目
     if (changeType === "added" && compareEntry) {
       const lines = compareEntry.content.split("\n");
       return (
-        <Box style={containerStyle}>
+        <Box className="version-diff-dialog__entry">
           {renderHeader()}
           <AnimatePresence initial={false}>
             {!isCollapsed && (
@@ -616,15 +574,15 @@ export function VersionDiffDialog({
                 animate={{ height: "auto", opacity: 1 }}
                 exit={{ height: 0, opacity: 0 }}
                 transition={{ duration: 0.2, ease: "easeInOut" }}
-                style={{ overflow: "hidden" }}
+                className="version-diff-dialog__entry-reveal"
               >
                 <Flex>
-                  <Box style={{ flex: 1, background: "var(--gray-a2)", minWidth: 0 }}>
+                  <Box className="version-diff-dialog__missing-side">
                     {lines.map((_, idx) => (
                       <Box key={`e-${idx}`}>{renderLine(null, null, "old", "added")}</Box>
                     ))}
                   </Box>
-                  <Box style={{ flex: 1, minWidth: 0 }}>
+                  <Box className="version-diff-dialog__new-side">
                     {lines.map((line, idx) => (
                       <Box key={`n-${idx}`}>{renderLine(idx + 1, line, "new", "added")}</Box>
                     ))}
@@ -641,7 +599,7 @@ export function VersionDiffDialog({
     if (changeType === "deleted" && baseEntry) {
       const lines = baseEntry.content.split("\n");
       return (
-        <Box style={containerStyle}>
+        <Box className="version-diff-dialog__entry">
           {renderHeader()}
           <AnimatePresence initial={false}>
             {!isCollapsed && (
@@ -650,15 +608,15 @@ export function VersionDiffDialog({
                 animate={{ height: "auto", opacity: 1 }}
                 exit={{ height: 0, opacity: 0 }}
                 transition={{ duration: 0.2, ease: "easeInOut" }}
-                style={{ overflow: "hidden" }}
+                className="version-diff-dialog__entry-reveal"
               >
                 <Flex>
-                  <Box style={{ flex: 1, minWidth: 0 }}>
+                  <Box className="version-diff-dialog__new-side">
                     {lines.map((line, idx) => (
                       <Box key={`o-${idx}`}>{renderLine(idx + 1, line, "old", "deleted")}</Box>
                     ))}
                   </Box>
-                  <Box style={{ flex: 1, background: "var(--gray-a2)", minWidth: 0 }}>
+                  <Box className="version-diff-dialog__missing-side">
                     {lines.map((_, idx) => (
                       <Box key={`e-${idx}`}>{renderLine(null, null, "new", "deleted")}</Box>
                     ))}
@@ -677,7 +635,7 @@ export function VersionDiffDialog({
       const lineDiffs = computeLineDiff(baseEntry.content, compareEntry.content);
 
       return (
-        <Box style={containerStyle}>
+        <Box className="version-diff-dialog__entry">
           {renderHeader()}
           <AnimatePresence initial={false}>
             {!isCollapsed && (
@@ -686,11 +644,11 @@ export function VersionDiffDialog({
                 animate={{ height: "auto", opacity: 1 }}
                 exit={{ height: 0, opacity: 0 }}
                 transition={{ duration: 0.2, ease: "easeInOut" }}
-                style={{ overflow: "hidden" }}
+                className="version-diff-dialog__entry-reveal"
               >
                 <Flex>
                   {/* 左侧：旧版本（baseEntry） - 只显示删除的字符 */}
-                  <Box style={{ flex: 1, borderRight: "1px solid var(--gray-a5)", minWidth: 0 }}>
+                  <Box className="version-diff-dialog__old-side">
                     {lineDiffs.map((ld, idx) => {
                       // 对于 unchanged 行，不需要字符级 diff
                       if (ld.type === "unchanged") {
@@ -718,7 +676,7 @@ export function VersionDiffDialog({
                     })}
                   </Box>
                   {/* 右侧：新版本（compareEntry） - 只显示新增的字符 */}
-                  <Box style={{ flex: 1, minWidth: 0 }}>
+                  <Box className="version-diff-dialog__new-side">
                     {lineDiffs.map((ld, idx) => {
                       // 对于 unchanged 行，不需要字符级 diff
                       if (ld.type === "unchanged") {
@@ -764,7 +722,7 @@ export function VersionDiffDialog({
       open={open}
       onOpenChange={onOpenChange}
     >
-      <Dialog.Content style={{ maxWidth: "1200px", maxHeight: "90vh" }}>
+      <Dialog.Content className="version-diff-dialog__content">
         <Flex
           justify="between"
           align="center"
@@ -773,13 +731,15 @@ export function VersionDiffDialog({
           <Flex
             align="center"
             gap="2"
-            style={{ alignItems: "center" }}
+            className="version-diff-dialog__heading"
           >
             <FileDiff
               size={20}
-              style={{ color: "var(--gray-11)", flexShrink: 0 }}
+              className="version-diff-dialog__heading-icon"
             />
-            <Dialog.Title style={{ margin: 0 }}>{t("promptChains.versionDiff")}</Dialog.Title>
+            <Dialog.Title className="version-diff-dialog__title">
+              {t("promptChains.versionDiff")}
+            </Dialog.Title>
           </Flex>
           <Dialog.Close>
             <Button
@@ -842,7 +802,7 @@ export function VersionDiffDialog({
               </Text>
             </Flex>
 
-            <ScrollArea style={{ maxHeight: "calc(90vh - 180px)" }}>
+            <ScrollArea className="version-diff-dialog__entries">
               <Flex
                 direction="column"
                 gap="3"
@@ -850,12 +810,7 @@ export function VersionDiffDialog({
                 {diffs.length === 0 ? (
                   <Box
                     p="6"
-                    style={{
-                      textAlign: "center",
-                      color: "var(--gray-a9)",
-                      border: "1px dashed var(--gray-a5)",
-                      borderRadius: "var(--radius-2)",
-                    }}
+                    className="version-diff-dialog__empty-state"
                   >
                     <Text size="2">{t("promptChains.versionsIdentical")}</Text>
                   </Box>

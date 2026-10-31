@@ -13,6 +13,7 @@ import { useParams, useSearchParams } from "react-router";
 
 import { useAppShell } from "@/app/app-shell-context";
 import { PanelLayoutLoading } from "@/components";
+import { QueryError } from "@/components/query-error";
 import { toast } from "@/components/toast";
 import { AssistantSidebarHost } from "@/features/app-shell/components/assistant-sidebar-host";
 
@@ -192,7 +193,12 @@ export function WorldInfoPage() {
   }, [currentProjectId, setCurrentEntry, setCurrentWorldInfo]);
 
   // 获取条目列表（轻量，不含 content）
-  const { data: entriesData, isLoading: entriesLoading } = useQuery({
+  const {
+    data: entriesData,
+    isLoading: entriesLoading,
+    error: entriesError,
+    refetch: retryEntries,
+  } = useQuery({
     queryKey: projectDataQueryKeys.worldInfo.entries(currentWorldInfoId),
     queryFn: () => fetchWorldInfoEntries(currentWorldInfoId!),
     enabled: !!currentWorldInfoId,
@@ -605,7 +611,9 @@ export function WorldInfoPage() {
   const isAgentLocked = Boolean(currentProjectId && assistantState.isAgentRunning);
 
   // 侧边栏内容
-  const sidebarContent = currentProjectId ? (
+  const sidebarContent = entriesError ? (
+    <QueryError onRetry={() => void retryEntries()} />
+  ) : currentProjectId ? (
     <EntryList
       projectId={currentProjectId}
       onImport={() => setImportDialogOpen(true)}
@@ -680,7 +688,7 @@ export function WorldInfoPage() {
       <Flex
         direction="column"
         gap="4"
-        style={{ maxWidth: 800, margin: "0 auto" }}
+        className="world-info-page__loading-content"
       >
         <Skeleton
           width="120px"
@@ -692,11 +700,11 @@ export function WorldInfoPage() {
         />
         <Flex gap="4">
           <Skeleton
-            style={{ flex: 1 }}
+            className="world-info-page__loading-panel"
             height="36px"
           />
           <Skeleton
-            style={{ flex: 1 }}
+            className="world-info-page__loading-panel"
             height="36px"
           />
         </Flex>
@@ -728,7 +736,7 @@ export function WorldInfoPage() {
       <Flex
         direction="column"
         gap="4"
-        style={{ maxWidth: 800, margin: "0 auto" }}
+        className="world-info-page__loading-content"
       >
         <Skeleton
           width="120px"
@@ -740,11 +748,11 @@ export function WorldInfoPage() {
         />
         <Flex gap="4">
           <Skeleton
-            style={{ flex: 1 }}
+            className="world-info-page__loading-panel"
             height="36px"
           />
           <Skeleton
-            style={{ flex: 1 }}
+            className="world-info-page__loading-panel"
             height="36px"
           />
         </Flex>
@@ -788,26 +796,18 @@ export function WorldInfoPage() {
   return (
     <Flex
       direction="column"
-      style={{
-        height: "100%",
-        minHeight: 0,
-        overflow: "hidden",
-      }}
+      className="world-info-page__workspace"
     >
       <Flex
         direction="column"
-        style={{
-          flex: 1,
-          minHeight: 0,
-          overflow: "hidden",
-        }}
+        className="world-info-page__workspace-body"
       >
         <Flex
           direction="column"
-          style={{ height: "100%", minHeight: 0 }}
+          className="world-info-page__panel"
         >
           {!isMobile && currentProjectId ? (
-            <Flex style={{ height: "100%", minWidth: 0 }}>
+            <Flex className="world-info-page__editor">
               <ProjectNavShell>{sidebarContent}</ProjectNavShell>
               <WorkspaceLayout assistant={<>{agentSidebarContent}</>}>
                 {editorContent}
@@ -917,7 +917,7 @@ export function WorldInfoPage() {
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
       >
-        <Dialog.Content style={{ maxWidth: 400 }}>
+        <Dialog.Content className="world-info-page__create-dialog">
           <Dialog.Title>{t("worldInfo.deleteEntry")}</Dialog.Title>
           <Dialog.Description
             size="2"

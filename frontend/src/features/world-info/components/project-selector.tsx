@@ -1,9 +1,9 @@
+import "./project-selector.css";
 /**
  * Project Selector Component
  *
  * 项目选择器下拉框组件。
  */
-
 import { Box, Flex, Text } from "@radix-ui/themes";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -39,10 +39,7 @@ export function ProjectSelector({ value, onChange, disabled = false }: ProjectSe
     <Box
       py="2"
       px="4"
-      style={{
-        borderBottom: "1px solid var(--gray-a5)",
-        background: "var(--gray-a2)",
-      }}
+      className="project-selector__content"
     >
       <Flex
         align="center"

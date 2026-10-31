@@ -7,3 +7,14 @@
     flex-direction: column;
   }
 }
+
+.project-form-dialog__cover-section,
+.rt-Flex.project-form-dialog__cover-section {
+  flex: 1;
+  min-width: 0;
+}
+
+.project-form-dialog__required-mark,
+.rt-Text.project-form-dialog__required-mark {
+  display: block;
+}

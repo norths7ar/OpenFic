@@ -1,3 +1,4 @@
+import "./character-profile-dialog.css";
 import { Avatar, Box, Button, Dialog, Flex, Text, TextField } from "@radix-ui/themes";
 import { Upload } from "lucide-react";
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
@@ -203,7 +204,7 @@ function CharacterProfileDialogContent({
                 ref={fileInputRef}
                 type="file"
                 accept="image/*"
-                style={{ display: "none" }}
+                className="character-profile-dialog__image-input"
                 onChange={handleFileSelect}
               />
             </Flex>

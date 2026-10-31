@@ -1,3 +1,4 @@
+import "./entry-list-item.css";
 import { useDraggable } from "@dnd-kit/core";
 /**
  * Entry List Item Component
@@ -301,11 +302,7 @@ function EntryListItemComponent({
             <Flex
               align="center"
               justify="center"
-              style={{
-                width: 20,
-                minWidth: 20,
-                flexShrink: 0,
-              }}
+              className="entry-list-item__selection-slot"
               onClick={(e) => e.stopPropagation()}
             >
               <Checkbox
@@ -319,14 +316,8 @@ function EntryListItemComponent({
               {...attributes}
               align="center"
               justify="center"
-              style={{
-                width: 20,
-                minWidth: 20,
-                flexShrink: 0,
-                cursor: isDragging ? "grabbing" : "grab",
-                color: "var(--gray-a9)",
-                touchAction: "none",
-              }}
+              className="entry-list-item__drag-handle"
+              style={{ cursor: isDragging ? "grabbing" : "grab" }}
               onClick={(e) => e.stopPropagation()}
               onPointerDown={isDragOverlay ? undefined : handleDragHandlePointerDown}
               onKeyDown={handleDragHandleKeyDown}

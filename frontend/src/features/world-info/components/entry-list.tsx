@@ -1,3 +1,4 @@
+import "./entry-list.css";
 import {
   DndContext,
   DragOverlay,
@@ -677,9 +678,9 @@ export function EntryList({
         direction="column"
         height="100%"
         width="100%"
-        style={{ minWidth: 0, overflow: "hidden" }}
+        className="entry-list__content"
       >
-        <Box style={{ flexShrink: 0 }}>
+        <Box className="entry-list__content">
           <Flex
             direction="column"
             gap="0"
@@ -688,21 +689,12 @@ export function EntryList({
               search={
                 <Box
                   ref={searchContainerRef}
+                  className="entry-list__search-frame"
                   style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 0,
-                    height: "var(--space-6)",
                     paddingRight: searchExpanded ? "var(--space-2)" : 0,
-                    border: "1px solid transparent",
                     borderColor: searchExpanded ? "var(--gray-a7)" : "transparent",
-                    borderRadius: "max(var(--radius-2), var(--radius-full))",
                     background: searchExpanded ? "var(--color-surface)" : "transparent",
                     flex: searchExpanded ? 1 : undefined,
-                    minWidth: 0,
-                    position: "relative",
-                    transition:
-                      "border-color 0.15s ease, background 0.15s ease, padding-right 0.15s ease",
                   }}
                 >
                   <EntrySearchPopover
@@ -712,22 +704,15 @@ export function EntryList({
                     onOpenChange={handlePopoverOpenChange}
                     onNavigateToMatch={onNavigateToMatch}
                   >
-                    <Box
-                      style={{
-                        position: "absolute",
-                        inset: 0,
-                        pointerEvents: "none",
-                      }}
-                    />
+                    <Box className="entry-list__search-overlay" />
                   </EntrySearchPopover>
                   <IconButton
                     variant="ghost"
                     size="2"
                     onClick={searchExpanded ? undefined : handleSearchToggle}
+                    className="entry-list__search-toggle"
                     style={{
-                      flexShrink: 0,
                       opacity: searchExpanded ? 0.5 : 1,
-                      transition: "opacity 0.15s ease",
                       cursor: searchExpanded ? "default" : undefined,
                     }}
                   >
@@ -736,7 +721,7 @@ export function EntryList({
                   <motion.div
                     animate={{ width: searchExpanded ? 200 : 0, opacity: searchExpanded ? 1 : 0 }}
                     transition={{ duration: 0.15, ease: "easeOut" }}
-                    style={{ overflow: "hidden" }}
+                    className="entry-list__search-reveal"
                   >
                     <input
                       type="text"
@@ -745,16 +730,7 @@ export function EntryList({
                       onChange={handleSearchChange}
                       onFocus={handleSearchFocus}
                       onBlur={handleSearchBlur}
-                      style={{
-                        width: 200,
-                        border: "none",
-                        outline: "none",
-                        background: "transparent",
-                        fontSize: "var(--font-size-base)",
-                        lineHeight: "var(--line-height-2)",
-                        color: "var(--gray-12)",
-                        padding: 0,
-                      }}
+                      className="entry-list__search-input"
                     />
                   </motion.div>
                 </Box>
@@ -913,21 +889,21 @@ export function EntryList({
         {isLoading ? (
           <Flex
             direction="column"
-            style={{ flex: 1 }}
+            className="entry-list__toolbar-content"
             gap="0"
           >
             {Array.from({ length: 8 }).map((_, i) => (
               <Box
                 key={i}
                 p="3"
-                style={{ borderBottom: "1px solid var(--gray-a5)" }}
+                className="entry-list__header"
               >
                 <Flex
                   align="center"
                   gap="2"
                   justify="between"
                 >
-                  <Box style={{ width: 16, flexShrink: 0 }}>
+                  <Box className="entry-list__loading-indent">
                     <Skeleton
                       width="16px"
                       height="16px"
@@ -936,12 +912,12 @@ export function EntryList({
                   <Flex
                     direction="column"
                     gap="1"
-                    style={{ flex: 1, minWidth: 0 }}
+                    className="entry-list__loading-details"
                   >
                     <Skeleton
                       height="14px"
                       width={`${50 + (i % 4) * 12}%`}
-                      style={{ maxWidth: 200 }}
+                      className="entry-list__title-placeholder"
                     />
                     <Skeleton
                       height="12px"
@@ -951,7 +927,7 @@ export function EntryList({
                   <Skeleton
                     width="28px"
                     height="16px"
-                    style={{ borderRadius: 999 }}
+                    className="entry-list__badge-placeholder"
                   />
                 </Flex>
               </Box>
@@ -962,7 +938,7 @@ export function EntryList({
             direction="column"
             align="center"
             justify="center"
-            style={{ flex: 1 }}
+            className="entry-list__toolbar-content"
             py="6"
             gap="2"
           >
@@ -987,7 +963,7 @@ export function EntryList({
               ref={(node) => {
                 scrollContainerRef.current = node;
               }}
-              style={{ flex: 1, minHeight: 0, overflow: "auto" }}
+              className="entry-list__scroll-region"
             >
               <ProjectFolderGroups
                 folders={folders}
@@ -1089,7 +1065,7 @@ export function EntryList({
         open={batchDeleteDialogOpen}
         onOpenChange={setBatchDeleteDialogOpen}
       >
-        <Dialog.Content style={{ maxWidth: 400 }}>
+        <Dialog.Content className="entry-list__create-dialog">
           <Dialog.Title>{t("worldInfo.deleteSelected")}</Dialog.Title>
           <Dialog.Description
             size="2"
@@ -1138,7 +1114,7 @@ export function EntryList({
           if (!open) setFolderDialog(null);
         }}
       >
-        <Dialog.Content style={{ maxWidth: 400 }}>
+        <Dialog.Content className="entry-list__create-dialog">
           <Dialog.Title>
             {t(
               folderDialog?.mode === "rename"
@@ -1156,14 +1132,7 @@ export function EntryList({
             placeholder={t("volume.menu.editDescription")}
             value={folderDescription}
             onChange={(event) => setFolderDescription(event.target.value)}
-            style={{
-              width: "100%",
-              boxSizing: "border-box",
-              marginTop: 12,
-              minHeight: 70,
-              background: "var(--color-background)",
-              color: "var(--gray-12)",
-            }}
+            className="entry-list__create-description"
           />
           <Flex
             gap="3"

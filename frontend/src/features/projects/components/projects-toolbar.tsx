@@ -1,9 +1,9 @@
+import "./projects-toolbar.css";
 /**
  * ProjectsToolbar Component
  *
  * 项目列表工具栏，包含创建、导入、搜索、排序、视图切换功能。
  */
-
 import {
   Box,
   Button,
@@ -87,7 +87,7 @@ export function ProjectsToolbar({
             size="2"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            style={{ width: "200px" }}
+            className="projects-toolbar__search"
           >
             <TextField.Slot>
               <Search size={14} />
@@ -100,22 +100,14 @@ export function ProjectsToolbar({
               <Button
                 variant="soft"
                 size="2"
-                style={{ padding: "0 8px" }}
+                className="projects-toolbar__sort-action"
               >
                 <Flex align="center">
                   <ArrowUpDown
                     size={14}
-                    style={{ flexShrink: 0 }}
+                    className="projects-toolbar__sort-icon"
                   />
-                  <Box
-                    style={{
-                      width: "6.5em",
-                      textAlign: "center",
-                      flexShrink: 0,
-                    }}
-                  >
-                    {currentSortLabel}
-                  </Box>
+                  <Box className="projects-toolbar__sort-label">{currentSortLabel}</Box>
                 </Flex>
               </Button>
             </DropdownMenu.Trigger>
@@ -211,7 +203,7 @@ export function ProjectsToolbar({
             size="2"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            style={{ width: "100%", flex: 1 }}
+            className="projects-toolbar__mobile-search"
           >
             <TextField.Slot>
               <Search size={14} />

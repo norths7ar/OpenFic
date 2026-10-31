@@ -135,3 +135,45 @@
   width: 4px;
   background: var(--accent-a5);
 }
+
+.world-info-page__loading-content,
+.rt-Flex.world-info-page__loading-content {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.world-info-page__loading-panel,
+.rt-Skeleton.world-info-page__loading-panel {
+  flex: 1;
+}
+
+.world-info-page__workspace,
+.rt-Flex.world-info-page__workspace {
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.world-info-page__workspace-body,
+.rt-Flex.world-info-page__workspace-body {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.world-info-page__panel,
+.rt-Flex.world-info-page__panel {
+  height: 100%;
+  min-height: 0;
+}
+
+.world-info-page__editor,
+.rt-Flex.world-info-page__editor {
+  height: 100%;
+  min-width: 0;
+}
+
+.world-info-page__create-dialog,
+.rt-DialogContent.world-info-page__create-dialog {
+  max-width: 400px;
+}

@@ -1,3 +1,4 @@
+import "./character-search-popover.css";
 import { Box, Flex, IconButton, Popover, Text } from "@radix-ui/themes";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronDown, ChevronRight, ChevronsUpDown } from "lucide-react";
@@ -34,12 +35,7 @@ function highlightText(text: string, query: string): React.ReactNode {
     parts.push(
       <mark
         key={`m-${idx}`}
-        style={{
-          background: "var(--accent-a4)",
-          color: "inherit",
-          padding: "0 2px",
-          borderRadius: "2px",
-        }}
+        className="character-search-popover__match"
       >
         {text.slice(idx, idx + query.length)}
       </mark>,
@@ -75,12 +71,7 @@ function CharacterResultGroup({
         align="center"
         gap="1"
         onClick={onToggle}
-        style={{
-          padding: "6px 12px",
-          cursor: "pointer",
-          userSelect: "none",
-          transition: "background 0.1s ease",
-        }}
+        className="character-search-popover__group-heading"
         onMouseEnter={(event) => {
           event.currentTarget.style.background = "var(--gray-a3)";
         }}
@@ -90,38 +81,19 @@ function CharacterResultGroup({
       >
         <ChevronIcon
           size={14}
-          style={{ color: "var(--gray-a9)", flexShrink: 0 }}
+          className="character-search-popover__group-chevron"
         />
         <Text
           size="2"
           weight="bold"
-          style={{
-            flex: 1,
-            minWidth: 0,
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
-          }}
+          className="character-search-popover__group-title"
         >
           {result.characterName}
         </Text>
-        <Box
-          style={{
-            minWidth: 20,
-            height: 18,
-            borderRadius: 999,
-            background: "var(--blue-a4)",
-            color: "var(--blue-11)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: "0 5px",
-            flexShrink: 0,
-          }}
-        >
+        <Box className="character-search-popover__match-count">
           <Text
             size="1"
-            style={{ lineHeight: 1 }}
+            className="character-search-popover__count-label"
           >
             {result.matches.length}
           </Text>
@@ -129,34 +101,13 @@ function CharacterResultGroup({
       </Flex>
 
       {!collapsed && (
-        <Box
-          style={{
-            position: "relative",
-            marginLeft: 19,
-            paddingLeft: 8,
-          }}
-        >
-          <Box
-            style={{
-              position: "absolute",
-              left: 0,
-              top: 4,
-              bottom: 4,
-              width: 1,
-              background: "var(--gray-a5)",
-            }}
-          />
+        <Box className="character-search-popover__matches">
+          <Box className="character-search-popover__group-guide" />
           {result.matches.map((match) => (
             <Box
               key={`${result.characterId}-${match.lineNumber}-${match.lineText}`}
               onClick={() => onNavigateToMatch(result.characterId)}
-              style={{
-                paddingTop: 2,
-                paddingBottom: 2,
-                paddingRight: 12,
-                cursor: "pointer",
-                transition: "background 0.1s ease",
-              }}
+              className="character-search-popover__match-row"
               onMouseEnter={(event) => {
                 event.currentTarget.style.background = "var(--gray-a3)";
               }}
@@ -166,12 +117,7 @@ function CharacterResultGroup({
             >
               <Text
                 size="1"
-                style={{
-                  whiteSpace: "nowrap",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  display: "block",
-                }}
+                className="character-search-popover__match-text"
               >
                 {highlightText(match.lineText, query)}
               </Text>
@@ -262,30 +208,15 @@ export function CharacterSearchPopover({
       open={open}
       onOpenChange={onOpenChange}
     >
-      <Popover.Trigger
-        style={{
-          border: "none",
-          background: "transparent",
-          padding: 0,
-          width: "100%",
-        }}
-      >
-        {children}
-      </Popover.Trigger>
+      <Popover.Trigger className="character-search-popover__trigger">{children}</Popover.Trigger>
       <Popover.Content
         align="start"
         side="bottom"
         sideOffset={4}
         onOpenAutoFocus={(event) => event.preventDefault()}
-        style={{ width: 360, maxWidth: 360, padding: 0 }}
+        className="character-search-popover__content"
       >
-        <Box
-          style={{
-            maxHeight: 400,
-            overflowY: "auto",
-            overflowX: "hidden",
-          }}
-        >
+        <Box className="character-search-popover__results">
           {debouncedQuery.trim().length === 0 ? (
             <Box p="4">
               <Text
@@ -311,11 +242,7 @@ export function CharacterSearchPopover({
               <Flex
                 align="center"
                 justify="between"
-                style={{
-                  padding: "8px 12px",
-                  borderBottom: "1px solid var(--gray-a5)",
-                  background: "var(--gray-a2)",
-                }}
+                className="character-search-popover__header"
               >
                 <Text
                   size="1"

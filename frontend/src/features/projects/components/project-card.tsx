@@ -1,9 +1,9 @@
+import "./project-card.css";
 /**
  * ProjectCard Component
  *
  * Grid 视图下的项目卡片组件。
  */
-
 import { Box, Card, Flex, Text, IconButton, Tooltip } from "@radix-ui/themes";
 import { BookOpen, Database, Edit2, Trash2 } from "lucide-react";
 import { motion } from "motion/react";
@@ -34,12 +34,7 @@ export function ProjectCard({ project, onEdit, onManageData, onDelete }: Project
     <MotionCard
       size="2"
       variant="ghost"
-      style={{
-        cursor: "pointer",
-        overflow: "hidden",
-        padding: "var(--space-3)",
-        borderRadius: "var(--radius-3)",
-      }}
+      className="project-card__surface"
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       whileHover={{ y: -4, backgroundColor: "var(--gray-a3)" }}
@@ -48,35 +43,24 @@ export function ProjectCard({ project, onEdit, onManageData, onDelete }: Project
     >
       {/* 封面图 */}
       <Box
-        style={{
-          width: "100%",
-          aspectRatio: "2 / 3",
-          overflow: "hidden",
-          background: project.coverUrl ? "transparent" : "var(--gray-a3)",
-          borderRadius: "var(--radius-2)",
-          marginBottom: "12px",
-          boxShadow: "0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.06)",
-        }}
+        className="project-card__cover"
+        style={{ background: project.coverUrl ? "transparent" : "var(--gray-a3)" }}
       >
         {project.coverUrl ? (
           <img
             src={project.coverUrl}
             alt={project.title}
-            style={{
-              width: "100%",
-              height: "100%",
-              objectFit: "cover",
-            }}
+            className="project-card__cover-image"
           />
         ) : (
           <Flex
             align="center"
             justify="center"
-            style={{ height: "100%" }}
+            className="project-card__cover-placeholder"
           >
             <BookOpen
               size={48}
-              style={{ color: "var(--gray-a9)" }}
+              className="project-card__cover-icon"
             />
           </Flex>
         )}
@@ -87,7 +71,7 @@ export function ProjectCard({ project, onEdit, onManageData, onDelete }: Project
         <Text
           size="3"
           weight="bold"
-          style={{ display: "block" }}
+          className="project-card__title"
           truncate
         >
           {project.title}

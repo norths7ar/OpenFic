@@ -1,9 +1,9 @@
+import "./project-list-item.css";
 /**
  * ProjectListItem Component
  *
  * List 视图下的项目列表项组件。
  */
-
 import { Box, Card, Flex, Text, IconButton, Tooltip } from "@radix-ui/themes";
 import { BookOpen, Database, Edit2, Trash2 } from "lucide-react";
 import { motion } from "motion/react";
@@ -33,7 +33,7 @@ export function ProjectListItem({ project, onEdit, onManageData, onDelete }: Pro
   return (
     <MotionCard
       size="2"
-      style={{ cursor: "pointer" }}
+      className="project-list-item__surface"
       initial={{ opacity: 0, x: -20 }}
       animate={{ opacity: 1, x: 0 }}
       whileHover={{ x: 4 }}
@@ -46,41 +46,31 @@ export function ProjectListItem({ project, onEdit, onManageData, onDelete }: Pro
       >
         {/* 左侧小封面 */}
         <Box
-          style={{
-            width: "60px",
-            height: "80px",
-            overflow: "hidden",
-            background: project.coverUrl ? "transparent" : "var(--gray-a3)",
-            borderRadius: "var(--radius-2)",
-            flexShrink: 0,
-          }}
+          className="project-list-item__cover"
+          style={{ background: project.coverUrl ? "transparent" : "var(--gray-a3)" }}
         >
           {project.coverUrl ? (
             <img
               src={project.coverUrl}
               alt={project.title}
-              style={{
-                width: "100%",
-                height: "100%",
-                objectFit: "cover",
-              }}
+              className="project-list-item__cover-image"
             />
           ) : (
             <Flex
               align="center"
               justify="center"
-              style={{ height: "100%" }}
+              className="project-list-item__cover-placeholder"
             >
               <BookOpen
                 size={24}
-                style={{ color: "var(--gray-a9)" }}
+                className="project-list-item__cover-icon"
               />
             </Flex>
           )}
         </Box>
 
         {/* 中间项目信息 */}
-        <Box style={{ flex: 1, minWidth: 0 }}>
+        <Box className="project-list-item__details">
           <Text
             size="3"
             weight="bold"
@@ -93,7 +83,7 @@ export function ProjectListItem({ project, onEdit, onManageData, onDelete }: Pro
               size="2"
               color="gray"
               truncate
-              style={{ display: "block" }}
+              className="project-list-item__title"
             >
               {project.description}
             </Text>

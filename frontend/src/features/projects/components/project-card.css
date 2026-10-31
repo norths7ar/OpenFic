@@ -1,0 +1,39 @@
+.project-card__surface,
+.rt-Card.project-card__surface {
+  cursor: pointer;
+  overflow: hidden;
+  padding: var(--space-3);
+  border-radius: var(--radius-3);
+}
+
+.project-card__cover,
+.rt-Box.project-card__cover {
+  width: 100%;
+  aspect-ratio: 2 / 3;
+  overflow: hidden;
+  border-radius: var(--radius-2);
+  margin-bottom: 12px;
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.08),
+    0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+.project-card__cover-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.project-card__cover-placeholder,
+.rt-Flex.project-card__cover-placeholder {
+  height: 100%;
+}
+
+.project-card__cover-icon {
+  color: var(--gray-a9);
+}
+
+.project-card__title,
+.rt-Text.project-card__title {
+  display: block;
+}

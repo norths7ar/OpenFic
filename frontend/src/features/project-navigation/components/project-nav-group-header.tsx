@@ -1,3 +1,4 @@
+import "./project-nav-group-header.css";
 import { Box, Flex, IconButton, Text } from "@radix-ui/themes";
 import { ChevronRight } from "lucide-react";
 import { motion } from "motion/react";
@@ -44,17 +45,7 @@ function HeaderRenameInput({
         }
       }}
       onClick={(event) => event.stopPropagation()}
-      style={{
-        width: "100%",
-        height: 22,
-        border: "none",
-        outline: "none",
-        background: "transparent",
-        color: "var(--gray-12)",
-        fontFamily: "inherit",
-        fontSize: "var(--font-size-base)",
-        fontWeight: 600,
-      }}
+      className="project-nav-group-header__rename-input"
     />
   );
 }
@@ -87,28 +78,17 @@ export function ProjectNavGroupHeader({
   const { t } = useTranslation();
   return (
     <MotionBox
-      className="project-nav-group-header"
+      className="project-nav-group-header project-nav-group-header__surface"
       initial={false}
       onContextMenu={onContextMenu}
       transition={VOLUME_HEADER_TRANSITION}
-      style={{
-        borderTop: "1px solid var(--gray-a4)",
-        background: "var(--gray-2)",
-        overflow: "hidden",
-        position: "relative",
-      }}
     >
       <motion.div
         initial={false}
         aria-hidden="true"
         animate={{ opacity: isExpanded ? 1 : 0 }}
         transition={VOLUME_HEADER_TRANSITION}
-        style={{
-          position: "absolute",
-          inset: 0,
-          background: "var(--gray-a2)",
-          pointerEvents: "none",
-        }}
+        className="project-nav-group-header__hover-overlay"
       />
       <motion.div
         initial={false}
@@ -118,23 +98,14 @@ export function ProjectNavGroupHeader({
           scaleX: isExpanded ? 1 : 0.96,
         }}
         transition={VOLUME_HEADER_TRANSITION}
-        style={{
-          position: "absolute",
-          right: 0,
-          bottom: 0,
-          left: 0,
-          height: 1,
-          background: "var(--gray-a3)",
-          transformOrigin: "left center",
-          pointerEvents: "none",
-        }}
+        className="project-nav-group-header__progress"
       />
       <Flex
         align="center"
         gap="2"
         px="3"
         py="2"
-        style={{ minWidth: 0 }}
+        className="project-nav-group-header__row"
       >
         <IconButton
           variant="ghost"
@@ -147,14 +118,14 @@ export function ProjectNavGroupHeader({
             initial={false}
             animate={{ rotate: isExpanded ? 90 : 0 }}
             transition={VOLUME_HEADER_TRANSITION}
-            style={{ display: "flex", alignItems: "center", justifyContent: "center" }}
+            className="project-nav-group-header__chevron"
           >
             <ChevronRight size={15} />
           </motion.div>
         </IconButton>
 
         <Box
-          style={{ flex: 1, minWidth: 0 }}
+          className="project-nav-group-header__title-slot"
           onClick={onToggle}
         >
           {isRenaming && onRenameConfirm && onRenameCancel ? (
@@ -167,14 +138,7 @@ export function ProjectNavGroupHeader({
             <Text
               size="2"
               weight="bold"
-              style={{
-                display: "block",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-                color: "var(--gray-12)",
-                cursor: "pointer",
-              }}
+              className="project-nav-group-header__editable-title"
             >
               {title}
             </Text>
@@ -183,12 +147,7 @@ export function ProjectNavGroupHeader({
             <Text
               size="1"
               color="gray"
-              style={{
-                display: "block",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-              }}
+              className="project-nav-group-header__title"
             >
               {description}
             </Text>
@@ -198,7 +157,7 @@ export function ProjectNavGroupHeader({
         <Text
           size="1"
           color="gray"
-          style={{ flexShrink: 0 }}
+          className="project-nav-group-header__count"
         >
           {count}
         </Text>

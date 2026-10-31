@@ -1,9 +1,9 @@
+import "./projects-page.css";
 /**
  * ProjectsPage Component
  *
  * 项目列表主页面，整合所有项目管理功能。
  */
-
 import { Box, Button, Container, Flex, Text, Grid } from "@radix-ui/themes";
 import { useQueryClient } from "@tanstack/react-query";
 import { BookOpen, ChevronLeft, ChevronRight } from "lucide-react";
@@ -50,7 +50,7 @@ export function ProjectsPage() {
   const hasMountedFilters = useRef(false);
 
   // 服务端分页、搜索和排序
-  const { data, isLoading, isFetching, error } = useProjects({
+  const { data, isLoading, isFetching, error, refetch } = useProjects({
     page: currentPage,
     pageSize: PROJECTS_PAGE_SIZE,
     search: searchQuery.trim() || undefined,
@@ -151,21 +151,13 @@ export function ProjectsPage() {
   };
 
   return (
-    <Box
-      style={{
-        height: "100%",
-        minHeight: 0,
-        overflowY: "auto",
-        overflowX: "hidden",
-        background: "var(--color-background)",
-      }}
-    >
+    <Box className="projects-page">
       {/* 工具栏区域 */}
       <Container
         size="4"
         px="5"
       >
-        <Box style={{ borderBottom: "1px solid var(--gray-a5)" }}>
+        <Box className="projects-page-header">
           <ProjectsToolbar
             leadingSlot={<MobileAppSidebarTrigger />}
             onCreateClick={handleOpenCreate}
@@ -199,6 +191,12 @@ export function ProjectsPage() {
             py="9"
           >
             <Text color="red">{t("common.error")}</Text>
+            <Button
+              onClick={() => void refetch()}
+              disabled={isFetching}
+            >
+              {t("common.retryRequest")}
+            </Button>
           </Flex>
         )}
 
@@ -216,16 +214,10 @@ export function ProjectsPage() {
               py="9"
               gap="4"
             >
-              <Box
-                style={{
-                  padding: "24px",
-                  borderRadius: "50%",
-                  background: "var(--accent-a3)",
-                }}
-              >
+              <Box className="projects-empty-illustration">
                 <BookOpen
                   size={48}
-                  style={{ color: "var(--accent-11)" }}
+                  className="projects-empty-icon"
                 />
               </Box>
               <Text
@@ -298,7 +290,7 @@ export function ProjectsPage() {
                   variant="ghost"
                   color="gray"
                   size="2"
-                  style={{ margin: 0 }}
+                  className="projects-pagination-action"
                   disabled={activePage === 1 || isFetching}
                   aria-label={t("projects.previousPage")}
                   onClick={() => setCurrentPage(Math.max(1, activePage - 1))}
@@ -315,7 +307,7 @@ export function ProjectsPage() {
                       key={`ellipsis-${index}`}
                       align="center"
                       justify="center"
-                      style={{ width: 32, height: 32, flexShrink: 0 }}
+                      className="projects-pagination-slot"
                     >
                       <Text
                         size="2"
@@ -328,13 +320,13 @@ export function ProjectsPage() {
                   ) : (
                     <Box
                       key={page}
-                      style={{ width: 32, height: 32, flexShrink: 0 }}
+                      className="projects-pagination-slot"
                     >
                       <Button
                         type="button"
                         variant={page === activePage ? "soft" : "ghost"}
                         size="2"
-                        style={{ width: "100%", height: "100%", margin: 0, padding: 0 }}
+                        className="projects-pagination-page"
                         disabled={page === activePage || isFetching}
                         aria-label={t("projects.page", { page })}
                         onClick={() => setCurrentPage(page)}
@@ -349,7 +341,7 @@ export function ProjectsPage() {
                   variant="ghost"
                   color="gray"
                   size="2"
-                  style={{ margin: 0 }}
+                  className="projects-pagination-action"
                   disabled={activePage === totalPages || isFetching}
                   aria-label={t("projects.nextPage")}
                   onClick={() => setCurrentPage(Math.min(totalPages, activePage + 1))}

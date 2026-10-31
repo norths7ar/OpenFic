@@ -1,0 +1,11 @@
+.save-confirm-dialog__content,
+.rt-DialogContent.save-confirm-dialog__content {
+  max-width: 500px;
+}
+
+.save-confirm-dialog__preview,
+.rt-Box.save-confirm-dialog__preview {
+  background: var(--orange-a2);
+  border: 1px solid var(--orange-a5);
+  border-radius: var(--radius-2);
+}

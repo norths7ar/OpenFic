@@ -1,0 +1,39 @@
+.project-list-item__surface,
+.rt-Card.project-list-item__surface {
+  cursor: pointer;
+}
+
+.project-list-item__cover,
+.rt-Box.project-list-item__cover {
+  width: 60px;
+  height: 80px;
+  overflow: hidden;
+  border-radius: var(--radius-2);
+  flex-shrink: 0;
+}
+
+.project-list-item__cover-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.project-list-item__cover-placeholder,
+.rt-Flex.project-list-item__cover-placeholder {
+  height: 100%;
+}
+
+.project-list-item__cover-icon {
+  color: var(--gray-a9);
+}
+
+.project-list-item__details,
+.rt-Box.project-list-item__details {
+  flex: 1;
+  min-width: 0;
+}
+
+.project-list-item__title,
+.rt-Text.project-list-item__title {
+  display: block;
+}

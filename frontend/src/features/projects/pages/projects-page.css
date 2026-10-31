@@ -1,0 +1,44 @@
+.projects-page,
+.rt-Box.projects-page {
+  height: 100%;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background: var(--color-background);
+}
+
+.projects-page-header,
+.rt-Box.projects-page-header {
+  border-bottom: 1px solid var(--gray-a5);
+}
+
+.projects-empty-illustration,
+.rt-Box.projects-empty-illustration {
+  padding: 24px;
+  border-radius: 50%;
+  background: var(--accent-a3);
+}
+
+.projects-empty-icon {
+  color: var(--accent-11);
+}
+
+.projects-pagination-action,
+.rt-Button.projects-pagination-action {
+  margin: 0;
+}
+
+.projects-pagination-slot,
+:is(.rt-Flex, .rt-Box).projects-pagination-slot {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+}
+
+.projects-pagination-page,
+.rt-Button.projects-pagination-page {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}

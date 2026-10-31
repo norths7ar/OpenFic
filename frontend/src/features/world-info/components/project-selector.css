@@ -1,0 +1,5 @@
+.project-selector__content,
+.rt-Box.project-selector__content {
+  border-bottom: 1px solid var(--gray-a5);
+  background: var(--gray-a2);
+}

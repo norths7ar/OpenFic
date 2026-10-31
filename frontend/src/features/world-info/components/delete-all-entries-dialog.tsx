@@ -1,3 +1,4 @@
+import "./delete-all-entries-dialog.css";
 import { Button, Dialog, Flex } from "@radix-ui/themes";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useCallback } from "react";
@@ -49,7 +50,7 @@ export function DeleteAllEntriesDialog({
       open={open}
       onOpenChange={onOpenChange}
     >
-      <Dialog.Content style={{ maxWidth: 400 }}>
+      <Dialog.Content className="delete-all-entries-dialog__content">
         <Dialog.Title>{t("worldInfo.deleteAllEntries")}</Dialog.Title>
         <Dialog.Description
           size="2"

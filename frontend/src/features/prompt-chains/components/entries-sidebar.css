@@ -1,0 +1,104 @@
+.entries-sidebar__content,
+.rt-Box.entries-sidebar__content {
+  border-bottom: 1px solid var(--gray-a5);
+}
+
+.entries-sidebar__loading,
+:is(.rt-Box, .rt-Flex).entries-sidebar__loading {
+  flex: 1;
+  min-width: 0;
+}
+
+.entries-sidebar__surface,
+.rt-Box.entries-sidebar__surface {
+  background: var(--color-background);
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.entries-sidebar__empty-state,
+.rt-Box.entries-sidebar__empty-state {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.entries-sidebar__workspace,
+.rt-Box.entries-sidebar__workspace {
+  height: 100%;
+  background: var(--color-background);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.entries-sidebar__scroll-region,
+.rt-Box.entries-sidebar__scroll-region {
+  flex: 1;
+  overflow: auto;
+}
+
+.entries-sidebar__entry {
+  border-bottom: 1px solid var(--gray-a5);
+  cursor: pointer;
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.entries-sidebar__entry-row,
+.rt-Flex.entries-sidebar__entry-row {
+  min-width: 0;
+  width: 100%;
+}
+
+.entries-sidebar__drag-handle,
+.rt-Flex.entries-sidebar__drag-handle {
+  width: 44px;
+  min-width: 44px;
+  flex-shrink: 0;
+  color: var(--gray-a9);
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.entries-sidebar__entry-details,
+.rt-Flex.entries-sidebar__entry-details {
+  flex: 1;
+  min-width: 0;
+  padding: 12px 12px 12px 0;
+}
+
+.entries-sidebar__role-icon,
+.rt-Box.entries-sidebar__role-icon {
+  color: var(--gray-a10);
+  flex-shrink: 0;
+}
+
+.entries-sidebar__entry-title,
+.rt-Text.entries-sidebar__entry-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.entries-sidebar__entry-actions,
+.rt-Flex.entries-sidebar__entry-actions {
+  flex-shrink: 0;
+}
+
+.entries-sidebar__token-count,
+.rt-Text.entries-sidebar__token-count {
+  min-width: 32px;
+  text-align: right;
+}

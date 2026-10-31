@@ -132,7 +132,7 @@ export function ProjectFormDialog({
             <Flex
               direction="column"
               gap="4"
-              style={{ flex: 1, minWidth: 0 }}
+              className="project-form-dialog__cover-section"
             >
               {/* 标题 */}
               <Box>
@@ -141,7 +141,7 @@ export function ProjectFormDialog({
                   size="2"
                   weight="medium"
                   mb="1"
-                  style={{ display: "block" }}
+                  className="project-form-dialog__required-mark"
                 >
                   {t("projectForm.titleLabel")} <Text color="red">*</Text>
                 </Text>
@@ -167,7 +167,7 @@ export function ProjectFormDialog({
                   size="2"
                   weight="medium"
                   mb="1"
-                  style={{ display: "block" }}
+                  className="project-form-dialog__required-mark"
                 >
                   {t("projectForm.descriptionLabel")}
                 </Text>

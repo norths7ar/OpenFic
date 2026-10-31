@@ -1,0 +1,26 @@
+.projects-toolbar__search,
+.rt-TextFieldRoot.projects-toolbar__search {
+  width: 200px;
+}
+
+.projects-toolbar__sort-action,
+.rt-Button.projects-toolbar__sort-action {
+  padding: 0 8px;
+}
+
+.projects-toolbar__sort-icon {
+  flex-shrink: 0;
+}
+
+.projects-toolbar__sort-label,
+.rt-Box.projects-toolbar__sort-label {
+  width: 6.5em;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.projects-toolbar__mobile-search,
+.rt-TextFieldRoot.projects-toolbar__mobile-search {
+  width: 100%;
+  flex: 1;
+}

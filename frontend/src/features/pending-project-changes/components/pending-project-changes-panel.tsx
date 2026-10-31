@@ -1,3 +1,4 @@
+import "./pending-project-changes-panel.css";
 import {
   Badge,
   Box,
@@ -737,7 +738,7 @@ export function PendingProjectChangesPanel({
                       color="gray"
                       align="center"
                       as="div"
-                      style={{ padding: "var(--space-4)" }}
+                      className="pending-project-changes-panel__details"
                     >
                       {t(
                         changes.length

@@ -1,3 +1,4 @@
+import "./character-list.css";
 import {
   DndContext,
   closestCenter,
@@ -527,21 +528,12 @@ export function CharacterList({
               search={
                 <Box
                   ref={searchContainerRef}
+                  className="character-list__search-frame"
                   style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 0,
-                    height: "var(--space-6)",
                     paddingRight: searchExpanded ? "var(--space-2)" : 0,
-                    border: "1px solid transparent",
                     borderColor: searchExpanded ? "var(--gray-a7)" : "transparent",
-                    borderRadius: "max(var(--radius-2), var(--radius-full))",
                     background: searchExpanded ? "var(--color-surface)" : "transparent",
                     flex: searchExpanded ? 1 : undefined,
-                    minWidth: 0,
-                    position: "relative",
-                    transition:
-                      "border-color 0.15s ease, background 0.15s ease, padding-right 0.15s ease",
                   }}
                 >
                   <CharacterSearchPopover
@@ -551,23 +543,16 @@ export function CharacterList({
                     onOpenChange={handlePopoverOpenChange}
                     onNavigateToMatch={onSelectCharacter}
                   >
-                    <Box
-                      style={{
-                        position: "absolute",
-                        inset: 0,
-                        pointerEvents: "none",
-                      }}
-                    />
+                    <Box className="character-list__search-overlay" />
                   </CharacterSearchPopover>
                   <IconButton
                     variant="ghost"
                     size="2"
                     aria-label={t("characters.search")}
                     onClick={searchExpanded ? undefined : handleSearchToggle}
+                    className="character-list__search-toggle"
                     style={{
-                      flexShrink: 0,
                       opacity: searchExpanded ? 0.5 : 1,
-                      transition: "opacity 0.15s ease",
                       cursor: searchExpanded ? "default" : undefined,
                     }}
                   >
@@ -576,7 +561,7 @@ export function CharacterList({
                   <motion.div
                     animate={{ width: searchExpanded ? 200 : 0, opacity: searchExpanded ? 1 : 0 }}
                     transition={{ duration: 0.15, ease: "easeOut" }}
-                    style={{ overflow: "hidden" }}
+                    className="character-list__search-reveal"
                   >
                     <input
                       type="text"
@@ -587,16 +572,7 @@ export function CharacterList({
                         if (searchQuery.trim()) setSearchOpen(true);
                       }}
                       onBlur={handleSearchBlur}
-                      style={{
-                        width: 200,
-                        border: "none",
-                        outline: "none",
-                        background: "transparent",
-                        fontSize: "var(--font-size-base)",
-                        lineHeight: "var(--line-height-2)",
-                        color: "var(--gray-12)",
-                        padding: 0,
-                      }}
+                      className="character-list__search-input"
                     />
                   </motion.div>
                 </Box>
@@ -761,7 +737,7 @@ export function CharacterList({
                 <Box
                   key={index}
                   p="3"
-                  style={{ borderBottom: "1px solid var(--gray-a5)" }}
+                  className="character-list__header"
                 >
                   <Flex
                     align="center"
@@ -771,17 +747,17 @@ export function CharacterList({
                     <Skeleton
                       width="32px"
                       height="32px"
-                      style={{ borderRadius: 999 }}
+                      className="character-list__avatar-placeholder"
                     />
                     <Flex
                       direction="column"
                       gap="1"
-                      style={{ flex: 1, minWidth: 0 }}
+                      className="character-list__loading-details"
                     >
                       <Skeleton
                         height="14px"
                         width={`${50 + (index % 4) * 12}%`}
-                        style={{ maxWidth: 200 }}
+                        className="character-list__name-placeholder"
                       />
                       <Skeleton
                         height="12px"
@@ -825,7 +801,7 @@ export function CharacterList({
             <Flex
               direction="column"
               width="100%"
-              style={{ minWidth: 0 }}
+              className="character-list__list-content"
             >
               <DndContext
                 sensors={sensors}
@@ -937,7 +913,7 @@ export function CharacterList({
         open={batchDeleteDialogOpen}
         onOpenChange={setBatchDeleteDialogOpen}
       >
-        <Dialog.Content style={{ maxWidth: 400 }}>
+        <Dialog.Content className="character-list__create-dialog">
           <Dialog.Title>{t("characters.deleteSelected")}</Dialog.Title>
           <Dialog.Description
             size="2"
@@ -986,7 +962,7 @@ export function CharacterList({
           if (!open) setFolderDialog(null);
         }}
       >
-        <Dialog.Content style={{ maxWidth: 400 }}>
+        <Dialog.Content className="character-list__create-dialog">
           <Dialog.Title>
             {t(
               folderDialog?.mode === "rename"
@@ -1004,14 +980,7 @@ export function CharacterList({
             placeholder={t("volume.menu.editDescription")}
             value={folderDescription}
             onChange={(event) => setFolderDescription(event.target.value)}
-            style={{
-              width: "100%",
-              boxSizing: "border-box",
-              marginTop: 12,
-              minHeight: 70,
-              background: "var(--color-background)",
-              color: "var(--gray-12)",
-            }}
+            className="character-list__create-description"
           />
           <Flex
             gap="3"

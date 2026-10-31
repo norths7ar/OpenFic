@@ -1,0 +1,4 @@
+.delete-all-entries-dialog__content,
+.rt-DialogContent.delete-all-entries-dialog__content {
+  max-width: 400px;
+}

@@ -233,3 +233,9 @@
   background: var(--gray-a3);
   overflow: hidden;
 }
+
+.characters-page__content,
+.rt-Flex.characters-page__content {
+  height: 100%;
+  min-width: 0;
+}

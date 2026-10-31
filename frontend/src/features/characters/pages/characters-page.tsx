@@ -8,6 +8,7 @@ import { useParams, useSearchParams } from "react-router";
 
 import { useAppShell } from "@/app/app-shell-context";
 import { PanelLayoutLoading } from "@/components";
+import { QueryError } from "@/components/query-error";
 import { toast } from "@/components/toast";
 import { AssistantSidebarHost } from "@/features/app-shell/components/assistant-sidebar-host";
 import { MobileAppSidebarTrigger } from "@/features/app-shell/components/mobile-app-sidebar-trigger";
@@ -145,7 +146,12 @@ export function CharactersPage() {
     if (currentProjectId) void setPreference(LAST_PROJECT_KEY, currentProjectId);
   }, [currentProjectId]);
 
-  const { data: charactersData, isLoading: isCharactersLoading } = useQuery({
+  const {
+    data: charactersData,
+    isLoading: isCharactersLoading,
+    error: charactersError,
+    refetch: retryCharacters,
+  } = useQuery({
     queryKey: projectDataQueryKeys.characters.list(currentProjectId),
     queryFn: () => fetchCharactersByProject(currentProjectId!),
     enabled: !!currentProjectId,
@@ -398,7 +404,9 @@ export function CharactersPage() {
     setListOpen(false);
   };
 
-  const list = (
+  const list = charactersError ? (
+    <QueryError onRetry={() => void retryCharacters()} />
+  ) : (
     <CharacterList
       characters={characters}
       projectId={currentProjectId ?? ""}
@@ -449,7 +457,7 @@ export function CharactersPage() {
       direction="column"
     >
       {currentProjectId && !isMobile ? (
-        <Flex style={{ height: "100%", minWidth: 0 }}>
+        <Flex className="characters-page__content">
           <ProjectNavShell>{list}</ProjectNavShell>
           <WorkspaceLayout
             assistant={

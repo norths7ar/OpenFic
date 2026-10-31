@@ -1,3 +1,4 @@
+import "./project-data-dialog.css";
 import {
   AlertDialog,
   Badge,
@@ -290,7 +291,7 @@ export function ProjectDataDialog({ open, projectId, onOpenChange }: ProjectData
                 />
                 <Card
                   variant="surface"
-                  style={{ cursor: "pointer" }}
+                  className="project-data-dialog__choice"
                   onClick={() => fileInputRef.current?.click()}
                 >
                   <Flex
@@ -372,7 +373,7 @@ export function ProjectDataDialog({ open, projectId, onOpenChange }: ProjectData
                   >
                     {t("projectData.previewItems")}
                   </Text>
-                  <ScrollArea style={{ maxHeight: 220 }}>
+                  <ScrollArea className="project-data-dialog__preview">
                     <Flex
                       direction="column"
                       gap="2"
@@ -389,7 +390,7 @@ export function ProjectDataDialog({ open, projectId, onOpenChange }: ProjectData
                             justify="between"
                             gap="3"
                           >
-                            <Box style={{ minWidth: 0 }}>
+                            <Box className="project-data-dialog__details">
                               <Text
                                 as="p"
                                 size="2"

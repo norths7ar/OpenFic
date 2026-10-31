@@ -1,0 +1,15 @@
+.entry-list-item__selection-slot,
+.rt-Flex.entry-list-item__selection-slot {
+  width: 20px;
+  min-width: 20px;
+  flex-shrink: 0;
+}
+
+.entry-list-item__drag-handle,
+.rt-Flex.entry-list-item__drag-handle {
+  width: 20px;
+  min-width: 20px;
+  flex-shrink: 0;
+  color: var(--gray-a9);
+  touch-action: none;
+}

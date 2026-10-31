@@ -1,0 +1,109 @@
+.character-search-popover__match {
+  background: var(--accent-a4);
+  color: inherit;
+  padding: 0 2px;
+  border-radius: 2px;
+}
+
+.character-search-popover__group-heading,
+.rt-Flex.character-search-popover__group-heading {
+  padding: 6px 12px;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.1s ease;
+}
+
+.character-search-popover__group-chevron {
+  color: var(--gray-a9);
+  flex-shrink: 0;
+}
+
+.character-search-popover__group-title,
+.rt-Text.character-search-popover__group-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.character-search-popover__match-count,
+.rt-Box.character-search-popover__match-count {
+  min-width: 20px;
+  height: 18px;
+  border-radius: 999px;
+  background: var(--blue-a4);
+  color: var(--blue-11);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 5px;
+  flex-shrink: 0;
+}
+
+.character-search-popover__count-label,
+.rt-Text.character-search-popover__count-label {
+  line-height: 1;
+}
+
+.character-search-popover__matches,
+.rt-Box.character-search-popover__matches {
+  position: relative;
+  margin-left: 19px;
+  padding-left: 8px;
+}
+
+.character-search-popover__group-guide,
+.rt-Box.character-search-popover__group-guide {
+  position: absolute;
+  left: 0;
+  top: 4px;
+  bottom: 4px;
+  width: 1px;
+  background: var(--gray-a5);
+}
+
+.character-search-popover__match-row,
+.rt-Box.character-search-popover__match-row {
+  padding-top: 2px;
+  padding-bottom: 2px;
+  padding-right: 12px;
+  cursor: pointer;
+  transition: background 0.1s ease;
+}
+
+.character-search-popover__match-text,
+.rt-Text.character-search-popover__match-text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+}
+
+.character-search-popover__trigger {
+  border: none;
+  background: transparent;
+  padding: 0;
+  width: 100%;
+}
+
+.character-search-popover__content,
+.rt-PopoverContent.character-search-popover__content {
+  width: 360px;
+  max-width: 360px;
+  padding: 0;
+}
+
+.character-search-popover__results,
+.rt-Box.character-search-popover__results {
+  max-height: 400px;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.character-search-popover__header,
+.rt-Flex.character-search-popover__header {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--gray-a5);
+  background: var(--gray-a2);
+}

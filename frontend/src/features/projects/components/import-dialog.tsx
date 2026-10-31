@@ -575,7 +575,7 @@ export function ImportDialog({ open, onOpenChange, onSuccess }: ImportDialogProp
 
       case "importing":
         return (
-          <Box style={{ textAlign: "center", padding: "48px 24px" }}>
+          <Box className="import-dialog__loading">
             <Text
               as="p"
               size="3"
@@ -596,7 +596,7 @@ export function ImportDialog({ open, onOpenChange, onSuccess }: ImportDialogProp
               value={importProgress}
               max={100}
               size="2"
-              style={{ width: "100%" }}
+              className="import-dialog__progress"
             />
             <Text
               as="p"
@@ -611,19 +611,8 @@ export function ImportDialog({ open, onOpenChange, onSuccess }: ImportDialogProp
 
       case "complete":
         return (
-          <Box style={{ textAlign: "center", padding: "24px 0" }}>
-            <Box
-              style={{
-                width: 64,
-                height: 64,
-                borderRadius: "50%",
-                backgroundColor: "var(--green-3)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                margin: "0 auto 16px",
-              }}
-            >
+          <Box className="import-dialog__complete">
+            <Box className="import-dialog__complete-icon">
               <Check
                 size={32}
                 color="var(--green-9)"
@@ -673,7 +662,7 @@ export function ImportDialog({ open, onOpenChange, onSuccess }: ImportDialogProp
           <Flex
             gap="3"
             justify="between"
-            style={{ width: "100%" }}
+            className="import-dialog__progress"
           >
             <Button
               variant="soft"
@@ -695,7 +684,7 @@ export function ImportDialog({ open, onOpenChange, onSuccess }: ImportDialogProp
           <Flex
             gap="3"
             justify="between"
-            style={{ width: "100%" }}
+            className="import-dialog__progress"
           >
             <Button
               variant="soft"

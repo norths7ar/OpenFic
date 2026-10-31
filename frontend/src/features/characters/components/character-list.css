@@ -1,0 +1,83 @@
+.character-list__search-frame,
+.rt-Box.character-list__search-frame {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  height: var(--space-6);
+  border: 1px solid transparent;
+  border-radius: max(var(--radius-2), var(--radius-full));
+  min-width: 0;
+  position: relative;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease,
+    padding-right 0.15s ease;
+}
+
+.character-list__search-overlay,
+.rt-Box.character-list__search-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.character-list__search-toggle,
+.rt-IconButton.character-list__search-toggle {
+  flex-shrink: 0;
+  transition: opacity 0.15s ease;
+}
+
+.character-list__search-reveal {
+  overflow: hidden;
+}
+
+.character-list__search-input {
+  width: 200px;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-2);
+  color: var(--gray-12);
+  padding: 0;
+}
+
+.character-list__header,
+.rt-Box.character-list__header {
+  border-bottom: 1px solid var(--gray-a5);
+}
+
+.character-list__avatar-placeholder,
+.rt-Skeleton.character-list__avatar-placeholder {
+  border-radius: 999px;
+}
+
+.character-list__loading-details,
+.rt-Flex.character-list__loading-details {
+  flex: 1;
+  min-width: 0;
+}
+
+.character-list__name-placeholder,
+.rt-Skeleton.character-list__name-placeholder {
+  max-width: 200px;
+}
+
+.character-list__list-content,
+.rt-Flex.character-list__list-content {
+  min-width: 0;
+}
+
+.character-list__create-dialog,
+.rt-DialogContent.character-list__create-dialog {
+  max-width: 400px;
+}
+
+.character-list__create-description {
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 12px;
+  min-height: 70px;
+  background: var(--color-background);
+  color: var(--gray-12);
+}

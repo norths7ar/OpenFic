@@ -1,3 +1,4 @@
+import "./project-folder-groups.css";
 import { useState, type ReactNode } from "react";
 
 import type { ProjectFolder } from "@/features/project-folders/lib/project-folder-api";
@@ -31,7 +32,7 @@ export function ProjectFolderGroups<T extends FolderedItem>({
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const groups = projectNavGroups(folders, items, (item) => item.folderId);
   return (
-    <div style={{ width: "100%", minWidth: 0 }}>
+    <div className="project-folder-groups__scroll-region">
       {groups.map((group) => {
         const folder = group.folder;
         const groupId = folder?.id ?? PROJECT_NAV_ROOT_ID;

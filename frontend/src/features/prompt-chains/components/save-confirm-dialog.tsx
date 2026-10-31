@@ -1,9 +1,9 @@
+import "./save-confirm-dialog.css";
 /**
  * SaveConfirmDialog Component
  *
  * 保存版本确认对话框（检测并警告版本截断）
  */
-
 import { Dialog, Flex, Text, Button, Callout, Box } from "@radix-ui/themes";
 import { AlertTriangle } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -48,7 +48,7 @@ export function SaveConfirmDialog({
       open={open}
       onOpenChange={onOpenChange}
     >
-      <Dialog.Content style={{ maxWidth: "500px" }}>
+      <Dialog.Content className="save-confirm-dialog__content">
         <Dialog.Title>{t("promptChains.confirmSave")}</Dialog.Title>
 
         <Flex
@@ -89,11 +89,7 @@ export function SaveConfirmDialog({
           {versionsToTruncate.length > 0 && (
             <Box
               p="3"
-              style={{
-                background: "var(--orange-a2)",
-                border: "1px solid var(--orange-a5)",
-                borderRadius: "var(--radius-2)",
-              }}
+              className="save-confirm-dialog__preview"
             >
               <Text
                 size="2"

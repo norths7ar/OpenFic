@@ -1,9 +1,9 @@
+import "./entries-sidebar.css";
 /**
  * EntriesSidebar Component
  *
  * 左侧边栏：提示词条目列表
  */
-
 import {
   DndContext,
   closestCenter,
@@ -136,7 +136,7 @@ export function EntriesSidebar({
   const sidebarControls = (
     <Box
       p="3"
-      style={{ borderBottom: "1px solid var(--gray-a5)" }}
+      className="entries-sidebar__content"
     >
       <Flex
         direction="column"
@@ -146,7 +146,7 @@ export function EntriesSidebar({
           align="center"
           gap="1"
         >
-          <Box style={{ flex: 1, minWidth: 0 }}>
+          <Box className="entries-sidebar__loading">
             <PromptSelector
               categories={promptCategories}
               value={selectedPromptId}
@@ -208,24 +208,9 @@ export function EntriesSidebar({
   // 如果没有条目，显示空状态
   if (entries.length === 0) {
     return (
-      <Box
-        style={{
-          background: "var(--color-background)",
-          overflow: "auto",
-          display: "flex",
-          flexDirection: "column",
-        }}
-      >
+      <Box className="entries-sidebar__surface">
         {sidebarControls}
-        <Box
-          style={{
-            flex: 1,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: "24px",
-          }}
-        >
+        <Box className="entries-sidebar__empty-state">
           <Text
             size="2"
             color="gray"
@@ -240,21 +225,13 @@ export function EntriesSidebar({
   }
 
   return (
-    <Box
-      style={{
-        height: "100%",
-        background: "var(--color-background)",
-        display: "flex",
-        flexDirection: "column",
-        overflow: "hidden",
-      }}
-    >
+    <Box className="entries-sidebar__workspace">
       {sidebarControls}
 
       {/* 条目列表 */}
       <Box
         ref={listRef}
-        style={{ flex: 1, overflow: "auto" }}
+        className="entries-sidebar__scroll-region"
       >
         <DndContext
           sensors={sensors}
@@ -328,7 +305,9 @@ const EntryItem = React.forwardRef<HTMLDivElement, EntryItemProps>(
     return (
       <Box
         ref={combinedRef}
-        className={isHighlighted && !isSelected ? "entry-highlight" : ""}
+        className={[isHighlighted && !isSelected ? "entry-highlight" : "", "entries-sidebar__entry"]
+          .filter(Boolean)
+          .join(" ")}
         style={{
           ...style,
           borderBottom: "1px solid var(--gray-a5)",
@@ -349,23 +328,15 @@ const EntryItem = React.forwardRef<HTMLDivElement, EntryItemProps>(
         <Flex
           align="stretch"
           justify="between"
-          style={{ minWidth: 0, width: "100%" }}
+          className="entries-sidebar__entry-row"
         >
           <Flex
             {...attributes}
             {...listeners}
             align="center"
             justify="center"
-            style={{
-              width: 44,
-              minWidth: 44,
-              flexShrink: 0,
-              cursor: isDragging ? "grabbing" : "grab",
-              color: "var(--gray-a9)",
-              touchAction: "none",
-              userSelect: "none",
-              WebkitUserSelect: "none",
-            }}
+            className="entries-sidebar__drag-handle"
+            style={{ cursor: isDragging ? "grabbing" : "grab" }}
             onClick={(e) => e.stopPropagation()}
             onContextMenu={(e) => {
               e.preventDefault();
@@ -379,31 +350,21 @@ const EntryItem = React.forwardRef<HTMLDivElement, EntryItemProps>(
             align="center"
             gap="2"
             justify="between"
-            style={{
-              flex: 1,
-              minWidth: 0,
-              padding: "12px 12px 12px 0",
-            }}
+            className="entries-sidebar__entry-details"
           >
             <Flex
               align="center"
               gap="2"
-              style={{ flex: 1, minWidth: 0 }}
+              className="entries-sidebar__loading"
             >
-              <Box style={{ color: "var(--gray-a10)", flexShrink: 0 }}>
+              <Box className="entries-sidebar__role-icon">
                 <RoleIcon size={14} />
               </Box>
 
               <Text
                 size="2"
                 weight="medium"
-                style={{
-                  flex: 1,
-                  minWidth: 0,
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                }}
+                className="entries-sidebar__entry-title"
               >
                 {entry.name}
               </Text>
@@ -412,7 +373,7 @@ const EntryItem = React.forwardRef<HTMLDivElement, EntryItemProps>(
             <Flex
               align="center"
               gap="1"
-              style={{ flexShrink: 0 }}
+              className="entries-sidebar__entry-actions"
             >
               {/* 删除按钮 */}
               <IconButton
@@ -439,7 +400,7 @@ const EntryItem = React.forwardRef<HTMLDivElement, EntryItemProps>(
               <Text
                 size="1"
                 color="gray"
-                style={{ minWidth: "32px", textAlign: "right" }}
+                className="entries-sidebar__token-count"
               >
                 {entry.token_count}
               </Text>

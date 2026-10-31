@@ -1,10 +1,10 @@
+import "./cover-cropper.css";
 /**
  * CoverCropper Component
  *
  * 封面裁剪器组件，支持图片选择、预览和裁剪（固定 2:3 比例）。
  * 裁剪功能使用覆盖式 Dialog 弹窗显示。
  */
-
 import { Box, Button, Dialog, Flex, Text } from "@radix-ui/themes";
 import { Upload } from "lucide-react";
 import { useState, useCallback, useRef } from "react";
@@ -128,30 +128,18 @@ export function CoverCropper({ value, onChange, previewUrl }: CoverCropperProps)
         size="2"
         weight="medium"
         mb="2"
-        style={{ display: "block" }}
+        className="cover-cropper__label"
       >
         {t("coverCropper.projectCover")}
       </Text>
 
       {displayUrl ? (
         <Box>
-          <Box
-            style={{
-              width: "160px",
-              aspectRatio: "2/3",
-              overflow: "hidden",
-              borderRadius: "var(--radius-3)",
-              background: "var(--gray-a3)",
-            }}
-          >
+          <Box className="cover-cropper__preview">
             <img
               src={displayUrl}
               alt={t("coverCropper.coverPreview")}
-              style={{
-                width: "100%",
-                height: "100%",
-                objectFit: "cover",
-              }}
+              className="cover-cropper__image"
             />
           </Box>
           <Button
@@ -170,19 +158,7 @@ export function CoverCropper({ value, onChange, previewUrl }: CoverCropperProps)
         </Box>
       ) : (
         <Box
-          style={{
-            width: "160px",
-            aspectRatio: "2/3",
-            border: "2px dashed var(--gray-a7)",
-            borderRadius: "var(--radius-3)",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            cursor: "pointer",
-            transition: "border-color 0.15s, background-color 0.15s",
-            background: "var(--gray-a2)",
-          }}
+          className="cover-cropper__dropzone"
           onClick={(e) => {
             e.preventDefault();
             e.stopPropagation();
@@ -199,7 +175,7 @@ export function CoverCropper({ value, onChange, previewUrl }: CoverCropperProps)
         >
           <Upload
             size={24}
-            style={{ color: "var(--gray-a9)", marginBottom: "8px" }}
+            className="cover-cropper__upload-icon"
           />
           <Text
             size="1"
@@ -214,7 +190,7 @@ export function CoverCropper({ value, onChange, previewUrl }: CoverCropperProps)
         ref={fileInputRef}
         type="file"
         accept="image/*"
-        style={{ display: "none" }}
+        className="cover-cropper__file-input"
         onChange={handleFileSelect}
       />
 
@@ -238,13 +214,7 @@ export function CoverCropper({ value, onChange, previewUrl }: CoverCropperProps)
 
           <Box
             mt="4"
-            style={{
-              position: "relative",
-              width: "100%",
-              height: "400px",
-              background: "var(--gray-a3)",
-              borderRadius: "var(--radius-3)",
-            }}
+            className="cover-cropper__crop-area"
           >
             {imageSrc && (
               <Cropper
