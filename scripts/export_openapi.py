@@ -16,9 +16,7 @@ from app.main import fastapi_app  # noqa: E402
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--output", type=Path, default=ROOT / "frontend" / "openapi.json"
-    )
+    parser.add_argument("--output", type=Path, default=ROOT / "frontend" / "openapi.json")
     output = parser.parse_args().output
     output.write_text(
         json.dumps(fastapi_app.openapi(), ensure_ascii=False, indent=2) + "\n",
