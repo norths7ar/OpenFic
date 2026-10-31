@@ -1,4 +1,5 @@
-import { apiClient } from "@/lib/api-transport";
+import type * as schemas from "@/api/generated/models";
+import * as http from "@/api/generated/openfic";
 import type {
   SkillReferenceDoc,
   SkillReferenceDocCreate,
@@ -13,7 +14,7 @@ import type {
   SkillUpdate,
 } from "@/lib/skill.types";
 
-function transformSkill(raw: Record<string, unknown>): Skill {
+function transformSkill(raw: schemas.SkillResponse): Skill {
   return {
     id: raw.id as string,
     name: raw.name as string,
@@ -26,7 +27,7 @@ function transformSkill(raw: Record<string, unknown>): Skill {
     updatedAt: raw.updated_at as string,
   };
 }
-function transformSkillReferenceDoc(raw: Record<string, unknown>): SkillReferenceDoc {
+function transformSkillReferenceDoc(raw: schemas.SkillReferenceDocResponse): SkillReferenceDoc {
   return {
     id: raw.id as string,
     title: raw.title as string,
@@ -37,23 +38,24 @@ function transformSkillReferenceDoc(raw: Record<string, unknown>): SkillReferenc
   };
 }
 export async function fetchSkills(params?: SkillListParams): Promise<SkillListResponse> {
-  const response = await apiClient.get("/skills", {
-    params: { page: params?.page ?? 1, page_size: params?.pageSize ?? 100 },
+  const response = await http.listSkillsApiV1SkillsGet({
+    page: params?.page ?? 1,
+    page_size: params?.pageSize ?? 100,
   });
   const data = response.data;
   return {
-    items: (data.items as Record<string, unknown>[]).map(transformSkill),
+    items: data.items.map(transformSkill),
     total: data.total,
     page: data.page,
     pageSize: data.page_size,
   };
 }
 export async function fetchSkill(skillDbId: string): Promise<Skill> {
-  const response = await apiClient.get(`/skills/${skillDbId}`);
+  const response = await http.getSkillApiV1SkillsSkillDbIdGet(skillDbId);
   return transformSkill(response.data);
 }
 export async function createSkill(data: SkillCreate): Promise<Skill> {
-  const response = await apiClient.post("/skills", {
+  const response = await http.createSkillApiV1SkillsPost({
     name: data.name,
     summary: data.summary,
     content: data.content,
@@ -64,19 +66,17 @@ export async function createSkill(data: SkillCreate): Promise<Skill> {
 export async function importSkill(file: File): Promise<SkillImportResult> {
   const formData = new FormData();
   formData.append("files", file);
-  const response = await apiClient.post("/skills/import", formData, {
+  const response = await http.importSkillApiV1SkillsImportPost(formData, {
     headers: { "Content-Type": "multipart/form-data" },
   });
   return {
     skill: transformSkill(response.data.skill),
-    referenceDocs: (response.data.reference_docs as Record<string, unknown>[]).map(
-      transformSkillReferenceDoc,
-    ),
+    referenceDocs: response.data.reference_docs.map(transformSkillReferenceDoc),
     isRecognized: response.data.is_recognized as boolean,
   };
 }
 export async function updateSkill(skillDbId: string, data: SkillUpdate): Promise<Skill> {
-  const response = await apiClient.patch(`/skills/${skillDbId}`, {
+  const response = await http.updateSkillApiV1SkillsSkillDbIdPatch(skillDbId, {
     name: data.name,
     summary: data.summary,
     content: data.content,
@@ -85,25 +85,25 @@ export async function updateSkill(skillDbId: string, data: SkillUpdate): Promise
   return transformSkill(response.data);
 }
 export async function toggleSkill(skillDbId: string): Promise<Skill> {
-  const response = await apiClient.post(`/skills/${skillDbId}/toggle`);
+  const response = await http.toggleSkillApiV1SkillsSkillDbIdTogglePost(skillDbId);
   return transformSkill(response.data);
 }
 export async function forkSkill(skillDbId: string): Promise<Skill> {
-  const response = await apiClient.post(`/skills/${skillDbId}/fork`);
+  const response = await http.forkSkillApiV1SkillsSkillDbIdForkPost(skillDbId);
   return transformSkill(response.data);
 }
 export async function deleteSkill(skillDbId: string): Promise<void> {
-  await apiClient.delete(`/skills/${skillDbId}`);
+  await http.deleteSkillApiV1SkillsSkillDbIdDelete(skillDbId);
 }
 export async function fetchSkillReferenceDocs(skillDbId: string): Promise<SkillReferenceDoc[]> {
-  const response = await apiClient.get(`/skills/${skillDbId}/reference-docs`);
-  return (response.data as Record<string, unknown>[]).map(transformSkillReferenceDoc);
+  const response = await http.listReferenceDocsApiV1SkillsSkillDbIdReferenceDocsGet(skillDbId);
+  return response.data.map(transformSkillReferenceDoc);
 }
 export async function createSkillReferenceDoc(
   skillDbId: string,
   data: SkillReferenceDocCreate,
 ): Promise<SkillReferenceDoc> {
-  const response = await apiClient.post(`/skills/${skillDbId}/reference-docs`, {
+  const response = await http.createReferenceDocApiV1SkillsSkillDbIdReferenceDocsPost(skillDbId, {
     title: data.title,
     content: data.content,
   });
@@ -114,12 +114,16 @@ export async function updateSkillReferenceDoc(
   docId: string,
   data: SkillReferenceDocUpdate,
 ): Promise<SkillReferenceDoc> {
-  const response = await apiClient.patch(`/skills/${skillDbId}/reference-docs/${docId}`, {
-    title: data.title,
-    content: data.content,
-  });
+  const response = await http.updateReferenceDocApiV1SkillsSkillDbIdReferenceDocsDocIdPatch(
+    skillDbId,
+    docId,
+    {
+      title: data.title,
+      content: data.content,
+    },
+  );
   return transformSkillReferenceDoc(response.data);
 }
 export async function deleteSkillReferenceDoc(skillDbId: string, docId: string): Promise<void> {
-  await apiClient.delete(`/skills/${skillDbId}/reference-docs/${docId}`);
+  await http.deleteReferenceDocApiV1SkillsSkillDbIdReferenceDocsDocIdDelete(skillDbId, docId);
 }

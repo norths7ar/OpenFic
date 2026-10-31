@@ -1,35 +1,22 @@
-import { apiClient } from "@/lib/api-transport";
+import * as http from "@/api/generated/openfic";
 
-export interface AuthStatusResponse {
-  enabled: boolean;
-  authenticated: boolean;
-}
+export type AuthStatusResponse = import("@/api/generated/models").AuthStatusResponse;
 
-export interface AuthPreferencesResponse {
-  language: string;
-  theme: string;
-  font_family: string;
-  code_font_family: string;
-  base_font_size: number;
-  editor_font_size: number;
-}
+export type AuthPreferencesResponse = import("@/api/generated/models").PublicPreferencesResponse;
 
-export interface AuthLoginRequest {
-  password: string;
-  trust_device: boolean;
-}
+export type AuthLoginRequest = import("@/api/generated/models").AuthLoginRequest;
 
 export async function fetchAuthStatus(): Promise<AuthStatusResponse> {
-  const response = await apiClient.get<AuthStatusResponse>("/auth/status");
+  const response = await http.authStatusApiV1AuthStatusGet();
   return response.data;
 }
 
 export async function fetchAuthPreferences(): Promise<AuthPreferencesResponse> {
-  const response = await apiClient.get<AuthPreferencesResponse>("/auth/preferences");
+  const response = await http.publicPreferencesApiV1AuthPreferencesGet();
   return response.data;
 }
 
 export async function loginWithPassword(payload: AuthLoginRequest): Promise<AuthStatusResponse> {
-  const response = await apiClient.post<AuthStatusResponse>("/auth/login", payload);
+  const response = await http.loginApiV1AuthLoginPost(payload);
   return response.data;
 }

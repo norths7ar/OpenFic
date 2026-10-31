@@ -1,4 +1,5 @@
-import { apiClient } from "@/lib/api-transport";
+import type * as schemas from "@/api/generated/models";
+import * as http from "@/api/generated/openfic";
 
 export type ProjectFolderScope =
   | "writing"
@@ -19,7 +20,7 @@ export interface ProjectFolder {
   updatedAt: string;
 }
 
-function transformFolder(raw: Record<string, unknown>): ProjectFolder {
+function transformFolder(raw: schemas.ProjectFolderResponse): ProjectFolder {
   return {
     id: raw.id as string,
     projectId: raw.project_id as string,
@@ -36,8 +37,10 @@ export async function fetchProjectFolders(
   projectId: string,
   scope: ProjectFolderScope,
 ): Promise<ProjectFolder[]> {
-  const response = await apiClient.get(`/projects/${projectId}/folders`, { params: { scope } });
-  return ((response.data.items as Record<string, unknown>[]) ?? []).map(transformFolder);
+  const response = await http.listProjectFoldersApiV1ProjectsProjectIdFoldersGet(projectId, {
+    scope,
+  });
+  return (response.data.items ?? []).map(transformFolder);
 }
 
 export async function createProjectFolder(
@@ -46,7 +49,7 @@ export async function createProjectFolder(
   title: string,
   description?: string | null,
 ): Promise<ProjectFolder> {
-  const response = await apiClient.post(`/projects/${projectId}/folders`, {
+  const response = await http.createProjectFolderApiV1ProjectsProjectIdFoldersPost(projectId, {
     scope,
     title,
     description,
@@ -59,12 +62,15 @@ export async function renameProjectFolder(
   title: string,
   description?: string | null,
 ): Promise<ProjectFolder> {
-  const response = await apiClient.patch(`/folders/${folderId}`, { title, description });
+  const response = await http.updateProjectFolderApiV1FoldersFolderIdPatch(folderId, {
+    title,
+    description,
+  });
   return transformFolder(response.data);
 }
 
 export async function deleteProjectFolder(folderId: string): Promise<void> {
-  await apiClient.delete(`/folders/${folderId}`);
+  await http.deleteProjectFolderApiV1FoldersFolderIdDelete(folderId);
 }
 
 export async function moveProjectFolderItem(
@@ -73,7 +79,7 @@ export async function moveProjectFolderItem(
   itemId: string,
   folderId: string | null,
 ): Promise<void> {
-  await apiClient.post(`/projects/${projectId}/folders/items/move`, {
+  await http.moveProjectFolderItemApiV1ProjectsProjectIdFoldersItemsMovePost(projectId, {
     scope,
     item_id: itemId,
     folder_id: folderId,
@@ -85,9 +91,12 @@ export async function reorderProjectFolders(
   scope: ProjectFolderScope,
   orderedIds: string[],
 ): Promise<number> {
-  const response = await apiClient.post(`/projects/${projectId}/folders/reorder`, {
-    scope,
-    ordered_ids: orderedIds,
-  });
+  const response = await http.reorderProjectFoldersApiV1ProjectsProjectIdFoldersReorderPost(
+    projectId,
+    {
+      scope,
+      ordered_ids: orderedIds,
+    },
+  );
   return response.data.updated_count as number;
 }

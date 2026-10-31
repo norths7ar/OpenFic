@@ -1,13 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
 
+import * as http from "@/api/generated/openfic";
 import { agentVisibilityCatalogSchema } from "@/lib/agent-visibility";
-import { apiClient } from "@/lib/api-transport";
 
 export function useAgentVisibilityCatalog() {
   return useQuery({
     queryKey: ["agent-visibility"],
     queryFn: async () => {
-      const response = await apiClient.get<unknown>("/agent-visibility");
+      const response = await http.getAgentVisibilityCatalogApiV1AgentVisibilityGet();
       return agentVisibilityCatalogSchema.parse(response.data);
     },
     staleTime: Infinity,

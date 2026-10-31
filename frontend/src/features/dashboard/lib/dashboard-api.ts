@@ -1,4 +1,5 @@
-import { apiClient } from "@/lib/api-transport";
+import type * as schemas from "@/api/generated/models";
+import * as http from "@/api/generated/openfic";
 
 import type {
   DashboardAuditRecord,
@@ -18,123 +19,28 @@ import type {
   WritingDashboardResponse,
 } from "./dashboard.types";
 
-interface RawDashboardSummary {
-  calls_total: number;
-  success_total: number;
-  tokens_total: number;
-  tokens_input_total: number;
-  tokens_output_total: number;
-  avg_latency_ms: number;
-  avg_first_token_ms: number;
-}
+type RawDashboardSummary = schemas.DashboardSummary;
 
-interface RawDashboardTimeSeriesPoint {
-  date: string;
-  calls: number;
-  tokens_total: number;
-  avg_latency_ms: number;
-}
+type RawDashboardTimeSeriesPoint = Pick<
+  schemas.DashboardModelTimeSeriesPoint,
+  "date" | "calls" | "tokens_total" | "avg_latency_ms"
+>;
 
-interface RawDashboardModelTimeSeriesPoint extends RawDashboardTimeSeriesPoint {
-  key: string;
-  label: string;
-}
+type RawDashboardModelTimeSeriesPoint = schemas.DashboardModelTimeSeriesPoint;
 
-interface RawDashboardBreakdownItem {
-  key: string;
-  label: string;
-  calls: number;
-  tokens_total: number;
-}
+type RawDashboardBreakdownItem = schemas.DashboardBreakdownItem;
 
-interface RawDashboardAuditRecord {
-  id: string;
-  created_at: string;
-  task_id: string | null;
-  session_id: string | null;
-  project_id: string;
-  project_title: string | null;
-  chapter_id: string | null;
-  revision_id: string | null;
-  category: string;
-  operation: string;
-  model_id: string;
-  model_provider: string | null;
-  model_name: string | null;
-  tokens_input: number;
-  tokens_output: number;
-  tokens_total: number;
-  token_cache: number;
-  latency_ms: number | null;
-  first_token_ms: number | null;
-  status: string;
-  error_type: string | null;
-  error_message: string | null;
-  error_status_code: number | null;
-  tool_calls_count: number;
-  has_request_messages: boolean;
-  tool_references: string | null;
-  response_content: string | null;
-  response_tool_calls: string | null;
-}
+type RawDashboardAuditRecord = schemas.DashboardAuditRecord;
 
-interface RawDashboardRecordPrompt {
-  id: string;
-  request_messages: string | null;
-}
+type RawDashboardRecordPrompt = schemas.DashboardRecordPrompt;
 
-interface RawDashboardRecordList {
-  items: RawDashboardAuditRecord[];
-  total: number;
-  page: number;
-  page_size: number;
-}
+type RawDashboardRecordList = schemas.DashboardRecordList;
 
-interface RawDashboardFilterOptions {
-  project_ids: string[];
-  model_providers: string[];
-  model_ids: string[];
-  categories: string[];
-  operations: string[];
-  statuses: string[];
-  project_options: RawDashboardFilterOptionItem[];
-  model_options: RawDashboardFilterOptionItem[];
-}
+type RawDashboardFilterOptions = schemas.DashboardFilterOptions;
 
-interface RawDashboardFilterOptionItem {
-  value: string;
-  label: string;
-}
+type RawWritingActivitySummary = schemas.WritingActivitySummary;
 
-interface RawDashboardStatsResponse {
-  summary: RawDashboardSummary;
-  model_time_series: RawDashboardModelTimeSeriesPoint[];
-  by_model: RawDashboardBreakdownItem[];
-  by_project: RawDashboardBreakdownItem[];
-  options: RawDashboardFilterOptions;
-}
-
-interface RawDashboardRecordsResponse {
-  options: RawDashboardFilterOptions;
-  records: RawDashboardRecordList;
-}
-
-interface RawWritingActivitySummary {
-  active_days: number;
-  creative_chapters: number;
-}
-
-interface RawWritingActivityTimeSeriesPoint {
-  date: string;
-  user_word_delta: number;
-  agent_word_delta: number;
-  import_word_delta: number;
-}
-
-interface RawWritingDashboardResponse {
-  summary: RawWritingActivitySummary;
-  time_series: RawWritingActivityTimeSeriesPoint[];
-}
+type RawWritingActivityTimeSeriesPoint = schemas.WritingActivityTimeSeriesPoint;
 
 function transformSummary(raw: RawDashboardSummary): DashboardSummary {
   return {
@@ -262,17 +168,15 @@ function transformWritingTimeSeriesPoint(
 export async function fetchLlmDashboardStats(
   query: DashboardQueryParams,
 ): Promise<DashboardStatsResponse> {
-  const response = await apiClient.get<RawDashboardStatsResponse>("/dashboard/llm-api/stats", {
-    params: {
-      project_id: query.projectId || undefined,
-      model_provider: query.modelProvider || undefined,
-      model_id: query.modelId || undefined,
-      category: query.category || undefined,
-      operation: query.operation || undefined,
-      status: query.status || undefined,
-      start_at: query.startAt || undefined,
-      end_at: query.endAt || undefined,
-    },
+  const response = await http.getLlmApiStatsDashboardApiV1DashboardLlmApiStatsGet({
+    project_id: query.projectId || undefined,
+    model_provider: query.modelProvider || undefined,
+    model_id: query.modelId || undefined,
+    category: query.category || undefined,
+    operation: query.operation || undefined,
+    status: query.status || undefined,
+    start_at: query.startAt || undefined,
+    end_at: query.endAt || undefined,
   });
   const raw = response.data;
   return {
@@ -287,24 +191,22 @@ export async function fetchLlmDashboardStats(
 export async function fetchLlmDashboardRecords(
   query: DashboardQueryParams,
 ): Promise<DashboardRecordsResponse> {
-  const response = await apiClient.get<RawDashboardRecordsResponse>("/dashboard/llm-api/records", {
-    params: {
-      project_id: query.projectId || undefined,
-      model_provider: query.modelProvider || undefined,
-      model_id: query.modelId || undefined,
-      category: query.category || undefined,
-      operation: query.operation || undefined,
-      status: query.status || undefined,
-      task_id: query.taskId || undefined,
-      session_id: query.sessionId || undefined,
-      start_at: query.startAt || undefined,
-      end_at: query.endAt || undefined,
-      search: query.search || undefined,
-      page: query.page,
-      page_size: query.pageSize,
-      sort_by: query.sortBy,
-      sort_order: query.sortOrder,
-    },
+  const response = await http.getLlmApiRecordsDashboardApiV1DashboardLlmApiRecordsGet({
+    project_id: query.projectId || undefined,
+    model_provider: query.modelProvider || undefined,
+    model_id: query.modelId || undefined,
+    category: query.category || undefined,
+    operation: query.operation || undefined,
+    status: query.status || undefined,
+    task_id: query.taskId || undefined,
+    session_id: query.sessionId || undefined,
+    start_at: query.startAt || undefined,
+    end_at: query.endAt || undefined,
+    search: query.search || undefined,
+    page: query.page,
+    page_size: query.pageSize,
+    sort_by: query.sortBy,
+    sort_order: query.sortOrder,
   });
   const raw = response.data;
   return {
@@ -314,23 +216,20 @@ export async function fetchLlmDashboardRecords(
 }
 
 export async function fetchDashboardRecordPrompt(recordId: string): Promise<DashboardRecordPrompt> {
-  const response = await apiClient.get<RawDashboardRecordPrompt>(
-    `/dashboard/llm-api/records/${recordId}/prompt`,
-  );
+  const response =
+    await http.getLlmApiRecordPromptApiV1DashboardLlmApiRecordsRecordIdPromptGet(recordId);
   return transformRecordPrompt(response.data);
 }
 
 export async function fetchWritingDashboard(
   query: WritingDashboardQueryParams,
 ): Promise<WritingDashboardResponse> {
-  const response = await apiClient.get<RawWritingDashboardResponse>("/dashboard/writing", {
-    params: {
-      project_id: query.projectId || undefined,
-      source: query.source || undefined,
-      start_at: query.startAt || undefined,
-      end_at: query.endAt || undefined,
-      timezone: query.timezone || undefined,
-    },
+  const response = await http.getWritingDashboardApiV1DashboardWritingGet({
+    project_id: query.projectId || undefined,
+    source: query.source || undefined,
+    start_at: query.startAt || undefined,
+    end_at: query.endAt || undefined,
+    timezone: query.timezone || undefined,
   });
   const raw = response.data;
   return {

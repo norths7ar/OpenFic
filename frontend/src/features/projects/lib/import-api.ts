@@ -1,40 +1,22 @@
+import * as http from "@/api/generated/openfic";
 /**
  * 导入 API - TXT 文件导入相关接口。
  */
-
 import i18n from "@/i18n";
-import { apiClient, getApiBaseUrl } from "@/lib/api-transport";
+import { getApiBaseUrl } from "@/lib/api-transport";
 import { handleAuthenticationFailure } from "@/lib/auth-failure";
 
 /** 预览章节信息 */
-export interface PreviewChapter {
-  title: string;
-  word_count: number;
-  content_preview: string;
-}
+export type PreviewChapter = import("@/api/generated/models").PreviewChapter;
 
 /** 预览卷信息 */
-export interface PreviewVolume {
-  title: string;
-  chapter_count: number;
-  chapters: PreviewChapter[];
-}
+export type PreviewVolume = import("@/api/generated/models").PreviewVolume;
 
 /** 导入预览响应 */
-export interface ImportPreviewResponse {
-  volumes: PreviewVolume[];
-  total_word_count: number;
-  chapter_count: number;
-  detected_encoding: string;
-}
+export type ImportPreviewResponse = import("@/api/generated/models").ImportPreviewResponse;
 
 /** 确认导入响应 */
-export interface ImportConfirmResponse {
-  project_id: string;
-  title: string;
-  chapter_count: number;
-  total_word_count: number;
-}
+export type ImportConfirmResponse = import("@/api/generated/models").ImportConfirmResponse;
 
 /**
  * 预览 TXT 文件解析结果。
@@ -46,7 +28,7 @@ export async function previewTxtFile(file: File): Promise<ImportPreviewResponse>
   const formData = new FormData();
   formData.append("file", file);
 
-  const response = await apiClient.post<ImportPreviewResponse>("/import/preview", formData, {
+  const response = await http.previewTxtFileApiV1ImportPreviewPost(formData, {
     headers: {
       "Content-Type": "multipart/form-data",
     },
@@ -82,7 +64,7 @@ export async function confirmImport(
     formData.append("cover", cover);
   }
 
-  const response = await apiClient.post<ImportConfirmResponse>("/import/confirm", formData, {
+  const response = await http.confirmImportApiV1ImportConfirmPost(formData, {
     headers: {
       "Content-Type": "multipart/form-data",
     },

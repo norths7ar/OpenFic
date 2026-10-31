@@ -1,4 +1,5 @@
-import { apiClient } from "@/lib/api-transport";
+import type * as schemas from "@/api/generated/models";
+import * as http from "@/api/generated/openfic";
 
 export type SummaryStatus = "not_generated" | "queued" | "running" | "ready" | "failed";
 
@@ -160,7 +161,9 @@ function transformSummaryStatusItem(raw: Record<string, unknown>): SummaryStatus
     updatedAt: raw.updated_at as string | null,
   };
 }
-function transformLongTermSummaryListItem(raw: Record<string, unknown>): LongTermSummaryListItem {
+function transformLongTermSummaryListItem(
+  raw: schemas.LongTermSummaryListItemResponse,
+): LongTermSummaryListItem {
   return {
     startOrder: Number(raw.start_order ?? 0),
     endOrder: Number(raw.end_order ?? 0),
@@ -178,7 +181,9 @@ function transformLongTermSummaryListItem(raw: Record<string, unknown>): LongTer
     updatedAt: raw.updated_at as string | null,
   };
 }
-function transformChapterSummaryListItem(raw: Record<string, unknown>): ChapterSummaryListItem {
+function transformChapterSummaryListItem(
+  raw: schemas.ChapterSummaryListItemResponse,
+): ChapterSummaryListItem {
   return {
     chapterId: raw.chapter_id as string,
     chapterOrder: Number(raw.chapter_order ?? 0),
@@ -302,22 +307,19 @@ export async function fetchChapterSummaryList(
   volumeId?: string | null,
   query?: string,
 ): Promise<ChapterSummaryListResponse> {
-  const response = await apiClient.get<Record<string, unknown>>(
-    `/projects/${projectId}/chapter-context/summaries/chapters`,
-    {
-      params: {
+  const response =
+    await http.listChapterSummaryItemsApiV1ProjectsProjectIdChapterContextSummariesChaptersGet(
+      projectId,
+      {
         page,
         page_size: pageSize,
         ...(volumeId ? { volume_id: volumeId } : {}),
         ...(query ? { q: query } : {}),
       },
-      signal,
-    },
-  );
+      { signal },
+    );
   return {
-    items: ((response.data.items as Record<string, unknown>[]) || []).map(
-      transformChapterSummaryListItem,
-    ),
+    items: (response.data.items || []).map(transformChapterSummaryListItem),
     total: Number(response.data.total ?? 0),
     page: Number(response.data.page ?? page),
     pageSize: Number(response.data.page_size ?? pageSize),
@@ -327,17 +329,23 @@ export async function deleteChapterSummaries(
   projectId: string,
   chapterIds: string[],
 ): Promise<void> {
-  await apiClient.delete(`/projects/${projectId}/chapter-context/summaries/chapters`, {
-    data: { chapter_ids: chapterIds },
-  });
+  await http.deleteChapterSummariesApiV1ProjectsProjectIdChapterContextSummariesChaptersDelete(
+    projectId,
+    {
+      chapter_ids: chapterIds,
+    },
+  );
 }
 export async function deleteLongTermSummaries(
   projectId: string,
   ranges: Array<[number, number]>,
 ): Promise<void> {
-  await apiClient.delete(`/projects/${projectId}/chapter-context/summaries/long-term`, {
-    data: { ranges },
-  });
+  await http.deleteLongTermSummariesApiV1ProjectsProjectIdChapterContextSummariesLongTermDelete(
+    projectId,
+    {
+      ranges,
+    },
+  );
 }
 export async function fetchLongTermSummariesPage(
   projectId: string,
@@ -346,14 +354,14 @@ export async function fetchLongTermSummariesPage(
   signal?: AbortSignal,
   query?: string,
 ): Promise<LongTermSummaryListResponse> {
-  const response = await apiClient.get<Record<string, unknown>>(
-    `/projects/${projectId}/chapter-context/summaries/long-term`,
-    { params: { page, page_size: pageSize, ...(query ? { q: query } : {}) }, signal },
-  );
+  const response =
+    await http.listLongTermsPageApiV1ProjectsProjectIdChapterContextSummariesLongTermGet(
+      projectId,
+      { page, page_size: pageSize, ...(query ? { q: query } : {}) },
+      { signal },
+    );
   return {
-    items: ((response.data.items as Record<string, unknown>[]) || []).map(
-      transformLongTermSummaryListItem,
-    ),
+    items: (response.data.items || []).map(transformLongTermSummaryListItem),
     total: Number(response.data.total ?? 0),
     page: Number(response.data.page ?? page),
     pageSize: Number(response.data.page_size ?? pageSize),
@@ -363,15 +371,13 @@ export async function enqueueSummary(
   projectId: string,
   data: EnqueueSummaryRequest,
 ): Promise<EnqueueSummaryResponse> {
-  const response = await apiClient.post<Record<string, unknown>>(
-    `/projects/${projectId}/chapter-context/summaries/enqueue`,
-    {
+  const response =
+    await http.enqueueSummaryApiV1ProjectsProjectIdChapterContextSummariesEnqueuePost(projectId, {
       summary_type: data.summaryType,
       chapter_id: data.chapterId,
       start_order: data.startOrder,
       end_order: data.endOrder,
-    },
-  );
+    });
   return {
     summaryId: (response.data.summary_id as string | null) ?? null,
     status: (response.data.status as string) || "queued",
@@ -380,5 +386,5 @@ export async function enqueueSummary(
   };
 }
 export async function cancelBackgroundJob(jobId: string, reason: string): Promise<void> {
-  await apiClient.post(`/background/jobs/${jobId}/cancel`, { reason });
+  await http.cancelBackgroundJobApiV1BackgroundJobsJobIdCancelPost(jobId, { reason });
 }

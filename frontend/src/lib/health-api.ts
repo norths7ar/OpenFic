@@ -1,11 +1,8 @@
-import { apiClient } from "./api-transport";
+import * as http from "@/api/generated/openfic";
 
-export interface HealthResponse {
-  status: string;
-  version: string;
-}
+export type HealthResponse = import("@/api/generated/models").HealthResponse;
 
 export async function checkHealth(): Promise<HealthResponse> {
-  const response = await apiClient.get<HealthResponse>("/health");
+  const response = await http.healthCheckApiV1HealthGet();
   return response.data;
 }

@@ -6,66 +6,21 @@ import i18n from "@/i18n";
  * 智能体定义前端类型，对齐后端 /agent-definitions API。
  */
 
-export interface AgentDefinitionResponse {
-  key: string;
-  display_name: string;
-  description: string;
-  kind: "primary" | "subagent";
-  prompt_agent_name: string;
-  model_id: string | null;
-  enabled_tool_categories: string[];
-  enabled_skills: string[];
-  metadata: Record<string, unknown>;
-  enabled: boolean;
-  source: "builtin" | "custom";
-  color?: string | null;
-  icon?: string | null;
-  delegatable_agents: string[];
-}
+export type AgentDefinitionResponse = import("@/api/generated/models").AgentDefinitionResponse;
 
-export interface AgentDefinitionCreateRequest {
-  key: string;
-  display_name: string;
-  description: string;
-  kind: "primary" | "subagent";
-  prompt_agent_name: string;
-  model_id: string | null;
-  enabled_tool_categories: string[];
-  enabled_skills: string[];
-  metadata: Record<string, unknown>;
-  color?: string | null;
-  icon?: string | null;
-  delegatable_agents: string[];
-}
+export type AgentDefinitionCreateRequest =
+  import("@/api/generated/models").AgentDefinitionCreateRequest;
 
-export interface AgentDefinitionUpdateRequest {
-  display_name?: string | null;
-  description?: string | null;
-  kind?: "primary" | "subagent" | null;
-  prompt_agent_name?: string | null;
-  model_id?: string | null;
-  enabled_tool_categories?: string[] | null;
-  enabled_skills?: string[] | null;
-  metadata?: Record<string, unknown> | null;
-  enabled?: boolean | null;
-  color?: string | null;
-  icon?: string | null;
-  delegatable_agents?: string[] | null;
-}
+export type AgentDefinitionUpdateRequest =
+  import("@/api/generated/models").AgentDefinitionUpdateRequest;
 
-export interface AgentDefinitionListResponse {
-  definitions: AgentDefinitionResponse[];
-}
+export type AgentDefinitionListResponse =
+  import("@/api/generated/models").AgentDefinitionListResponse;
 
-export interface AgentToolCategoryResponse {
-  key: string;
-  name: string;
-  tool_keys: string[];
-}
+export type AgentToolCategoryResponse = import("@/api/generated/models").AgentToolCategoryResponse;
 
-export interface AgentToolCategoryListResponse {
-  categories: AgentToolCategoryResponse[];
-}
+export type AgentToolCategoryListResponse =
+  import("@/api/generated/models").AgentToolCategoryListResponse;
 
 export const SYSTEM_DEFAULT_MODEL_REFERENCE = "__system_default_model__";
 export const SYSTEM_LIGHT_MODEL_REFERENCE = "__system_light_model__";

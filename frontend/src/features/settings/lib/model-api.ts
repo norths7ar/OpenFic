@@ -1,10 +1,10 @@
+import type * as schemas from "@/api/generated/models";
+import * as http from "@/api/generated/openfic";
 /**
  * Model API
  *
  * 模型和提供商 API 客户端。
  */
-
-import { apiClient } from "@/lib/api-transport";
 import type {
   AvailableModel,
   Model,
@@ -21,71 +21,16 @@ import type {
   ModelValidationResponse,
   TaskType,
   ModelUpdateRequest,
-  ModelDiscoveryStatus,
-  ModelSpeed,
-  SpeedReasoningCapability,
   ModelProviderSyncResponse,
 } from "@/lib/model.types";
 
-interface ModelProviderCatalogProviderResponse {
-  provider_type: string;
-  display_name: string;
-  default_url: string | null;
-  api: string | null;
-  icon_path: string | null;
-  models_dev_provider_id: string | null;
-  supported_task_types: string[];
-  model_counts: Partial<Record<TaskType, number>>;
-}
+type ModelProviderCatalogProviderResponse = schemas.CatalogProviderSummary;
 
-interface ModelProviderCatalogModelResponse {
-  model_id: string;
-  display_name: string;
-  task_type: TaskType;
-  metadata: {
-    release_date?: string | null;
-    reasoning?: boolean | null;
-    tool_call?: boolean | null;
-    modalities?: {
-      input?: string[];
-      output?: string[];
-    } | null;
-    limit?: Record<string, unknown> | string | number | null;
-    cost?: Record<string, unknown> | string | number | null;
-  } | null;
-}
+type ModelProviderCatalogModelResponse = schemas.CatalogProviderModelSummary;
 
-interface ModelProviderAvailableModelApiResponse {
-  default_speed?: ModelSpeed;
-  speed_variants?: Partial<Record<ModelSpeed, string>>;
-  speed_reasoning_capabilities?: Partial<Record<ModelSpeed, SpeedReasoningCapability>>;
-  reasoning_effort_levels?: string[];
-  reasoning_effort_status?: "supported" | "unsupported" | "unknown";
-  reasoning_effort_default?: string | null;
-  id: string;
-  name: string;
-  task_type?: TaskType | null;
-  metadata?: ModelProviderCatalogModelResponse["metadata"];
-}
+type ModelProviderAvailableModelApiResponse = schemas.AvailableModel;
 
-interface ModelProviderValidateApiResponse {
-  discovery_status?: ModelDiscoveryStatus;
-  discovery_checked_at?: string | null;
-  success: boolean;
-  message: string;
-  models: ModelProviderAvailableModelApiResponse[];
-}
-
-interface ModelProviderCatalogModelsApiResponse {
-  provider: ModelProviderCatalogProviderResponse;
-  task_type: TaskType;
-  models: ModelProviderCatalogModelResponse[];
-}
-
-function readNumericMetadataField(
-  value: Record<string, unknown> | string | number | null | undefined,
-  key: string,
-): number | null {
+function readNumericMetadataField(value: unknown, key: string): number | null {
   if (value === null || value === undefined) {
     return null;
   }
@@ -99,7 +44,8 @@ function readNumericMetadataField(
     return Number.isFinite(parsed) ? parsed : null;
   }
 
-  const entry = value[key];
+  if (typeof value !== "object" || !(key in value)) return null;
+  const entry = (value as Record<string, unknown>)[key];
   if (typeof entry === "number") {
     return Number.isFinite(entry) ? entry : null;
   }
@@ -121,10 +67,10 @@ function transformCatalogMatch(
   return {
     catalogProviderType: raw.catalog_provider_type,
     displayName: raw.display_name,
-    defaultUrl: raw.default_url,
-    api: raw.api,
-    iconPath: raw.icon_path,
-    modelsDevProviderId: raw.models_dev_provider_id,
+    defaultUrl: raw.default_url ?? null,
+    api: raw.api ?? null,
+    iconPath: raw.icon_path ?? null,
+    modelsDevProviderId: raw.models_dev_provider_id ?? null,
     matchedVia: raw.matched_via,
   };
 }
@@ -137,6 +83,7 @@ function transformProvider(raw: ModelProviderResponse): ModelProvider {
     id: raw.id,
     name: raw.name,
     url: raw.url,
+    hasApiKey: raw.has_api_key,
     providerType: raw.provider_type as ModelProvider["providerType"],
     catalogMode: raw.catalog_mode ?? "generic",
     customHeaderNames: raw.custom_header_names ?? [],
@@ -199,10 +146,10 @@ function transformCatalogProvider(
   return {
     providerType: raw.provider_type,
     displayName: raw.display_name,
-    defaultUrl: raw.default_url,
-    api: raw.api,
-    iconPath: raw.icon_path,
-    modelsDevProviderId: raw.models_dev_provider_id,
+    defaultUrl: raw.default_url ?? null,
+    api: raw.api ?? null,
+    iconPath: raw.icon_path ?? null,
+    modelsDevProviderId: raw.models_dev_provider_id ?? null,
     supportedTaskTypes:
       raw.supported_task_types as ModelProviderCatalogProvider["supportedTaskTypes"],
     modelCounts: raw.model_counts ?? {},
@@ -211,17 +158,30 @@ function transformCatalogProvider(
 
 function transformCatalogModel(raw: ModelProviderCatalogModelResponse): ModelProviderCatalogModel {
   const metadata = raw.metadata ?? null;
+  const modalities = metadata?.modalities;
+  const inputs =
+    modalities && typeof modalities === "object" && "input" in modalities
+      ? modalities.input
+      : undefined;
+  const numericMetadata = (value: unknown): Record<string, unknown> | string | number | null => {
+    if (typeof value === "string" || typeof value === "number") return value;
+    return value && typeof value === "object" && !Array.isArray(value)
+      ? (value as Record<string, unknown>)
+      : null;
+  };
 
   return {
     id: raw.model_id,
     name: raw.display_name,
     taskType: raw.task_type,
-    releaseDate: metadata?.release_date ?? null,
-    reasoning: metadata?.reasoning ?? null,
-    toolCall: metadata?.tool_call ?? null,
-    inputModalities: metadata?.modalities?.input ?? [],
-    limit: metadata?.limit ?? null,
-    cost: metadata?.cost ?? null,
+    releaseDate: typeof metadata?.release_date === "string" ? metadata.release_date : null,
+    reasoning: typeof metadata?.reasoning === "boolean" ? metadata.reasoning : null,
+    toolCall: typeof metadata?.tool_call === "boolean" ? metadata.tool_call : null,
+    inputModalities: Array.isArray(inputs)
+      ? inputs.filter((item): item is string => typeof item === "string")
+      : [],
+    limit: numericMetadata(metadata?.limit),
+    cost: numericMetadata(metadata?.cost),
     contextWindow: readNumericMetadataField(metadata?.limit, "context"),
     inputPricePerMillion: readNumericMetadataField(metadata?.cost, "input"),
     outputPricePerMillion: readNumericMetadataField(metadata?.cost, "output"),
@@ -238,12 +198,9 @@ function transformAvailableModel(
   const metadata = raw.metadata ?? null;
 
   return {
-    defaultSpeed: raw.default_speed ?? "standard",
+    defaultSpeed: "standard",
     speedVariants: raw.speed_variants,
     speedReasoningCapabilities: raw.speed_reasoning_capabilities,
-    reasoningEffortLevels: raw.reasoning_effort_levels,
-    reasoningEffortStatus: raw.reasoning_effort_status,
-    reasoningEffortDefault: raw.reasoning_effort_default,
     id: raw.id,
     name: raw.name,
     taskType: raw.task_type ?? null,
@@ -268,7 +225,7 @@ function transformAvailableModel(
  * 获取所有提供商
  */
 export async function fetchProviders(): Promise<ModelProvider[]> {
-  const response = await apiClient.get<ModelProviderResponse[]>("/model-providers");
+  const response = await http.getProvidersApiV1ModelProvidersGet();
   return response.data.map(transformProvider);
 }
 
@@ -276,7 +233,7 @@ export async function fetchProviders(): Promise<ModelProvider[]> {
  * 根据 ID 获取提供商
  */
 export async function fetchProvider(id: string): Promise<ModelProvider> {
-  const response = await apiClient.get<ModelProviderResponse>(`/model-providers/${id}`);
+  const response = await http.getProviderApiV1ModelProvidersProviderIdGet(id);
   return transformProvider(response.data);
 }
 
@@ -284,7 +241,7 @@ export async function fetchProvider(id: string): Promise<ModelProvider> {
  * 创建提供商
  */
 export async function createProvider(data: FormData): Promise<ModelProvider> {
-  const response = await apiClient.post<ModelProviderResponse>("/model-providers", data, {
+  const response = await http.createProviderApiV1ModelProvidersPost(data, {
     headers: {
       "Content-Type": "multipart/form-data",
     },
@@ -296,7 +253,7 @@ export async function createProvider(data: FormData): Promise<ModelProvider> {
  * 更新提供商
  */
 export async function updateProvider(id: string, data: FormData): Promise<ModelProvider> {
-  const response = await apiClient.put<ModelProviderResponse>(`/model-providers/${id}`, data, {
+  const response = await http.updateProviderApiV1ModelProvidersProviderIdPut(id, data, {
     headers: {
       "Content-Type": "multipart/form-data",
     },
@@ -308,7 +265,7 @@ export async function updateProvider(id: string, data: FormData): Promise<ModelP
  * 删除提供商
  */
 export async function deleteProvider(id: string): Promise<void> {
-  await apiClient.delete(`/model-providers/${id}`);
+  await http.deleteProviderApiV1ModelProvidersProviderIdDelete(id);
 }
 
 /**
@@ -317,10 +274,7 @@ export async function deleteProvider(id: string): Promise<void> {
 export async function validateProvider(
   data: ModelProviderValidateRequest,
 ): Promise<ModelProviderValidateResponse> {
-  const response = await apiClient.post<ModelProviderValidateApiResponse>(
-    "/model-providers/validate",
-    data,
-  );
+  const response = await http.validateProviderApiV1ModelProvidersValidatePost(data);
   return {
     ...response.data,
     models: (response.data.models || []).map((model) => transformAvailableModel(model, "remote")),
@@ -335,10 +289,10 @@ export async function fetchProviderModels(
   taskType: TaskType = "llm",
   refresh = false,
 ): Promise<ModelProviderValidateResponse> {
-  const response = await apiClient.get<ModelProviderValidateApiResponse>(
-    `/model-providers/${providerId}/models`,
-    { params: { task_type: taskType, refresh } },
-  );
+  const response = await http.getProviderModelsApiV1ModelProvidersProviderIdModelsGet(providerId, {
+    task_type: taskType,
+    refresh,
+  });
   return {
     ...response.data,
     discoveryStatus: response.data.discovery_status ?? "unknown",
@@ -352,12 +306,10 @@ export async function syncProviderModels(
   providerId: string,
   refresh = false,
 ): Promise<ModelProviderSyncResponse> {
-  const response = await apiClient.post<
-    ModelProviderValidateApiResponse & {
-      removed_models: { id: string; name: string; model_id: string }[];
-      affected_uses: string[];
-    }
-  >(`/model-providers/${providerId}/models/sync`, undefined, { params: { refresh } });
+  const response = await http.syncProviderModelsApiV1ModelProvidersProviderIdModelsSyncPost(
+    providerId,
+    { refresh },
+  );
   const raw = response.data;
   return {
     success: raw.success,
@@ -375,16 +327,14 @@ export async function syncProviderModels(
 }
 
 export async function fetchModelUsage(id: string): Promise<string[]> {
-  const response = await apiClient.get<{ uses: string[] }>(`/models/${id}/usage`);
+  const response = await http.getModelUsageApiV1ModelsModelIdUsageGet(id);
   return response.data.uses;
 }
 
 export async function fetchModelProviderCatalogProviders(): Promise<
   ModelProviderCatalogProvider[]
 > {
-  const response = await apiClient.get<ModelProviderCatalogProviderResponse[]>(
-    "/model-provider-catalog/providers",
-  );
+  const response = await http.listCatalogProvidersApiV1ModelProviderCatalogProvidersGet();
   return response.data.map(transformCatalogProvider);
 }
 
@@ -392,10 +342,11 @@ export async function fetchModelProviderCatalogModels(
   providerType: string,
   taskType: TaskType,
 ): Promise<ModelProviderCatalogModelsResponse> {
-  const response = await apiClient.get<ModelProviderCatalogModelsApiResponse>(
-    `/model-provider-catalog/providers/${providerType}/models`,
-    { params: { task_type: taskType } },
-  );
+  const response =
+    await http.getCatalogProviderModelsApiV1ModelProviderCatalogProvidersProviderTypeModelsGet(
+      providerType,
+      { task_type: taskType },
+    );
 
   return {
     provider: transformCatalogProvider(response.data.provider),
@@ -417,7 +368,7 @@ export async function fetchModels(
   if (providerId) params.provider_id = providerId;
   if (taskType) params.task_type = taskType;
   if (includeDisabled) params.include_disabled = "true";
-  const response = await apiClient.get<ModelResponse[]>("/models", { params });
+  const response = await http.getModelsApiV1ModelsGet(params);
   return response.data.map(transformModel);
 }
 
@@ -425,13 +376,13 @@ export async function fetchModels(
  * 根据 ID 获取模型
  */
 export async function fetchModel(id: string): Promise<Model> {
-  const response = await apiClient.get<ModelResponse>(`/models/${id}`);
+  const response = await http.getModelApiV1ModelsModelIdGet(id);
   return transformModel(response.data);
 }
 
 /** Validate one saved provider/model pair without mutating its configuration. */
 export async function validateModel(id: string): Promise<ModelValidationResponse> {
-  const response = await apiClient.post<ModelValidationResponse>(`/models/${id}/validate`);
+  const response = await http.validateModelApiV1ModelsModelIdValidatePost(id);
   return response.data;
 }
 
@@ -439,7 +390,7 @@ export async function validateModel(id: string): Promise<ModelValidationResponse
  * 创建模型
  */
 export async function createModel(data: ModelCreateRequest): Promise<Model> {
-  const response = await apiClient.post<ModelResponse>("/models", data);
+  const response = await http.createModelApiV1ModelsPost(data);
   return transformModel(response.data);
 }
 
@@ -447,7 +398,7 @@ export async function createModel(data: ModelCreateRequest): Promise<Model> {
  * 更新模型
  */
 export async function updateModel(id: string, data: ModelUpdateRequest): Promise<Model> {
-  const response = await apiClient.put<ModelResponse>(`/models/${id}`, data);
+  const response = await http.updateModelApiV1ModelsModelIdPut(id, data);
   return transformModel(response.data);
 }
 
@@ -455,5 +406,5 @@ export async function updateModel(id: string, data: ModelUpdateRequest): Promise
  * 删除模型
  */
 export async function deleteModel(id: string): Promise<void> {
-  await apiClient.delete(`/models/${id}`);
+  await http.deleteModelApiV1ModelsModelIdDelete(id);
 }

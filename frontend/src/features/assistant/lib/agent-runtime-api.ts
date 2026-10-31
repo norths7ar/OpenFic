@@ -1,3 +1,5 @@
+import type * as schemas from "@/api/generated/models";
+import * as http from "@/api/generated/openfic";
 import type {
   ActiveSubagentState,
   AgentCancelPendingMessageResponse,
@@ -18,7 +20,7 @@ import type {
   ReasoningEffort,
   SubagentSessionPayload,
 } from "@/lib/agent.types";
-import { apiClient, resolveBackendUrl } from "@/lib/api-transport";
+import { resolveBackendUrl } from "@/lib/api-transport";
 import {
   subscribeBackgroundEvents,
   subscribeBackgroundProjection,
@@ -47,14 +49,16 @@ function normalizeUtcDateString(value: unknown): string {
   return `${value}Z`;
 }
 
-function transformTaskMessage(raw: Record<string, unknown>): Task["messages"][number] {
+function transformTaskMessage(
+  raw: schemas.TaskMessage & Partial<Omit<Task["messages"][number], keyof schemas.TaskMessage>>,
+): Task["messages"][number] {
   return {
     id: raw.id as string,
     taskId: (raw.task_id ?? raw.taskId) as string | null | undefined,
     role: raw.role as "system" | "user" | "assistant" | "tool",
     agentId: (raw.agent_id ?? raw.agentId) as string | null | undefined,
     content: raw.content as string,
-    toolCalls: (raw.tool_calls ?? raw.toolCalls) as Record<string, unknown>[] | undefined,
+    toolCalls: raw.tool_calls ?? raw.toolCalls,
     toolCallId: (raw.tool_call_id ?? raw.toolCallId) as string | null | undefined,
     metadata: (raw.metadata as Record<string, unknown> | null | undefined) ?? undefined,
     messageType: (raw.message_type ?? raw.messageType) as string | null | undefined,
@@ -67,16 +71,16 @@ function transformTaskMessage(raw: Record<string, unknown>): Task["messages"][nu
   };
 }
 
-function transformTask(raw: Record<string, unknown>): Task {
+function transformTask(
+  raw: schemas.TaskResponse & Partial<Omit<Task, keyof schemas.TaskResponse>>,
+): Task {
   return {
     id: raw.id as string,
     projectId: raw.project_id as string,
     folderId: (raw.folder_id as string | null | undefined) ?? null,
     title: raw.title as string,
     contextMode: (raw.context_mode ?? "local") as "global" | "local",
-    messages: ((raw.messages as Record<string, unknown>[] | undefined) ?? []).map(
-      transformTaskMessage,
-    ),
+    messages: (raw.messages ?? []).map(transformTaskMessage),
     tokenInput: Number(raw.token_input ?? raw.tokenInput ?? 0),
     tokenOutput: Number(raw.token_output ?? raw.tokenOutput ?? 0),
     tokenCache: Number(raw.token_cache ?? raw.tokenCache ?? 0),
@@ -92,7 +96,9 @@ function transformTask(raw: Record<string, unknown>): Task {
   };
 }
 
-function transformTaskListItem(raw: Record<string, unknown>): TaskListItem {
+function transformTaskListItem(
+  raw: schemas.TaskListItem & Partial<Omit<TaskListItem, keyof schemas.TaskListItem>>,
+): TaskListItem {
   return {
     id: raw.id as string,
     projectId: raw.project_id as string,
@@ -112,7 +118,7 @@ function transformTaskListItem(raw: Record<string, unknown>): TaskListItem {
 }
 
 export async function fetchTask(taskId: string): Promise<Task> {
-  const response = await apiClient.get(`/tasks/${taskId}`);
+  const response = await http.getTaskApiV1TasksTaskIdGet(taskId);
   return transformTask(response.data);
 }
 
@@ -125,22 +131,20 @@ export async function fetchTasks(
     favorited?: boolean;
   },
 ): Promise<TaskListResponse> {
-  const response = await apiClient.get(`/projects/${projectId}/tasks`, {
-    params: {
-      limit: params?.limit,
-      offset: params?.offset,
-      search: params?.search,
-      favorited: params?.favorited,
-    },
+  const response = await http.listTasksApiV1ProjectsProjectIdTasksGet(projectId, {
+    limit: params?.limit,
+    offset: params?.offset,
+    search: params?.search,
+    favorited: params?.favorited,
   });
   return {
-    items: (response.data.items as Record<string, unknown>[]).map(transformTaskListItem),
+    items: response.data.items.map(transformTaskListItem),
     total: response.data.total,
   };
 }
 
 export async function updateTask(taskId: string, data: UpdateTaskRequest): Promise<Task> {
-  const response = await apiClient.patch(`/tasks/${taskId}`, {
+  const response = await http.updateTaskApiV1TasksTaskIdPatch(taskId, {
     title: data.title,
     is_favorited: data.is_favorited,
   });
@@ -148,13 +152,13 @@ export async function updateTask(taskId: string, data: UpdateTaskRequest): Promi
 }
 
 export async function deleteTask(taskId: string): Promise<void> {
-  await apiClient.delete(`/tasks/${taskId}`);
+  await http.deleteTaskApiV1TasksTaskIdDelete(taskId);
 }
 
 export async function deleteAllTasks(
   projectId: string,
 ): Promise<{ deletedCount: number; skippedRunningCount: number }> {
-  const response = await apiClient.delete(`/projects/${projectId}/tasks`);
+  const response = await http.deleteAllTasksApiV1ProjectsProjectIdTasksDelete(projectId);
   return {
     deletedCount: Number(response.data.deleted_count ?? 0),
     skippedRunningCount: Number(response.data.skipped_running_count ?? 0),
@@ -164,7 +168,7 @@ export async function deleteAllTasks(
 export async function createAgentSession(
   data: AgentSessionCreateRequest,
 ): Promise<AgentSessionCreateResponse> {
-  const response = await apiClient.post("/agent/sessions", data);
+  const response = await http.createAgentSessionApiV1AgentSessionsPost(data);
   return response.data;
 }
 
@@ -173,18 +177,19 @@ export async function updateAgentKnowledgeScope(
   contextMode: "global" | "local",
   agentKey: string,
 ): Promise<{ context_mode: "global" | "local" }> {
-  const response = await apiClient.patch(`/agent/sessions/${sessionId}/knowledge-scope`, {
-    context_mode: contextMode,
-    agent_key: agentKey,
-  });
+  const response =
+    await http.updateAgentKnowledgeScopeApiV1AgentSessionsSessionIdKnowledgeScopePatch(sessionId, {
+      context_mode: contextMode,
+      agent_key: agentKey,
+    });
   return response.data;
 }
 
 export async function fetchAgentSessionState(
   sessionId: string,
 ): Promise<AgentSessionStateResponse> {
-  const response = await apiClient.get(`/agent/sessions/${sessionId}`);
-  const data = response.data as Record<string, unknown>;
+  const response = await http.getAgentSessionStateApiV1AgentSessionsSessionIdGet(sessionId);
+  const data = response.data;
   return {
     sessionId: String(data.session_id ?? sessionId),
     state:
@@ -218,7 +223,9 @@ function transformPendingAgentMessage(raw: unknown): AgentPendingMessage | null 
   };
 }
 
-function transformActiveSubagentState(raw: Record<string, unknown>): ActiveSubagentState {
+function transformActiveSubagentState(
+  raw: schemas.ActiveSubagentStateResponse & { metadata?: unknown },
+): ActiveSubagentState {
   const metadata = raw.metadata;
   const metadataRecord = isRecord(metadata) ? metadata : null;
   const pendingApproval = isRecord(raw.pending_approval) ? raw.pending_approval : null;
@@ -234,7 +241,9 @@ function transformActiveSubagentState(raw: Record<string, unknown>): ActiveSubag
   };
 }
 
-function transformSubagentSessionPayload(raw: Record<string, unknown>): SubagentSessionPayload {
+function transformSubagentSessionPayload(
+  raw: schemas.SubagentSessionResponse,
+): SubagentSessionPayload {
   const metadata = raw.metadata;
   const metadataRecord = isRecord(metadata) ? metadata : null;
   const pendingApproval = isRecord(raw.pending_approval) ? raw.pending_approval : null;
@@ -254,34 +263,33 @@ function transformSubagentSessionPayload(raw: Record<string, unknown>): Subagent
     contextInputTokens: Number(raw.context_input_tokens ?? 0),
     contextLength: Number(raw.context_length ?? 0),
     pendingApproval,
-    messages: ((raw.messages as Record<string, unknown>[] | undefined) ?? []).map(
-      transformTaskMessage,
-    ),
+    messages: (raw.messages ?? []).map(transformTaskMessage),
   };
 }
 
 export async function fetchActiveSubagents(
   parentSessionId: string,
 ): Promise<ActiveSubagentState[]> {
-  const response = await apiClient.get(`/agent/sessions/${parentSessionId}/subagents`);
-  return ((response.data as Record<string, unknown>[] | undefined) ?? []).map(
-    transformActiveSubagentState,
-  );
+  const response =
+    await http.listSubagentSessionsApiV1AgentSessionsParentSessionIdSubagentsGet(parentSessionId);
+  return (response.data ?? []).map(transformActiveSubagentState);
 }
 
 export async function fetchSubagentSession(childRunId: string): Promise<SubagentSessionPayload> {
-  const response = await apiClient.get(`/agent/subagents/${childRunId}`);
-  return transformSubagentSessionPayload(response.data as Record<string, unknown>);
+  const response = await http.getSubagentSessionApiV1AgentSubagentsChildRunIdGet(childRunId);
+  return transformSubagentSessionPayload(response.data);
 }
 
 export async function cancelSubagentSession(
   parentSessionId: string,
   childRunId: string,
 ): Promise<AgentCancelResponse> {
-  const response = await apiClient.post(
-    `/agent/sessions/${parentSessionId}/subagents/${childRunId}/cancel`,
-  );
-  const data = response.data as Record<string, unknown>;
+  const response =
+    await http.cancelSubagentSessionApiV1AgentSessionsParentSessionIdSubagentsChildRunIdCancelPost(
+      parentSessionId,
+      childRunId,
+    );
+  const data = response.data;
   return {
     success: data.success === true,
     session_id: String(data.session_id ?? childRunId),
@@ -308,8 +316,11 @@ export async function sendAgentMessage(
     ...(agentKey ? { agent_key: agentKey } : {}),
     ...(attachments?.length ? { attachments: attachments.map((attachment) => attachment.id) } : {}),
   };
-  const response = await apiClient.post(`/agent/sessions/${sessionId}/message`, request);
-  const data = response.data as Record<string, unknown>;
+  const response = await http.sendAgentMessageApiV1AgentSessionsSessionIdMessagePost(
+    sessionId,
+    request,
+  );
+  const data = response.data;
   return {
     success: data.success === true,
     session_id: String(data.session_id ?? sessionId),
@@ -329,10 +340,12 @@ export async function uploadAgentImageAttachment(
 ): Promise<AgentImageAttachment> {
   const formData = new FormData();
   formData.append("image", image);
-  const response = await apiClient.post(`/agent/sessions/${sessionId}/attachments`, formData, {
-    headers: { "Content-Type": "multipart/form-data" },
-  });
-  const raw = response.data as Record<string, unknown>;
+  const response = await http.uploadAgentAttachmentApiV1AgentSessionsSessionIdAttachmentsPost(
+    sessionId,
+    formData,
+    { headers: { "Content-Type": "multipart/form-data" } },
+  );
+  const raw = response.data;
   return {
     id: String(raw.id ?? ""),
     sessionId: String(raw.session_id ?? sessionId),
@@ -347,8 +360,9 @@ export async function uploadAgentImageAttachment(
 }
 
 export async function compactAgentSession(sessionId: string): Promise<AgentCompactionResponse> {
-  const response = await apiClient.post(`/agent/sessions/${sessionId}/compaction`);
-  const data = response.data as Record<string, unknown>;
+  const response =
+    await http.compactAgentSessionApiV1AgentSessionsSessionIdCompactionPost(sessionId);
+  const data = response.data;
   return {
     success: data.success === true,
     session_id: String(data.session_id ?? sessionId),
@@ -366,11 +380,12 @@ export async function submitAgentQuestionAnswer(
   answer: ClarificationAnswerItem[],
   skipped = false,
 ): Promise<AgentQuestionAnswerResponse | void> {
-  const response = await apiClient.post(`/agent/sessions/${sessionId}/question-answer`, {
-    action_id: actionId,
-    answer,
-    skipped,
-  });
+  const response =
+    await http.submitAgentQuestionAnswerApiV1AgentSessionsSessionIdQuestionAnswerPost(sessionId, {
+      action_id: actionId,
+      answer,
+      skipped,
+    });
   return response.data;
 }
 
@@ -378,10 +393,13 @@ export async function rollbackAgentRevision(
   sessionId: string,
   revisionId: string,
 ): Promise<AgentRollbackResponse> {
-  const response = await apiClient.post(`/agent/sessions/${sessionId}/rollback`, {
-    revision_id: revisionId,
-  });
-  const data = response.data as Record<string, unknown>;
+  const response = await http.rollbackAgentSessionApiV1AgentSessionsSessionIdRollbackPost(
+    sessionId,
+    {
+      revision_id: revisionId,
+    },
+  );
+  const data = response.data;
   return {
     success: data.success === true,
     session_id: String(data.session_id ?? sessionId),
@@ -433,7 +451,7 @@ export async function forkAgentSession(
   reasoningEffort?: ReasoningEffort,
   modelSpeed?: "standard" | "fast",
 ): Promise<AgentForkResponse> {
-  const response = await apiClient.post(`/agent/sessions/${sessionId}/fork`, {
+  const response = await http.forkAgentSessionApiV1AgentSessionsSessionIdForkPost(sessionId, {
     source_revision_id: sourceRevisionId,
     model_id: modelId,
     ...(reasoningEffort ? { reasoning_effort: reasoningEffort } : {}),
@@ -447,7 +465,7 @@ export async function submitAgentToolApproval(
   approvalId: string,
   approved: boolean,
 ): Promise<void> {
-  await apiClient.post(`/agent/sessions/${sessionId}/tool-approval`, {
+  await http.submitAgentToolApprovalApiV1AgentSessionsSessionIdToolApprovalPost(sessionId, {
     approval_id: approvalId,
     approved,
   });
@@ -458,14 +476,14 @@ export async function submitAgentInterruptBatch(
   batchId: string,
   responses: AgentInterruptBatchResponse[],
 ): Promise<void> {
-  await apiClient.post(`/agent/sessions/${sessionId}/interrupt-resume`, {
+  await http.submitAgentInterruptResumeApiV1AgentSessionsSessionIdInterruptResumePost(sessionId, {
     batch_id: batchId,
     responses,
   });
 }
 
 export async function cancelAgentSession(sessionId: string): Promise<AgentCancelResponse> {
-  const response = await apiClient.post(`/agent/sessions/${sessionId}/cancel`);
+  const response = await http.cancelAgentSessionApiV1AgentSessionsSessionIdCancelPost(sessionId);
   return response.data;
 }
 
@@ -473,14 +491,19 @@ export async function cancelPendingAgentMessage(
   sessionId: string,
   messageId: string,
 ): Promise<AgentCancelPendingMessageResponse> {
-  const response = await apiClient.post(`/agent/sessions/${sessionId}/pending-message/cancel`, {
-    message_id: messageId,
-  });
+  const response =
+    await http.cancelAgentPendingMessageApiV1AgentSessionsSessionIdPendingMessageCancelPost(
+      sessionId,
+      {
+        message_id: messageId,
+      },
+    );
   return response.data;
 }
 
 export async function getPendingAgentMessages(sessionId: string): Promise<AgentPendingMessage[]> {
-  const response = await apiClient.get(`/agent/sessions/${sessionId}/pending-messages`);
+  const response =
+    await http.getPendingAgentMessagesApiV1AgentSessionsSessionIdPendingMessagesGet(sessionId);
   const items = response.data.items;
   return Array.isArray(items)
     ? items

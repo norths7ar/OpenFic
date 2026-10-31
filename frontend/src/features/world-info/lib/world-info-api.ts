@@ -1,4 +1,6 @@
-import { apiClient, getApiUrl } from "@/lib/api-transport";
+import type * as schemas from "@/api/generated/models";
+import * as http from "@/api/generated/openfic";
+import { getApiUrl } from "@/lib/api-transport";
 import { handleAuthenticationFailure } from "@/lib/auth-failure";
 import type {
   WorldInfo,
@@ -14,7 +16,7 @@ import type {
   WorldInfoImportPreviewResponse,
 } from "@/lib/world-info.types";
 
-function transformWorldInfo(raw: Record<string, unknown>): WorldInfo {
+function transformWorldInfo(raw: schemas.WorldInfoResponse): WorldInfo {
   return {
     id: raw.id as string,
     projectId: raw.project_id as string | null,
@@ -23,7 +25,7 @@ function transformWorldInfo(raw: Record<string, unknown>): WorldInfo {
   };
 }
 
-function transformWorldInfoEntry(raw: Record<string, unknown>): WorldInfoEntry {
+function transformWorldInfoEntry(raw: schemas.WorldInfoEntryResponse): WorldInfoEntry {
   return {
     id: raw.id as string,
     worldInfoId: raw.world_info_id as string,
@@ -34,13 +36,15 @@ function transformWorldInfoEntry(raw: Record<string, unknown>): WorldInfoEntry {
     order: raw.order as number,
     content: raw.content as string,
     tokenCount: raw.token_count as number,
-    agentVisibility: raw.agent_visibility as string,
+    agentVisibility: raw.agent_visibility,
     createdAt: raw.created_at as string,
     updatedAt: raw.updated_at as string,
   };
 }
 
-function transformWorldInfoEntryBrief(raw: Record<string, unknown>): WorldInfoEntryBrief {
+function transformWorldInfoEntryBrief(
+  raw: schemas.WorldInfoEntryBriefResponse,
+): WorldInfoEntryBrief {
   return {
     id: raw.id as string,
     worldInfoId: raw.world_info_id as string,
@@ -57,48 +61,48 @@ function transformWorldInfoEntryBrief(raw: Record<string, unknown>): WorldInfoEn
 }
 
 function transformWorldInfoImportPreview(
-  raw: Record<string, unknown>,
+  raw: schemas.WorldInfoImportPreviewResponse,
 ): WorldInfoImportPreviewResponse {
   return {
     entryCount: raw.entry_count as number,
     enabledCount: raw.enabled_count as number,
-    entries: ((raw.entries as Record<string, unknown>[]) || []).map((entry) => ({
+    entries: (raw.entries || []).map((entry) => ({
       uid: entry.uid as number,
       name: entry.name as string,
       section: (entry.section as string | undefined) ?? "",
       contentPreview: (entry.content_preview as string) || "",
-      agentVisibility: String(entry.agent_visibility),
+      agentVisibility: entry.agent_visibility,
     })),
   };
 }
 
 export async function fetchWorldInfoById(worldInfoId: string): Promise<WorldInfo> {
-  const response = await apiClient.get(`/world-info/${worldInfoId}`);
+  const response = await http.getWorldInfoApiV1WorldInfoWorldInfoIdGet(worldInfoId);
   return transformWorldInfo(response.data);
 }
 
 export async function fetchWorldInfoByProject(projectId: string): Promise<WorldInfo> {
-  const response = await apiClient.get(`/projects/${projectId}/world-info`);
+  const response = await http.getProjectWorldInfoApiV1ProjectsProjectIdWorldInfoGet(projectId);
   return transformWorldInfo(response.data);
 }
 
 export async function deleteWorldInfo(worldInfoId: string): Promise<void> {
-  await apiClient.delete(`/world-info/${worldInfoId}`);
+  await http.deleteWorldInfoApiV1WorldInfoWorldInfoIdDelete(worldInfoId);
 }
 
 export async function fetchWorldInfoEntries(
   worldInfoId: string,
 ): Promise<WorldInfoEntryBriefListResponse> {
-  const response = await apiClient.get(`/world-info/${worldInfoId}/entries`);
+  const response = await http.listEntriesApiV1WorldInfoWorldInfoIdEntriesGet(worldInfoId);
   const data = response.data;
   return {
-    items: (data.items as Record<string, unknown>[]).map(transformWorldInfoEntryBrief),
+    items: data.items.map(transformWorldInfoEntryBrief),
     total: data.total,
   };
 }
 
 export async function fetchWorldInfoEntry(entryId: string): Promise<WorldInfoEntry> {
-  const response = await apiClient.get(`/world-info-entries/${entryId}`);
+  const response = await http.getEntryApiV1WorldInfoEntriesEntryIdGet(entryId);
   return transformWorldInfoEntry(response.data);
 }
 
@@ -106,11 +110,11 @@ export async function createWorldInfoEntry(
   worldInfoId: string,
   data: WorldInfoEntryCreate,
 ): Promise<WorldInfoEntry> {
-  const response = await apiClient.post(`/world-info/${worldInfoId}/entries`, {
+  const response = await http.createEntryApiV1WorldInfoWorldInfoIdEntriesPost(worldInfoId, {
     name: data.name,
     content: data.content ?? "",
     token_count: data.tokenCount ?? 0,
-    agent_visibility: data.agentVisibility ?? "all",
+    agent_visibility: (data.agentVisibility ?? "all") as schemas.AgentVisibility,
   });
   return transformWorldInfoEntry(response.data);
 }
@@ -119,23 +123,23 @@ export async function updateWorldInfoEntry(
   entryId: string,
   data: WorldInfoEntryUpdate,
 ): Promise<WorldInfoEntry> {
-  const response = await apiClient.patch(`/world-info-entries/${entryId}`, {
+  const response = await http.updateEntryApiV1WorldInfoEntriesEntryIdPatch(entryId, {
     name: data.name,
     content: data.content,
     token_count: data.tokenCount,
-    agent_visibility: data.agentVisibility,
+    agent_visibility: data.agentVisibility as schemas.AgentVisibility | undefined,
   });
   return transformWorldInfoEntry(response.data);
 }
 
 export async function deleteWorldInfoEntry(entryId: string): Promise<void> {
-  await apiClient.delete(`/world-info-entries/${entryId}`);
+  await http.deleteEntryApiV1WorldInfoEntriesEntryIdDelete(entryId);
 }
 
 export async function deleteAllWorldInfoEntries(
   worldInfoId: string,
 ): Promise<{ deletedCount: number }> {
-  const response = await apiClient.delete(`/world-info/${worldInfoId}/entries`);
+  const response = await http.deleteAllEntriesApiV1WorldInfoWorldInfoIdEntriesDelete(worldInfoId);
   return { deletedCount: response.data.deleted_count };
 }
 
@@ -143,7 +147,7 @@ export async function moveWorldInfoEntry(
   entryId: string,
   newOrder: number,
 ): Promise<WorldInfoEntryBrief> {
-  const response = await apiClient.post(`/world-info-entries/${entryId}/move`, {
+  const response = await http.moveEntryApiV1WorldInfoEntriesEntryIdMovePost(entryId, {
     new_order: newOrder,
   });
   return transformWorldInfoEntryBrief(response.data);
@@ -154,10 +158,13 @@ export async function batchToggleWorldInfoEntries(
   entryIds: string[],
   agentVisibility: string,
 ): Promise<number> {
-  const response = await apiClient.post(`/world-info/${worldInfoId}/entries/batch/toggle`, {
-    entry_ids: entryIds,
-    agent_visibility: agentVisibility,
-  });
+  const response = await http.batchToggleEntriesApiV1WorldInfoWorldInfoIdEntriesBatchTogglePost(
+    worldInfoId,
+    {
+      entry_ids: entryIds,
+      agent_visibility: agentVisibility as schemas.AgentVisibility,
+    },
+  );
   return response.data.updated_count as number;
 }
 
@@ -165,9 +172,12 @@ export async function batchDeleteWorldInfoEntries(
   worldInfoId: string,
   entryIds: string[],
 ): Promise<number> {
-  const response = await apiClient.post(`/world-info/${worldInfoId}/entries/batch/delete`, {
-    entry_ids: entryIds,
-  });
+  const response = await http.batchDeleteEntriesApiV1WorldInfoWorldInfoIdEntriesBatchDeletePost(
+    worldInfoId,
+    {
+      entry_ids: entryIds,
+    },
+  );
   return response.data.deleted_count as number;
 }
 
@@ -175,24 +185,20 @@ export async function searchWorldInfoEntries(
   worldInfoId: string,
   query: string,
 ): Promise<WorldInfoEntrySearchResponse> {
-  const response = await apiClient.get(`/world-info/${worldInfoId}/entries/search`, {
-    params: { q: query },
+  const response = await http.searchEntriesApiV1WorldInfoWorldInfoIdEntriesSearchGet(worldInfoId, {
+    q: query,
   });
-  const data = response.data as Record<string, unknown>;
+  const data = response.data;
   return {
-    results: ((data.results as Record<string, unknown>[]) ?? []).map(
-      (result: Record<string, unknown>) => ({
-        entryId: result.entry_id as string,
-        entryName: result.entry_name as string,
-        uid: result.uid as number,
-        matches: ((result.matches as Record<string, unknown>[]) ?? []).map(
-          (match: Record<string, unknown>) => ({
-            lineNumber: match.line_number as number,
-            lineText: match.line_text as string,
-          }),
-        ),
-      }),
-    ),
+    results: (data.results ?? []).map((result) => ({
+      entryId: result.entry_id as string,
+      entryName: result.entry_name as string,
+      uid: result.uid as number,
+      matches: (result.matches ?? []).map((match) => ({
+        lineNumber: match.line_number as number,
+        lineText: match.line_text as string,
+      })),
+    })),
     totalEntries: data.total_entries as number,
     totalMatches: data.total_matches as number,
   };
@@ -202,13 +208,13 @@ export async function previewWorldInfoImport(file: File): Promise<WorldInfoImpor
   const formData = new FormData();
   formData.append("file", file);
 
-  const response = await apiClient.post("/world-info/import/preview", formData, {
+  const response = await http.previewWorldInfoImportApiV1WorldInfoImportPreviewPost(formData, {
     headers: {
       "Content-Type": "multipart/form-data",
     },
   });
 
-  return transformWorldInfoImportPreview(response.data as Record<string, unknown>);
+  return transformWorldInfoImportPreview(response.data);
 }
 
 export async function importWorldInfoEntriesStream(

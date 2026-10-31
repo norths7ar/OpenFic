@@ -1,13 +1,12 @@
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 /**
  * Index Status — 索引状态类型、API 与 hooks。
  *
  * 供 Agent 侧边栏状态指示器与设置页索引信息共用。
  */
-
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo } from "react";
 
-import { apiClient } from "@/lib/api-transport";
+import * as http from "@/api/generated/openfic";
 import { subscribeIndexStatus } from "@/lib/background-socket";
 
 export type IndexStatus =
@@ -60,23 +59,24 @@ export function getProjectIndexStatusQueryKey(projectId: string) {
 export const OVERALL_INDEX_STATUS_QUERY_KEY = [INDEX_STATUS_QUERY_KEY_PREFIX, "overall"] as const;
 
 export async function fetchProjectIndexStatus(projectId: string): Promise<ProjectIndexStatus> {
-  const response = await apiClient.get<ProjectIndexStatus>(
-    `/projects/${projectId}/retrieval/index/status`,
-  );
+  const response =
+    await http.getProjectRetrievalIndexStatusApiV1ProjectsProjectIdRetrievalIndexStatusGet(
+      projectId,
+    );
   return response.data;
 }
 
 export async function fetchOverallIndexStatus(): Promise<OverallIndexStatus> {
-  const response = await apiClient.get<OverallIndexStatus>(`/retrieval/index/status`);
+  const response = await http.getOverallRetrievalIndexStatusApiV1RetrievalIndexStatusGet();
   return response.data;
 }
 
 export async function startProjectIndex(projectId: string): Promise<void> {
-  await apiClient.post(`/projects/${projectId}/retrieval/index/start`);
+  await http.startProjectRetrievalIndexApiV1ProjectsProjectIdRetrievalIndexStartPost(projectId);
 }
 
 export async function stopProjectIndex(projectId: string): Promise<void> {
-  await apiClient.post(`/projects/${projectId}/retrieval/index/stop`);
+  await http.stopProjectRetrievalIndexApiV1ProjectsProjectIdRetrievalIndexStopPost(projectId);
 }
 
 /** 索引状态对应的展示颜色（Radix 颜色变量）。 */

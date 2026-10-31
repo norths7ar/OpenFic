@@ -39,6 +39,7 @@ export interface ModelDiscoveryFields {
 
 /** 模型服务提供商 */
 export interface ModelProvider {
+  hasApiKey: boolean;
   id: string;
   name: string;
   url: string;
@@ -67,29 +68,7 @@ export interface ModelProviderCatalogMatch {
 }
 
 /** 模型服务提供商响应（后端格式） */
-export interface ModelProviderResponse {
-  id: string;
-  name: string;
-  url: string;
-  provider_type: string;
-  catalog_mode?: ProviderCatalogMode;
-  custom_header_names?: string[];
-  supported_task_types: string[];
-  unavailable_task_types?: string[];
-  icon_path: string | null;
-  is_builtin?: boolean;
-  catalog_match?: {
-    catalog_provider_type: string;
-    display_name: string;
-    default_url: string | null;
-    api: string | null;
-    icon_path: string | null;
-    models_dev_provider_id: string | null;
-    matched_via: CatalogMatchSource;
-  } | null;
-  created_at: string;
-  updated_at: string;
-}
+export type ModelProviderResponse = import("@/api/generated/models").ModelProviderResponse;
 
 /** 创建/更新提供商请求 (FormData) */
 export type ModelProviderFormData = FormData;
@@ -153,12 +132,7 @@ export type ModelValidationErrorCode =
   | "timed_out"
   | "unknown_error";
 
-export interface ModelValidationResponse {
-  success: boolean;
-  message: string;
-  error_code: ModelValidationErrorCode | null;
-  detail: string | null;
-}
+export type ModelValidationResponse = import("@/api/generated/models").ModelValidationResponse;
 
 /** 模型 */
 export interface Model extends ModelDiscoveryFields, ModelSpeedFields {
@@ -193,94 +167,13 @@ export interface Model extends ModelDiscoveryFields, ModelSpeedFields {
 }
 
 /** 模型响应（后端格式） */
-export interface ModelResponse {
-  default_speed?: ModelSpeed;
-  speed_variants?: Partial<Record<ModelSpeed, string>>;
-  speed_reasoning_capabilities?: Partial<Record<ModelSpeed, SpeedReasoningCapability>>;
-  upstream_status?: UpstreamModelStatus;
-  discovery_status?: ModelDiscoveryStatus;
-  discovery_checked_at?: string | null;
-  reasoning_effort_levels?: ReasoningEffort[];
-  reasoning_effort_status?: ReasoningEffortStatus;
-  reasoning_effort_default?: ReasoningEffort | null;
-  id: string;
-  name: string;
-  remark: string;
-  provider_id: string;
-  model_id: string;
-  task_type: TaskType;
-  temperature: number | null;
-  top_p: number | null;
-  top_k: number | null;
-  min_p: number | null;
-  top_a: number | null;
-  frequency_penalty: number | null;
-  presence_penalty: number | null;
-  repetition_penalty: number | null;
-  max_tokens: number | null;
-  context_length: number;
-  input_price: number;
-  output_price: number;
-  cache_read_price: number;
-  cache_write_price: number;
-  dimensions: number | null;
-  is_builtin?: boolean;
-  is_enabled?: boolean;
-  created_at: string;
-  updated_at: string;
-}
+export type ModelResponse = import("@/api/generated/models").ModelResponse;
 
 /** 创建模型请求 */
-export interface ModelCreateRequest {
-  default_speed?: ModelSpeed;
-  name: string;
-  provider_id: string;
-  model_id: string;
-  task_type?: TaskType;
-  remark?: string;
-  temperature?: number | null;
-  top_p?: number | null;
-  top_k?: number | null;
-  min_p?: number | null;
-  top_a?: number | null;
-  frequency_penalty?: number | null;
-  presence_penalty?: number | null;
-  repetition_penalty?: number | null;
-  max_tokens?: number | null;
-  context_length?: number | null;
-  input_price?: number | null;
-  output_price?: number | null;
-  cache_read_price?: number | null;
-  cache_write_price?: number | null;
-  dimensions?: number | null;
-  is_enabled?: boolean;
-}
+export type ModelCreateRequest = import("@/api/generated/models").ModelCreateRequest;
 
 /** 更新模型请求 */
-export interface ModelUpdateRequest {
-  default_speed?: ModelSpeed;
-  name?: string;
-  remark?: string;
-  provider_id?: string;
-  model_id?: string;
-  task_type?: TaskType;
-  temperature?: number | null;
-  top_p?: number | null;
-  top_k?: number | null;
-  min_p?: number | null;
-  top_a?: number | null;
-  frequency_penalty?: number | null;
-  presence_penalty?: number | null;
-  repetition_penalty?: number | null;
-  max_tokens?: number | null;
-  context_length?: number | null;
-  input_price?: number | null;
-  output_price?: number | null;
-  cache_read_price?: number | null;
-  cache_write_price?: number | null;
-  dimensions?: number | null;
-  is_enabled?: boolean;
-}
+export type ModelUpdateRequest = import("@/api/generated/models").ModelUpdateRequest;
 
 export interface ModelProviderCatalogProvider {
   providerType: string;

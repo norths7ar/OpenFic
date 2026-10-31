@@ -1,4 +1,4 @@
-import { apiClient } from "@/lib/api-transport";
+import * as http from "@/api/generated/openfic";
 import type { DocumentType } from "@/lib/note.types";
 
 export interface HighlightPart {
@@ -6,7 +6,9 @@ export interface HighlightPart {
   lineText: string;
 }
 
-export function transformHighlightParts(raw: Record<string, unknown>[]): HighlightPart[] {
+export function transformHighlightParts(
+  raw: Array<{ line_number: number; line_text: string }>,
+): HighlightPart[] {
   return raw.map((part) => ({
     lineNumber: part.line_number as number,
     lineText: part.line_text as string,
@@ -32,19 +34,17 @@ export async function searchChapters(
   projectId: string,
   query: string,
 ): Promise<ChapterSearchResponse> {
-  const response = await apiClient.get(`/projects/${projectId}/chapters/search`, {
-    params: { q: query },
+  const response = await http.searchChaptersApiV1ProjectsProjectIdChaptersSearchGet(projectId, {
+    q: query,
   });
-  const data = response.data as Record<string, unknown>;
+  const data = response.data;
   return {
-    results: ((data.results as Record<string, unknown>[]) ?? []).map(
-      (result: Record<string, unknown>) => ({
-        chapterId: result.chapter_id as string,
-        chapterTitle: result.chapter_title as string,
-        volumeTitle: result.volume_title as string,
-        matches: transformHighlightParts((result.matches as Record<string, unknown>[]) ?? []),
-      }),
-    ),
+    results: (data.results ?? []).map((result) => ({
+      chapterId: result.chapter_id as string,
+      chapterTitle: result.chapter_title as string,
+      volumeTitle: result.volume_title as string,
+      matches: transformHighlightParts(result.matches ?? []),
+    })),
     totalChapters: data.total_chapters as number,
     totalMatches: data.total_matches as number,
   };
@@ -70,19 +70,18 @@ export async function searchNotes(
   query: string,
   documentType: DocumentType = "note",
 ): Promise<NoteSearchResponse> {
-  const response = await apiClient.get(`/projects/${projectId}/notes/search`, {
-    params: { q: query, document_type: documentType },
+  const response = await http.searchNotesApiV1ProjectsProjectIdNotesSearchGet(projectId, {
+    q: query,
+    document_type: documentType,
   });
-  const data = response.data as Record<string, unknown>;
+  const data = response.data;
   return {
-    results: ((data.results as Record<string, unknown>[]) ?? []).map(
-      (result: Record<string, unknown>) => ({
-        noteId: result.note_id as string,
-        noteTitle: result.note_title as string,
-        categoryPath: result.category_path as string,
-        matches: transformHighlightParts((result.matches as Record<string, unknown>[]) ?? []),
-      }),
-    ),
+    results: (data.results ?? []).map((result) => ({
+      noteId: result.note_id as string,
+      noteTitle: result.note_title as string,
+      categoryPath: result.category_path as string,
+      matches: transformHighlightParts(result.matches ?? []),
+    })),
     totalNotes: data.total_notes as number,
     totalMatches: data.total_matches as number,
   };

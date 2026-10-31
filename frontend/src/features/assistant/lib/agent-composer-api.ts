@@ -1,11 +1,12 @@
-import { apiClient } from "@/lib/api-transport";
+import type * as schemas from "@/api/generated/models";
+import * as http from "@/api/generated/openfic";
 import type { AssistantCommandCandidate } from "@/lib/command.types";
 import type {
   AssistantMentionCandidate,
   AssistantMentionSearchResponse,
 } from "@/lib/mention.types";
 
-function transformMentionCandidate(raw: Record<string, unknown>): AssistantMentionCandidate {
+function transformMentionCandidate(raw: schemas.MentionCandidateItem): AssistantMentionCandidate {
   return {
     kind: raw.kind as
       | "volume"
@@ -21,7 +22,7 @@ function transformMentionCandidate(raw: Record<string, unknown>): AssistantMenti
   };
 }
 
-function transformCommandCandidate(raw: Record<string, unknown>): AssistantCommandCandidate {
+function transformCommandCandidate(raw: schemas.CommandCandidateItem): AssistantCommandCandidate {
   return {
     kind: "skill",
     id: raw.id as string,
@@ -38,8 +39,9 @@ export async function searchMentionCandidates(
   signal?: AbortSignal,
   options: { contextMode?: "global" | "local"; folderId?: string; offset?: number } = {},
 ): Promise<AssistantMentionSearchResponse> {
-  const response = await apiClient.get<Record<string, unknown>>(`/projects/${projectId}/mentions`, {
-    params: {
+  const response = await http.searchMentionCandidatesApiV1ProjectsProjectIdMentionsGet(
+    projectId,
+    {
       query,
       limit,
       ...(kind ? { kind } : {}),
@@ -47,12 +49,10 @@ export async function searchMentionCandidates(
       ...(options.folderId !== undefined ? { folder_id: options.folderId } : {}),
       offset: options.offset ?? 0,
     },
-    signal,
-  });
+    { signal },
+  );
   return {
-    items: ((response.data.items as Record<string, unknown>[]) ?? []).map(
-      transformMentionCandidate,
-    ),
+    items: (response.data.items ?? []).map(transformMentionCandidate),
     folders: (response.data.folders as { id: string; title: string }[]) ?? [],
     hasMore: response.data.has_more === true,
   };
@@ -65,9 +65,10 @@ export async function searchCommands(
   kind: "skill" = "skill",
   signal?: AbortSignal,
 ): Promise<AssistantCommandCandidate[]> {
-  const response = await apiClient.get<Record<string, unknown>>(`/projects/${projectId}/commands`, {
-    params: { query, limit, kind },
-    signal,
-  });
-  return ((response.data.items as Record<string, unknown>[]) ?? []).map(transformCommandCandidate);
+  const response = await http.searchCommandsApiV1ProjectsProjectIdCommandsGet(
+    projectId,
+    { query, limit, kind },
+    { signal },
+  );
+  return (response.data.items ?? []).map(transformCommandCandidate);
 }

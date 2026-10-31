@@ -1,4 +1,4 @@
-import { apiClient } from "@/lib/api-transport";
+import * as http from "@/api/generated/openfic";
 
 import type {
   PendingProjectChange,
@@ -12,10 +12,9 @@ export async function listPendingProjectChanges(
   projectId: string,
   status?: PendingProjectChangeStatus,
 ): Promise<PendingProjectChange[]> {
-  const response = await apiClient.get<PendingProjectChange[]>(
-    `/projects/${projectId}/pending-changes`,
-    { params: { status } },
-  );
+  const response = await http.listPendingChangesApiV1ProjectsProjectIdPendingChangesGet(projectId, {
+    status,
+  });
   return response.data;
 }
 
@@ -23,9 +22,9 @@ export async function countPendingProjectChanges(
   projectId: string,
   status: PendingProjectChangeStatus = "pending",
 ): Promise<PendingProjectChangeCountResponse> {
-  const response = await apiClient.get<PendingProjectChangeCountResponse>(
-    `/projects/${projectId}/pending-changes/count`,
-    { params: { status } },
+  const response = await http.getPendingChangeCountApiV1ProjectsProjectIdPendingChangesCountGet(
+    projectId,
+    { status },
   );
   return response.data;
 }
@@ -35,10 +34,12 @@ export async function rejectPendingProjectChange(
   changeId: string,
   expectedUpdatedAt?: string,
 ): Promise<PendingProjectChange> {
-  const response = await apiClient.post<PendingProjectChange>(
-    `/projects/${projectId}/pending-changes/${changeId}/reject`,
-    expectedUpdatedAt ? { expected_updated_at: expectedUpdatedAt } : undefined,
-  );
+  const response =
+    await http.rejectPendingChangeApiV1ProjectsProjectIdPendingChangesChangeIdRejectPost(
+      projectId,
+      changeId,
+      expectedUpdatedAt ? { expected_updated_at: expectedUpdatedAt } : undefined,
+    );
   return response.data;
 }
 
@@ -47,10 +48,12 @@ export async function applyPendingProjectChange(
   changeId: string,
   request: PendingProjectChangeApplyRequest,
 ): Promise<PendingProjectChange> {
-  const response = await apiClient.post<PendingProjectChange>(
-    `/projects/${projectId}/pending-changes/${changeId}/apply`,
-    request,
-  );
+  const response =
+    await http.applyPendingChangeApiV1ProjectsProjectIdPendingChangesChangeIdApplyPost(
+      projectId,
+      changeId,
+      request,
+    );
   return response.data;
 }
 
@@ -58,8 +61,9 @@ export async function getPendingProjectChange(
   projectId: string,
   changeId: string,
 ): Promise<PendingProjectChange> {
-  const response = await apiClient.get<PendingProjectChange>(
-    `/projects/${projectId}/pending-changes/${changeId}`,
+  const response = await http.getPendingChangeApiV1ProjectsProjectIdPendingChangesChangeIdGet(
+    projectId,
+    changeId,
   );
   return response.data;
 }
@@ -68,9 +72,11 @@ export async function listPendingProjectChangeRevisions(
   projectId: string,
   changeId: string,
 ): Promise<PendingProjectChangeRevision[]> {
-  const response = await apiClient.get<PendingProjectChangeRevision[]>(
-    `/projects/${projectId}/pending-changes/${changeId}/revisions`,
-  );
+  const response =
+    await http.listPendingChangeRevisionsApiV1ProjectsProjectIdPendingChangesChangeIdRevisionsGet(
+      projectId,
+      changeId,
+    );
   return response.data;
 }
 
@@ -79,9 +85,12 @@ export async function getPendingProjectChangeRevision(
   changeId: string,
   revisionId: string,
 ): Promise<PendingProjectChangeRevision> {
-  const response = await apiClient.get<PendingProjectChangeRevision>(
-    `/projects/${projectId}/pending-changes/${changeId}/revisions/${revisionId}`,
-  );
+  const response =
+    await http.getPendingChangeRevisionApiV1ProjectsProjectIdPendingChangesChangeIdRevisionsRevisionIdGet(
+      projectId,
+      changeId,
+      revisionId,
+    );
   return response.data;
 }
 
@@ -91,8 +100,9 @@ export async function revisePendingProjectChange(
   expectedUpdatedAt: string,
   patch: Record<string, string>,
 ): Promise<PendingProjectChange> {
-  const response = await apiClient.patch<PendingProjectChange>(
-    `/projects/${projectId}/pending-changes/${changeId}`,
+  const response = await http.revisePendingChangeApiV1ProjectsProjectIdPendingChangesChangeIdPatch(
+    projectId,
+    changeId,
     { expected_updated_at: expectedUpdatedAt, patch },
   );
   return response.data;

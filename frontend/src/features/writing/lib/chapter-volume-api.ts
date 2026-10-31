@@ -1,8 +1,9 @@
+import type * as schemas from "@/api/generated/models";
+import * as http from "@/api/generated/openfic";
 import {
   projectNavGroups,
   PROJECT_NAV_ROOT_ID,
 } from "@/features/project-navigation/lib/project-nav-groups";
-import { apiClient } from "@/lib/api-transport";
 import type {
   Chapter,
   ChapterCreate,
@@ -17,7 +18,7 @@ import type {
   VolumeWithChapters,
 } from "@/lib/chapter.types";
 
-function transformChapter(raw: Record<string, unknown>): Chapter {
+function transformChapter(raw: schemas.ChapterResponse): Chapter {
   return {
     id: raw.id as string,
     projectId: raw.project_id as string,
@@ -31,7 +32,7 @@ function transformChapter(raw: Record<string, unknown>): Chapter {
   };
 }
 
-function transformChapterListItem(raw: Record<string, unknown>): ChapterListItem {
+function transformChapterListItem(raw: schemas.ChapterListItem): ChapterListItem {
   return {
     id: raw.id as string,
     projectId: raw.project_id as string,
@@ -44,7 +45,7 @@ function transformChapterListItem(raw: Record<string, unknown>): ChapterListItem
   };
 }
 
-function transformVolume(raw: Record<string, unknown>): Volume {
+function transformVolume(raw: schemas.VolumeResponse): Volume {
   return {
     id: raw.id as string,
     projectId: raw.project_id as string,
@@ -57,20 +58,16 @@ function transformVolume(raw: Record<string, unknown>): Volume {
   };
 }
 
-function transformVolumeWithChapters(raw: Record<string, unknown>): VolumeWithChapters {
+function transformVolumeWithChapters(raw: schemas.VolumeTreeItem): VolumeWithChapters {
   return {
     ...transformVolume(raw),
-    chapters: ((raw.chapters as Record<string, unknown>[]) ?? []).map(transformChapterListItem),
+    chapters: (raw.chapters ?? []).map(transformChapterListItem),
   };
 }
 
-function transformVolumeTree(raw: Record<string, unknown>): VolumeTreeResponse {
-  const folders = ((raw.volumes as Record<string, unknown>[]) ?? []).map(
-    transformVolumeWithChapters,
-  );
-  const roots = ((raw.root_chapters as Record<string, unknown>[]) ?? []).map(
-    transformChapterListItem,
-  );
+function transformVolumeTree(raw: schemas.VolumeTreeResponse): VolumeTreeResponse {
+  const folders = (raw.volumes ?? []).map(transformVolumeWithChapters);
+  const roots = (raw.root_chapters ?? []).map(transformChapterListItem);
   const items = [...roots, ...folders.flatMap((folder) => folder.chapters)];
   return {
     volumes: projectNavGroups(folders, items, (item) =>
@@ -95,17 +92,17 @@ function transformVolumeTree(raw: Record<string, unknown>): VolumeTreeResponse {
 }
 
 export async function fetchChapters(projectId: string): Promise<VolumeTreeResponse> {
-  const response = await apiClient.get(`/projects/${projectId}/chapters`);
+  const response = await http.listChaptersApiV1ProjectsProjectIdChaptersGet(projectId);
   return transformVolumeTree(response.data);
 }
 
 export async function fetchChapter(chapterId: string): Promise<Chapter> {
-  const response = await apiClient.get(`/chapters/${chapterId}`);
+  const response = await http.getChapterApiV1ChaptersChapterIdGet(chapterId);
   return transformChapter(response.data);
 }
 
 export async function createChapter(projectId: string, data: ChapterCreate): Promise<Chapter> {
-  const response = await apiClient.post(`/projects/${projectId}/chapters`, {
+  const response = await http.createChapterApiV1ProjectsProjectIdChaptersPost(projectId, {
     volume_id: data.volumeId === PROJECT_NAV_ROOT_ID ? null : data.volumeId,
     title: data.title,
     content: data.content ?? "",
@@ -115,7 +112,7 @@ export async function createChapter(projectId: string, data: ChapterCreate): Pro
 }
 
 export async function createVolume(projectId: string, data: VolumeCreate): Promise<Volume> {
-  const response = await apiClient.post(`/projects/${projectId}/volumes`, {
+  const response = await http.createVolumeApiV1ProjectsProjectIdVolumesPost(projectId, {
     title: data.title,
     description: data.description ?? null,
   });
@@ -123,17 +120,17 @@ export async function createVolume(projectId: string, data: VolumeCreate): Promi
 }
 
 export async function fetchVolumes(projectId: string): Promise<Volume[]> {
-  const response = await apiClient.get(`/projects/${projectId}/volumes`);
-  return (response.data as Record<string, unknown>[]).map(transformVolume);
+  const response = await http.listVolumesApiV1ProjectsProjectIdVolumesGet(projectId);
+  return response.data.map(transformVolume);
 }
 
 export async function fetchVolume(volumeId: string): Promise<Volume> {
-  const response = await apiClient.get(`/volumes/${volumeId}`);
+  const response = await http.getVolumeApiV1VolumesVolumeIdGet(volumeId);
   return transformVolume(response.data);
 }
 
 export async function updateVolume(volumeId: string, data: VolumeUpdate): Promise<Volume> {
-  const response = await apiClient.patch(`/volumes/${volumeId}`, {
+  const response = await http.updateVolumeApiV1VolumesVolumeIdPatch(volumeId, {
     title: data.title,
     description: data.description,
   });
@@ -141,13 +138,11 @@ export async function updateVolume(volumeId: string, data: VolumeUpdate): Promis
 }
 
 export async function deleteVolume(volumeId: string, cascade = false): Promise<void> {
-  await apiClient.delete(`/volumes/${volumeId}`, {
-    params: { cascade },
-  });
+  await http.deleteVolumeApiV1VolumesVolumeIdDelete(volumeId, { cascade });
 }
 
 export async function moveVolume(volumeId: string, data: VolumeMove): Promise<Volume> {
-  const response = await apiClient.post(`/volumes/${volumeId}/move`, {
+  const response = await http.moveVolumeApiV1VolumesVolumeIdMovePost(volumeId, {
     new_order: data.newOrder,
   });
   return transformVolume(response.data);
@@ -158,7 +153,7 @@ export async function updateChapter(chapterId: string, data: ChapterUpdate): Pro
     data.baseTitle !== undefined && data.baseContent !== undefined
       ? { base_title: data.baseTitle, base_content: data.baseContent }
       : {};
-  const response = await apiClient.patch(`/chapters/${chapterId}`, {
+  const response = await http.updateChapterApiV1ChaptersChapterIdPatch(chapterId, {
     title: data.title,
     content: data.content,
     word_count: data.wordCount,
@@ -169,25 +164,25 @@ export async function updateChapter(chapterId: string, data: ChapterUpdate): Pro
 }
 
 export async function deleteChapter(chapterId: string): Promise<void> {
-  await apiClient.delete(`/chapters/${chapterId}`);
+  await http.deleteChapterApiV1ChaptersChapterIdDelete(chapterId);
 }
 
 export async function reorderChapters(
   volumeId: string,
   chapterIds: string[],
 ): Promise<ChapterListItem[]> {
-  const response = await apiClient.post("/chapters/reorder", {
+  const response = await http.reorderChaptersApiV1ChaptersReorderPost({
     volume_id: volumeId === PROJECT_NAV_ROOT_ID ? null : volumeId,
     chapter_ids: chapterIds,
   });
-  return (response.data as Record<string, unknown>[]).map(transformChapterListItem);
+  return response.data.map(transformChapterListItem);
 }
 
 export async function moveChapterToVolume(
   chapterId: string,
   data: ChapterMoveToVolume,
 ): Promise<Chapter> {
-  const response = await apiClient.post(`/chapters/${chapterId}/move-to-volume`, {
+  const response = await http.moveChapterToVolumeApiV1ChaptersChapterIdMoveToVolumePost(chapterId, {
     volume_id: data.volumeId === PROJECT_NAV_ROOT_ID ? null : data.volumeId,
   });
   return transformChapter(response.data);

@@ -1,4 +1,6 @@
-import { apiClient, resolveBackendUrl } from "@/lib/api-transport";
+import type * as schemas from "@/api/generated/models";
+import * as http from "@/api/generated/openfic";
+import { resolveBackendUrl } from "@/lib/api-transport";
 import type {
   Character,
   CharacterCreate,
@@ -8,7 +10,7 @@ import type {
   CharacterUpdate,
 } from "@/lib/character.types";
 
-function transformCharacter(raw: Record<string, unknown>): Character {
+function transformCharacter(raw: schemas.CharacterResponse): Character {
   return {
     id: raw.id as string,
     projectId: raw.project_id as string,
@@ -24,7 +26,7 @@ function transformCharacter(raw: Record<string, unknown>): Character {
   };
 }
 
-function transformCharacterListItem(raw: Record<string, unknown>): CharacterListItem {
+function transformCharacterListItem(raw: schemas.CharacterListItemResponse): CharacterListItem {
   return {
     id: raw.id as string,
     projectId: raw.project_id as string,
@@ -41,16 +43,16 @@ function transformCharacterListItem(raw: Record<string, unknown>): CharacterList
 }
 
 export async function fetchCharactersByProject(projectId: string): Promise<CharacterListResponse> {
-  const response = await apiClient.get(`/projects/${projectId}/characters`);
+  const response = await http.listProjectCharactersApiV1ProjectsProjectIdCharactersGet(projectId);
   const data = response.data;
   return {
-    items: (data.items as Record<string, unknown>[]).map(transformCharacterListItem),
+    items: data.items.map(transformCharacterListItem),
     total: data.total,
   };
 }
 
 export async function fetchCharacter(characterId: string): Promise<Character> {
-  const response = await apiClient.get(`/characters/${characterId}`);
+  const response = await http.getCharacterApiV1CharactersCharacterIdGet(characterId);
   return transformCharacter(response.data);
 }
 
@@ -63,9 +65,11 @@ export async function createCharacter(
   formData.append("description", data.description ?? "");
   if (data.image) formData.append("image", data.image);
 
-  const response = await apiClient.post(`/projects/${projectId}/characters`, formData, {
-    headers: { "Content-Type": "multipart/form-data" },
-  });
+  const response = await http.createCharacterApiV1ProjectsProjectIdCharactersPost(
+    projectId,
+    formData,
+    { headers: { "Content-Type": "multipart/form-data" } },
+  );
   return transformCharacter(response.data);
 }
 
@@ -86,14 +90,16 @@ export async function updateCharacter(
   }
   if (data.image) formData.append("image", data.image);
 
-  const response = await apiClient.patch(`/characters/${characterId}`, formData, {
-    headers: { "Content-Type": "multipart/form-data" },
-  });
+  const response = await http.updateCharacterApiV1CharactersCharacterIdPatch(
+    characterId,
+    formData,
+    { headers: { "Content-Type": "multipart/form-data" } },
+  );
   return transformCharacter(response.data);
 }
 
 export async function deleteCharacter(characterId: string): Promise<void> {
-  await apiClient.delete(`/characters/${characterId}`);
+  await http.deleteCharacterApiV1CharactersCharacterIdDelete(characterId);
 }
 
 export async function batchFavoriteCharacters(
@@ -101,10 +107,11 @@ export async function batchFavoriteCharacters(
   characterIds: string[],
   isFavorited: boolean,
 ): Promise<number> {
-  const response = await apiClient.post(`/projects/${projectId}/characters/batch/favorite`, {
-    character_ids: characterIds,
-    is_favorited: isFavorited,
-  });
+  const response =
+    await http.batchFavoriteCharactersApiV1ProjectsProjectIdCharactersBatchFavoritePost(projectId, {
+      character_ids: characterIds,
+      is_favorited: isFavorited,
+    });
   return response.data.updated_count as number;
 }
 
@@ -112,16 +119,22 @@ export async function batchDeleteCharacters(
   projectId: string,
   characterIds: string[],
 ): Promise<number> {
-  const response = await apiClient.post(`/projects/${projectId}/characters/batch/delete`, {
-    character_ids: characterIds,
-  });
+  const response = await http.batchDeleteCharactersApiV1ProjectsProjectIdCharactersBatchDeletePost(
+    projectId,
+    {
+      character_ids: characterIds,
+    },
+  );
   return response.data.deleted_count as number;
 }
 
 export async function reorderCharacters(projectId: string, orderedIds: string[]): Promise<number> {
-  const response = await apiClient.post(`/projects/${projectId}/characters/reorder`, {
-    ordered_ids: orderedIds,
-  });
+  const response = await http.reorderProjectCharactersApiV1ProjectsProjectIdCharactersReorderPost(
+    projectId,
+    {
+      ordered_ids: orderedIds,
+    },
+  );
   return response.data.updated_count as number;
 }
 
@@ -129,15 +142,16 @@ export async function searchCharacters(
   projectId: string,
   query: string,
 ): Promise<CharacterSearchResponse> {
-  const response = await apiClient.get(`/projects/${projectId}/characters/search`, {
-    params: { q: query },
-  });
-  const data = response.data as Record<string, unknown>;
+  const response = await http.searchProjectCharactersApiV1ProjectsProjectIdCharactersSearchGet(
+    projectId,
+    { q: query },
+  );
+  const data = response.data;
   return {
-    results: ((data.results as Record<string, unknown>[]) ?? []).map((result) => ({
+    results: (data.results ?? []).map((result) => ({
       characterId: result.character_id as string,
       characterName: result.character_name as string,
-      matches: ((result.matches as Record<string, unknown>[]) ?? []).map((match) => ({
+      matches: (result.matches ?? []).map((match) => ({
         lineNumber: match.line_number as number,
         lineText: match.line_text as string,
       })),

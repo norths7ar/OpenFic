@@ -2,21 +2,17 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
 import { useEffect } from "react";
 
-import { apiClient } from "@/lib/api-transport";
+import * as http from "@/api/generated/openfic";
 import { getSocket } from "@/lib/socket-client";
 
 export const AGENT_SETTINGS_LOCK_QUERY_KEY = ["agent-settings-lock"] as const;
-
-interface AgentSettingsLockResponse {
-  is_locked: boolean;
-}
 
 interface AgentSettingsLockErrorDetail {
   code?: string;
 }
 
 export async function fetchAgentSettingsLock(): Promise<boolean> {
-  const response = await apiClient.get<AgentSettingsLockResponse>("/settings/agent-session-lock");
+  const response = await http.getAgentSettingsLockApiV1SettingsAgentSessionLockGet();
   return response.data.is_locked === true;
 }
 

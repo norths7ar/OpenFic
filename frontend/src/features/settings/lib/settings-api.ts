@@ -1,10 +1,9 @@
+import * as http from "@/api/generated/openfic";
 /**
  * Settings API
  *
  * 设置 API 客户端。
  */
-
-import { apiClient } from "@/lib/api-transport";
 
 import type {
   AgentToolMetadata,
@@ -58,7 +57,7 @@ export function transformSettings(raw: SettingsResponse): Settings {
  * 获取设置
  */
 export async function fetchSettings(): Promise<Settings> {
-  const response = await apiClient.get<SettingsResponse>("/settings");
+  const response = await http.getSettingsApiV1SettingsGet();
   return transformSettings(response.data);
 }
 
@@ -66,17 +65,12 @@ export async function fetchSettings(): Promise<Settings> {
  * 更新设置
  */
 export async function updateSettings(data: SettingsUpdateRequest): Promise<Settings> {
-  const response = await apiClient.put<SettingsResponse>("/settings", data);
+  const response = await http.updateSettingsApiV1SettingsPut(data);
   return transformSettings(response.data);
 }
 
 export async function fetchAgentTools(): Promise<AgentToolMetadata[]> {
-  const response = await apiClient.get<
-    Array<{
-      key: string;
-      is_readonly: boolean;
-    }>
-  >("/agent/tools");
+  const response = await http.listAgentToolsApiV1AgentToolsGet();
   return response.data.map((tool) => ({
     key: tool.key,
     isReadonly: tool.is_readonly,
@@ -84,10 +78,7 @@ export async function fetchAgentTools(): Promise<AgentToolMetadata[]> {
 }
 
 export async function fetchAuditDetailsStorage(): Promise<AuditDetailsStorage> {
-  const response = await apiClient.get<{
-    detail_records_count: number;
-    detail_bytes: number;
-  }>("/settings/audit-details/storage");
+  const response = await http.getAuditDetailsStorageApiV1SettingsAuditDetailsStorageGet();
   return {
     detailRecordsCount: response.data.detail_records_count,
     detailBytes: response.data.detail_bytes,
@@ -95,5 +86,5 @@ export async function fetchAuditDetailsStorage(): Promise<AuditDetailsStorage> {
 }
 
 export async function clearAuditDetails(): Promise<void> {
-  await apiClient.delete("/settings/audit-details");
+  await http.clearAuditDetailsApiV1SettingsAuditDetailsDelete();
 }

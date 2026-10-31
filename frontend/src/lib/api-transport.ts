@@ -4,7 +4,7 @@
  * Feature APIs depend on this module; it must not depend on feature modules.
  */
 
-import axios from "axios";
+import axios, { type AxiosRequestConfig, type AxiosResponse } from "axios";
 
 import { handleAuthenticationFailure } from "./auth-failure";
 import { getConfiguredBackendBaseUrl, getRuntimeConfig } from "./runtime-config";
@@ -44,6 +44,21 @@ export const apiClient = axios.create({
     "Content-Type": "application/json",
   },
 });
+
+/** Generated endpoints retain the full HTTP response for downloads and headers. */
+export function request<T>(
+  config: AxiosRequestConfig,
+  options?: AxiosRequestConfig,
+): Promise<AxiosResponse<T>> {
+  return apiClient({
+    ...config,
+    ...options,
+    url: config.url?.replace(/^\/api\/v1(?=\/|$)/, ""),
+  });
+}
+
+/** Multipart callers may supply files using the browser's native FormData. */
+export type BodyType<T> = T | FormData;
 
 function isAuthenticationRequest(url: string | undefined): boolean {
   return url?.includes("/auth/") ?? false;

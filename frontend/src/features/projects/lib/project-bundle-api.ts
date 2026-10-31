@@ -1,24 +1,9 @@
-import { apiClient } from "@/lib/api-transport";
+import * as http from "@/api/generated/openfic";
 
-export interface ProjectBundlePreviewItem {
-  kind: string;
-  id: string;
-  title: string;
-  path: string;
-  action: string;
-  reason: string;
-  base_hash: string;
-  current_hash: string | null;
-  incoming_hash: string;
-}
-
-export interface ProjectBundlePreviewResponse {
-  mode: string;
-  source_project?: Record<string, unknown>;
-  items: ProjectBundlePreviewItem[];
-  summary: Record<string, number>;
-  source_items?: Record<string, unknown>[];
-}
+export type ProjectBundlePreviewItem = import("@/api/generated/models").PreviewItem;
+export type ProjectBundlePreviewResponse = import("@/api/generated/models").BundleApplyResponse &
+  Partial<Pick<import("@/api/generated/models").BundlePreviewResponse, "source_project">> &
+  Partial<Pick<import("@/api/generated/models").SourceBundleResponse, "source_items">>;
 
 async function postProjectBundleImport(
   projectId: string,
@@ -29,11 +14,17 @@ async function postProjectBundleImport(
   const formData = new FormData();
   formData.append("file", file);
   formData.append("mode", "merge");
-  const response = await apiClient.post<ProjectBundlePreviewResponse>(
-    `/projects/${projectId}/${endpoint}/${action}`,
-    formData,
-    { headers: { "Content-Type": "multipart/form-data" } },
-  );
+  const operation =
+    endpoint === "bundle/source"
+      ? action === "preview"
+        ? http.previewSourceBundleImportApiV1ProjectsProjectIdBundleSourcePreviewPost
+        : http.applySourceBundleImportApiV1ProjectsProjectIdBundleSourceApplyPost
+      : action === "preview"
+        ? http.previewBundleImportApiV1ProjectsProjectIdBundleImportPreviewPost
+        : http.applyBundleImportApiV1ProjectsProjectIdBundleImportApplyPost;
+  const response = await operation(projectId, formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
   return response.data;
 }
 
@@ -64,8 +55,10 @@ export async function applyProjectBundleImport(
 }
 
 export async function downloadProjectBundle(projectId: string, source = false): Promise<void> {
-  const endpoint = source ? "bundle/source/export" : "bundle/export";
-  const response = await apiClient.get<Blob>(`/projects/${projectId}/${endpoint}`, {
+  const operation = source
+    ? http.exportSourceBundleApiV1ProjectsProjectIdBundleSourceExportGet
+    : http.exportBundleApiV1ProjectsProjectIdBundleExportGet;
+  const response = await operation(projectId, {
     responseType: "blob",
   });
   const contentDisposition = response.headers["content-disposition"] as string | undefined;

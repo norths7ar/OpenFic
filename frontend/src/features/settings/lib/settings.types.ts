@@ -53,35 +53,7 @@ export interface Settings {
 }
 
 /** 设置响应（后端格式） */
-export interface SettingsResponse {
-  language: string;
-  theme: string;
-  font_family: string;
-  code_font_family?: string;
-  base_font_size?: number;
-  editor_font_size?: number;
-  default_model: string;
-  light_model: string;
-  default_embedding_model: string;
-  index_mode: IndexMode;
-  index_enabled_projects: string[];
-  index_chunk_size: number;
-  index_chunk_overlap: number;
-  index_auto_strategy: IndexAutoStrategy;
-  index_rerank_enabled: boolean;
-  default_rerank_model: string;
-  agent_bypass_tool_approval: boolean;
-  agent_tool_permissions: Array<{
-    tool_name: string;
-    mode: AgentToolPermissionMode;
-  }>;
-  audit_persist_details: boolean;
-  compress_system_prompts: boolean;
-  editor_auto_indent?: boolean;
-  editor_auto_convert_punctuation?: boolean;
-  editor_auto_pair_symbols?: boolean;
-  editor_show_line_numbers?: boolean;
-}
+export type SettingsResponse = import("@/api/generated/models").SettingsResponse;
 
 /** 设置更新请求 */
 export interface SettingsUpdateRequest {

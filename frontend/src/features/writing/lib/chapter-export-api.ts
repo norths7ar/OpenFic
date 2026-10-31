@@ -1,7 +1,9 @@
-import { apiClient, resolveBackendUrl } from "@/lib/api-transport";
+import type * as schemas from "@/api/generated/models";
+import * as http from "@/api/generated/openfic";
+import { resolveBackendUrl } from "@/lib/api-transport";
 import type { ChapterExport, ChapterExportCreate } from "@/lib/chapter-export.types";
 
-function transformChapterExport(raw: Record<string, unknown>): ChapterExport {
+function transformChapterExport(raw: schemas.ChapterExportResponse): ChapterExport {
   return {
     id: raw.id as string,
     status: raw.status as string,
@@ -27,17 +29,23 @@ export async function createChapterExport(
   projectId: string,
   data: ChapterExportCreate,
 ): Promise<ChapterExport> {
-  const response = await apiClient.post(`/projects/${projectId}/chapter-exports`, {
-    selected_volume_ids: data.selectedVolumeIds,
-    included_chapter_ids: data.includedChapterIds,
-    excluded_chapter_ids: data.excludedChapterIds,
-    local_date: data.localDate,
-  });
+  const response = await http.createChapterExportApiV1ProjectsProjectIdChapterExportsPost(
+    projectId,
+    {
+      selected_volume_ids: data.selectedVolumeIds,
+      included_chapter_ids: data.includedChapterIds,
+      excluded_chapter_ids: data.excludedChapterIds,
+      local_date: data.localDate,
+    },
+  );
   return transformChapterExport(response.data);
 }
 
 export async function fetchChapterExport(projectId: string, jobId: string): Promise<ChapterExport> {
-  const response = await apiClient.get(`/projects/${projectId}/chapter-exports/${jobId}`);
+  const response = await http.getChapterExportApiV1ProjectsProjectIdChapterExportsJobIdGet(
+    projectId,
+    jobId,
+  );
   return transformChapterExport(response.data);
 }
 
@@ -45,6 +53,10 @@ export async function cancelChapterExport(
   projectId: string,
   jobId: string,
 ): Promise<ChapterExport> {
-  const response = await apiClient.post(`/projects/${projectId}/chapter-exports/${jobId}/cancel`);
+  const response =
+    await http.cancelChapterExportApiV1ProjectsProjectIdChapterExportsJobIdCancelPost(
+      projectId,
+      jobId,
+    );
   return transformChapterExport(response.data);
 }

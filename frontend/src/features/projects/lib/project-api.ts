@@ -1,4 +1,6 @@
-import { apiClient, resolveBackendUrl } from "@/lib/api-transport";
+import type * as schemas from "@/api/generated/models";
+import * as http from "@/api/generated/openfic";
+import { resolveBackendUrl } from "@/lib/api-transport";
 import type {
   Project,
   ProjectCreate,
@@ -7,7 +9,7 @@ import type {
   ProjectUpdate,
 } from "@/lib/project.types";
 
-function transformProject(raw: Record<string, unknown>): Project {
+function transformProject(raw: schemas.ProjectResponse): Project {
   return {
     id: raw.id as string,
     title: raw.title as string,
@@ -21,18 +23,16 @@ function transformProject(raw: Record<string, unknown>): Project {
 }
 
 export async function fetchProjects(params?: ProjectListParams): Promise<ProjectListResponse> {
-  const response = await apiClient.get("/projects", {
-    params: {
-      page: params?.page ?? 1,
-      page_size: params?.pageSize ?? 20,
-      search: params?.search?.trim() || undefined,
-      sort_by: params?.sortBy ?? "updated_at",
-      sort_order: params?.sortOrder ?? "desc",
-    },
+  const response = await http.listProjectsApiV1ProjectsGet({
+    page: params?.page ?? 1,
+    page_size: params?.pageSize ?? 20,
+    search: params?.search?.trim() || undefined,
+    sort_by: params?.sortBy ?? "updated_at",
+    sort_order: params?.sortOrder ?? "desc",
   });
   const data = response.data;
   return {
-    items: (data.items as Record<string, unknown>[]).map(transformProject),
+    items: data.items.map(transformProject),
     total: data.total,
     page: data.page,
     pageSize: data.page_size,
@@ -40,7 +40,7 @@ export async function fetchProjects(params?: ProjectListParams): Promise<Project
 }
 
 export async function fetchProject(projectId: string): Promise<Project> {
-  const response = await apiClient.get(`/projects/${projectId}`);
+  const response = await http.getProjectApiV1ProjectsProjectIdGet(projectId);
   return transformProject(response.data);
 }
 
@@ -50,7 +50,7 @@ export async function createProject(data: ProjectCreate): Promise<Project> {
   if (data.description) formData.append("description", data.description);
   if (data.cover) formData.append("cover", data.cover);
 
-  const response = await apiClient.post("/projects", formData, {
+  const response = await http.createProjectApiV1ProjectsPost(formData, {
     headers: { "Content-Type": "multipart/form-data" },
   });
   return transformProject(response.data);
@@ -62,12 +62,12 @@ export async function updateProject(projectId: string, data: ProjectUpdate): Pro
   if (data.description !== undefined) formData.append("description", data.description || "");
   if (data.cover) formData.append("cover", data.cover);
 
-  const response = await apiClient.patch(`/projects/${projectId}`, formData, {
+  const response = await http.updateProjectApiV1ProjectsProjectIdPatch(projectId, formData, {
     headers: { "Content-Type": "multipart/form-data" },
   });
   return transformProject(response.data);
 }
 
 export async function deleteProject(projectId: string): Promise<void> {
-  await apiClient.delete(`/projects/${projectId}`);
+  await http.deleteProjectApiV1ProjectsProjectIdDelete(projectId);
 }
