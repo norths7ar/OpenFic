@@ -1,12 +1,3 @@
-*.code-workspace
-.agent
-.agents
-.claude
-.codex
-.cursor
-.gemini
-.kilo
-.opencode
 .shared
 .vscode
 .gitnexus
@@ -23,8 +14,6 @@ tmp
 data
 frontend/lab.html
 frontend/src/local/
-AGENTS.md
-CLAUDE.md
 docs/superpowers
 *.db
 

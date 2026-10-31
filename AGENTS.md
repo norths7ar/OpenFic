@@ -1,0 +1,24 @@
+# 仓库规则
+
+- 本仓库作为独立分支持续开发。upstream 仅用于参考和按需移植功能，不再整体合并上游更新，也不以向上游合并或提交 PR 为目标。
+- 小说讨论和写作在 OpenFic 中进行，文档按 OpenFic → 独立 Git 仓库单向备份：`fanpai-dashijie` 保存《反派大师姐想活下去》，`just-us-four` 保存《四个人，刚刚好》。使用 `scripts/export-document-backup.ps1` 更新完整快照，具体命令与双远端推送规则见各文档仓库的 `AGENTS.md`。更新前检查并保留已有未提交工作，日常不主动编辑备份书稿或向应用回传。
+- 本机正式服务使用 Windows 本地运行（127.0.0.1:18081），由根目录 `service/` 独立程序管理；在仓库根目录执行 `uv run --no-sync --project backend python -m service <操作>`。正式数据位于仓库根目录 `data`；`backend/data` 下的验证副本不是正式数据。
+- 首次安装、环境重建或后端依赖声明／锁文件变化时，在 `backend/` 执行 `uv sync --frozen`。`deployment` 组包含 `langchain-deepseek>=1.0.1`，`tool.uv.default-groups = ["dev", "deployment"]` 使普通 `uv sync` 也默认保留部署依赖。
+- 部署所需 provider SDK 在 `backend/` 使用 `uv add --group deployment langchain-anthropic` 添加，移除时使用 `uv remove --group deployment <SDK包名>`，一并提交 `pyproject.toml` 和 `uv.lock`。原有 extras 保留。
+- 普通源码更新不升级依赖。纯前端代码更新在 `frontend/` 执行 `pnpm build`，前端锁文件变化时先执行 `pnpm install --frozen-lockfile`；仅后端 Python 源码变化时完成检查后重启。开发检查使用 `uv run --no-sync`。
+- 改动完成后，应执行与改动范围相适应的检查，并按需构建、部署和核验。重启服务前须确认没有正在运行的任务；确认空闲后可自主重启，无需另行询问。存在运行中任务时不得擅自中断，无法确认任务状态时应先查明或询问用户。
+- Git 提交须经用户明确授权，不因开发、修复或验证完成而自动提交。获准提交后，应按功能或职责拆成小而完整、可独立理解的提交；相互依赖的改动保持在一起，不机械按文件拆分，不将无关改动混入同一提交。提交范围须符合授权，并保留范围外的既有工作。
+- 未完成或已知关键检查失败的改动不部署。涉及不可逆数据变更时，先落实备份与恢复方案；无法可靠恢复时，须先取得用户确认。
+- Git 远端：`origin` 是 GitHub 上的 OpenFic 主远端，`gitea` 是 Gitea 备份远端，`upstream` 仅供参考。用户要求推送时，将本次指定的分支或标签同步推送到 `origin` 和 `gitea`，分别核验结果；任一失败须明确报告，不向 `upstream` 推送。仅要求提交时，不自动推送。
+
+## 前端 UI
+
+- 修改或新增前端 UI 前，必须阅读 [前端设计与维护约束](docs/frontend-design.md)，优先复用现有 Radix 组件、design tokens 与视觉模式，并按其中的样式归属、布局边界和视觉验收规则执行。
+
+## 版本发布
+
+- 使用 `vX.Y.Z` 附注标签；发布前统一 `frontend/package.json`、`backend/pyproject.toml` 及相关锁文件中的版本，并验证实际运行版本。
+- 维护 `CHANGELOG.md`：在 `Unreleased` 中归纳已完成、尚未发布的用户可感知变化，不逐条复制提交，也不记录计划或未完成事项。
+- 小目标分别实施、提交和验收，不要求每个修复或小目标升版本、打标签或创建 Release；积累一批稳定成果后再确定版本号，将 `Unreleased` 整理为带版本号和日期的更新记录。
+- 分支和标签按上述远端规则同步；以 CHANGELOG 记录更新、附注标签标记稳定版本，不创建 GitHub Release，不制作安装包。
+- 正式数据、凭据、缓存及备份不进入 OpenFic 源码仓库；导出的书稿由独立文档仓库保存版本历史。
