@@ -204,7 +204,7 @@ def extract_retry_after_ms(exc: BaseException) -> float | None:
         if parsed.tzinfo is None:
             parsed = parsed.replace(tzinfo=UTC)
         return max((parsed - datetime.now(UTC)).total_seconds() * 1000.0, 0.0)
-    except (TypeError, ValueError, OverflowError):
+    except TypeError, ValueError, OverflowError:
         return None
 
 

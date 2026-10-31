@@ -8,7 +8,7 @@ version = "1.4.0"
 description = "An AI-native, cross-platform writing tool for fiction authors."
 readme = "README.md"
 license = "Apache-2.0"
-requires-python = ">=3.12,<3.14"
+requires-python = ">=3.14,<3.15"
 authors = [{ name = "Syrize", email = "syrize@qq.com" }]
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -18,8 +18,7 @@ classifiers = [
     "License :: OSI Approved :: Apache Software License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.12",
-    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Internet :: WWW/HTTP :: HTTP Servers",
     "Topic :: Software Development :: Libraries :: Application Frameworks",
 ]
@@ -45,7 +44,7 @@ dependencies = [
     "langgraph-checkpoint-sqlite>=3.0.5",
     "loguru>=0.7.3",
     "nanoid>=2.0.0",
-    "pillow>=8.0,<12.0",
+    "pillow>=12.0,<13.0",
     "pyarrow>=24.0.0",
     "pydantic-settings>=2.12.0",
     "python-dotenv>=1.2.2",
@@ -62,6 +61,7 @@ dependencies = [
     "uvicorn[standard]>=0.40.0",
     "fastembed>=0.8.0",
     "pypinyin>=0.55.0",
+    "psutil>=7.2.2",
 ]
 
 [project.optional-dependencies]
@@ -116,8 +116,7 @@ packages = ["app"]
 force-include = { "alembic.ini" = "alembic.ini", "../LICENSE" = "LICENSE", "frontend" = "frontend", "app/skills" = "app/skills" }
 
 [tool.ruff]
-target-version = "py312"
-line-length = 100
+extend = "../ruff.toml"
 extend-exclude = ["app/storage/migrations/versions"]
 
 [tool.ruff.lint]

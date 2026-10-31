@@ -40,7 +40,7 @@ def _response_metadata(row: AgentRunMessage) -> dict:
 def _user_additional_kwargs(row: AgentRunMessage) -> dict:
     try:
         metadata = json.loads(row.message_metadata or "{}")
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return {}
     attachments = metadata.get("attachments") if isinstance(metadata, dict) else None
     return {"openfic_attachments": attachments} if isinstance(attachments, list) else {}

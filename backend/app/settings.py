@@ -53,7 +53,7 @@ def _read_package_version() -> str:
         from importlib.metadata import PackageNotFoundError, version
 
         return version("openfic")
-    except (PackageNotFoundError, Exception):
+    except PackageNotFoundError, Exception:
         return "0.0.0"
 
 

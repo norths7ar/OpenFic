@@ -20,7 +20,7 @@ class ReadChapterSummariesInput(BaseModel):
     )
 
     @model_validator(mode="after")
-    def validate_query(self) -> "ReadChapterSummariesInput":
+    def validate_query(self) -> ReadChapterSummariesInput:
         has_page = self.offset is not None or self.limit is not None
         if not has_page and self.orders is None:
             raise ValueError("必须提供 offset/limit 或 orders")

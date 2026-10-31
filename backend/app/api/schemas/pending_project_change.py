@@ -33,7 +33,7 @@ class PendingProjectChangeCreate(APIModel):
     model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
-    def validate_operation_shape(self) -> "PendingProjectChangeCreate":
+    def validate_operation_shape(self) -> PendingProjectChangeCreate:
         if self.operation == "create":
             if self.target_id is not None:
                 raise ValueError("create 不能指定 target_id")

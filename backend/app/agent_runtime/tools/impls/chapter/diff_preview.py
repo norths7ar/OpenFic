@@ -291,5 +291,5 @@ def _as_int(value: object) -> int | None:
         return None
     try:
         return int(cast(Any, value))
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return None

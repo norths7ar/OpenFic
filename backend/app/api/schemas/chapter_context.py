@@ -119,7 +119,7 @@ class SummaryMaintenanceResponse(APIModel):
     )
     skipped_chapter_summaries: list[SkippedChapterSummaryItem] = Field(default_factory=list)
     batch_progress: SummaryBatchProgressItem | None = None
-    active_jobs: list["SummaryBackgroundJobItem"] = Field(default_factory=list)
+    active_jobs: list[SummaryBackgroundJobItem] = Field(default_factory=list)
 
 
 class SummaryBackgroundJobItem(APIModel):

@@ -135,7 +135,7 @@ def filter_tool_result_metadata(parts: list[ContextMessage]) -> list[ContextMess
 def _parse_tool_result(content: str) -> dict[str, Any] | None:
     try:
         payload = json.loads(content)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return None
     return payload if isinstance(payload, dict) else None
 

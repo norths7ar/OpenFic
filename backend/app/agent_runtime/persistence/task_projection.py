@@ -43,7 +43,7 @@ def _message_status(status: str) -> str:
 def _parse_json(value: str) -> Any:
     try:
         return json.loads(value)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return value
 
 

@@ -10,5 +10,4 @@ wheels/
 .pytest_cache/
 .mypy_cache/
 data/
-.python-version
 .env

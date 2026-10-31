@@ -201,7 +201,7 @@ def _parse_int_setting(raw_value: str | None, *, default: int) -> int:
         return default
     try:
         return int(raw_value)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return default
 
 

@@ -49,7 +49,7 @@ async def handle_chapter_export(context: JobContext) -> dict[str, Any]:
     ChapterExportInput.model_validate(context.input)
     try:
         return await chapter_export_service.write_chapter_export(context)
-    except (chapter_export_service.ChapterExportSelectionError, RuntimeError):
+    except chapter_export_service.ChapterExportSelectionError, RuntimeError:
         raise
     except Exception as exc:
         logger.bind(job_id=context.job_id).opt(exception=True).error(

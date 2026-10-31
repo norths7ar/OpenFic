@@ -385,7 +385,7 @@ class EditCharacterTool(AgentTool):
                 if new_name is not None
                 else before.name
             )
-        except (EditorContentLimitError, ToolExecutionError):
+        except EditorContentLimitError, ToolExecutionError:
             return None
         after = CharacterPreview(
             id=before.id,

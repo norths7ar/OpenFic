@@ -132,7 +132,7 @@ async def create_session() -> AsyncSession:
     return session_factory()
 
 
-async def get_session() -> AsyncGenerator[AsyncSession, None]:
+async def get_session() -> AsyncGenerator[AsyncSession]:
     """
     获取数据库 session 的依赖注入函数。
 

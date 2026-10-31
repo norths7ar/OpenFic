@@ -126,7 +126,7 @@ def _create_test_app() -> FastAPI:
     return test_app
 
 
-async def _override_get_session() -> AsyncGenerator[AsyncSession, None]:
+async def _override_get_session() -> AsyncGenerator[AsyncSession]:
     if _per_test_session is None:
         raise RuntimeError("No active test session")
     yield _per_test_session
@@ -156,7 +156,7 @@ async def _test_app():
 
 
 @pytest_asyncio.fixture
-async def client(_test_app: FastAPI, db_engine) -> AsyncGenerator[AsyncClient, None]:
+async def client(_test_app: FastAPI, db_engine) -> AsyncGenerator[AsyncClient]:
     """每个测试的 HTTP 客户端。通过连接级事务实现隔离。"""
     global _per_test_session
     async with db_engine.begin() as setup_conn:
@@ -183,7 +183,7 @@ async def client(_test_app: FastAPI, db_engine) -> AsyncGenerator[AsyncClient, N
 
 
 @pytest_asyncio.fixture
-async def isolated_prompts_dir(monkeypatch, tmp_path: Path) -> AsyncGenerator[Path, None]:
+async def isolated_prompts_dir(monkeypatch, tmp_path: Path) -> AsyncGenerator[Path]:
     """每个测试使用隔离的 prompts 目录，避免污染仓库内 YAML。"""
     import app.prompts.loader as prompt_loader
 
@@ -212,7 +212,7 @@ def pytest_sessionfinish(session, exitstatus):
 
 
 @pytest_asyncio.fixture
-async def session(client: AsyncClient) -> AsyncGenerator[AsyncSession, None]:
+async def session(client: AsyncClient) -> AsyncGenerator[AsyncSession]:
     """向后兼容：从 app 覆盖中获取与 client 相同的数据库会话。"""
     app = client._transport.app  # type: ignore
     session_generator = app.dependency_overrides[get_session]

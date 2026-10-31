@@ -281,7 +281,7 @@ def parse_txt_content(content: bytes) -> ParseResult:
     # 解码内容
     try:
         text = content.decode(encoding)
-    except (UnicodeDecodeError, LookupError):
+    except UnicodeDecodeError, LookupError:
         # 解码失败，尝试使用 UTF-8 并忽略错误
         text = content.decode("utf-8", errors="ignore")
         encoding = "utf-8"

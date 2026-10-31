@@ -65,7 +65,7 @@ class ModelProviderValidateRequest(APIModel):
     provider_type: str = Field(description="提供商类型")
     url: str = Field(description="服务 URL")
     api_key: str = Field(default="", description="API Key；无认证通用连接可留空")
-    custom_headers: list["CustomHeaderEntry"] = Field(
+    custom_headers: list[CustomHeaderEntry] = Field(
         default_factory=list,
         description="自定义请求头",
     )

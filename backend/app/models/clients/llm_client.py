@@ -182,7 +182,7 @@ class LLMClient:
             logger.error(f"LLM调用失败: {e}")
             raise
 
-    async def generate_stream(self, messages: list[dict[str, str]]) -> AsyncGenerator[str, None]:
+    async def generate_stream(self, messages: list[dict[str, str]]) -> AsyncGenerator[str]:
         """
         流式聊天调用。
 
@@ -198,7 +198,7 @@ class LLMClient:
 
     async def generate_stream_chunks(
         self, messages: list[dict[str, str]]
-    ) -> AsyncGenerator[LLMStreamChunk, None]:
+    ) -> AsyncGenerator[LLMStreamChunk]:
         """Stream a chat call with separated content and reasoning content."""
         llm = self._get_llm()
         lc_messages = self._convert_messages(messages)
@@ -233,7 +233,7 @@ class LLMClient:
 
     async def generate_with_tools_stream(
         self, messages: list[BaseMessage], timeout: int | None = None
-    ) -> AsyncGenerator[LLMStreamChunk, None]:
+    ) -> AsyncGenerator[LLMStreamChunk]:
         """Stream a tool-enabled chat call and finish with a normalized response."""
         if not self._llm_with_tools:
             raise ValueError("必须先调用bind_tools()绑定工具")
@@ -542,7 +542,7 @@ class LLMClient:
             tool_calls=tool_calls,
         )
 
-    def bind_tools(self, tools: list[BaseTool]) -> "LLMClient":
+    def bind_tools(self, tools: list[BaseTool]) -> LLMClient:
         """
         绑定工具到LLM。
 

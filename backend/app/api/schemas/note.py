@@ -129,7 +129,7 @@ class NoteCategoryItem(APIModel):
     order: int = Field(description="同级手动排序")
     created_at: datetime = Field(description="创建时间")
     updated_at: datetime = Field(description="上次修改时间")
-    categories: list["NoteCategoryItem"] = Field(description="子分类列表")
+    categories: list[NoteCategoryItem] = Field(description="子分类列表")
     notes: list[NoteListItem] = Field(description="分类下笔记列表")
 
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)

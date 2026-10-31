@@ -392,5 +392,5 @@ def _dump_json(value: Any, default: str) -> str:
 
     try:
         return json.dumps(value, ensure_ascii=False)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return default

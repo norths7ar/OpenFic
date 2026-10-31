@@ -157,9 +157,7 @@ class AgentQuestionAnswerRequest(AgentResumeModelOptions):
     """提交 Agent 澄清问题回答请求。"""
 
     action_id: str = Field(..., description="澄清请求ID")
-    answer: list["AgentQuestionAnswerItem"] = Field(
-        default_factory=list, description="澄清问题回答"
-    )
+    answer: list[AgentQuestionAnswerItem] = Field(default_factory=list, description="澄清问题回答")
     skipped: bool = Field(default=False, description="是否忽略本次提问")
 
 

@@ -156,7 +156,7 @@ def parse_sillytavern_worldbook(raw_payload: bytes) -> WorldInfoImportPreviewRes
         else:
             try:
                 uid = int(entry_key)
-            except (TypeError, ValueError):
+            except TypeError, ValueError:
                 uid = len(entries)
 
         content = raw_entry.get("content")

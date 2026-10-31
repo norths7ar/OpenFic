@@ -46,7 +46,7 @@ def serialize_audit_log(log) -> LLMAuditLogResponse:
     if log.tool_call_results:
         try:
             tool_call_results = [ToolCallResult(**tc) for tc in json.loads(log.tool_call_results)]
-        except (json.JSONDecodeError, TypeError):
+        except json.JSONDecodeError, TypeError:
             tool_call_results = None
 
     return LLMAuditLogResponse(

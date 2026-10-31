@@ -69,7 +69,7 @@ async def db_engine():
 
 
 @pytest_asyncio.fixture
-async def db_session(db_engine) -> AsyncGenerator[AsyncSession, None]:
+async def db_session(db_engine) -> AsyncGenerator[AsyncSession]:
     """提供单一 AsyncSession 用于测试。"""
     factory = cast(
         Callable[[], AsyncSession],

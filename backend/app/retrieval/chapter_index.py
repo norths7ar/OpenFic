@@ -140,7 +140,7 @@ def _parse_int_setting(raw: str | None, *, default: int) -> int:
         return default
     try:
         value = int(raw)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return default
     return value
 
@@ -150,7 +150,7 @@ def _parse_str_list_setting(raw: str | None) -> list[str]:
         return []
     try:
         payload = json.loads(raw)
-    except (TypeError, ValueError, json.JSONDecodeError):
+    except TypeError, ValueError, json.JSONDecodeError:
         return []
     if not isinstance(payload, list):
         return []

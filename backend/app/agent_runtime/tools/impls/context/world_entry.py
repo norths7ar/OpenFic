@@ -535,7 +535,7 @@ class EditWorldEntryTool(AgentTool):
                 if new_title is not None
                 else before.title
             )
-        except (EditorContentLimitError, ToolExecutionError):
+        except EditorContentLimitError, ToolExecutionError:
             return None
         after = WorldEntryPreview(
             id=before.id,

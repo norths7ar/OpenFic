@@ -103,7 +103,7 @@ def get_callable_location(endpoint: LocatedCallable) -> EndpointLocation:
     line = code.co_firstlineno
     try:
         _, line = getsourcelines(endpoint)
-    except (OSError, TypeError):
+    except OSError, TypeError:
         pass
     return EndpointLocation(
         name=endpoint.__module__,

@@ -7,7 +7,7 @@ from typing import Any
 def _non_negative_int(value: Any) -> int:
     try:
         return max(int(value or 0), 0)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return 0
 
 

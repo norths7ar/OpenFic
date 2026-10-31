@@ -942,7 +942,7 @@ async def rollback_revision_for_session(
             restored_message_content = user_message.content
             try:
                 metadata = json.loads(user_message.message_metadata or "{}")
-            except (TypeError, ValueError):
+            except TypeError, ValueError:
                 metadata = {}
             attachments = metadata.get("attachments") if isinstance(metadata, dict) else None
             if isinstance(attachments, list):

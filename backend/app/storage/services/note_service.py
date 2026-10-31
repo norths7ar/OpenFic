@@ -28,7 +28,7 @@ DocumentType = Literal["note", "outline"]
 @dataclass
 class NoteCategoryNode:
     category: ProjectFolder
-    sub_categories: list["NoteCategoryNode"] = field(default_factory=list)
+    sub_categories: list[NoteCategoryNode] = field(default_factory=list)
     notes: list[Note] = field(default_factory=list)
 
 
