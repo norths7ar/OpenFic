@@ -1,0 +1,39 @@
+.chapter-search__match {
+  background: var(--accent-a4);
+  color: inherit;
+  padding: 0 2px;
+  border-radius: 2px;
+}
+
+.chapter-search__content {
+  width: 320px;
+  max-width: 320px;
+  min-width: 320px;
+}
+
+.chapter-search__scroll-region,
+.rt-Box.chapter-search__scroll-region {
+  max-height: 350px;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.chapter-search__results {
+  height: 300px;
+}
+
+.chapter-search__result,
+.rt-Box.chapter-search__result {
+  padding: 12px 16px;
+  cursor: pointer;
+  background: transparent;
+  transition: background 0.1s ease;
+}
+
+.chapter-search__result-title,
+.rt-Text.chapter-search__result-title {
+  display: block;
+  margin-bottom: 4px;
+  line-height: 1.5;
+  color: var(--gray-12);
+}

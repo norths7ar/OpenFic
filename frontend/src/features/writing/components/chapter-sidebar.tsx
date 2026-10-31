@@ -1,3 +1,4 @@
+import "./chapter-sidebar.css";
 import { Box, Button, Dialog, Flex, TextArea } from "@radix-ui/themes";
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
@@ -448,14 +449,7 @@ export function ChapterSidebar({
   );
 
   return (
-    <Box
-      style={{
-        height: "100%",
-        display: "flex",
-        flexDirection: "column",
-        background: "var(--color-background)",
-      }}
-    >
+    <Box className="chapter-sidebar__content">
       <SidebarToolbar
         onOpenSummary={onOpenSummary}
         projectId={projectId}
@@ -540,7 +534,7 @@ export function ChapterSidebar({
             value={editingVolumeDescription}
             onChange={(event) => setEditingVolumeDescription(event.target.value)}
             resize="vertical"
-            style={{ minHeight: 120 }}
+            className="chapter-sidebar__create-description"
           />
           <Flex
             justify="end"

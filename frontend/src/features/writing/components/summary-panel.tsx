@@ -69,9 +69,8 @@ export function SummaryPanel({ projectId, open, onOpenChange, trigger }: Summary
     >
       {trigger && <Dialog.Trigger>{trigger}</Dialog.Trigger>}
       <Dialog.Content
-        className="summary-panel-content"
+        className="summary-panel-content summary-panel__dialog"
         maxWidth="1180px"
-        style={{ width: "min(1180px, calc(100vw - 32px))" }}
       >
         <Dialog.Title className="summary-panel-visually-hidden">{t("summary.title")}</Dialog.Title>
         <Dialog.Description className="summary-panel-visually-hidden">

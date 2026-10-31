@@ -1,0 +1,35 @@
+.workspace-shell__root,
+.rt-Flex.workspace-shell__root {
+  height: 100%;
+  min-height: 0;
+  min-width: 0;
+  flex: 1;
+}
+
+.workspace-shell__toolbar,
+.rt-Flex.workspace-shell__toolbar {
+  min-width: 0;
+}
+
+.workspace-shell__title,
+.rt-Box.workspace-shell__title {
+  flex: 1;
+  min-width: 0;
+}
+
+.workspace-shell__body,
+.rt-Box.workspace-shell__body {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.workspace-shell__empty-state,
+.rt-Flex.workspace-shell__empty-state {
+  flex: 1;
+  min-height: 0;
+  color: var(--gray-9);
+}

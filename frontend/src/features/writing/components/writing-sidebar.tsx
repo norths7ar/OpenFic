@@ -1,3 +1,4 @@
+import "./writing-sidebar.css";
 import { SegmentedControl } from "@radix-ui/themes";
 import { useTranslation } from "react-i18next";
 
@@ -33,26 +34,17 @@ export function WritingSidebar({
   const setSidebarView = useWritingStore((s) => s.setSidebarView);
 
   return (
-    <div
-      style={{
-        height: "100%",
-        display: "flex",
-        flexDirection: "column",
-        background: "var(--color-background)",
-      }}
-    >
+    <div className="writing-sidebar__root">
       {showNotes && (
         <div
-          style={{
-            padding: compact ? "8px 8px" : "12px 12px",
-            borderBottom: "1px solid var(--gray-a4)",
-          }}
+          className="writing-sidebar__header"
+          style={{ padding: compact ? "8px 8px" : "12px 12px" }}
         >
           <SegmentedControl.Root
             value={sidebarView}
             onValueChange={(value) => setSidebarView(value as "chapters" | "notes")}
             size="2"
-            style={{ width: "100%" }}
+            className="writing-sidebar__view-switch"
           >
             <SegmentedControl.Item value="chapters">{t("writing.chapters")}</SegmentedControl.Item>
             <SegmentedControl.Item value="notes">{t("writing.notes")}</SegmentedControl.Item>

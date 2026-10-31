@@ -377,3 +377,8 @@
     height: calc(min(720px, 86vh) - 49px);
   }
 }
+
+.summary-panel__dialog,
+.rt-DialogContent.summary-panel__dialog {
+  width: min(1180px, calc(100vw - 32px));
+}

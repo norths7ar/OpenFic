@@ -313,10 +313,8 @@ function VirtuosoFallbackMeasuredItem() {
   return (
     <Box
       aria-hidden="true"
-      style={{
-        minHeight: VIRTUOSO_FALLBACK_MEASURE_HEIGHT,
-        visibility: "hidden",
-      }}
+      className="grouped-volume-list__measurement"
+      style={{ minHeight: VIRTUOSO_FALLBACK_MEASURE_HEIGHT }}
     />
   );
 }
@@ -950,7 +948,7 @@ export function GroupedVolumeList({
           <Box
             px="4"
             py="3"
-            style={{ borderBottom: "1px solid var(--gray-a4)" }}
+            className="grouped-volume-list__divider"
           >
             <Text
               size="1"
@@ -1072,7 +1070,7 @@ export function GroupedVolumeList({
         >
           <GroupedVirtuoso
             ref={virtuosoRef}
-            style={{ flex: 1, minHeight: 0 }}
+            className="grouped-volume-list__scroll-region"
             groupCounts={listModel.groupCounts}
             overscan={5}
             atBottomStateChange={handleAtBottomStateChange}

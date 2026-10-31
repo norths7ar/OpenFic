@@ -1,3 +1,4 @@
+import "./summary-panel-long-term-list.css";
 import {
   Box,
   Checkbox,
@@ -106,18 +107,18 @@ function LongTermSummarySkeletonList() {
             <Skeleton
               height="16px"
               width="16px"
-              style={{ borderRadius: 999 }}
+              className="summary-panel-long-term-list__title-placeholder"
             />
             <Skeleton
               height="16px"
               width={`${34 + (index % 3) * 6}%`}
-              style={{ maxWidth: 180 }}
+              className="summary-panel-long-term-list__details-placeholder"
             />
             <Box className="summary-row-fixed">
               <Skeleton
                 height="20px"
                 width="56px"
-                style={{ borderRadius: 999 }}
+                className="summary-panel-long-term-list__title-placeholder"
               />
             </Box>
           </Flex>
@@ -160,7 +161,7 @@ function SummaryPaginationSkeleton() {
         <Skeleton
           height="28px"
           width="52px"
-          style={{ borderRadius: 999 }}
+          className="summary-panel-long-term-list__title-placeholder"
         />
         <Flex
           align="center"
@@ -169,28 +170,28 @@ function SummaryPaginationSkeleton() {
           <Skeleton
             height="28px"
             width="28px"
-            style={{ borderRadius: 999 }}
+            className="summary-panel-long-term-list__title-placeholder"
           />
           <Skeleton
             height="28px"
             width="28px"
-            style={{ borderRadius: 999 }}
+            className="summary-panel-long-term-list__title-placeholder"
           />
           <Skeleton
             height="28px"
             width="28px"
-            style={{ borderRadius: 999 }}
+            className="summary-panel-long-term-list__title-placeholder"
           />
           <Skeleton
             height="28px"
             width="28px"
-            style={{ borderRadius: 999 }}
+            className="summary-panel-long-term-list__title-placeholder"
           />
         </Flex>
         <Skeleton
           height="28px"
           width="52px"
-          style={{ borderRadius: 999 }}
+          className="summary-panel-long-term-list__title-placeholder"
         />
       </Flex>
     </Flex>

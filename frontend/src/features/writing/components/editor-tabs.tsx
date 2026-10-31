@@ -1,3 +1,4 @@
+import "./editor-tabs.css";
 /**
  * Editor Tabs Component
  *
@@ -5,7 +6,6 @@
  * 支持拖拽排序。
  * 性能优化：使用 memo 和选择器避免不必要的重渲染。
  */
-
 import {
   DndContext,
   closestCenter,
@@ -83,19 +83,12 @@ const SortableTabItem = memo(function SortableTabItem({
         px="3"
         onClick={onActivate}
         onContextMenu={onContextMenu}
+        className="editor-tabs__tab"
         style={{
-          width: "100%",
           height: isActive ? 33 : 30,
           cursor: isDragging ? "grabbing" : "pointer",
           background: isActive ? "var(--color-background)" : "var(--gray-a2)",
-          borderTop: "1px solid var(--gray-a4)",
-          borderLeft: "1px solid var(--gray-a4)",
-          borderRight: "1px solid var(--gray-a4)",
           borderBottom: isActive ? "1px solid var(--color-background)" : "none",
-          borderTopLeftRadius: "var(--radius-2)",
-          borderTopRightRadius: "var(--radius-2)",
-          userSelect: "none",
-          position: "relative",
           zIndex: isActive ? 2 : 0,
           marginBottom: isActive ? 0 : 1,
         }}
@@ -104,25 +97,20 @@ const SortableTabItem = memo(function SortableTabItem({
         {tab.type === "chapter" ? (
           <FileText
             size={14}
-            style={{ flexShrink: 0, marginRight: 4, opacity: 0.6 }}
+            className="editor-tabs__document-icon"
           />
         ) : (
           <NotebookText
             size={14}
-            style={{ flexShrink: 0, marginRight: 4, opacity: 0.6 }}
+            className="editor-tabs__document-icon"
           />
         )}
         {/* 标题 */}
         <Text
           size="2"
           weight={isActive ? "medium" : "regular"}
-          style={{
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
-            flex: 1,
-            color: isActive ? "var(--gray-12)" : "var(--gray-11)",
-          }}
+          className="editor-tabs__title"
+          style={{ color: isActive ? "var(--gray-12)" : "var(--gray-11)" }}
         >
           {displayTitle}
         </Text>
@@ -136,14 +124,7 @@ const SortableTabItem = memo(function SortableTabItem({
               e.stopPropagation();
               onClose();
             }}
-            style={{
-              width: 18,
-              height: 18,
-              minWidth: 18,
-              minHeight: 18,
-              flexShrink: 0,
-              marginLeft: 4,
-            }}
+            className="editor-tabs__close"
           >
             <X size={12} />
           </IconButton>
@@ -310,47 +291,26 @@ export function EditorTabs({
 
   return (
     <>
-      <Box
-        style={{
-          background: "var(--gray-a2)",
-          position: "relative",
-        }}
-      >
+      <Box className="editor-tabs__bar">
         {/* 底部边框线 - 位于标签页下方 */}
-        <Box
-          style={{
-            position: "absolute",
-            bottom: 0,
-            left: 0,
-            right: 0,
-            height: 1,
-            background: "var(--gray-a4)",
-            zIndex: 0,
-          }}
-        />
+        <Box className="editor-tabs__divider" />
         <Flex
           align="end"
           gap="0"
           px="2"
-          style={{ height: 34, position: "relative", zIndex: 1 }}
+          className="editor-tabs__row"
         >
           {/* 标签页列表和添加按钮 */}
           <Flex
             gap="1"
             align="end"
-            style={{
-              flex: 1,
-              overflow: "hidden",
-            }}
+            className="editor-tabs__scroll-region"
           >
             {/* 标签页拖拽区域 - 使用 flex 布局自动压缩 */}
             <Flex
               gap="1"
               align="end"
-              style={{
-                minWidth: 0,
-                overflow: "hidden",
-              }}
+              className="editor-tabs__tabs"
             >
               <DndContext
                 sensors={sensors}
@@ -383,12 +343,7 @@ export function EditorTabs({
                 variant="ghost"
                 size="1"
                 onClick={handleAddTab}
-                style={{
-                  width: 28,
-                  height: 28,
-                  marginBottom: 2,
-                  flexShrink: 0,
-                }}
+                className="editor-tabs__overflow-action"
               >
                 <Plus size={16} />
               </IconButton>

@@ -1,3 +1,4 @@
+import "./document-workspace-page.css";
 import { Flex, Text } from "@radix-ui/themes";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -88,10 +89,7 @@ export function DocumentWorkspacePage({ documentType }: DocumentWorkspacePagePro
   );
 
   return (
-    <Flex
-      className="writing-page-root"
-      style={{ minWidth: 0 }}
-    >
+    <Flex className="writing-page-root document-workspace-page__workspace">
       <ProjectNavShell>
         <NoteSidebar
           projectId={projectId}

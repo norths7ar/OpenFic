@@ -1,0 +1,23 @@
+.note-folder-list__drag-handle {
+  display: flex;
+  touch-action: none;
+}
+
+.note-folder-list__rename-input {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+
+.note-folder-list__scroll-region {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.note-folder-list__empty-state {
+  padding: 18px;
+  color: var(--gray-11);
+}

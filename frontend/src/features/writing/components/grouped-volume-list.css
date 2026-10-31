@@ -34,3 +34,18 @@
 .grouped-volume-list-scrollbar-thumb.is-scrollable.is-visible:hover {
   background: var(--gray-a8);
 }
+
+.grouped-volume-list__measurement,
+.rt-Box.grouped-volume-list__measurement {
+  visibility: hidden;
+}
+
+.grouped-volume-list__divider,
+.rt-Box.grouped-volume-list__divider {
+  border-bottom: 1px solid var(--gray-a4);
+}
+
+.grouped-volume-list__scroll-region {
+  flex: 1;
+  min-height: 0;
+}

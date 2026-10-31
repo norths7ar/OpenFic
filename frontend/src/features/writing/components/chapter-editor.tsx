@@ -1,3 +1,4 @@
+import "./chapter-editor.css";
 import { Flex, Text, IconButton } from "@radix-ui/themes";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEditor, EditorContent } from "@tiptap/react";
@@ -902,7 +903,7 @@ export function ChapterEditor({
       <Flex
         align="center"
         justify="center"
-        style={{ flex: 1, minHeight: 0 }}
+        className="chapter-editor__root"
       >
         <Text
           color="gray"
@@ -919,7 +920,7 @@ export function ChapterEditor({
       <Flex
         align="center"
         justify="center"
-        style={{ flex: 1, minHeight: 0, height: "100%" }}
+        className="chapter-editor__content"
       >
         <Spinner size={18} />
       </Flex>

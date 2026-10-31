@@ -1,0 +1,40 @@
+.page-loading-overlay__surface,
+.rt-Flex.page-loading-overlay__surface {
+  background: var(--color-background);
+}
+
+.page-loading-overlay__navigation,
+.rt-Box.page-loading-overlay__navigation {
+  width: 250px;
+  border-right: 1px solid var(--gray-a4);
+  background: var(--color-background);
+}
+
+.page-loading-overlay__editor,
+.rt-Box.page-loading-overlay__editor {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-background);
+}
+
+.page-loading-overlay__tabs,
+.rt-Flex.page-loading-overlay__tabs {
+  height: 40px;
+  border-bottom: 1px solid var(--gray-a4);
+  background: var(--gray-a2);
+}
+
+.page-loading-overlay__document,
+.rt-Box.page-loading-overlay__document {
+  flex: 1;
+  padding: 48px clamp(24px, 8vw, 112px);
+}
+
+.page-loading-overlay__assistant,
+.rt-Box.page-loading-overlay__assistant {
+  width: 300px;
+  border-left: 1px solid var(--gray-a4);
+  background: var(--gray-a2);
+}

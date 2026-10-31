@@ -1,0 +1,9 @@
+.summary-panel-chapter-list__title-placeholder,
+.rt-Skeleton.summary-panel-chapter-list__title-placeholder {
+  border-radius: 999px;
+}
+
+.summary-panel-chapter-list__details-placeholder,
+.rt-Skeleton.summary-panel-chapter-list__details-placeholder {
+  max-width: 240px;
+}

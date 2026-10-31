@@ -282,7 +282,7 @@ export function WritingPage({ workspaceView = "write" }: WritingPageProps) {
 
       <Box className="writing-page-shell">
         {!isMobile ? (
-          <Flex style={{ height: "100%", minWidth: 0 }}>
+          <Flex className="writing-page__workspace">
             <ProjectNavShell>{sidebarContent}</ProjectNavShell>
             <WorkspaceLayout
               assistant={

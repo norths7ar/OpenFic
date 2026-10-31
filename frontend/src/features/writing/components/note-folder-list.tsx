@@ -1,3 +1,4 @@
+import "./note-folder-list.css";
 import {
   closestCenter,
   DndContext,
@@ -74,7 +75,7 @@ function NoteRow({ note, options }: { note: NoteListItem; options: NoteFolderLis
           <span
             {...attributes}
             {...listeners}
-            style={{ display: "flex", touchAction: "none" }}
+            className="note-folder-list__drag-handle"
             onClick={(e) => e.stopPropagation()}
           >
             <GripVertical size={16} />
@@ -97,13 +98,7 @@ function NoteRow({ note, options }: { note: NoteListItem; options: NoteFolderLis
               if (e.key === "Enter") e.currentTarget.blur();
               if (e.key === "Escape") options.onRenameCancel();
             }}
-            style={{
-              width: "100%",
-              border: 0,
-              background: "transparent",
-              color: "inherit",
-              font: "inherit",
-            }}
+            className="note-folder-list__rename-input"
           />
         ) : (
           note.title
@@ -184,7 +179,7 @@ export function NoteFolderList(options: NoteFolderListProps) {
     await options.onReorder(folderId, ordered);
   };
   return (
-    <div style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
+    <div className="note-folder-list__scroll-region">
       <DndContext
         sensors={sensors}
         collisionDetection={(args) => {
@@ -256,7 +251,7 @@ export function NoteFolderList(options: NoteFolderListProps) {
           )}
         />
         {items.length === 0 && folders.length === 0 && (
-          <div style={{ padding: 18, color: "var(--gray-11)" }}>{options.emptyLabel}</div>
+          <div className="note-folder-list__empty-state">{options.emptyLabel}</div>
         )}
       </DndContext>
     </div>

@@ -1,0 +1,4 @@
+.volume-list__content,
+.rt-Flex.volume-list__content {
+  color: var(--gray-9);
+}

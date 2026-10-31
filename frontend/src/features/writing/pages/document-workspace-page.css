@@ -1,0 +1,4 @@
+.document-workspace-page__workspace,
+.rt-Flex.document-workspace-page__workspace {
+  min-width: 0;
+}

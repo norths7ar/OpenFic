@@ -41,7 +41,7 @@ export function WorkspaceLayout({
     <WorkspaceDiscussionProvider>
       <Group
         orientation="horizontal"
-        style={{ flex: 1, minWidth: 0, height: "100%" }}
+        className="workspace-layout__panels"
         defaultLayout={layout.defaultLayout}
         onLayoutChanged={saveLayout}
       >
@@ -49,18 +49,7 @@ export function WorkspaceLayout({
           id="editor"
           minSize={30}
         >
-          <Box
-            style={{
-              height: "100%",
-              minHeight: 0,
-              display: "flex",
-              flexDirection: "column",
-              overflow: "hidden",
-              background: "var(--color-background)",
-            }}
-          >
-            {children}
-          </Box>
+          <Box className="workspace-layout__document">{children}</Box>
         </Panel>
         <Separator
           className="workspace-discussion-separator"
@@ -83,13 +72,7 @@ export function WorkspaceLayout({
         >
           <Box
             inert={!open}
-            style={{
-              height: "100%",
-              minHeight: 0,
-              overflow: "hidden",
-              borderLeft: "1px solid var(--gray-a5)",
-              background: "var(--color-background)",
-            }}
+            className="workspace-layout__discussion"
           >
             {assistant}
           </Box>

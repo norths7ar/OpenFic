@@ -1,9 +1,9 @@
+import "./page-loading-overlay.css";
 /**
  * Page Loading Overlay
  *
  * 写作页加载骨架屏。
  */
-
 import { Box, Flex, Skeleton } from "@radix-ui/themes";
 
 interface PageLoadingOverlayProps {
@@ -17,20 +17,8 @@ export function PageLoadingOverlay({ isLoading }: PageLoadingOverlayProps) {
   }
 
   return (
-    <Flex
-      className="writing-page-loading-overlay"
-      style={{
-        background: "var(--color-background)",
-      }}
-    >
-      <Box
-        className="writing-page-loading-sidebar writing-page-loading-sidebar--left"
-        style={{
-          width: 250,
-          borderRight: "1px solid var(--gray-a4)",
-          background: "var(--color-background)",
-        }}
-      >
+    <Flex className="writing-page-loading-overlay page-loading-overlay__surface">
+      <Box className="writing-page-loading-sidebar writing-page-loading-sidebar--left page-loading-overlay__navigation">
         <Flex
           px="3"
           py="3"
@@ -83,26 +71,12 @@ export function PageLoadingOverlay({ isLoading }: PageLoadingOverlayProps) {
         </Box>
       </Box>
 
-      <Box
-        className="writing-page-loading-editor"
-        style={{
-          flex: 1,
-          minWidth: 0,
-          display: "flex",
-          flexDirection: "column",
-          background: "var(--color-background)",
-        }}
-      >
+      <Box className="writing-page-loading-editor page-loading-overlay__editor">
         <Flex
-          className="writing-page-loading-editor-tabs"
+          className="writing-page-loading-editor-tabs page-loading-overlay__tabs"
           align="end"
           px="3"
           pt="2"
-          style={{
-            height: 40,
-            borderBottom: "1px solid var(--gray-a4)",
-            background: "var(--gray-a2)",
-          }}
         >
           <Skeleton
             height="30px"
@@ -110,13 +84,7 @@ export function PageLoadingOverlay({ isLoading }: PageLoadingOverlayProps) {
           />
         </Flex>
 
-        <Box
-          className="writing-page-loading-editor-content"
-          style={{
-            flex: 1,
-            padding: "48px clamp(24px, 8vw, 112px)",
-          }}
-        >
+        <Box className="writing-page-loading-editor-content page-loading-overlay__document">
           <Skeleton
             height="28px"
             width="42%"
@@ -150,14 +118,7 @@ export function PageLoadingOverlay({ isLoading }: PageLoadingOverlayProps) {
         </Box>
       </Box>
 
-      <Box
-        className="writing-page-loading-sidebar writing-page-loading-sidebar--right"
-        style={{
-          width: 300,
-          borderLeft: "1px solid var(--gray-a4)",
-          background: "var(--gray-a2)",
-        }}
-      >
+      <Box className="writing-page-loading-sidebar writing-page-loading-sidebar--right page-loading-overlay__assistant">
         <Box p="4">
           <Skeleton
             height="22px"

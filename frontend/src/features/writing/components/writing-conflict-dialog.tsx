@@ -1,3 +1,4 @@
+import "./writing-conflict-dialog.css";
 import { Button, Dialog, Flex, Text } from "@radix-ui/themes";
 import { useEffect, useMemo, useState } from "react";
 
@@ -49,12 +50,12 @@ export function WritingConflictDialog({
         <Flex
           gap="3"
           mt="4"
-          style={{ minHeight: 260 }}
+          className="writing-conflict-dialog__comparison"
         >
           <Flex
             direction="column"
             gap="1"
-            style={{ flex: 1, minWidth: 0 }}
+            className="writing-conflict-dialog__version"
           >
             <Text
               size="2"
@@ -65,13 +66,13 @@ export function WritingConflictDialog({
             <textarea
               readOnly
               value={`${conflict.local.title}\n\n${conflict.local.content}`}
-              style={{ flex: 1, resize: "vertical" }}
+              className="writing-conflict-dialog__content"
             />
           </Flex>
           <Flex
             direction="column"
             gap="1"
-            style={{ flex: 1, minWidth: 0 }}
+            className="writing-conflict-dialog__version"
           >
             <Text
               size="2"
@@ -82,7 +83,7 @@ export function WritingConflictDialog({
             <textarea
               readOnly
               value={`${conflict.remote.title}\n\n${conflict.remote.content}`}
-              style={{ flex: 1, resize: "vertical" }}
+              className="writing-conflict-dialog__content"
             />
           </Flex>
         </Flex>

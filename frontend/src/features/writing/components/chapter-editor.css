@@ -1,0 +1,12 @@
+.chapter-editor__root,
+.rt-Flex.chapter-editor__root {
+  flex: 1;
+  min-height: 0;
+}
+
+.chapter-editor__content,
+.rt-Flex.chapter-editor__content {
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+}

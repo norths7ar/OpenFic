@@ -1,0 +1,12 @@
+.chapter-sidebar__content,
+.rt-Box.chapter-sidebar__content {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-background);
+}
+
+.chapter-sidebar__create-description,
+.rt-TextAreaRoot.chapter-sidebar__create-description {
+  min-height: 120px;
+}

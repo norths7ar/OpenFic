@@ -1,3 +1,4 @@
+import "./volume-header.css";
 import { IconButton, Tooltip } from "@radix-ui/themes";
 import {
   AtSign,
@@ -160,7 +161,7 @@ export function VolumeHeader({
     return (
       <div
         aria-hidden
-        style={{ height: 1 }}
+        className="volume-header__drag-handle"
       />
     );
 

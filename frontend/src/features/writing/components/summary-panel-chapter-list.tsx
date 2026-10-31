@@ -1,3 +1,4 @@
+import "./summary-panel-chapter-list.css";
 import {
   Badge,
   Box,
@@ -100,12 +101,12 @@ function ChapterSummarySkeletonList() {
             <Skeleton
               height="16px"
               width="16px"
-              style={{ borderRadius: 999 }}
+              className="summary-panel-chapter-list__title-placeholder"
             />
             <Skeleton
               height="16px"
               width={`${40 + (index % 3) * 8}%`}
-              style={{ maxWidth: 240 }}
+              className="summary-panel-chapter-list__details-placeholder"
             />
             <Flex
               gap="2"
@@ -114,25 +115,25 @@ function ChapterSummarySkeletonList() {
               <Skeleton
                 height="20px"
                 width="56px"
-                style={{ borderRadius: 999 }}
+                className="summary-panel-chapter-list__title-placeholder"
               />
               <Skeleton
                 height="20px"
                 width="68px"
-                style={{ borderRadius: 999 }}
+                className="summary-panel-chapter-list__title-placeholder"
               />
               {index % 2 === 0 && (
                 <Skeleton
                   height="20px"
                   width="52px"
-                  style={{ borderRadius: 999 }}
+                  className="summary-panel-chapter-list__title-placeholder"
                 />
               )}
             </Flex>
             <Skeleton
               height="20px"
               width="56px"
-              style={{ borderRadius: 999 }}
+              className="summary-panel-chapter-list__title-placeholder"
             />
           </Flex>
         </Box>
@@ -174,7 +175,7 @@ function SummaryPaginationSkeleton() {
         <Skeleton
           height="28px"
           width="52px"
-          style={{ borderRadius: 999 }}
+          className="summary-panel-chapter-list__title-placeholder"
         />
         <Flex
           align="center"
@@ -183,28 +184,28 @@ function SummaryPaginationSkeleton() {
           <Skeleton
             height="28px"
             width="28px"
-            style={{ borderRadius: 999 }}
+            className="summary-panel-chapter-list__title-placeholder"
           />
           <Skeleton
             height="28px"
             width="28px"
-            style={{ borderRadius: 999 }}
+            className="summary-panel-chapter-list__title-placeholder"
           />
           <Skeleton
             height="28px"
             width="28px"
-            style={{ borderRadius: 999 }}
+            className="summary-panel-chapter-list__title-placeholder"
           />
           <Skeleton
             height="28px"
             width="28px"
-            style={{ borderRadius: 999 }}
+            className="summary-panel-chapter-list__title-placeholder"
           />
         </Flex>
         <Skeleton
           height="28px"
           width="52px"
-          style={{ borderRadius: 999 }}
+          className="summary-panel-chapter-list__title-placeholder"
         />
       </Flex>
     </Flex>

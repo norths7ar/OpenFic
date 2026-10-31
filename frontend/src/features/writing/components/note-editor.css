@@ -1,0 +1,23 @@
+.note-editor__lock-notice,
+.rt-Flex.note-editor__lock-notice {
+  background: var(--yellow-a3);
+  border-bottom: 1px solid var(--yellow-a5);
+}
+
+.note-editor__lock-icon,
+.rt-Text.note-editor__lock-icon {
+  color: var(--yellow-10);
+}
+
+.note-editor__content,
+.rt-Flex.note-editor__content {
+  flex: 1;
+  min-height: 0;
+}
+
+.note-editor__root,
+.rt-Flex.note-editor__root {
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+}

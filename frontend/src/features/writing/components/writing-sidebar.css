@@ -1,0 +1,14 @@
+.writing-sidebar__root {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-background);
+}
+
+.writing-sidebar__header {
+  border-bottom: 1px solid var(--gray-a4);
+}
+
+.writing-sidebar__view-switch {
+  width: 100%;
+}

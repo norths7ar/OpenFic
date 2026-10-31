@@ -1,0 +1,43 @@
+.sidebar-toolbar__search-frame,
+.rt-Box.sidebar-toolbar__search-frame {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  height: var(--space-6);
+  border: 1px solid transparent;
+  border-radius: max(var(--radius-2), var(--radius-full));
+  min-width: 0;
+  position: relative;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease,
+    padding-right 0.15s ease;
+}
+
+.sidebar-toolbar__search-overlay,
+.rt-Box.sidebar-toolbar__search-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.sidebar-toolbar__search-toggle,
+.rt-IconButton.sidebar-toolbar__search-toggle {
+  flex-shrink: 0;
+  transition: opacity 0.15s ease;
+}
+
+.sidebar-toolbar__search-reveal {
+  overflow: hidden;
+}
+
+.sidebar-toolbar__search-input {
+  width: 100%;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-2);
+  color: var(--gray-12);
+  padding: 0;
+}

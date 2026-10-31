@@ -1,0 +1,15 @@
+.writing-conflict-dialog__comparison,
+.rt-Flex.writing-conflict-dialog__comparison {
+  min-height: 260px;
+}
+
+.writing-conflict-dialog__version,
+.rt-Flex.writing-conflict-dialog__version {
+  flex: 1;
+  min-width: 0;
+}
+
+.writing-conflict-dialog__content {
+  flex: 1;
+  resize: vertical;
+}

@@ -1,3 +1,4 @@
+import "./chapter-list-item.css";
 import { useSortable } from "@dnd-kit/sortable";
 /**
  * Chapter List Item
@@ -68,21 +69,7 @@ function RenameInput({
       onBlur={handleSubmit}
       onKeyDown={handleKeyDown}
       onClick={(event) => event.stopPropagation()}
-      style={{
-        width: "100%",
-        height: "20px",
-        padding: 0,
-        margin: 0,
-        border: "none",
-        outline: "none",
-        background: "transparent",
-        fontFamily: "inherit",
-        fontSize: "var(--font-size-base)",
-        fontWeight: 500,
-        lineHeight: "20px",
-        color: "var(--gray-12)",
-        boxSizing: "border-box",
-      }}
+      className="chapter-list-item__rename-input"
     />
   );
 }
@@ -170,7 +157,7 @@ function ChapterRowContent({
           <Flex
             align="center"
             gap="2"
-            style={{ flexShrink: 0 }}
+            className="chapter-list-item__actions"
           >
             <SummaryStatusDot
               status={summaryStatus}
@@ -181,27 +168,13 @@ function ChapterRowContent({
               <button
                 type="button"
                 aria-label={t("chapterMenu.moreActions")}
-                className="project-nav-item-more"
+                className="project-nav-item-more chapter-list-item__menu-action"
                 onPointerDown={(event) => event.stopPropagation()}
                 onClick={(event) => {
                   event.stopPropagation();
                   onOpenMenu?.(event.currentTarget);
                 }}
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  width: 20,
-                  height: 20,
-                  padding: 0,
-                  border: "none",
-                  borderRadius: 6,
-                  background: "transparent",
-                  color: textColor ?? "var(--gray-10)",
-                  transformOrigin: "center",
-                  transition: "opacity 0.16s ease, transform 0.16s ease, color 0.16s ease",
-                  cursor: "pointer",
-                }}
+                style={{ color: textColor ?? "var(--gray-10)" }}
               >
                 <MoreHorizontal size={16} />
               </button>
@@ -476,15 +449,8 @@ function SortableChapterListItemComponent({ disabled, ...props }: SortableChapte
               event.stopPropagation();
               listeners?.onPointerDown?.(event);
             }}
-            style={{
-              display: "flex",
-              border: 0,
-              padding: 0,
-              background: "transparent",
-              color: "var(--gray-9)",
-              touchAction: "none",
-              cursor: disabled ? "default" : "grab",
-            }}
+            className="chapter-list-item__drag-handle"
+            style={{ cursor: disabled ? "default" : "grab" }}
             onClick={(event) => event.stopPropagation()}
           >
             <GripVertical size={16} />

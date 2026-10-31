@@ -1,0 +1,9 @@
+.summary-panel-long-term-list__title-placeholder,
+.rt-Skeleton.summary-panel-long-term-list__title-placeholder {
+  border-radius: 999px;
+}
+
+.summary-panel-long-term-list__details-placeholder,
+.rt-Skeleton.summary-panel-long-term-list__details-placeholder {
+  max-width: 180px;
+}

@@ -1,3 +1,4 @@
+import "./workspace-shell.css";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import { FileText } from "lucide-react";
 import type { ReactNode } from "react";
@@ -26,13 +27,13 @@ export function WorkspaceShell({
     <WorkspaceDiscussionProvider>
       <Flex
         direction="column"
-        style={{ height: "100%", minHeight: 0, minWidth: 0, flex: 1 }}
+        className="workspace-shell__root"
       >
         <Flex
           align="center"
-          style={{ minWidth: 0 }}
+          className="workspace-shell__toolbar"
         >
-          <Box style={{ flex: 1, minWidth: 0 }}>
+          <Box className="workspace-shell__title">
             <EditorTabs
               store={store}
               onAddToConversation={onAddToConversation}
@@ -44,16 +45,7 @@ export function WorkspaceShell({
             </Box>
           )}
         </Flex>
-        <Box
-          style={{
-            flex: 1,
-            minHeight: 0,
-            position: "relative",
-            display: "flex",
-            flexDirection: "column",
-            overflow: "hidden",
-          }}
-        >
+        <Box className="workspace-shell__body">
           {activeTabId ? (
             children
           ) : (
@@ -70,7 +62,7 @@ export function WorkspaceShell({
                 align="center"
                 justify="center"
                 gap="3"
-                style={{ flex: 1, minHeight: 0, color: "var(--gray-9)" }}
+                className="workspace-shell__empty-state"
               >
                 <FileText
                   size={40}

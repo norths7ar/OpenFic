@@ -1,9 +1,9 @@
+import "./find-replace-panel.css";
 /**
  * Find Replace Panel
  *
  * 查找和替换面板组件，提供搜索输入、结果导航和替换功能。
  */
-
 import { Box, Flex, IconButton, Text, Separator, Tooltip } from "@radix-ui/themes";
 import type { Editor } from "@tiptap/react";
 import { X, ChevronUp, ChevronDown, Replace, ReplaceAll, Search } from "lucide-react";
@@ -23,35 +23,8 @@ interface FindReplacePanelProps {
 const PANEL_MAX_WIDTH = 800;
 
 /** 搜索输入框样式 */
-const inputStyle: React.CSSProperties = {
-  flex: 1,
-  height: 32,
-  padding: "0 8px",
-  paddingLeft: 32, // 为搜索图标留出空间
-  paddingRight: 56, // 为计数器留出空间
-  fontSize: "var(--font-size-base)",
-  border: "1px solid var(--gray-a5)",
-  borderRadius: 6,
-  background: "var(--color-background)",
-  color: "var(--gray-12)",
-  outline: "none",
-  transition: "border-color 0.2s ease, box-shadow 0.2s ease",
-};
 
 /** 替换输入框样式 */
-const replaceInputStyle: React.CSSProperties = {
-  flex: 1,
-  height: 32,
-  padding: "0 8px",
-  paddingLeft: 12,
-  fontSize: "var(--font-size-base)",
-  border: "1px solid var(--gray-a5)",
-  borderRadius: 6,
-  background: "var(--color-background)",
-  color: "var(--gray-12)",
-  outline: "none",
-  transition: "border-color 0.2s ease, box-shadow 0.2s ease",
-};
 
 export function FindReplacePanel({ editor, showReplace, onClose }: FindReplacePanelProps) {
   const { t } = useTranslation();
@@ -170,19 +143,13 @@ export function FindReplacePanel({ editor, showReplace, onClose }: FindReplacePa
       animate={{ opacity: 1, height: "auto" }}
       exit={{ opacity: 0, height: 0 }}
       transition={{ duration: 0.06, ease: "easeOut" }}
-      style={{
-        overflow: "hidden",
-        background: "var(--color-background)",
-      }}
+      className="find-replace-panel__reveal"
     >
       <Box py="3">
         {/* 居中容器，与编辑器内容宽度一致 */}
         <Box
-          style={{
-            maxWidth: PANEL_MAX_WIDTH,
-            margin: "0 auto",
-            padding: "0 24px",
-          }}
+          className="find-replace-panel__content"
+          style={{ maxWidth: PANEL_MAX_WIDTH }}
         >
           <Flex
             direction="column"
@@ -194,18 +161,9 @@ export function FindReplacePanel({ editor, showReplace, onClose }: FindReplacePa
               gap="2"
             >
               {/* 搜索输入框容器 */}
-              <Box style={{ flex: 1, position: "relative" }}>
+              <Box className="find-replace-panel__search-field">
                 {/* 搜索图标 */}
-                <Box
-                  style={{
-                    position: "absolute",
-                    left: 10,
-                    top: "50%",
-                    transform: "translateY(-50%)",
-                    pointerEvents: "none",
-                    color: "var(--gray-a9)",
-                  }}
-                >
+                <Box className="find-replace-panel__search-icon">
                   <Search size={14} />
                 </Box>
 
@@ -218,8 +176,8 @@ export function FindReplacePanel({ editor, showReplace, onClose }: FindReplacePa
                   onFocus={() => setSearchFocused(true)}
                   onBlur={() => setSearchFocused(false)}
                   autoFocus
+                  className="find-replace-panel__input find-replace-panel__search-input"
                   style={{
-                    ...inputStyle,
                     width: "100%",
                     borderColor: searchFocused ? "var(--gray-a8)" : "var(--gray-a5)",
                     boxShadow: searchFocused ? "0 0 0 1px var(--gray-a4)" : "none",
@@ -230,14 +188,7 @@ export function FindReplacePanel({ editor, showReplace, onClose }: FindReplacePa
                 <Text
                   size="1"
                   color="gray"
-                  style={{
-                    position: "absolute",
-                    right: 10,
-                    top: "50%",
-                    transform: "translateY(-50%)",
-                    pointerEvents: "none",
-                    whiteSpace: "nowrap",
-                  }}
+                  className="find-replace-panel__match-count"
                 >
                   {resultCount > 0 ? `${currentIndex}/${resultCount}` : "0/0"}
                 </Text>
@@ -294,7 +245,7 @@ export function FindReplacePanel({ editor, showReplace, onClose }: FindReplacePa
                 gap="2"
               >
                 {/* 替换输入框 */}
-                <Box style={{ flex: 1 }}>
+                <Box className="find-replace-panel__replace-field">
                   <input
                     type="text"
                     placeholder={t("editor.replacePlaceholder")}
@@ -302,8 +253,8 @@ export function FindReplacePanel({ editor, showReplace, onClose }: FindReplacePa
                     onChange={(e) => setReplaceTerm(e.target.value)}
                     onFocus={() => setReplaceFocused(true)}
                     onBlur={() => setReplaceFocused(false)}
+                    className="find-replace-panel__input find-replace-panel__replace-input"
                     style={{
-                      ...replaceInputStyle,
                       width: "100%",
                       borderColor: replaceFocused ? "var(--gray-a8)" : "var(--gray-a5)",
                       boxShadow: replaceFocused ? "0 0 0 1px var(--gray-a4)" : "none",
@@ -338,7 +289,7 @@ export function FindReplacePanel({ editor, showReplace, onClose }: FindReplacePa
                 </Flex>
 
                 {/* 占位保持与上一行对齐 */}
-                <Box style={{ width: 28 }} />
+                <Box className="find-replace-panel__action-placeholder" />
               </Flex>
             )}
           </Flex>

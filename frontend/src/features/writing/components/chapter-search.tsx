@@ -1,3 +1,4 @@
+import "./chapter-search.css";
 import { Box, Text, TextField, DropdownMenu, IconButton } from "@radix-ui/themes";
 import Fuse from "fuse.js";
 import { Search, X } from "lucide-react";
@@ -62,12 +63,7 @@ function HighlightedText({ text, matches }: { text: string; matches: Array<[numb
     parts.push(
       <mark
         key={`match-${start}`}
-        style={{
-          background: "var(--accent-a4)",
-          color: "inherit",
-          padding: "0 2px",
-          borderRadius: "2px",
-        }}
+        className="chapter-search__match"
       >
         {text.slice(start, end + 1)}
       </mark>,
@@ -182,7 +178,7 @@ export function ChapterSearch({
 
       <DropdownMenu.Content
         align="start"
-        style={{ width: 320, maxWidth: 320, minWidth: 320 }}
+        className="chapter-search__content"
       >
         <Box p="2">
           <TextField.Root
@@ -211,7 +207,7 @@ export function ChapterSearch({
 
         <DropdownMenu.Separator />
 
-        <Box style={{ maxHeight: 350, overflowY: "auto", overflowX: "hidden" }}>
+        <Box className="chapter-search__scroll-region">
           {query.trim() && (
             <>
               {searchResults.length === 0 ? (
@@ -226,18 +222,15 @@ export function ChapterSearch({
                 </Box>
               ) : (
                 <Virtuoso
-                  style={{ height: 300 }}
+                  className="chapter-search__results"
                   data={searchResults}
                   itemContent={(index, result) => (
                     <Box
                       onClick={() => handleSelect(result.chapter.id)}
+                      className="chapter-search__result"
                       style={{
-                        padding: "12px 16px",
-                        cursor: "pointer",
                         borderBottom:
                           index < searchResults.length - 1 ? "1px solid var(--gray-a4)" : "none",
-                        background: "transparent",
-                        transition: "background 0.1s ease",
                       }}
                       onMouseEnter={(event) => {
                         event.currentTarget.style.background = "var(--gray-a3)";
@@ -249,12 +242,7 @@ export function ChapterSearch({
                       <Text
                         size="2"
                         weight="medium"
-                        style={{
-                          display: "block",
-                          marginBottom: "4px",
-                          lineHeight: 1.5,
-                          color: "var(--gray-12)",
-                        }}
+                        className="chapter-search__result-title"
                       >
                         <span>{result.chapter.volumeTitle || t("volume.untitled")} / </span>
                         <HighlightedText

@@ -1,3 +1,4 @@
+import "./sidebar-toolbar.css";
 import { Box, DropdownMenu, IconButton } from "@radix-ui/themes";
 import {
   BookPlus,
@@ -117,20 +118,12 @@ export function SidebarToolbar({
       search={
         <Box
           ref={searchContainerRef}
+          className="sidebar-toolbar__search-frame"
           style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 0,
-            height: "var(--space-6)",
             paddingRight: contentSearchExpanded ? "var(--space-2)" : 0,
-            border: "1px solid transparent",
             borderColor: contentSearchExpanded ? "var(--gray-a7)" : "transparent",
-            borderRadius: "max(var(--radius-2), var(--radius-full))",
             background: contentSearchExpanded ? "var(--color-surface)" : "transparent",
             flex: contentSearchExpanded ? 1 : undefined,
-            minWidth: 0,
-            position: "relative",
-            transition: "border-color 0.15s ease, background 0.15s ease, padding-right 0.15s ease",
           }}
         >
           <ChapterSearchPopover
@@ -140,22 +133,15 @@ export function SidebarToolbar({
             onOpenChange={handlePopoverOpenChange}
             onNavigateToChapter={handleNavigateToChapter}
           >
-            <Box
-              style={{
-                position: "absolute",
-                inset: 0,
-                pointerEvents: "none",
-              }}
-            />
+            <Box className="sidebar-toolbar__search-overlay" />
           </ChapterSearchPopover>
           <IconButton
             variant="ghost"
             size="2"
             onClick={contentSearchExpanded ? undefined : handleContentSearchToggle}
+            className="sidebar-toolbar__search-toggle"
             style={{
-              flexShrink: 0,
               opacity: contentSearchExpanded ? 0.5 : 1,
-              transition: "opacity 0.15s ease",
               cursor: contentSearchExpanded ? "default" : undefined,
             }}
           >
@@ -168,7 +154,7 @@ export function SidebarToolbar({
               opacity: contentSearchExpanded ? 1 : 0,
             }}
             transition={{ duration: 0.15, ease: "easeOut" }}
-            style={{ overflow: "hidden" }}
+            className="sidebar-toolbar__search-reveal"
           >
             {contentSearchExpanded && (
               <input
@@ -178,16 +164,7 @@ export function SidebarToolbar({
                 onChange={handleContentSearchChange}
                 onFocus={handleContentSearchFocus}
                 onBlur={handleContentSearchBlur}
-                style={{
-                  width: "100%",
-                  border: "none",
-                  outline: "none",
-                  background: "transparent",
-                  fontSize: "var(--font-size-base)",
-                  lineHeight: "var(--line-height-2)",
-                  color: "var(--gray-12)",
-                  padding: 0,
-                }}
+                className="sidebar-toolbar__search-input"
               />
             )}
           </motion.div>

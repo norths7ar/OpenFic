@@ -1,3 +1,4 @@
+import "./volume-list.css";
 import { Box, Flex, Skeleton, Text } from "@radix-ui/themes";
 import { BookOpen } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -102,7 +103,7 @@ export function VolumeList({
         justify="center"
         py="9"
         gap="3"
-        style={{ color: "var(--gray-9)" }}
+        className="volume-list__content"
       >
         <BookOpen size={40} />
         <Text

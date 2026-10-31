@@ -14,9 +14,9 @@ import { History, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import * as http from "@/api/generated/openfic";
 import { StreamingMarkdown } from "@/components/streaming-markdown";
 import { toast } from "@/components/toast";
-import { apiClient } from "@/lib/api-transport";
 
 import "./document-history.css";
 
@@ -69,9 +69,6 @@ function DocumentArchive({
   const [baseUpdatedAt, setBaseUpdatedAt] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
   const label = t(history ? "documentArchive.history" : "documentArchive.trash");
-  const path = history
-    ? `/projects/${projectId}/documents/${history.kind}/${history.documentId}/history`
-    : `/projects/${projectId}/trash`;
   const prepare = async () => {
     if (history && !(await history.prepare())) {
       toast.error(t("documentArchive.saveFirst"));
@@ -80,9 +77,15 @@ function DocumentArchive({
     return true;
   };
   const load = async () => {
-    const { data } = await apiClient.get<{ items: Snapshot[]; current_updated_at?: string }>(path);
+    const { data } = history
+      ? await http.listHistoryApiV1ProjectsProjectIdDocumentsKindDocumentIdHistoryGet(
+          projectId,
+          history.kind,
+          history.documentId,
+        )
+      : await http.listTrashApiV1ProjectsProjectIdTrashGet(projectId);
     setItems(data.items);
-    setBaseUpdatedAt(data.current_updated_at ?? "");
+    setBaseUpdatedAt("current_updated_at" in data ? (data.current_updated_at ?? "") : "");
     setSelected(null);
   };
   const run = async (action: () => Promise<void>) => {
@@ -104,10 +107,20 @@ function DocumentArchive({
   const restore = () =>
     run(async () => {
       if (!selected || !(await prepare())) return;
-      await apiClient.post(
-        `${path}/${selected.id}/restore`,
-        history ? { base_updated_at: baseUpdatedAt } : undefined,
-      );
+      if (history) {
+        await http.restoreHistoryApiV1ProjectsProjectIdDocumentsKindDocumentIdHistoryHistoryIdRestorePost(
+          projectId,
+          history.kind,
+          history.documentId,
+          selected.id,
+          { base_updated_at: baseUpdatedAt },
+        );
+      } else {
+        await http.restoreTrashApiV1ProjectsProjectIdTrashTrashIdRestorePost(
+          projectId,
+          selected.id,
+        );
+      }
       const prefixes: Record<DocumentKind, string[]> = {
         chapter: [
           "writing-editor",
@@ -188,7 +201,16 @@ function DocumentArchive({
                     void run(async () => {
                       setSelected(null);
                       setSelected(
-                        history ? (await apiClient.get<Snapshot>(`${path}/${item.id}`)).data : item,
+                        history
+                          ? (
+                              await http.getHistoryApiV1ProjectsProjectIdDocumentsKindDocumentIdHistoryHistoryIdGet(
+                                projectId,
+                                history.kind,
+                                history.documentId,
+                                item.id,
+                              )
+                            ).data
+                          : item,
                       );
                     })
                   }
@@ -235,11 +257,7 @@ function DocumentArchive({
                     {selected.title}
                   </Text>
                   {selected.kind === "chapter" ? (
-                    <div
-                      style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere", lineHeight: 1.8 }}
-                    >
-                      {selected.content}
-                    </div>
+                    <div className="document-history__preview">{selected.content}</div>
                   ) : (
                     <StreamingMarkdown content={selected.content ?? ""} />
                   )}
@@ -317,7 +335,10 @@ function DocumentArchive({
               onClick={() =>
                 void run(async () => {
                   if (!selected) return;
-                  await apiClient.delete(`${path}/${selected.id}`);
+                  await http.deleteTrashApiV1ProjectsProjectIdTrashTrashIdDelete(
+                    projectId,
+                    selected.id,
+                  );
                   setConfirmDelete(false);
                   await load();
                 })

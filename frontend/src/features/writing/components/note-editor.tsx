@@ -1,3 +1,4 @@
+import "./note-editor.css";
 import { Flex, Text } from "@radix-ui/themes";
 import { useQueryClient } from "@tanstack/react-query";
 import { Lock } from "lucide-react";
@@ -300,18 +301,15 @@ function NoteEditorContent({
       py="2"
       align="center"
       gap="2"
-      style={{
-        background: "var(--yellow-a3)",
-        borderBottom: "1px solid var(--yellow-a5)",
-      }}
+      className="note-editor__lock-notice"
     >
       <Lock
         size={14}
-        style={{ color: "var(--yellow-10)" }}
+        className="note-editor__lock-icon"
       />
       <Text
         size="1"
-        style={{ color: "var(--yellow-10)" }}
+        className="note-editor__lock-icon"
       >
         {t(note.documentType === "outline" ? "writing.outlineLocked" : "writing.noteLocked")}
       </Text>
@@ -405,7 +403,7 @@ export function NoteEditor(props: NoteEditorProps) {
       <Flex
         align="center"
         justify="center"
-        style={{ flex: 1, minHeight: 0 }}
+        className="note-editor__content"
       >
         <Text
           color="gray"
@@ -422,7 +420,7 @@ export function NoteEditor(props: NoteEditorProps) {
       <Flex
         align="center"
         justify="center"
-        style={{ flex: 1, minHeight: 0, height: "100%" }}
+        className="note-editor__root"
       >
         <Spinner size={18} />
       </Flex>

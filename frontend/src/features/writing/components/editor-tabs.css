@@ -1,0 +1,79 @@
+.editor-tabs__tab,
+.rt-Flex.editor-tabs__tab {
+  width: 100%;
+  border-top: 1px solid var(--gray-a4);
+  border-left: 1px solid var(--gray-a4);
+  border-right: 1px solid var(--gray-a4);
+  border-top-left-radius: var(--radius-2);
+  border-top-right-radius: var(--radius-2);
+  user-select: none;
+  position: relative;
+}
+
+.editor-tabs__document-icon {
+  flex-shrink: 0;
+  margin-right: 4px;
+  opacity: 0.6;
+}
+
+.editor-tabs__title,
+.rt-Text.editor-tabs__title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.editor-tabs__close,
+.rt-IconButton.editor-tabs__close {
+  width: 18px;
+  height: 18px;
+  min-width: 18px;
+  min-height: 18px;
+  flex-shrink: 0;
+  margin-left: 4px;
+}
+
+.editor-tabs__bar,
+.rt-Box.editor-tabs__bar {
+  background: var(--gray-a2);
+  position: relative;
+}
+
+.editor-tabs__divider,
+.rt-Box.editor-tabs__divider {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: var(--gray-a4);
+  z-index: 0;
+}
+
+.editor-tabs__row,
+.rt-Flex.editor-tabs__row {
+  height: 34px;
+  position: relative;
+  z-index: 1;
+}
+
+.editor-tabs__scroll-region,
+.rt-Flex.editor-tabs__scroll-region {
+  flex: 1;
+  overflow: hidden;
+}
+
+.editor-tabs__tabs,
+.rt-Flex.editor-tabs__tabs {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.editor-tabs__overflow-action,
+.rt-IconButton.editor-tabs__overflow-action {
+  width: 28px;
+  height: 28px;
+  margin-bottom: 2px;
+  flex-shrink: 0;
+}
