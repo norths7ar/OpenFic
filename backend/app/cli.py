@@ -1,6 +1,6 @@
 """OpenFic CLI 入口。
 
-用于启动本地服务；正式 Windows 运行由 scripts/openfic-service.ps1 管理。
+用于启动本地服务；正式 Windows 运行由仓库根目录的 python -m service 管理。
 """
 
 from __future__ import annotations
@@ -42,7 +42,7 @@ def _read_version() -> str:
         from importlib.metadata import PackageNotFoundError, version
 
         return version("openfic")
-    except (PackageNotFoundError, Exception):
+    except PackageNotFoundError, Exception:
         return "0.0.0"
 
 
