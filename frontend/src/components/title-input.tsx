@@ -1,3 +1,4 @@
+import "./title-input.css";
 import { Box } from "@radix-ui/themes";
 import { useCallback, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
@@ -136,18 +137,8 @@ export function TitleInput({
         }
         placeholder={placeholder ?? t("writing.titlePlaceholder")}
         readOnly={disabled}
-        style={{
-          width: "100%",
-          border: "none",
-          outline: "none",
-          background: "transparent",
-          fontSize: "calc(var(--font-size-editor) * 2)",
-          fontWeight: 700,
-          lineHeight: 1.3,
-          color: "var(--gray-12)",
-          padding: 0,
-          cursor: disabled ? "not-allowed" : "text",
-        }}
+        className="title-input__field"
+        style={{ cursor: disabled ? "not-allowed" : "text" }}
       />
     </Box>
   );

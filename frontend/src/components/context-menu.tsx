@@ -1,3 +1,4 @@
+import "./context-menu.css";
 /**
  * Context Menu Component
  *
@@ -5,7 +6,6 @@
  * 1. 手动模式：通过 position 和 items 手动控制
  * 2. 编辑器模式：通过 containerRef 自动监听右键，通过 editor 自动生成编辑器菜单项
  */
-
 import { Box, Flex, Text } from "@radix-ui/themes";
 import type { Editor } from "@tiptap/react";
 import { Scissors, Copy, Clipboard, ChevronLeft, ChevronRight } from "lucide-react";
@@ -57,16 +57,6 @@ interface ContextMenuProps {
 }
 
 /** 菜单项样式 */
-const menuItemStyle: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-  gap: 8,
-  padding: "6px 10px",
-  cursor: "pointer",
-  borderRadius: 4,
-  transition: "background-color 0.1s ease",
-};
 
 export function ContextMenu({
   position: externalPosition,
@@ -515,39 +505,20 @@ export function ContextMenu({
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.95 }}
           transition={{ duration: 0.1 }}
-          style={{
-            position: "fixed",
-            top: adjustedPosition.y,
-            left: adjustedPosition.x,
-            zIndex: 100000,
-            pointerEvents: "auto",
-            userSelect: "none",
-            WebkitUserSelect: "none",
-            WebkitTouchCallout: "none",
-          }}
+          className="context-menu__positioner"
+          style={{ top: adjustedPosition.y, left: adjustedPosition.x }}
           onPointerDown={(event) => event.preventDefault()}
         >
           <Box
             role="menu"
-            style={{
-              minWidth: 160,
-              padding: 2,
-              borderRadius: 8,
-              background: "var(--color-background)",
-              border: "1px solid var(--gray-a5)",
-              boxShadow: "0 4px 16px rgba(0, 0, 0, 0.12), 0 2px 4px rgba(0, 0, 0, 0.08)",
-            }}
+            className="context-menu__surface"
           >
             <Flex direction="column">
               {menuPath.length > 0 && (
                 <button
                   type="button"
-                  style={{
-                    ...menuItemStyle,
-                    border: 0,
-                    background: "transparent",
-                    color: "inherit",
-                  }}
+                  className="context-menu__item context-menu__item-content"
+                  style={{ border: 0, background: "transparent", color: "inherit" }}
                   onClick={(event) => {
                     event.stopPropagation();
                     setMenuPath((path) => path.slice(0, -1));
@@ -563,8 +534,8 @@ export function ContextMenu({
                   tabIndex={item.disabled ? -1 : 0}
                   aria-disabled={item.disabled || undefined}
                   aria-haspopup={item.children ? "menu" : undefined}
+                  className="context-menu__item-content"
                   style={{
-                    ...menuItemStyle,
                     opacity: item.disabled ? 0.4 : 1,
                     cursor: item.disabled ? "not-allowed" : "pointer",
                     borderTop: item.danger ? "1px solid var(--gray-a4)" : undefined,
@@ -606,7 +577,7 @@ export function ContextMenu({
                   {item.shortcut && (
                     <Text
                       size="1"
-                      style={{ color: "var(--gray-a9)" }}
+                      className="context-menu__shortcut"
                     >
                       {item.shortcut}
                     </Text>

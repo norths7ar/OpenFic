@@ -1,3 +1,4 @@
+import "./editor-frame.css";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import type { CSSProperties, HTMLAttributes, ReactNode, Ref } from "react";
 
@@ -42,7 +43,7 @@ export function EditorFrame({
     <Flex
       data-slot="editor-frame"
       direction="column"
-      style={{ height: "100%", minHeight: 0, minWidth: 0, flex: 1 }}
+      className="editor-frame__root"
     >
       {banner}
       <EditorToolbar {...toolbar} />
@@ -51,15 +52,19 @@ export function EditorFrame({
         {...scrollProps}
         data-slot="editor-scroll-area"
         ref={scrollRef}
-        className={`tiptap-editor-wrapper ${scrollProps?.className ?? ""}`}
-        style={{ flex: 1, minHeight: 0, overflow: "auto" }}
+        className={[
+          `tiptap-editor-wrapper ${scrollProps?.className ?? ""}`,
+          "editor-frame__scroll-region",
+        ]
+          .filter(Boolean)
+          .join(" ")}
       >
         <Box
           className="editor-frame-content"
           style={{ maxWidth, ...contentStyle }}
         >
           <TitleInput {...title} />
-          <Box style={{ borderBottom: "1px solid var(--gray-a4)" }} />
+          <Box className="editor-frame__header" />
           <Box
             py="5"
             ref={bodyRef}
@@ -75,11 +80,7 @@ export function EditorFrame({
         py="3"
         justify="between"
         align="center"
-        style={{
-          flexShrink: 0,
-          borderTop: "1px solid var(--gray-a4)",
-          background: "var(--gray-a2)",
-        }}
+        className="editor-frame__footer"
       >
         <Text
           size="1"

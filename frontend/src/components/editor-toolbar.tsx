@@ -1,3 +1,4 @@
+import "./editor-toolbar.css";
 import { Box, Flex, IconButton, Separator, Tooltip } from "@radix-ui/themes";
 import type { Editor } from "@tiptap/react";
 import { Undo, Redo, Save, FileText, CodeXml } from "lucide-react";
@@ -108,12 +109,7 @@ export function EditorToolbar({
     <Box
       py="2"
       px="6"
-      style={{
-        background: "var(--color-background)",
-        position: "sticky",
-        top: 0,
-        zIndex: 10,
-      }}
+      className="editor-toolbar__surface"
     >
       <Flex
         gap="1"

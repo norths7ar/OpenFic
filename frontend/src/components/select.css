@@ -97,3 +97,14 @@
   color: var(--gray-a9);
   cursor: not-allowed;
 }
+
+.select__trigger,
+.rt-Button.select__trigger {
+  width: 100%;
+  justify-content: space-between;
+}
+
+.select__popover,
+.rt-PopoverContent.select__popover {
+  width: var(--radix-popover-trigger-width);
+}

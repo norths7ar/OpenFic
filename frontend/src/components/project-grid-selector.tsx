@@ -74,7 +74,7 @@ export function ProjectGridSelector({
   };
 
   return (
-    <ScrollArea style={{ maxHeight: 380 }}>
+    <ScrollArea className="project-grid-selector__options">
       <Flex
         wrap="wrap"
         gap="3"

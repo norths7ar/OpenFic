@@ -1,9 +1,9 @@
+import "./slider-field.css";
 /**
  * Slider Field Component
  *
  * 滑块参数输入字段，支持滑块和数字输入框联动。
  */
-
 import { Flex, Text, TextField, Slider } from "@radix-ui/themes";
 import { Controller, type Control, type FieldValues, type Path } from "react-hook-form";
 
@@ -80,7 +80,7 @@ export function SliderField<T extends FieldValues>({
                   }
                   field.onBlur();
                 }}
-                style={{ width: 80 }}
+                className="slider-field__number-input"
               />
             );
           }}

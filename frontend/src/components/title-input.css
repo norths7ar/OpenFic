@@ -1,0 +1,11 @@
+.title-input__field {
+  width: 100%;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: calc(var(--font-size-editor) * 2);
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--gray-12);
+  padding: 0;
+}

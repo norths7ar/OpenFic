@@ -1,3 +1,4 @@
+import "./model-capability-tags.css";
 /* oxlint-disable react-refresh/only-export-components */
 import { Box, Tooltip } from "@radix-ui/themes";
 import { AudioLines, Brain, FileText, Image, Type, Video, Wrench } from "lucide-react";
@@ -115,17 +116,8 @@ export function CapabilityIcon({ capability }: { capability: ModelCapabilityKey 
       <Box
         role="img"
         aria-label={t(`models.capabilities.${capability}`)}
-        style={{
-          width: 18,
-          height: 18,
-          display: "inline-flex",
-          alignItems: "center",
-          justifyContent: "center",
-          borderRadius: 5,
-          color: meta.color,
-          background: meta.background,
-          flexShrink: 0,
-        }}
+        className="model-capability-tags__tag"
+        style={{ color: meta.color, background: meta.background }}
       >
         <Icon
           size={12}
@@ -142,21 +134,7 @@ export function ContextBadge({ label }: { label: string }) {
     <Tooltip content={t("models.contextWindowTooltip", { value: label })}>
       <Box
         aria-label={t("models.contextWindowTooltip", { value: label })}
-        style={{
-          minWidth: 30,
-          height: 18,
-          display: "inline-flex",
-          alignItems: "center",
-          justifyContent: "center",
-          padding: "0 7px",
-          borderRadius: 5,
-          color: "var(--gray-11)",
-          background: "var(--gray-a3)",
-          flexShrink: 0,
-          fontSize: "var(--font-size-xs)",
-          fontWeight: 600,
-          lineHeight: 1,
-        }}
+        className="model-capability-tags__context-size"
       >
         {label}
       </Box>

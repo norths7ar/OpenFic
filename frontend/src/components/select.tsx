@@ -384,6 +384,7 @@ export function SearchableSelect({
           disabled={disabled}
           data-slot="searchable-select-trigger"
           data-state={open ? "open" : "closed"}
+          className="select__trigger"
           style={{ width: "100%", justifyContent: "space-between", ...triggerStyle }}
           size={size}
         >
@@ -412,8 +413,7 @@ export function SearchableSelect({
       <Popover.Content
         align="start"
         data-slot="searchable-select-content"
-        className="searchable-select-content"
-        style={{ width: "var(--radix-popover-trigger-width)" }}
+        className="searchable-select-content select__popover"
       >
         <Box
           p="2"

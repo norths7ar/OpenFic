@@ -1,0 +1,42 @@
+.context-menu__positioner {
+  position: fixed;
+  z-index: 100000;
+  pointer-events: auto;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.context-menu__surface,
+.rt-Box.context-menu__surface {
+  min-width: 160px;
+  padding: 2px;
+  border-radius: 8px;
+  background: var(--color-background);
+  border: 1px solid var(--gray-a5);
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.12),
+    0 2px 4px rgba(0, 0, 0, 0.08);
+}
+
+.context-menu__item {
+  border: 0;
+  background: transparent;
+  color: inherit;
+}
+
+.context-menu__shortcut,
+.rt-Text.context-menu__shortcut {
+  color: var(--gray-a9);
+}
+
+.context-menu__item-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 10px;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background-color 0.1s ease;
+}

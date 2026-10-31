@@ -1,3 +1,4 @@
+import "./model-id-select.css";
 import {
   Box,
   Button,
@@ -119,16 +120,7 @@ function ToolCallWarningBadge({ message }: { message: string }) {
       <Box
         aria-label={message}
         role="img"
-        style={{
-          width: 18,
-          height: 18,
-          display: "inline-flex",
-          alignItems: "center",
-          justifyContent: "center",
-          borderRadius: 5,
-          color: "#d44f4f",
-          flexShrink: 0,
-        }}
+        className="model-id-select__warning-icon"
       >
         <AlertCircle
           size={12}
@@ -275,24 +267,16 @@ export function ModelIdSelect({
     : (selectedModel?.name ?? value);
 
   const trigger = editable ? (
-    <Box style={{ position: "relative" }}>
+    <Box className="model-id-select__input-frame">
       <TextField.Root
         value={triggerValue}
         onChange={handleInputChange}
         placeholder={placeholder || t("models.modelIdPlaceholder")}
-        style={{ paddingRight: 32 }}
+        className="model-id-select__input"
         disabled={disabled}
         readOnly={false}
       />
-      <Box
-        style={{
-          position: "absolute",
-          right: 8,
-          top: "50%",
-          transform: "translateY(-50%)",
-          pointerEvents: "none",
-        }}
-      >
+      <Box className="model-id-select__input-indicator">
         <ChevronDown
           size={16}
           color="var(--gray-11)"
@@ -306,7 +290,7 @@ export function ModelIdSelect({
       color={compact ? undefined : "gray"}
       size={compact ? "1" : "2"}
       disabled={disabled}
-      className={triggerClassName}
+      className={[triggerClassName, "model-id-select__trigger"].filter(Boolean).join(" ")}
       style={{
         width: "100%",
         justifyContent: "space-between",
@@ -366,7 +350,7 @@ export function ModelIdSelect({
         }}
         align="start"
       >
-        <Box style={{ maxHeight: 400, overflow: "hidden" }}>
+        <Box className="model-id-select__options">
           {showSearchBox || showRefreshButton ? (
             <Box p={headerPad}>
               <Flex
@@ -380,7 +364,7 @@ export function ModelIdSelect({
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     autoFocus
-                    style={{ flex: 1 }}
+                    className="model-id-select__search"
                   >
                     <TextField.Slot>
                       <Search size={compact ? 14 : 16} />
@@ -410,7 +394,8 @@ export function ModelIdSelect({
                 justify="center"
                 direction="column"
                 gap="2"
-                style={{ height: placeholderHeight, padding: 20 }}
+                className="model-id-select__empty-state"
+                style={{ height: placeholderHeight }}
               >
                 <Spinner size={18} />
                 <Text
@@ -426,7 +411,8 @@ export function ModelIdSelect({
                 justify="center"
                 direction="column"
                 gap="2"
-                style={{ height: placeholderHeight, padding: 20 }}
+                className="model-id-select__empty-state"
+                style={{ height: placeholderHeight }}
               >
                 <Text
                   size="2"
@@ -440,7 +426,7 @@ export function ModelIdSelect({
                   size="1"
                   color="gray"
                   align="center"
-                  style={{ maxWidth: 300 }}
+                  className="model-id-select__empty-description"
                 >
                   {error}
                 </Text>
@@ -459,11 +445,8 @@ export function ModelIdSelect({
                 {emptyOptionLabel ? (
                   <MotionBox
                     onClick={handleClearSelection}
-                    style={{
-                      padding: itemPadding,
-                      cursor: "pointer",
-                      borderBottom: "1px solid var(--gray-a3)",
-                    }}
+                    className="model-id-select__option"
+                    style={{ padding: itemPadding }}
                     whileHover={{ backgroundColor: "var(--gray-a2)" }}
                     whileTap={{ scale: 0.98 }}
                     transition={{ duration: 0.15 }}
@@ -488,7 +471,8 @@ export function ModelIdSelect({
                     justify="center"
                     direction="column"
                     gap="2"
-                    style={{ height: placeholderHeight, padding: 20 }}
+                    className="model-id-select__empty-state"
+                    style={{ height: placeholderHeight }}
                   >
                     <Text
                       size={labelSize}
@@ -514,9 +498,9 @@ export function ModelIdSelect({
                 {emptyOptionLabel ? (
                   <MotionBox
                     onClick={handleClearSelection}
+                    className="model-id-select__model-option"
                     style={{
                       padding: itemPadding,
-                      cursor: "pointer",
                       borderBottom:
                         showCustomOption || filteredModels.length > 0
                           ? "1px solid var(--gray-a3)"
@@ -572,9 +556,9 @@ export function ModelIdSelect({
                     <MotionBox
                       key={getModelValue(model)}
                       onClick={() => handleSelectModel(model)}
+                      className="model-id-select__model-option"
                       style={{
                         padding: itemPadding,
-                        cursor: "pointer",
                         borderBottom:
                           index < filteredModels.length - 1
                             ? "1px solid var(--gray-a3)"
@@ -597,7 +581,7 @@ export function ModelIdSelect({
                         <Flex
                           direction="column"
                           gap="1"
-                          style={{ flex: 1, minWidth: 0 }}
+                          className="model-id-select__option-details"
                         >
                           <Flex
                             align="start"
@@ -607,7 +591,7 @@ export function ModelIdSelect({
                             <Flex
                               align="center"
                               gap="1"
-                              style={{ minWidth: 0 }}
+                              className="model-id-select__option-title"
                             >
                               {compact ? (
                                 <ProviderIcon
@@ -618,10 +602,8 @@ export function ModelIdSelect({
                               <Text
                                 size={modelNameSize}
                                 weight="medium"
-                                style={{
-                                  minWidth: 0,
-                                  color: showToolCallWarning ? "#c64545" : undefined,
-                                }}
+                                className="model-id-select__option-title"
+                                style={{ color: showToolCallWarning ? "#c64545" : undefined }}
                               >
                                 {model.name}
                               </Text>
@@ -637,7 +619,7 @@ export function ModelIdSelect({
                                 gap="1"
                                 wrap="wrap"
                                 justify="end"
-                                style={{ marginLeft: "auto", flexShrink: 0 }}
+                                className="model-id-select__option-metadata"
                               >
                                 {capabilityKeys.map((capability) => (
                                   <CapabilityIcon
@@ -668,7 +650,8 @@ export function ModelIdSelect({
                   <Flex
                     align="center"
                     justify="center"
-                    style={{ height: placeholderHeight, padding: 20 }}
+                    className="model-id-select__empty-state"
+                    style={{ height: placeholderHeight }}
                   >
                     <Text
                       size={labelSize}
@@ -699,11 +682,8 @@ function CustomModelOption({ modelId, onSelect, itemPadding }: CustomModelOption
   return (
     <MotionBox
       onClick={onSelect}
-      style={{
-        padding: itemPadding,
-        cursor: "pointer",
-        backgroundColor: "var(--blue-a2)",
-      }}
+      className="model-id-select__custom-option"
+      style={{ padding: itemPadding }}
       whileHover={{ backgroundColor: "var(--blue-a3)" }}
       whileTap={{ scale: 0.98 }}
       transition={{ duration: 0.15 }}

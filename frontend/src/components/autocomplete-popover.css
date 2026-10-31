@@ -78,3 +78,9 @@
   font-size: var(--font-size-md);
   font-style: italic;
 }
+
+.autocomplete-popover__positioner,
+.rt-Box.autocomplete-popover__positioner {
+  position: fixed;
+  z-index: 9999;
+}

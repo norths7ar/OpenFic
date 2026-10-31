@@ -1,0 +1,15 @@
+.markdown-editor__fallback-input {
+  display: block;
+  width: 100%;
+  min-height: 60vh;
+  field-sizing: content;
+  resize: none;
+  border: 0;
+  outline: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  font-family: var(--code-font-family);
+  font-size: inherit;
+  line-height: 1.8;
+}

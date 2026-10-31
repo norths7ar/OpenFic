@@ -110,3 +110,8 @@
     transform: none;
   }
 }
+
+.project-grid-selector__options,
+.rt-ScrollAreaRoot.project-grid-selector__options {
+  max-height: 380px;
+}

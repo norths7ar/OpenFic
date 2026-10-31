@@ -1,3 +1,4 @@
+import "./markdown-editor.css";
 import type { Transaction } from "@tiptap/pm/state";
 import { useEditor, EditorContent } from "@tiptap/react";
 import type { Editor } from "@tiptap/react";
@@ -330,21 +331,7 @@ export function MarkdownEditor({
           readOnly={isLocked}
           placeholder={placeholder}
           spellCheck={false}
-          style={{
-            display: "block",
-            width: "100%",
-            minHeight: "60vh",
-            fieldSizing: "content",
-            resize: "none",
-            border: 0,
-            outline: 0,
-            padding: 0,
-            background: "transparent",
-            color: "inherit",
-            fontFamily: "var(--code-font-family)",
-            fontSize: "inherit",
-            lineHeight: 1.8,
-          }}
+          className="markdown-editor__fallback-input"
         />
       ) : (
         <EditorContent

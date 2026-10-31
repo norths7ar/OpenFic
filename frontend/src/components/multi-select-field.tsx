@@ -30,6 +30,7 @@ export interface MultiSelectFieldProps {
   labelWeight?: "regular" | "medium" | "bold";
   labelColor?: ComponentProps<typeof Text>["color"];
   triggerStyle?: CSSProperties;
+  triggerClassName?: string;
 }
 
 export function MultiSelectField({
@@ -44,6 +45,7 @@ export function MultiSelectField({
   labelWeight = "medium",
   labelColor,
   triggerStyle,
+  triggerClassName,
 }: MultiSelectFieldProps) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
@@ -99,7 +101,7 @@ export function MultiSelectField({
       >
         <Popover.Trigger>
           <div
-            className="multi-select-field__trigger"
+            className={["multi-select-field__trigger", triggerClassName].filter(Boolean).join(" ")}
             style={triggerStyle}
             data-disabled={disabled ? "true" : "false"}
           >

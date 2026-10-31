@@ -1,3 +1,4 @@
+import "./agent-brand-icon.css";
 import { getAgentIcon, getAgentIconColor } from "@/lib/agent-branding";
 
 interface AgentBrandIconProps {
@@ -12,7 +13,8 @@ export function AgentBrandIcon({ color, icon, size = 16 }: AgentBrandIconProps) 
     <IconComponent
       size={size}
       aria-hidden="true"
-      style={{ color: getAgentIconColor(color), flexShrink: 0 }}
+      className="agent-brand-icon__glyph"
+      style={{ color: getAgentIconColor(color) }}
     />
   );
 }

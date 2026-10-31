@@ -154,13 +154,8 @@ export function AutocompletePopover({
   return (
     <Box
       ref={containerRef}
-      className="autocomplete-popover"
-      style={{
-        position: "fixed",
-        top: anchorRect.top,
-        left: anchorRect.left,
-        zIndex: 9999,
-      }}
+      className="autocomplete-popover autocomplete-popover__positioner"
+      style={{ top: anchorRect.top, left: anchorRect.left }}
     >
       {showHint ? (
         <div className="autocomplete-hint">{hint}</div>

@@ -1,3 +1,4 @@
+import "./toaster.css";
 import { Toaster as SonnerToaster } from "sonner";
 
 interface ToasterProps {
@@ -10,7 +11,7 @@ export function Toaster({ appearance }: ToasterProps) {
       position="bottom-center"
       closeButton
       theme={appearance}
-      style={{ zIndex: 2147483647 }}
+      className="toaster__viewport"
     />
   );
 }
