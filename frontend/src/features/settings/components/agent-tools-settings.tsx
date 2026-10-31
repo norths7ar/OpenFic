@@ -1,9 +1,9 @@
+import "./agent-tools-settings.css";
 /**
  * Agent Tools Settings Component
  *
  * Agent 工具权限设置面板。
  */
-
 import { Box, Flex, Text } from "@radix-ui/themes";
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
@@ -263,16 +263,12 @@ export function AgentToolsSettings({
               align="center"
               justify="between"
               gap="4"
-              style={{
-                padding: "14px 16px",
-                border: "1px solid var(--gray-a4)",
-                borderRadius: "var(--radius-3)",
-              }}
+              className="agent-tools-settings__content"
             >
               <Flex
                 direction="column"
                 gap="1"
-                style={{ minWidth: 0, flex: 1 }}
+                className="agent-tools-settings__tool-info"
               >
                 <Text
                   size="2"
@@ -283,7 +279,7 @@ export function AgentToolsSettings({
                 <Text
                   size="2"
                   color="gray"
-                  style={{ lineHeight: 1.5 }}
+                  className="agent-tools-settings__tool-description"
                 >
                   {t(TOOL_DISPLAY_KEYS[tool.key].description)}
                 </Text>

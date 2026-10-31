@@ -666,7 +666,7 @@ export function SkillsSettings({
           gap="2"
           className="skills-settings-toolbar-row"
         >
-          <Box style={{ flex: 1, minWidth: 0 }}>
+          <Box className="skills-settings__skill-info">
             <TextField.Root
               size="2"
               placeholder={t("settingsExtra.skills.searchPlaceholder")}
@@ -730,7 +730,7 @@ export function SkillsSettings({
             align="center"
             justify="center"
             p="6"
-            style={{ height: "100%" }}
+            className="skills-settings__content"
           >
             <Text
               size="2"
@@ -787,7 +787,7 @@ export function SkillsSettings({
       <Flex
         align="center"
         justify="center"
-        style={{ height: "100%" }}
+        className="skills-settings__content"
       >
         <Spinner size={18} />
       </Flex>
@@ -799,7 +799,7 @@ export function SkillsSettings({
       <Flex
         align="center"
         justify="center"
-        style={{ height: "100%" }}
+        className="skills-settings__content"
       >
         <Text color="red">{t("settingsExtra.skills.loadFailed")}</Text>
       </Flex>
@@ -964,7 +964,7 @@ export function SkillsSettings({
           open={deleteDialogOpen}
           onOpenChange={setDeleteDialogOpen}
         >
-          <Dialog.Content style={{ maxWidth: 420 }}>
+          <Dialog.Content className="skills-settings__create-dialog">
             <Dialog.Title>{t("settingsExtra.skills.deleteTitle")}</Dialog.Title>
             <Dialog.Description
               size="2"
@@ -1042,7 +1042,7 @@ export function SkillsSettings({
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
       >
-        <Dialog.Content style={{ maxWidth: 420 }}>
+        <Dialog.Content className="skills-settings__create-dialog">
           <Dialog.Title>{t("settingsExtra.skills.deleteTitle")}</Dialog.Title>
           <Dialog.Description
             size="2"
@@ -1776,7 +1776,7 @@ function SkillReferenceDocDeleteDialog({
       open={open}
       onOpenChange={onOpenChange}
     >
-      <Dialog.Content style={{ maxWidth: 420 }}>
+      <Dialog.Content className="skills-settings__create-dialog">
         <Dialog.Title>{t("settingsExtra.skills.deleteReferenceDoc")}</Dialog.Title>
         <Dialog.Description
           size="2"

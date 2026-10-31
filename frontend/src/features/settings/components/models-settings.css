@@ -12,3 +12,37 @@
   text-align: start;
   cursor: pointer;
 }
+
+.models-settings__content,
+.rt-Flex.models-settings__content {
+  height: 100%;
+}
+
+.models-settings__filter,
+.rt-Flex.models-settings__filter {
+  max-width: 400px;
+  min-width: 0;
+}
+
+.models-settings__model-name,
+.rt-Text.models-settings__model-name {
+  margin-bottom: var(--space-1);
+}
+
+.models-settings__model-row,
+.rt-Flex.models-settings__model-row {
+  padding: var(--space-4);
+}
+
+.models-settings__divider,
+.rt-Box.models-settings__divider {
+  height: 1px;
+  background: var(--gray-a4);
+  margin-left: var(--space-4);
+  margin-right: var(--space-4);
+}
+
+.models-settings__empty-state,
+.rt-Flex.models-settings__empty-state {
+  height: 200px;
+}

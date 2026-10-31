@@ -37,3 +37,24 @@
   background: transparent !important;
   color: var(--red-9) !important;
 }
+
+.connection-form-dialog__provider-preview,
+.rt-Box.connection-form-dialog__provider-preview {
+  width: 80px;
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-2);
+  background: var(--gray-a3);
+}
+
+.connection-form-dialog__fields,
+.rt-Flex.connection-form-dialog__fields {
+  flex: 1;
+}
+
+.connection-form-dialog__required-mark,
+.rt-Text.connection-form-dialog__required-mark {
+  display: inline;
+}

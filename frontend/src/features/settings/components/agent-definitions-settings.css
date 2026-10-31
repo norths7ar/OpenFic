@@ -1,0 +1,86 @@
+.agent-definitions-settings__option-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--gray-a5);
+  font-size: var(--font-size-md);
+}
+
+.agent-definitions-settings__option-checkbox,
+.rt-CheckboxRoot.agent-definitions-settings__option-checkbox {
+  margin: 0;
+}
+
+.agent-definitions-settings__prompt-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--accent-11);
+  text-decoration: underline;
+  cursor: pointer;
+  font: inherit;
+}
+
+.agent-definitions-settings__link-label,
+.rt-Text.agent-definitions-settings__link-label {
+  color: inherit;
+}
+
+.agent-definitions-settings__model-hint,
+.rt-Flex.agent-definitions-settings__model-hint {
+  margin-top: 8px;
+}
+
+.agent-definitions-settings__save-action,
+.rt-Button.agent-definitions-settings__save-action {
+  align-self: flex-start;
+}
+
+.agent-definitions-settings__list-scroll,
+.rt-ScrollAreaRoot.agent-definitions-settings__list-scroll {
+  flex: 1;
+}
+
+.agent-definitions-settings__list-loading,
+.rt-Flex.agent-definitions-settings__list-loading {
+  height: 100px;
+}
+
+.agent-definitions-settings__empty-list,
+.rt-Flex.agent-definitions-settings__empty-list {
+  padding: 24px;
+}
+
+.agent-definitions-settings__empty-icon {
+  opacity: 0.3;
+}
+
+.agent-definitions-settings__loading,
+.rt-Flex.agent-definitions-settings__loading {
+  height: 100%;
+}
+
+.agent-definitions-settings__create-dialog,
+.rt-DialogContent.agent-definitions-settings__create-dialog {
+  max-width: 420px;
+}
+
+.agent-definitions-settings__creation-fields,
+.rt-Flex.agent-definitions-settings__creation-fields {
+  margin-top: 12px;
+}
+
+.agent-definitions-settings__creation-actions,
+.rt-Flex.agent-definitions-settings__creation-actions {
+  margin-top: 20px;
+}
+
+.agent-definition-field-label,
+.rt-Text.agent-definition-field-label {
+  font-size: var(--font-size-base);
+}

@@ -1,0 +1,20 @@
+.rules-settings__rule-info,
+.rt-Box.rules-settings__rule-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.rules-settings__content,
+.rt-Flex.rules-settings__content {
+  height: 100%;
+}
+
+.rules-settings__create-dialog,
+.rt-DialogContent.rules-settings__create-dialog {
+  max-width: 420px;
+}
+
+.rules-settings__import-dialog,
+.rt-DialogContent.rules-settings__import-dialog {
+  max-width: 480px;
+}

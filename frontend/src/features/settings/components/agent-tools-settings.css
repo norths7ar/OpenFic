@@ -1,0 +1,17 @@
+.agent-tools-settings__content,
+.rt-Flex.agent-tools-settings__content {
+  padding: 14px 16px;
+  border: 1px solid var(--gray-a4);
+  border-radius: var(--radius-3);
+}
+
+.agent-tools-settings__tool-info,
+.rt-Flex.agent-tools-settings__tool-info {
+  min-width: 0;
+  flex: 1;
+}
+
+.agent-tools-settings__tool-description,
+.rt-Text.agent-tools-settings__tool-description {
+  line-height: 1.5;
+}

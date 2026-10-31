@@ -163,7 +163,7 @@ export function ImportSkillDialog({
             size="2"
             weight="medium"
             truncate
-            style={{ flex: 1 }}
+            className="import-skill-dialog__description"
           >
             {result.skill.name || t("settingsExtra.skills.importDialog.emptyValue")}
           </Text>
@@ -189,7 +189,7 @@ export function ImportSkillDialog({
             </Text>
             <Text
               size="2"
-              style={{ whiteSpace: "pre-wrap" }}
+              className="import-skill-dialog__error-details"
             >
               {result.skill.summary}
             </Text>

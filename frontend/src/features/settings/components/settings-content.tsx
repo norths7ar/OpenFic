@@ -1,3 +1,4 @@
+import "./settings-content.css";
 import { Box, Flex, IconButton, Text } from "@radix-ui/themes";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
@@ -373,7 +374,7 @@ export function SettingsContent({
           <Flex
             align="center"
             justify="center"
-            style={{ height: "100%" }}
+            className="settings-content__content"
           >
             <Spinner size={18} />
           </Flex>

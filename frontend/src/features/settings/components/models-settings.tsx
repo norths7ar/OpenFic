@@ -1,10 +1,9 @@
+import { Badge, Box, Button, Flex, Link, Tabs, Text } from "@radix-ui/themes";
 /**
  * Models Settings Component
  *
  * 模型设置面板，管理和配置 AI 模型。
  */
-
-import { Badge, Box, Button, Flex, Link, Tabs, Text } from "@radix-ui/themes";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Edit } from "lucide-react";
 import { useState, useCallback, useEffect, useMemo } from "react";
@@ -19,6 +18,7 @@ import {
 } from "@/components/model-capability-tags";
 import { ModelDiscoveryStatus } from "@/components/model-discovery-status";
 import { ModelIdSelect, type ModelIdSelectOption } from "@/components/model-id-select";
+import { QueryError } from "@/components/query-error";
 import { toast } from "@/components/toast";
 import { MODEL_DISCOVERY_QUERY_OPTIONS } from "@/lib/model-discovery";
 import type { Model, ModelCreateRequest, ModelUpdateRequest } from "@/lib/model.types";
@@ -70,14 +70,24 @@ export function ModelsSettings({
   }, [isAgentSettingsLocked]);
 
   // 获取所有模型
-  const { data: models, isLoading: isModelsLoading } = useQuery({
+  const {
+    data: models,
+    isLoading: isModelsLoading,
+    error: modelsError,
+    refetch: retrymodels,
+  } = useQuery({
     ...MODEL_DISCOVERY_QUERY_OPTIONS,
     queryKey: ["models"],
     queryFn: () => fetchModels(),
   });
 
   // 获取所有提供商（用于显示提供商名称）
-  const { data: providers, isLoading: isProvidersLoading } = useQuery({
+  const {
+    data: providers,
+    isLoading: isProvidersLoading,
+    error: providersError,
+    refetch: retryproviders,
+  } = useQuery({
     queryKey: ["model-providers"],
     queryFn: fetchProviders,
   });
@@ -85,7 +95,12 @@ export function ModelsSettings({
   useModelSync(providers);
 
   // 获取设置
-  const { data: settings, isLoading: isSettingsLoading } = useQuery({
+  const {
+    data: settings,
+    isLoading: isSettingsLoading,
+    error: settingsError,
+    refetch: retrysettings,
+  } = useQuery({
     queryKey: ["settings"],
     queryFn: fetchSettings,
   });
@@ -249,12 +264,23 @@ export function ModelsSettings({
     [onActiveTabChange],
   );
 
+  if (modelsError || providersError || settingsError)
+    return (
+      <QueryError
+        onRetry={() => {
+          void retrymodels();
+          void retryproviders();
+          void retrysettings();
+        }}
+      />
+    );
+
   if (isContentLoading) {
     return (
       <Flex
         align="center"
         justify="center"
-        style={{ height: "100%" }}
+        className="models-settings__content"
       >
         <Spinner size={18} />
       </Flex>
@@ -290,7 +316,7 @@ export function ModelsSettings({
           <Flex
             direction="column"
             gap="1"
-            style={{ maxWidth: 400, minWidth: 0 }}
+            className="models-settings__filter"
           >
             <Text
               size="2"
@@ -301,7 +327,7 @@ export function ModelsSettings({
             <Text
               size="1"
               color="gray"
-              style={{ marginBottom: "var(--space-1)" }}
+              className="models-settings__model-name"
             >
               {t("models.defaultModelDesc")}
             </Text>
@@ -320,7 +346,7 @@ export function ModelsSettings({
           <Flex
             direction="column"
             gap="1"
-            style={{ maxWidth: 400, minWidth: 0 }}
+            className="models-settings__filter"
           >
             <Text
               size="2"
@@ -331,7 +357,7 @@ export function ModelsSettings({
             <Text
               size="1"
               color="gray"
-              style={{ marginBottom: "var(--space-1)" }}
+              className="models-settings__model-name"
             >
               {t("models.lightModelDesc")}
             </Text>
@@ -371,7 +397,7 @@ export function ModelsSettings({
                 <Flex
                   direction="column"
                   gap="3"
-                  style={{ padding: "var(--space-4)" }}
+                  className="models-settings__model-row"
                 >
                   <Flex
                     align="center"
@@ -501,16 +527,7 @@ export function ModelsSettings({
                     </Flex>
                   </Flex>
                 </Flex>
-                {index < filteredModels.length - 1 && (
-                  <Box
-                    style={{
-                      height: "1px",
-                      background: "var(--gray-a4)",
-                      marginLeft: "var(--space-4)",
-                      marginRight: "var(--space-4)",
-                    }}
-                  />
-                )}
+                {index < filteredModels.length - 1 && <Box className="models-settings__divider" />}
               </Box>
             ))}
           </Flex>
@@ -520,7 +537,7 @@ export function ModelsSettings({
             align="center"
             justify="center"
             gap="3"
-            style={{ height: 200 }}
+            className="models-settings__empty-state"
           >
             <Text
               size="2"

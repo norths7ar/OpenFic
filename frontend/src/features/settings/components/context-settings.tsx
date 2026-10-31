@@ -1,3 +1,4 @@
+import "./context-settings.css";
 import { Box, Flex, Switch, Text } from "@radix-ui/themes";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -46,7 +47,7 @@ export function ContextSettings() {
       <Flex
         align="center"
         justify="center"
-        style={{ height: "100%" }}
+        className="context-settings__content"
       >
         <Spinner size={18} />
       </Flex>

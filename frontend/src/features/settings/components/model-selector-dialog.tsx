@@ -1,9 +1,9 @@
+import "./model-selector-dialog.css";
 /**
  * Model Selector Dialog
  *
  * 模型选择器对话框，用于从提供商的模型列表中选择模型。
  */
-
 import { Dialog, Flex, Button, Text, TextField, Box } from "@radix-ui/themes";
 import { Search } from "lucide-react";
 import { motion } from "motion/react";
@@ -88,19 +88,12 @@ export function ModelSelectorDialog({
           </TextField.Root>
 
           {/* 模型列表 */}
-          <Box
-            style={{
-              maxHeight: 400,
-              overflow: "auto",
-              border: "1px solid var(--gray-a4)",
-              borderRadius: "var(--radius-2)",
-            }}
-          >
+          <Box className="model-selector-dialog__list">
             {isLoading ? (
               <Flex
                 align="center"
                 justify="center"
-                style={{ height: 200, padding: 20 }}
+                className="model-selector-dialog__empty-state"
               >
                 <Spinner size={18} />
                 <Text
@@ -117,11 +110,7 @@ export function ModelSelectorDialog({
                   <MotionBox
                     key={model.id}
                     onClick={() => handleSelect(model)}
-                    style={{
-                      padding: "12px 16px",
-                      cursor: "pointer",
-                      borderBottom: "1px solid var(--gray-a3)",
-                    }}
+                    className="model-selector-dialog__option"
                     whileHover={{ backgroundColor: "var(--gray-a2)" }}
                     whileTap={{ scale: 0.98 }}
                     transition={{ duration: 0.15 }}
@@ -152,7 +141,7 @@ export function ModelSelectorDialog({
                 justify="center"
                 direction="column"
                 gap="2"
-                style={{ height: 200, padding: 20 }}
+                className="model-selector-dialog__empty-state"
               >
                 <Text
                   size="2"

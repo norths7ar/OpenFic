@@ -1,6 +1,5 @@
 import { Flex, Text } from "@radix-ui/themes";
 import { Check } from "lucide-react";
-import type { CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
 
 import {
@@ -15,7 +14,7 @@ interface AgentBrandingPickerProps {
   icon: string | null | undefined;
   onChange: (color: string | null, icon: string | null) => void;
   disabled?: boolean;
-  labelStyle?: CSSProperties;
+  labelClassName?: string;
 }
 
 export function AgentBrandingPicker({
@@ -23,7 +22,7 @@ export function AgentBrandingPicker({
   icon,
   onChange,
   disabled = false,
-  labelStyle,
+  labelClassName,
 }: AgentBrandingPickerProps) {
   const { t } = useTranslation();
 
@@ -40,7 +39,7 @@ export function AgentBrandingPicker({
         <Text
           size="1"
           weight="medium"
-          style={labelStyle}
+          className={labelClassName}
         >
           {t("settings.agentsColor")}
         </Text>
@@ -80,7 +79,7 @@ export function AgentBrandingPicker({
         <Text
           size="1"
           weight="medium"
-          style={labelStyle}
+          className={labelClassName}
         >
           {t("settings.agentsIcon")}
         </Text>

@@ -1,0 +1,27 @@
+.model-form-dialog__content,
+.rt-DialogContent.model-form-dialog__content {
+  max-height: 90vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.model-form-dialog__fields,
+.rt-Box.model-form-dialog__fields {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: var(--space-2);
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.model-form-dialog__required-mark,
+.rt-Text.model-form-dialog__required-mark {
+  display: inline;
+}
+
+.model-form-dialog__footer,
+.rt-Flex.model-form-dialog__footer {
+  flex-shrink: 0;
+}

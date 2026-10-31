@@ -14,3 +14,34 @@
   flex: 1;
   min-height: 0;
 }
+
+.provider-models-dialog__search,
+.rt-TextFieldRoot.provider-models-dialog__search {
+  flex: 1;
+}
+
+.provider-models-dialog__count,
+.rt-Text.provider-models-dialog__count {
+  white-space: nowrap;
+}
+
+.provider-models-dialog__loading,
+.rt-Flex.provider-models-dialog__loading {
+  height: 280px;
+}
+
+.provider-models-dialog__model-row,
+.rt-Box.provider-models-dialog__model-row {
+  border-bottom: 1px solid var(--gray-a4);
+}
+
+.provider-models-dialog__model-info,
+.rt-Flex.provider-models-dialog__model-info {
+  min-width: 0;
+  flex: 1;
+}
+
+.provider-models-dialog__empty-state,
+.rt-Flex.provider-models-dialog__empty-state {
+  height: 240px;
+}

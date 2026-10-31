@@ -1,9 +1,9 @@
+import "./provider-icons.css";
 /**
  * Provider Icons
  *
  * 提供商图标工具。
  */
-
 import { useEffect, useRef, useState } from "react";
 
 import { Spinner } from "@/components/spinner";
@@ -106,24 +106,17 @@ export function ProviderIcon({ iconPath, size = 20 }: ProviderIconProps) {
   return (
     <span
       aria-hidden="true"
-      style={{
-        display: "inline-flex",
-        width: size,
-        height: size,
-        alignItems: "center",
-        justifyContent: "center",
-        flexShrink: 0,
-      }}
+      className="provider-icons__frame"
+      style={{ width: size, height: size }}
     >
       {isLoading ? <Spinner size={12} /> : null}
       <span
         ref={svgContainerRef}
+        className="provider-icons__image"
         style={{
           display: isLoading ? "none" : "inline-flex",
           width: isLoading ? undefined : size,
           height: isLoading ? undefined : size,
-          alignItems: "center",
-          justifyContent: "center",
         }}
       />
     </span>

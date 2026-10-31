@@ -1,3 +1,5 @@
+import "./agent-definitions-settings.css";
+import { zodResolver } from "@hookform/resolvers/zod";
 import {
   Box,
   Button,
@@ -27,8 +29,10 @@ import {
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useState, useCallback, useEffect, useMemo } from "react";
+import { useForm, useController } from "react-hook-form";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
+import { z } from "zod";
 
 import { LabeledSelect, ModelIdSelect, type ModelIdSelectOption } from "@/components";
 import { ContextMenu, type ContextMenuItem, toast, ConfirmDialog, Spinner } from "@/components";
@@ -68,6 +72,33 @@ import { fetchSettings } from "../lib/settings-api";
 import { fetchSkills } from "../lib/skills-api";
 import { AgentBrandingPicker } from "./agent-branding-picker";
 import { AgentSettingsLockNotice } from "./agent-settings-lock-notice";
+
+const AgentEditSchema = z.object({
+  displayName: z.string(),
+  description: z.string(),
+  kind: z.enum(["primary", "subagent"]),
+  color: z.string().nullable(),
+  icon: z.string().nullable(),
+  modelId: z.string(),
+  enabledToolCategories: z.array(z.string()),
+  enabledSkills: z.array(z.string()),
+  delegatableAgents: z.array(z.string()),
+});
+type AgentEditValues = z.infer<typeof AgentEditSchema>;
+const AgentCreateSchema = z.object({
+  kind: z.enum(["primary", "subagent"]),
+  key: z
+    .string()
+    .trim()
+    .min(1)
+    .max(50)
+    .regex(/^[a-z0-9-]+$/),
+  displayName: z.string(),
+  description: z.string(),
+  color: z.string().nullable(),
+  icon: z.string().nullable(),
+});
+type AgentCreateValues = z.infer<typeof AgentCreateSchema>;
 
 const LIST_WIDTH = 280;
 const SUBAGENT_RESTRICTED_TOOL_CATEGORIES = new Set(["orchestration", "interaction"]);
@@ -151,21 +182,55 @@ function AgentForm({
 }: AgentFormProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const fieldLabelStyle = useMemo(() => ({ fontSize: "var(--font-size-base)" }), []);
 
-  const [formDisplayName, setFormDisplayName] = useState(def.display_name);
-  const [formDescription, setFormDescription] = useState(def.description);
-  const [formKind, setFormKind] = useState(def.kind);
-  const [formColor, setFormColor] = useState<string | null>(def.color ?? DEFAULT_AGENT_COLOR);
-  const [formIcon, setFormIcon] = useState<string | null>(def.icon ?? DEFAULT_AGENT_ICON);
-  const [formModelId, setFormModelId] = useState(getEffectiveModelSelection(def.model_id));
-  const [formEnabledToolCategories, setFormEnabledToolCategories] = useState<string[]>([
-    ...getEnabledToolCategoriesForAgent(def.kind, def.enabled_tool_categories),
-  ]);
-  const [formEnabledSkills, setFormEnabledSkills] = useState<string[]>([...def.enabled_skills]);
-  const [formDelegatableAgents, setFormDelegatableAgents] = useState<string[]>([
-    ...def.delegatable_agents,
-  ]);
+  const {
+    control: formControl,
+    getValues: formGetValues,
+    handleSubmit: formSubmit,
+  } = useForm<AgentEditValues>({
+    resolver: zodResolver(AgentEditSchema),
+    defaultValues: {
+      displayName: def.display_name,
+      description: def.description,
+      kind: def.kind,
+      color: def.color ?? DEFAULT_AGENT_COLOR,
+      icon: def.icon ?? DEFAULT_AGENT_ICON,
+      modelId: getEffectiveModelSelection(def.model_id),
+      enabledToolCategories: getEnabledToolCategoriesForAgent(
+        def.kind,
+        def.enabled_tool_categories,
+      ),
+      enabledSkills: [...def.enabled_skills],
+      delegatableAgents: [...def.delegatable_agents],
+    },
+  });
+  const {
+    field: { value: formDisplayName, onChange: setFormDisplayName },
+  } = useController({ control: formControl, name: "displayName" });
+  const {
+    field: { value: formDescription, onChange: setFormDescription },
+  } = useController({ control: formControl, name: "description" });
+  const {
+    field: { value: formKind, onChange: setFormKind },
+  } = useController({ control: formControl, name: "kind" });
+  const {
+    field: { value: formColor, onChange: setFormColor },
+  } = useController({ control: formControl, name: "color" });
+  const {
+    field: { value: formIcon, onChange: setFormIcon },
+  } = useController({ control: formControl, name: "icon" });
+  const {
+    field: { value: formModelId, onChange: setFormModelId },
+  } = useController({ control: formControl, name: "modelId" });
+  const {
+    field: { value: formEnabledToolCategories, onChange: setFormEnabledToolCategories },
+  } = useController({ control: formControl, name: "enabledToolCategories" });
+  const {
+    field: { value: formEnabledSkills, onChange: setFormEnabledSkills },
+  } = useController({ control: formControl, name: "enabledSkills" });
+  const {
+    field: { value: formDelegatableAgents, onChange: setFormDelegatableAgents },
+  } = useController({ control: formControl, name: "delegatableAgents" });
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
 
   useEffect(() => () => onKindPreviewChange(def.key, null), [def.key, onKindPreviewChange]);
@@ -265,11 +330,15 @@ function AgentForm({
     navigate(`/prompt-chains?${params.toString()}`);
   }, [def.key, def.source, navigate, onCloseSettings]);
 
-  const handleToggleDelegatable = useCallback((key: string) => {
-    setFormDelegatableAgents((prev) =>
-      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key],
-    );
-  }, []);
+  const handleToggleDelegatable = useCallback(
+    (key: string) => {
+      const previous = formGetValues("delegatableAgents");
+      setFormDelegatableAgents(
+        previous.includes(key) ? previous.filter((item) => item !== key) : [...previous, key],
+      );
+    },
+    [setFormDelegatableAgents, formGetValues],
+  );
 
   const handleKindChange = useCallback(
     (kind: string) => {
@@ -277,26 +346,43 @@ function AgentForm({
       setFormKind(nextKind);
       onKindPreviewChange(def.key, nextKind);
       if (nextKind === "subagent") {
-        setFormEnabledToolCategories((categories) =>
-          getEnabledToolCategoriesForAgent(nextKind, categories),
+        setFormEnabledToolCategories(
+          getEnabledToolCategoriesForAgent(nextKind, formGetValues("enabledToolCategories")),
         );
         setFormDelegatableAgents([]);
       }
     },
-    [def.key, onKindPreviewChange],
+    [
+      def.key,
+      onKindPreviewChange,
+      setFormKind,
+      setFormEnabledToolCategories,
+      setFormDelegatableAgents,
+      formGetValues,
+    ],
   );
 
-  const handleToggleToolCategory = useCallback((key: string) => {
-    setFormEnabledToolCategories((prev) =>
-      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key],
-    );
-  }, []);
+  const handleToggleToolCategory = useCallback(
+    (key: string) => {
+      const previous = formGetValues("enabledToolCategories");
+      setFormEnabledToolCategories(
+        previous.includes(key) ? previous.filter((item) => item !== key) : [...previous, key],
+      );
+    },
+    [setFormEnabledToolCategories, formGetValues],
+  );
 
-  const handleToggleEnabledSkill = useCallback((skillId: string) => {
-    setFormEnabledSkills((prev) =>
-      prev.includes(skillId) ? prev.filter((id) => id !== skillId) : [...prev, skillId],
-    );
-  }, []);
+  const handleToggleEnabledSkill = useCallback(
+    (skillId: string) => {
+      const previous = formGetValues("enabledSkills");
+      setFormEnabledSkills(
+        previous.includes(skillId)
+          ? previous.filter((item) => item !== skillId)
+          : [...previous, skillId],
+      );
+    },
+    [setFormEnabledSkills, formGetValues],
+  );
 
   const selectableSkills = useMemo(
     () => skills.filter((skill) => skill.name.trim() && skill.isEnabled),
@@ -317,7 +403,7 @@ function AgentForm({
         <Text
           size="1"
           weight="medium"
-          style={fieldLabelStyle}
+          className="agent-definition-field-label"
         >
           {t("settings.agentsDisplayName")}
         </Text>
@@ -381,7 +467,7 @@ function AgentForm({
         <Text
           size="1"
           weight="medium"
-          style={fieldLabelStyle}
+          className="agent-definition-field-label"
         >
           {t("settings.agentsFieldDescription")}
         </Text>
@@ -403,7 +489,7 @@ function AgentForm({
             setFormIcon(icon);
           }}
           disabled={isAgentSettingsLocked}
-          labelStyle={fieldLabelStyle}
+          labelClassName="agent-definition-field-label"
         />
       ) : null}
 
@@ -414,7 +500,7 @@ function AgentForm({
         <Text
           size="1"
           weight="medium"
-          style={fieldLabelStyle}
+          className="agent-definition-field-label"
         >
           {t("settings.agentsModelId")}
         </Text>
@@ -436,7 +522,7 @@ function AgentForm({
         <Text
           size="1"
           weight="medium"
-          style={fieldLabelStyle}
+          className="agent-definition-field-label"
         >
           {t("settings.agentsToolCategories")}
         </Text>
@@ -455,22 +541,14 @@ function AgentForm({
             {selectableToolCategoryOptions.map((opt) => (
               <label
                 key={opt.key}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
-                  padding: "4px 10px",
-                  borderRadius: 6,
-                  border: "1px solid var(--gray-a5)",
-                  cursor: isAgentSettingsLocked ? "not-allowed" : "pointer",
-                  fontSize: "var(--font-size-md)",
-                }}
+                className="agent-definitions-settings__option-chip"
+                style={{ cursor: isAgentSettingsLocked ? "not-allowed" : "pointer" }}
               >
                 <Checkbox
                   checked={formEnabledToolCategories.includes(opt.key)}
                   disabled={isAgentSettingsLocked}
                   onCheckedChange={() => handleToggleToolCategory(opt.key)}
-                  style={{ margin: 0 }}
+                  className="agent-definitions-settings__option-checkbox"
                 />
                 {opt.name}
               </label>
@@ -486,7 +564,7 @@ function AgentForm({
         <Text
           size="1"
           weight="medium"
-          style={fieldLabelStyle}
+          className="agent-definition-field-label"
         >
           {t("settings.agentsEnabledSkills")}
         </Text>
@@ -507,16 +585,10 @@ function AgentForm({
               return (
                 <label
                   key={skill.id}
+                  className="agent-definitions-settings__option-chip"
                   style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 6,
-                    padding: "4px 10px",
-                    borderRadius: 6,
-                    border: "1px solid var(--gray-a5)",
                     cursor: disabled ? "not-allowed" : "pointer",
                     opacity: disabled ? 0.6 : 1,
-                    fontSize: "var(--font-size-md)",
                   }}
                   title={disabled ? t("settings.agentsSkillUnavailable") : skill.name}
                 >
@@ -524,7 +596,7 @@ function AgentForm({
                     checked={formEnabledSkills.includes(skill.id)}
                     disabled={disabled}
                     onCheckedChange={() => handleToggleEnabledSkill(skill.id)}
-                    style={{ margin: 0 }}
+                    className="agent-definitions-settings__option-checkbox"
                   />
                   {skill.name || t("settingsExtra.skills.untitled")}
                 </label>
@@ -542,7 +614,7 @@ function AgentForm({
           <Text
             size="1"
             weight="medium"
-            style={fieldLabelStyle}
+            className="agent-definition-field-label"
           >
             {t("settings.agentsDelegatableAgents")}
           </Text>
@@ -561,22 +633,14 @@ function AgentForm({
               {delegatableOptions.map((opt) => (
                 <label
                   key={opt.value}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 6,
-                    padding: "4px 10px",
-                    borderRadius: 6,
-                    border: "1px solid var(--gray-a5)",
-                    cursor: isAgentSettingsLocked ? "not-allowed" : "pointer",
-                    fontSize: "var(--font-size-md)",
-                  }}
+                  className="agent-definitions-settings__option-chip"
+                  style={{ cursor: isAgentSettingsLocked ? "not-allowed" : "pointer" }}
                 >
                   <Checkbox
                     checked={formDelegatableAgents.includes(opt.value)}
                     disabled={isAgentSettingsLocked}
                     onCheckedChange={() => handleToggleDelegatable(opt.value)}
-                    style={{ margin: 0 }}
+                    className="agent-definitions-settings__option-checkbox"
                   />
                   {opt.label}
                 </label>
@@ -593,7 +657,7 @@ function AgentForm({
         <Text
           size="1"
           weight="medium"
-          style={fieldLabelStyle}
+          className="agent-definition-field-label"
         >
           {t("settings.agentsPromptChain")}
         </Text>
@@ -611,22 +675,11 @@ function AgentForm({
           <button
             type="button"
             onClick={handleGoToPromptChain}
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 4,
-              padding: 0,
-              border: "none",
-              background: "transparent",
-              color: "var(--accent-11)",
-              textDecoration: "underline",
-              cursor: "pointer",
-              font: "inherit",
-            }}
+            className="agent-definitions-settings__prompt-link"
           >
             <Text
               size="2"
-              style={{ color: "inherit" }}
+              className="agent-definitions-settings__link-label"
             >
               {t("settings.agentsPromptChainAction")}
             </Text>
@@ -638,13 +691,13 @@ function AgentForm({
       <Flex
         direction="column"
         gap="2"
-        style={{ marginTop: 8 }}
+        className="agent-definitions-settings__model-hint"
       >
         <Button
           size="2"
           disabled={isAgentSettingsLocked || !hasFormChanges || updateMutation.isPending}
-          onClick={() => updateMutation.mutate()}
-          style={{ alignSelf: "flex-start" }}
+          onClick={formSubmit(() => updateMutation.mutate())}
+          className="agent-definitions-settings__save-action"
         >
           {updateMutation.isPending ? t("common.loading") : t("common.save")}
         </Button>
@@ -691,16 +744,44 @@ export function AgentDefinitionsSettings({
   const { t } = useTranslation();
   const queryClient = useQueryClient();
 
+  const [formResetVersion, setFormResetVersion] = useState(0);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [createMode, setCreateMode] = useState<"create" | "copy">("create");
   const [copySource, setCopySource] = useState<AgentDefinitionResponse | null>(null);
-  const [newKind, setNewKind] = useState<"primary" | "subagent">("primary");
-  const [newKey, setNewKey] = useState("");
-  const [newDisplayName, setNewDisplayName] = useState("");
-  const [newDescription, setNewDescription] = useState("");
-  const [newColor, setNewColor] = useState<string | null>(DEFAULT_AGENT_COLOR);
-  const [newIcon, setNewIcon] = useState<string | null>(DEFAULT_AGENT_ICON);
+  const {
+    control: newControl,
+    handleSubmit: newSubmit,
+    formState: { errors: createErrors },
+  } = useForm<AgentCreateValues>({
+    resolver: zodResolver(AgentCreateSchema),
+    defaultValues: {
+      kind: "primary",
+      key: "",
+      displayName: "",
+      description: "",
+      color: DEFAULT_AGENT_COLOR,
+      icon: DEFAULT_AGENT_ICON,
+    },
+  });
+  const {
+    field: { value: newKind, onChange: setNewKind },
+  } = useController({ control: newControl, name: "kind" });
+  const {
+    field: { value: newKey, onChange: setNewKey },
+  } = useController({ control: newControl, name: "key" });
+  const {
+    field: { value: newDisplayName, onChange: setNewDisplayName },
+  } = useController({ control: newControl, name: "displayName" });
+  const {
+    field: { value: newDescription, onChange: setNewDescription },
+  } = useController({ control: newControl, name: "description" });
+  const {
+    field: { value: newColor, onChange: setNewColor },
+  } = useController({ control: newControl, name: "color" });
+  const {
+    field: { value: newIcon, onChange: setNewIcon },
+  } = useController({ control: newControl, name: "icon" });
   const [kindPreview, setKindPreview] = useState<AgentKindPreview | null>(null);
   const [menuState, setMenuState] = useState<AgentListMenuState | null>(null);
   const [confirmResetKey, setConfirmResetKey] = useState<string | null>(null);
@@ -720,6 +801,7 @@ export function AgentDefinitionsSettings({
     data: definitions = [],
     isLoading,
     isFetching,
+    error: definitionsError,
     refetch,
   } = useQuery({
     queryKey: ["agent-definitions"],
@@ -731,7 +813,8 @@ export function AgentDefinitionsSettings({
   const {
     data: toolCategoryOptions = [],
     isLoading: isToolCategoriesLoading,
-    isFetching: isToolCategoriesFetching,
+    error: toolCategoriesError,
+    refetch: refetchToolCategories,
   } = useQuery({
     queryKey: ["agent-tool-categories"],
     queryFn: fetchAgentToolCategories,
@@ -742,7 +825,8 @@ export function AgentDefinitionsSettings({
   const {
     data: skillsData,
     isLoading: isSkillsLoading,
-    isFetching: isSkillsFetching,
+    error: skillsError,
+    refetch: refetchSkills,
   } = useQuery({
     queryKey: ["skills"],
     queryFn: () => fetchSkills({ page: 1, pageSize: 100 }),
@@ -754,7 +838,8 @@ export function AgentDefinitionsSettings({
   const {
     data: settings,
     isLoading: isSettingsLoading,
-    isFetching: isSettingsFetching,
+    error: settingsError,
+    refetch: refetchSettings,
   } = useQuery({
     queryKey: ["settings"],
     queryFn: fetchSettings,
@@ -792,15 +877,12 @@ export function AgentDefinitionsSettings({
     [controlledMobileDirection, mobilePage, onMobilePageChange],
   );
 
+  const contentError = definitionsError || toolCategoriesError || skillsError || settingsError;
   const isContentLoading =
     isLoading ||
-    isFetching ||
     isToolCategoriesLoading ||
-    isToolCategoriesFetching ||
     isSkillsLoading ||
-    isSkillsFetching ||
     isSettingsLoading ||
-    isSettingsFetching ||
     isModelOptionsLoading ||
     isAgentSettingsLockLoading ||
     !settings;
@@ -870,7 +952,7 @@ export function AgentDefinitionsSettings({
     setNewDescription("");
     setNewColor(DEFAULT_AGENT_COLOR);
     setNewIcon(DEFAULT_AGENT_ICON);
-  }, []);
+  }, [setNewKind, setNewKey, setNewDisplayName, setNewDescription, setNewColor, setNewIcon]);
 
   useEffect(() => {
     if (!isAgentSettingsLocked) return;
@@ -891,7 +973,15 @@ export function AgentDefinitionsSettings({
     setNewColor(DEFAULT_AGENT_COLOR);
     setNewIcon(DEFAULT_AGENT_ICON);
     setIsCreating(true);
-  }, [isAgentSettingsLocked]);
+  }, [
+    isAgentSettingsLocked,
+    setNewKind,
+    setNewKey,
+    setNewDisplayName,
+    setNewDescription,
+    setNewColor,
+    setNewIcon,
+  ]);
 
   const openCopyDialog = useCallback(
     (def: AgentDefinitionResponse) => {
@@ -906,7 +996,16 @@ export function AgentDefinitionsSettings({
       setNewIcon(def.icon ?? DEFAULT_AGENT_ICON);
       setIsCreating(true);
     },
-    [isAgentSettingsLocked, t],
+    [
+      isAgentSettingsLocked,
+      t,
+      setNewKind,
+      setNewKey,
+      setNewDisplayName,
+      setNewDescription,
+      setNewColor,
+      setNewIcon,
+    ],
   );
 
   const createMutation = useMutation({
@@ -953,6 +1052,8 @@ export function AgentDefinitionsSettings({
   const resetMutation = useMutation({
     mutationFn: (key: string) => resetAgentDefinition(key),
     onSuccess: (result: AgentDefinitionResponse) => {
+      updateDefinitionInList(result);
+      setFormResetVersion((version) => version + 1);
       invalidateDefs();
       setConfirmResetKey(null);
       setSelectedKey(result.key);
@@ -1254,12 +1355,12 @@ export function AgentDefinitionsSettings({
         </Flex>
       </Box>
 
-      <ScrollArea style={{ flex: 1 }}>
+      <ScrollArea className="agent-definitions-settings__list-scroll">
         {isLoading ? (
           <Flex
             align="center"
             justify="center"
-            style={{ height: 100 }}
+            className="agent-definitions-settings__list-loading"
           >
             <Text
               size="2"
@@ -1280,7 +1381,7 @@ export function AgentDefinitionsSettings({
               <Flex
                 align="center"
                 justify="center"
-                style={{ padding: 24 }}
+                className="agent-definitions-settings__empty-list"
               >
                 <Text
                   size="2"
@@ -1306,7 +1407,7 @@ export function AgentDefinitionsSettings({
     >
       <Bot
         size={32}
-        style={{ opacity: 0.3 }}
+        className="agent-definitions-settings__empty-icon"
       />
       <Text
         size="2"
@@ -1317,7 +1418,7 @@ export function AgentDefinitionsSettings({
     </Flex>
   ) : (
     <AgentForm
-      key={selectedDef.key}
+      key={`${selectedDef.key}:${formResetVersion}`}
       def={selectedDef}
       definitions={definitions}
       llmModelOptions={modelOptions}
@@ -1333,11 +1434,30 @@ export function AgentDefinitionsSettings({
 
   return (
     <>
-      {isContentLoading ? (
+      {contentError ? (
+        <Flex
+          direction="column"
+          align="center"
+          justify="center"
+          gap="3"
+        >
+          <Text color="red">{t("common.error")}</Text>
+          <Button
+            onClick={() => {
+              void refetch();
+              void refetchToolCategories();
+              void refetchSkills();
+              void refetchSettings();
+            }}
+          >
+            {t("common.retryRequest")}
+          </Button>
+        </Flex>
+      ) : isContentLoading ? (
         <Flex
           align="center"
           justify="center"
-          style={{ height: "100%" }}
+          className="agent-definitions-settings__loading"
         >
           <Spinner size={18} />
         </Flex>
@@ -1413,14 +1533,14 @@ export function AgentDefinitionsSettings({
         open={isCreating}
         onOpenChange={(open) => (!open ? closeCreateDialog() : setIsCreating(true))}
       >
-        <Dialog.Content style={{ maxWidth: 420 }}>
+        <Dialog.Content className="agent-definitions-settings__create-dialog">
           <Dialog.Title>
             {createMode === "copy" ? t("settings.agentsCopy") : t("settings.agentsNewAgent")}
           </Dialog.Title>
           <Flex
             direction="column"
             gap="3"
-            style={{ marginTop: 12 }}
+            className="agent-definitions-settings__creation-fields"
           >
             <Flex
               direction="column"
@@ -1433,6 +1553,7 @@ export function AgentDefinitionsSettings({
                 {t("settings.agentsKey")}
               </Text>
               <TextField.Root
+                aria-invalid={Boolean(createErrors.key)}
                 value={newKey}
                 onChange={(event) =>
                   setNewKey(event.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))
@@ -1440,6 +1561,14 @@ export function AgentDefinitionsSettings({
                 placeholder={t("settings.agentsKeyPlaceholder")}
                 disabled={isAgentSettingsLocked}
               />
+              {createErrors.key && (
+                <Text
+                  color="red"
+                  size="1"
+                >
+                  {t("settings.agentsKeyInvalid")}
+                </Text>
+              )}
             </Flex>
 
             <Flex
@@ -1538,7 +1667,7 @@ export function AgentDefinitionsSettings({
           <Flex
             gap="2"
             justify="end"
-            style={{ marginTop: 20 }}
+            className="agent-definitions-settings__creation-actions"
           >
             <Button
               variant="soft"
@@ -1554,7 +1683,7 @@ export function AgentDefinitionsSettings({
                 !newDisplayName.trim() ||
                 createMutation.isPending
               }
-              onClick={() => createMutation.mutate()}
+              onClick={newSubmit(() => createMutation.mutate())}
             >
               {createMutation.isPending
                 ? t("common.loading")

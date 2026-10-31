@@ -1,10 +1,12 @@
+import { Box, Flex, Text, Button, IconButton, Tooltip, Badge } from "@radix-ui/themes";
+
+import "./connections-settings.css";
 /**
  * Connections Settings Component
  *
  * 外部连接设置面板，管理模型服务提供商连接。
  */
 
-import { Box, Flex, Text, Button, IconButton, Tooltip, Badge } from "@radix-ui/themes";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
 import { Plus, Trash2, Edit, ListFilter } from "lucide-react";
@@ -13,6 +15,7 @@ import { useTranslation } from "react-i18next";
 
 import { Spinner } from "@/components";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import { QueryError } from "@/components/query-error";
 import { toast } from "@/components/toast";
 import type { ModelProvider } from "@/lib/model.types";
 
@@ -67,7 +70,12 @@ export function ConnectionsSettings({
   }, [isAgentSettingsLocked]);
 
   // 获取所有连接
-  const { data: connections, isLoading: isConnectionsLoading } = useQuery({
+  const {
+    data: connections,
+    isLoading: isConnectionsLoading,
+    error: connectionsError,
+    refetch: retryconnections,
+  } = useQuery({
     queryKey: ["model-providers"],
     queryFn: fetchProviders,
   });
@@ -85,7 +93,12 @@ export function ConnectionsSettings({
     [connections],
   );
 
-  const { data: catalogProviders, isLoading: isCatalogProvidersLoading } = useQuery({
+  const {
+    data: catalogProviders,
+    isLoading: isCatalogProvidersLoading,
+    error: catalogProvidersError,
+    refetch: retrycatalogProviders,
+  } = useQuery({
     queryKey: ["model-provider-catalog", "providers"],
     queryFn: fetchModelProviderCatalogProviders,
   });
@@ -186,12 +199,22 @@ export function ConnectionsSettings({
   const isContentLoading =
     isConnectionsLoading || isCatalogProvidersLoading || isAgentSettingsLockLoading;
 
+  if (connectionsError || catalogProvidersError)
+    return (
+      <QueryError
+        onRetry={() => {
+          void retryconnections();
+          void retrycatalogProviders();
+        }}
+      />
+    );
+
   if (isContentLoading) {
     return (
       <Flex
         align="center"
         justify="center"
-        style={{ height: "100%" }}
+        className="connections-settings__content"
       >
         <Spinner size={18} />
       </Flex>
@@ -235,25 +258,15 @@ export function ConnectionsSettings({
                 <Flex
                   align="center"
                   justify="between"
-                  style={{ padding: "var(--space-4)" }}
+                  className="connections-settings__connection-row"
                 >
                   <Flex
                     align="center"
                     gap="3"
-                    style={{ flex: 1 }}
+                    className="connections-settings__connection-info"
                   >
                     {/* 图标 */}
-                    <Box
-                      style={{
-                        width: 40,
-                        height: 40,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        borderRadius: "var(--radius-2)",
-                        background: "var(--gray-a3)",
-                      }}
-                    >
+                    <Box className="connections-settings__provider-icon">
                       <ProviderIcon
                         iconPath={connection.iconPath}
                         size={24}
@@ -264,7 +277,7 @@ export function ConnectionsSettings({
                     <Flex
                       direction="column"
                       gap="1"
-                      style={{ flex: 1 }}
+                      className="connections-settings__connection-info"
                     >
                       <Flex
                         align="center"
@@ -337,6 +350,7 @@ export function ConnectionsSettings({
                     <IconButton
                       variant="ghost"
                       color="gray"
+                      aria-label={t("common.edit")}
                       onClick={() => handleEdit(connection)}
                       disabled={isAgentSettingsLocked}
                     >
@@ -345,6 +359,7 @@ export function ConnectionsSettings({
                     <IconButton
                       variant="ghost"
                       color="red"
+                      aria-label={t("common.delete")}
                       onClick={() => handleDelete(connection)}
                       disabled={isAgentSettingsLocked}
                     >
@@ -353,14 +368,7 @@ export function ConnectionsSettings({
                   </Flex>
                 </Flex>
                 {index < externalConnections.length - 1 && (
-                  <Box
-                    style={{
-                      height: "1px",
-                      background: "var(--gray-a4)",
-                      marginLeft: "var(--space-4)",
-                      marginRight: "var(--space-4)",
-                    }}
-                  />
+                  <Box className="connections-settings__divider" />
                 )}
               </Box>
             ))}
@@ -371,7 +379,7 @@ export function ConnectionsSettings({
             align="center"
             justify="center"
             gap="3"
-            style={{ height: 200 }}
+            className="connections-settings__empty-state"
           >
             <Text
               size="2"

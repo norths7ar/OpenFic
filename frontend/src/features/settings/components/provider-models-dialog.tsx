@@ -330,7 +330,7 @@ export function ProviderModelsDialog({
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
               placeholder={t("models.searchModel")}
-              style={{ flex: 1 }}
+              className="provider-models-dialog__search"
             >
               <TextField.Slot>
                 <Search size={15} />
@@ -339,7 +339,7 @@ export function ProviderModelsDialog({
             <Text
               size="2"
               color="gray"
-              style={{ whiteSpace: "nowrap" }}
+              className="provider-models-dialog__count"
             >
               {t("models.enabledModelCount", { enabled: enabledCount, total: rows.length })}
             </Text>
@@ -393,7 +393,7 @@ export function ProviderModelsDialog({
             <Flex
               align="center"
               justify="center"
-              style={{ height: 280 }}
+              className="provider-models-dialog__loading"
             >
               <Spinner size={18} />
             </Flex>
@@ -425,7 +425,7 @@ export function ProviderModelsDialog({
                   return (
                     <Box
                       key={`${taskType}-${row.remote.id}`}
-                      style={{ borderBottom: "1px solid var(--gray-a4)" }}
+                      className="provider-models-dialog__model-row"
                     >
                       <Flex
                         align="center"
@@ -437,7 +437,7 @@ export function ProviderModelsDialog({
                         <Flex
                           direction="column"
                           gap="1"
-                          style={{ minWidth: 0, flex: 1 }}
+                          className="provider-models-dialog__model-info"
                         >
                           <Flex
                             align="center"
@@ -534,7 +534,7 @@ export function ProviderModelsDialog({
                   <Flex
                     align="center"
                     justify="center"
-                    style={{ height: 240 }}
+                    className="provider-models-dialog__empty-state"
                   >
                     <Text color="gray">{t("models.noModelsAvailable")}</Text>
                   </Flex>

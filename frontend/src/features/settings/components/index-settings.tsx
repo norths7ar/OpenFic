@@ -1,10 +1,10 @@
+import "./index-settings.css";
 /**
  * Index Settings Component
  *
  * 索引设置面板：启用范围、嵌入模型、分块参数、自动索引策略、索引信息。
  * 采用与"通用"设置一致的紧凑布局，单选用下拉框。
  */
-
 import { Box, Flex } from "@radix-ui/themes";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -512,7 +512,7 @@ export function IndexSettings({
       <Flex
         align="center"
         justify="center"
-        style={{ height: "100%" }}
+        className="index-settings__content"
       >
         <Spinner size={18} />
       </Flex>

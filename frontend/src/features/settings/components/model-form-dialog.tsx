@@ -1,3 +1,4 @@
+import "./model-form-dialog.css";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Box, Dialog, Flex, Button, Text, TextField, TextArea, Separator } from "@radix-ui/themes";
 import { useQuery } from "@tanstack/react-query";
@@ -356,29 +357,14 @@ export function ModelFormDialog({
     >
       <Dialog.Content
         maxWidth="600px"
-        style={{
-          maxHeight: "90vh",
-          overflow: "hidden",
-          display: "flex",
-          flexDirection: "column",
-        }}
+        className="model-form-dialog__content"
       >
         <Dialog.Title>{isEditing ? t("models.editModel") : t("models.createModel")}</Dialog.Title>
         {!isEditing && fixedProviderId && taskType === "llm" ? (
           <Dialog.Description size="1">{t("models.manualAddSyncHint")}</Dialog.Description>
         ) : null}
 
-        <Box
-          style={{
-            flex: 1,
-            overflowY: "auto",
-            overflowX: "hidden",
-            paddingRight: "var(--space-2)",
-            scrollbarWidth: "none", // Firefox
-            msOverflowStyle: "none", // IE and Edge
-          }}
-          className="hide-scrollbar"
-        >
+        <Box className="hide-scrollbar model-form-dialog__fields">
           <form
             onSubmit={handleSubmit(onFormSubmit, (errors) => {
               console.error("表单验证错误:", errors);
@@ -402,7 +388,7 @@ export function ModelFormDialog({
                   {t("models.name")}{" "}
                   <Text
                     color="red"
-                    style={{ display: "inline" }}
+                    className="model-form-dialog__required-mark"
                   >
                     *
                   </Text>
@@ -450,7 +436,7 @@ export function ModelFormDialog({
                   {t("models.taskType")}{" "}
                   <Text
                     color="red"
-                    style={{ display: "inline" }}
+                    className="model-form-dialog__required-mark"
                   >
                     *
                   </Text>
@@ -496,7 +482,7 @@ export function ModelFormDialog({
                   {t("models.provider")}{" "}
                   <Text
                     color="red"
-                    style={{ display: "inline" }}
+                    className="model-form-dialog__required-mark"
                   >
                     *
                   </Text>
@@ -552,7 +538,7 @@ export function ModelFormDialog({
                   {t("models.modelId")}{" "}
                   <Text
                     color="red"
-                    style={{ display: "inline" }}
+                    className="model-form-dialog__required-mark"
                   >
                     *
                   </Text>
@@ -732,7 +718,7 @@ export function ModelFormDialog({
                 gap="3"
                 mt="2"
                 justify="end"
-                style={{ flexShrink: 0 }}
+                className="model-form-dialog__footer"
               >
                 <Dialog.Close>
                   <Button

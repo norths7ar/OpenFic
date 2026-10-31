@@ -59,3 +59,13 @@
 .import-skill-refdoc-tokens {
   flex-shrink: 0;
 }
+
+.import-skill-dialog__description,
+.rt-Text.import-skill-dialog__description {
+  flex: 1;
+}
+
+.import-skill-dialog__error-details,
+.rt-Text.import-skill-dialog__error-details {
+  white-space: pre-wrap;
+}

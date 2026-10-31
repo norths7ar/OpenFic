@@ -1,5 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Dialog, Flex, Button, Text, TextField, Box } from "@radix-ui/themes";
+import { Dialog, Checkbox, Flex, Button, Text, TextField, Box } from "@radix-ui/themes";
 import { Check, Plus, Trash2, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useFieldArray, useForm, Controller, useWatch } from "react-hook-form";
@@ -27,6 +27,7 @@ const connectionSchema = z.object({
   name: z.string().optional(),
   url: z.string().optional(),
   apiKey: z.string().optional(),
+  clearApiKey: z.boolean(),
   providerType: z.string().min(1, "providerTypeRequired"),
   catalogMode: z.enum(["generic", "ocx"]),
   customHeaders: z.array(
@@ -90,6 +91,7 @@ export function ConnectionFormDialog({
             name: connection.name || "",
             url: connection.url || "",
             apiKey: "",
+            clearApiKey: false,
             providerType: connection.providerType || "",
             catalogMode: connection.catalogMode ?? "generic",
             customHeaders: (connection.customHeaderNames || []).map((key) => ({
@@ -101,6 +103,7 @@ export function ConnectionFormDialog({
             name: "",
             url: "",
             apiKey: "",
+            clearApiKey: false,
             providerType: "",
             catalogMode: "generic",
             customHeaders: [],
@@ -129,8 +132,13 @@ export function ConnectionFormDialog({
     name: "customHeaders",
   });
 
+  useEffect(() => {
+    if (!open) setValue("clearApiKey", false);
+  }, [open, setValue]);
+
   const providerType = useWatch({ control, name: "providerType" });
   const url = useWatch({ control, name: "url" });
+  const clearApiKey = useWatch({ control, name: "clearApiKey" });
   const apiKey = useWatch({ control, name: "apiKey" });
   const selectedCatalogProvider = useMemo(
     () => catalogProviders?.find((provider) => provider.providerType === providerType),
@@ -254,7 +262,9 @@ export function ConnectionFormDialog({
       formData.append("catalog_mode", data.catalogMode);
 
       // 只有在提供了 API Key 时才包含它
-      if (data.apiKey) {
+      if (data.clearApiKey) {
+        formData.append("clear_api_key", "true");
+      } else if (data.apiKey) {
         formData.append("api_key", data.apiKey);
       }
 
@@ -310,17 +320,7 @@ export function ConnectionFormDialog({
               gap="3"
               align="center"
             >
-              <Box
-                style={{
-                  width: 80,
-                  height: 80,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  borderRadius: "var(--radius-2)",
-                  background: "var(--gray-a3)",
-                }}
-              >
+              <Box className="connection-form-dialog__provider-preview">
                 <ProviderIcon
                   iconPath={selectedCatalogProvider?.iconPath || connection?.iconPath}
                   size={40}
@@ -331,7 +331,7 @@ export function ConnectionFormDialog({
               <Flex
                 direction="column"
                 gap="3"
-                style={{ flex: 1 }}
+                className="connection-form-dialog__fields"
               >
                 {/* 备注名称 */}
                 <Flex
@@ -371,7 +371,7 @@ export function ConnectionFormDialog({
                     {t("connections.providerType")}{" "}
                     <Text
                       color="red"
-                      style={{ display: "inline" }}
+                      className="connection-form-dialog__required-mark"
                     >
                       *
                     </Text>
@@ -422,7 +422,7 @@ export function ConnectionFormDialog({
                   {t("connections.url")}{" "}
                   <Text
                     color="red"
-                    style={{ display: "inline" }}
+                    className="connection-form-dialog__required-mark"
                   >
                     *
                   </Text>
@@ -497,7 +497,7 @@ export function ConnectionFormDialog({
                 {!isEditing && !allowsAnonymousConnection(providerType) && (
                   <Text
                     color="red"
-                    style={{ display: "inline" }}
+                    className="connection-form-dialog__required-mark"
                   >
                     {" "}
                     *
@@ -513,11 +513,14 @@ export function ConnectionFormDialog({
                       reset({
                         ...form,
                         apiKey: e.target.value,
+                        clearApiKey: false,
                       });
                     }}
                     type="password"
                     placeholder={
-                      apiKey ? t("connections.apiKeyPlaceholderEdit") : "••••••••••••••••"
+                      connection.hasApiKey && !clearApiKey
+                        ? "••••••••••••••••"
+                        : t("connections.apiKeyOptionalPlaceholder")
                     }
                     disabled={isAgentSettingsLocked}
                   />
@@ -526,7 +529,7 @@ export function ConnectionFormDialog({
                     color="gray"
                     mt="1"
                   >
-                    {t("connections.apiKeyEditHint")}
+                    {t(clearApiKey ? "connections.apiKeyClearHint" : "connections.apiKeyEditHint")}
                   </Text>
                 </Box>
               ) : (
@@ -546,6 +549,27 @@ export function ConnectionFormDialog({
                     />
                   )}
                 />
+              )}
+              {isEditing && connection.hasApiKey && (
+                <Text
+                  as="label"
+                  size="2"
+                >
+                  <Flex
+                    gap="2"
+                    align="center"
+                  >
+                    <Checkbox
+                      checked={clearApiKey}
+                      disabled={isAgentSettingsLocked || isSubmitting}
+                      onCheckedChange={(checked) => {
+                        setValue("clearApiKey", checked === true, { shouldDirty: true });
+                        if (checked) setValue("apiKey", "", { shouldDirty: true });
+                      }}
+                    />
+                    {t("connections.clearApiKey")}
+                  </Flex>
+                </Text>
               )}
               {errors.apiKey && (
                 <Text

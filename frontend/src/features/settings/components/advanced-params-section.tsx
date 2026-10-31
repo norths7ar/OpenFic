@@ -1,9 +1,9 @@
+import "./advanced-params-section.css";
 /**
  * Advanced Params Section Component
  *
  * 模型高级参数面板，包含温度、Top-P、Top-K 等参数。
  */
-
 import { Box, Button, Flex, Grid, Text, Tooltip } from "@radix-ui/themes";
 import { ChevronDown, ChevronLeft, Info } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
@@ -116,12 +116,12 @@ export function AdvancedParamsSection<T extends FieldValues>({
         type="button"
         variant="soft"
         onClick={() => setShowAdvanced(!showAdvanced)}
-        style={{ justifyContent: "flex-start" }}
+        className="advanced-params-section__toggle"
       >
         <Flex
           align="center"
           justify="between"
-          style={{ width: "100%" }}
+          className="advanced-params-section__toggle-content"
         >
           <Flex
             align="center"
@@ -171,13 +171,13 @@ export function AdvancedParamsSection<T extends FieldValues>({
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.3, ease: "easeInOut" }}
-            style={{ overflow: "hidden" }}
+            className="advanced-params-section__panel"
           >
-            <Box style={{ paddingTop: "var(--space-4)" }}>
+            <Box className="advanced-params-section__panel-content">
               <Grid
                 columns="2"
                 gap="4"
-                style={{ paddingLeft: 4, paddingRight: 4 }}
+                className="advanced-params-section__fields"
               >
                 {PARAM_CONFIGS.map((config) => (
                   <SliderField

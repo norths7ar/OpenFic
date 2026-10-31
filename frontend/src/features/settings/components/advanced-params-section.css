@@ -1,0 +1,24 @@
+.advanced-params-section__toggle,
+.rt-Button.advanced-params-section__toggle {
+  justify-content: flex-start;
+}
+
+.advanced-params-section__toggle-content,
+.rt-Flex.advanced-params-section__toggle-content {
+  width: 100%;
+}
+
+.advanced-params-section__panel {
+  overflow: hidden;
+}
+
+.advanced-params-section__panel-content,
+.rt-Box.advanced-params-section__panel-content {
+  padding-top: var(--space-4);
+}
+
+.advanced-params-section__fields,
+.rt-Grid.advanced-params-section__fields {
+  padding-left: 4px;
+  padding-right: 4px;
+}

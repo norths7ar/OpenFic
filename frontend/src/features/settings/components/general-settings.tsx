@@ -1,9 +1,9 @@
+import "./general-settings.css";
 /**
  * General Settings Component
  *
  * 通用设置面板，包含语言、主题、字体设置。
  */
-
 import { Box, Flex, Text, TextField, SegmentedControl } from "@radix-ui/themes";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -106,8 +106,7 @@ function FontSizeField({ label, value, onCommit, disabled = false }: FontSizeFie
           }
         }}
         disabled={disabled}
-        className="font-size-field"
-        style={{ width: 200 }}
+        className="font-size-field general-settings__font-size-field"
       >
         <TextField.Slot
           side="right"
@@ -200,7 +199,7 @@ export function GeneralSettings({
             value={settings.theme}
             onValueChange={handleThemeChange}
             disabled={isSaving}
-            style={{ width: 200 }}
+            className="general-settings__font-size-field"
           >
             <SegmentedControl.Item value="light">{t("settings.themeLight")}</SegmentedControl.Item>
             <SegmentedControl.Item value="dark">{t("settings.themeDark")}</SegmentedControl.Item>

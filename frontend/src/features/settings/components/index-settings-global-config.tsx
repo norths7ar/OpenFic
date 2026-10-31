@@ -1,3 +1,4 @@
+import "./index-settings-global-config.css";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import { useTranslation } from "react-i18next";
 
@@ -8,16 +9,6 @@ import type { IndexAutoStrategy, IndexMode } from "@/lib/index-status";
 
 import type { Settings } from "../lib/settings.types";
 import { IndexSettingsSectionHeader } from "./index-settings-section-header";
-
-const FIELD_WIDTH = { width: "100%" } as const;
-const SETTINGS_GRID_STYLE = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
-  columnGap: "var(--space-6)",
-  rowGap: "var(--space-4)",
-  alignItems: "start",
-} as const;
-const FULL_WIDTH_FIELD_STYLE = { gridColumn: "1 / -1" } as const;
 
 interface IndexSettingsGlobalConfigProps {
   settings: Settings;
@@ -67,7 +58,7 @@ export function IndexSettingsGlobalConfig({
         gap="4"
       >
         <IndexSettingsSectionHeader title={t("index.globalSettings")} />
-        <Box style={SETTINGS_GRID_STYLE}>
+        <Box className="index-settings-global-config__grid">
           <Flex
             direction="column"
             gap="1"
@@ -87,7 +78,7 @@ export function IndexSettingsGlobalConfig({
               editable={false}
               allowCustomValue={false}
               emptyOptionLabel={t("index.disabled")}
-              triggerStyle={FIELD_WIDTH}
+              triggerClassName="index-settings-global-config__field"
               disabled={isAgentSettingsLocked}
             />
           </Flex>
@@ -111,7 +102,7 @@ export function IndexSettingsGlobalConfig({
               editable={false}
               allowCustomValue={false}
               emptyOptionLabel={t("index.disabled")}
-              triggerStyle={FIELD_WIDTH}
+              triggerClassName="index-settings-global-config__field"
               disabled={isAgentSettingsLocked}
             />
           </Flex>
@@ -121,7 +112,7 @@ export function IndexSettingsGlobalConfig({
             value={settings.indexMode}
             options={modeOptions}
             onChange={(value) => onModeChange(value as IndexMode)}
-            triggerStyle={FIELD_WIDTH}
+            triggerClassName="index-settings-global-config__field"
             labelSize="1"
             labelWeight="regular"
             labelColor="gray"
@@ -134,7 +125,7 @@ export function IndexSettingsGlobalConfig({
             value={settings.indexAutoStrategy}
             options={autoStrategyOptions}
             onChange={(value) => onAutoStrategyChange(value as IndexAutoStrategy)}
-            triggerStyle={FIELD_WIDTH}
+            triggerClassName="index-settings-global-config__field"
             labelSize="1"
             labelWeight="regular"
             labelColor="gray"
@@ -143,14 +134,14 @@ export function IndexSettingsGlobalConfig({
           />
 
           {settings.indexMode === "selected" ? (
-            <Box style={FULL_WIDTH_FIELD_STYLE}>
+            <Box className="index-settings-global-config__full-width">
               <MultiSelectField
                 label={t("index.selectProjects")}
                 options={projectOptions}
                 value={settings.indexEnabledProjects}
                 placeholder={t("index.selectProjectsPlaceholder")}
                 emptyMessage={t("index.noProjects")}
-                triggerStyle={FIELD_WIDTH}
+                triggerClassName="index-settings-global-config__field"
                 labelSize="1"
                 labelWeight="regular"
                 labelColor="gray"

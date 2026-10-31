@@ -1,3 +1,4 @@
+import "./advanced-settings.css";
 import { Box, Button, Flex, Switch, Text, Tooltip } from "@radix-ui/themes";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Info } from "lucide-react";
@@ -79,7 +80,7 @@ export function AdvancedSettings() {
       <Flex
         align="center"
         justify="center"
-        style={{ height: "100%" }}
+        className="advanced-settings__content"
       >
         <Spinner size={18} />
       </Flex>

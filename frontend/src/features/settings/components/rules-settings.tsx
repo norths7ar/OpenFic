@@ -1,3 +1,4 @@
+import "./rules-settings.css";
 import {
   Badge,
   Box,
@@ -380,7 +381,7 @@ export function RulesSettings({
           gap="2"
           className="skills-settings-toolbar-row"
         >
-          <Box style={{ flex: 1, minWidth: 0 }}>
+          <Box className="rules-settings__rule-info">
             <TextField.Root
               size="2"
               placeholder={t("settingsExtra.rules.searchPlaceholder")}
@@ -431,7 +432,7 @@ export function RulesSettings({
             align="center"
             justify="center"
             p="6"
-            style={{ height: "100%" }}
+            className="rules-settings__content"
           >
             <Text
               size="2"
@@ -474,7 +475,7 @@ export function RulesSettings({
       <Flex
         align="center"
         justify="center"
-        style={{ height: "100%" }}
+        className="rules-settings__content"
       >
         <Spinner size={18} />
       </Flex>
@@ -486,7 +487,7 @@ export function RulesSettings({
       <Flex
         align="center"
         justify="center"
-        style={{ height: "100%" }}
+        className="rules-settings__content"
       >
         <Text color="red">{t("settingsExtra.rules.loadFailed")}</Text>
       </Flex>
@@ -568,7 +569,7 @@ export function RulesSettings({
           open={deleteDialogOpen}
           onOpenChange={setDeleteDialogOpen}
         >
-          <Dialog.Content style={{ maxWidth: 420 }}>
+          <Dialog.Content className="rules-settings__create-dialog">
             <Dialog.Title>{t("settingsExtra.rules.deleteTitle")}</Dialog.Title>
             <Dialog.Description
               size="2"
@@ -644,7 +645,7 @@ export function RulesSettings({
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
       >
-        <Dialog.Content style={{ maxWidth: 420 }}>
+        <Dialog.Content className="rules-settings__create-dialog">
           <Dialog.Title>{t("settingsExtra.rules.deleteTitle")}</Dialog.Title>
           <Dialog.Description
             size="2"
@@ -926,7 +927,7 @@ function CopyRuleDialog({
       open={open}
       onOpenChange={onOpenChange}
     >
-      <Dialog.Content style={{ maxWidth: 480 }}>
+      <Dialog.Content className="rules-settings__import-dialog">
         <Dialog.Title>{t("settingsExtra.rules.copyToScope")}</Dialog.Title>
         <Flex
           direction="column"

@@ -1,3 +1,4 @@
+import "./editor-settings.css";
 import { Box, Flex, Switch, Text, Tooltip } from "@radix-ui/themes";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Info } from "lucide-react";
@@ -68,7 +69,7 @@ export function EditorSettings() {
       <Flex
         align="center"
         justify="center"
-        style={{ height: "100%" }}
+        className="editor-settings__content"
       >
         <Spinner size={18} />
       </Flex>

@@ -1,0 +1,38 @@
+.connections-settings__content,
+.rt-Flex.connections-settings__content {
+  height: 100%;
+}
+
+.connections-settings__connection-row,
+.rt-Flex.connections-settings__connection-row {
+  padding: var(--space-4);
+}
+
+.connections-settings__connection-info,
+.rt-Flex.connections-settings__connection-info {
+  flex: 1;
+}
+
+.connections-settings__provider-icon,
+.rt-Box.connections-settings__provider-icon {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-2);
+  background: var(--gray-a3);
+}
+
+.connections-settings__divider,
+.rt-Box.connections-settings__divider {
+  height: 1px;
+  background: var(--gray-a4);
+  margin-left: var(--space-4);
+  margin-right: var(--space-4);
+}
+
+.connections-settings__empty-state,
+.rt-Flex.connections-settings__empty-state {
+  height: 200px;
+}

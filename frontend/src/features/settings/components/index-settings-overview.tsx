@@ -1,14 +1,9 @@
+import "./index-settings-overview.css";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import { AlertTriangle } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { IndexSettingsSectionHeader } from "./index-settings-section-header";
-
-const OVERVIEW_GRID_STYLE = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))",
-  gap: "var(--space-3)",
-} as const;
 
 interface IndexSettingsOverviewProps {
   embeddingConfigured: boolean;
@@ -57,7 +52,7 @@ export function IndexSettingsOverview({
             ) : null
           }
         />
-        <Box style={OVERVIEW_GRID_STYLE}>
+        <Box className="index-settings-overview__grid">
           <InfoStat
             label={t("index.enabledProjects")}
             value={enabledProjects}
