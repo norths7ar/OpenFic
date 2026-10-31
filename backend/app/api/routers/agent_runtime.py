@@ -12,7 +12,7 @@ from typing import TypeGuard, cast
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from loguru import logger
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agent_runtime.agents.definitions import (
     AgentDefinition,
@@ -27,6 +27,18 @@ from app.agent_runtime.attachments import (
 )
 from app.agent_runtime.context.compaction.service import CompactionError
 from app.agent_runtime.fork import fork_agent_session_at_revision
+from app.agent_runtime.lifecycle import (
+    _cancel_subagent_session_tree as _cancel_subagent_session_tree,
+)
+from app.agent_runtime.lifecycle import (
+    _list_descendant_child_runs as _list_descendant_child_runs,
+)
+from app.agent_runtime.lifecycle import (
+    _make_status_session_factory as _make_status_session_factory,
+)
+from app.agent_runtime.lifecycle import (
+    _set_task_running_state as _set_task_running_state,
+)
 from app.agent_runtime.model_config import without_api_key
 from app.agent_runtime.model_resolution import (
     align_saved_model_speed,
@@ -42,7 +54,6 @@ from app.agent_runtime.persistence.child_runs import (
     get_child_run_by_pending_approval,
     get_child_run_for_parent,
     list_active_child_runs,
-    list_child_runs_for_parent,
 )
 from app.agent_runtime.persistence.model import AgentChildRun
 from app.agent_runtime.persistence.task_projection import (
@@ -87,6 +98,11 @@ from app.api.schemas.agent import (
     AgentToolApprovalRequest,
     AgentToolMetadataResponse,
     SubagentSessionResponse,
+)
+from app.api.schemas.http_contracts import (
+    AgentSubmissionResponse,
+    AgentTodosResponse,
+    PendingAgentMessagesResponse,
 )
 from app.background.jobs import service as background_service
 from app.background.jobs.session_title_jobs import enqueue_session_title_job
@@ -252,60 +268,6 @@ def _build_subagent_state_response(
             else None
         ),
     )
-
-
-async def _list_descendant_child_runs(
-    session: AsyncSession,
-    *,
-    parent_session_id: str,
-) -> list[AgentChildRun]:
-    descendants: list[AgentChildRun] = []
-    for row in await list_child_runs_for_parent(session, parent_session_id):
-        descendants.extend(
-            await _list_descendant_child_runs(
-                session,
-                parent_session_id=row.child_thread_id,
-            )
-        )
-        descendants.append(row)
-    return descendants
-
-
-async def _cancel_subagent_session_tree(
-    session: AsyncSession,
-    *,
-    root_session_id: str,
-    status_publisher: SubagentRunner | None = None,
-) -> None:
-    descendants = await _list_descendant_child_runs(
-        session,
-        parent_session_id=root_session_id,
-    )
-    registry = get_agent_run_registry()
-
-    session_ids_to_cancel: list[str] = []
-    seen_session_ids: set[str] = set()
-    for session_id in [*(row.child_thread_id for row in descendants), root_session_id]:
-        if session_id in seen_session_ids:
-            continue
-        seen_session_ids.add(session_id)
-        session_ids_to_cancel.append(session_id)
-
-    for session_id in session_ids_to_cancel:
-        await registry.cancel(session_id)
-
-    for row in descendants:
-        if not row.is_active:
-            continue
-        if row.status in TERMINAL_CHILD_RUN_STATUSES:
-            continue
-        await cancel_child_run(
-            session,
-            row.id,
-            error="parent session cancelled",
-        )
-        if status_publisher is not None:
-            await status_publisher.publish_parent_subagent_status(row.id)
 
 
 async def _get_runner(
@@ -621,64 +583,6 @@ async def _resolve_legacy_model_config(
     legacy_model_config: dict[str, object],
 ) -> dict:
     return await resolve_legacy_model_config(session, legacy_model_config)
-
-
-async def _set_task_running_state(
-    *,
-    db_session_factory: Callable[[], AsyncSession],
-    task_id: str,
-    session_id: str,
-    project_id: str,
-    is_running: bool,
-) -> None:
-    status_session = db_session_factory()
-    try:
-        task = await task_service.update_task(
-            status_session,
-            task_id=task_id,
-            is_running=is_running,
-        )
-        await status_session.commit()
-    finally:
-        await status_session.close()
-
-    if project_id:
-        await emit(
-            "background:event",
-            {
-                "type": "task_run_status_updated",
-                "job_type": "agent_runtime",
-                "subject_type": "project",
-                "subject_id": project_id,
-                "project_id": project_id,
-                "task_id": task_id,
-                "agent_session_id": session_id,
-                "is_running": is_running,
-                "payload": {"is_running": is_running},
-                "created_at": datetime.now(UTC).isoformat(),
-                "updated_at": task.updated_at.isoformat(),
-                "project_revision": time.time_ns(),
-            },
-            room=background_project_room(project_id),
-        )
-
-    await emit(
-        "agent:settings_lock_changed",
-        {
-            "session_id": session_id,
-            "is_running": is_running,
-        },
-    )
-
-
-def _make_status_session_factory(session: AsyncSession) -> Callable[[], AsyncSession]:
-    if session.bind is None:
-        raise RuntimeError("数据库会话未绑定连接")
-    factory = async_sessionmaker(
-        session.bind,
-        expire_on_commit=False,
-    )
-    return factory
 
 
 async def _run_pending_continuations(session_id: str, registry) -> None:
@@ -1195,7 +1099,7 @@ async def send_agent_message(
     )
 
 
-@router.get("/sessions/{session_id}/todos")
+@router.get("/sessions/{session_id}/todos", response_model=AgentTodosResponse)
 async def get_agent_todos(session_id: str, session: AsyncSession = Depends(get_session)) -> dict:
     from app.agent_runtime.plan.service import get_plan_todos
 
@@ -1203,7 +1107,7 @@ async def get_agent_todos(session_id: str, session: AsyncSession = Depends(get_s
     return {"todos": await get_plan_todos(session, session_id) or []}
 
 
-@router.get("/sessions/{session_id}/pending-messages")
+@router.get("/sessions/{session_id}/pending-messages", response_model=PendingAgentMessagesResponse)
 async def get_pending_agent_messages(
     session_id: str, session: AsyncSession = Depends(get_session)
 ) -> dict:
@@ -1384,7 +1288,7 @@ async def _run_agent_session_compaction(
     )
 
 
-@router.post("/sessions/{session_id}/question-answer")
+@router.post("/sessions/{session_id}/question-answer", response_model=AgentSubmissionResponse)
 async def submit_agent_question_answer(
     session_id: str,
     body: AgentQuestionAnswerRequest,
@@ -1420,7 +1324,7 @@ async def submit_agent_question_answer(
     return {"success": True, "session_id": session_id, "message": "已提交澄清回答"}
 
 
-@router.post("/sessions/{session_id}/interrupt-resume")
+@router.post("/sessions/{session_id}/interrupt-resume", response_model=AgentSubmissionResponse)
 async def submit_agent_interrupt_resume(
     session_id: str,
     body: AgentInterruptResumeRequest,
@@ -1450,7 +1354,7 @@ async def submit_agent_interrupt_resume(
     return {"success": True, "session_id": session_id, "message": "已提交并行中断响应"}
 
 
-@router.post("/sessions/{session_id}/tool-approval")
+@router.post("/sessions/{session_id}/tool-approval", response_model=AgentSubmissionResponse)
 async def submit_agent_tool_approval(
     session_id: str,
     body: AgentToolApprovalRequest,
@@ -1966,6 +1870,7 @@ async def cancel_agent_session(
             await _cancel_subagent_session_tree(
                 session,
                 root_session_id=session_id,
+                registry=get_agent_run_registry(),
                 status_publisher=status_publisher,
             )
             await session.commit()
