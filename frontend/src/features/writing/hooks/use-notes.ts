@@ -109,11 +109,7 @@ function moveNoteInTree(
   next.totalNotes = tree.totalNotes;
   return next;
 }
-function moveCategoryInTree(
-  tree: NoteTreeResponse,
-  _categoryId: string,
-  _targetCategoryId: string | null,
-): NoteTreeResponse {
+function moveCategoryInTree(tree: NoteTreeResponse): NoteTreeResponse {
   // Folders have no parent. The compatibility API rejects non-root targets.
   return tree;
 }
@@ -147,7 +143,7 @@ export function useCreateNote(projectId: string, documentType: DocumentType = "n
     mutationFn: (data: NoteCreate) => createNote(projectId, { ...data, documentType }),
     onSuccess: () => {
       queryClient.invalidateQueries({
-        queryKey: projectDataQueryKeys.notes.tree(projectId, documentType),
+        queryKey: projectDataQueryKeys.notes.tree(projectId),
       });
       toast.success(t("writing.noteCreated"));
     },
@@ -291,7 +287,7 @@ export function useCreateNoteCategory(projectId: string, documentType: DocumentT
       createNoteCategory(projectId, { ...data, documentType }),
     onSuccess: () => {
       queryClient.invalidateQueries({
-        queryKey: projectDataQueryKeys.notes.tree(projectId, documentType),
+        queryKey: projectDataQueryKeys.notes.tree(projectId),
       });
       toast.success(t("writing.categoryCreated"));
     },
@@ -391,7 +387,7 @@ export function useMoveNoteItem(projectId: string) {
             if (kind === "note") {
               return moveNoteInTree(tree, itemId, targetCategoryId ?? null);
             }
-            return moveCategoryInTree(tree, itemId, targetCategoryId ?? null);
+            return moveCategoryInTree(tree);
           },
         );
       }

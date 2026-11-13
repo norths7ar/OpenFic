@@ -32,7 +32,6 @@ export function parseThinkingTags(content: string, currentTime: number): ParsedM
   // 匹配 <think> 或 <thinking> 标签
   const thinkRegex = /<think(?:ing)?>([\s\S]*?)(?:<\/think(?:ing)?>|$)/gi;
   const thinkingBlocks: ThinkingBlock[] = [];
-  let displayContent = content;
   let isThinking = false;
 
   // 提取所有思考块
@@ -56,7 +55,7 @@ export function parseThinkingTags(content: string, currentTime: number): ParsedM
   }
 
   // 移除思考标签，只保留显示内容
-  displayContent = content.replace(/<think(?:ing)?>([\s\S]*?)<\/think(?:ing)?>/gi, "");
+  let displayContent = content.replace(/<think(?:ing)?>([\s\S]*?)<\/think(?:ing)?>/gi, "");
 
   // 如果正在思考中，也要移除未闭合的标签
   displayContent = displayContent.replace(/<think(?:ing)?>([\s\S]*?)$/gi, "");

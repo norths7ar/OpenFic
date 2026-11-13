@@ -80,7 +80,7 @@ export function ChapterSearchPopover({
   const results: ContentSearchResultItem[] = (data?.results ?? []).map(toSearchResultItem);
 
   const handleNavigate = useCallback(
-    (itemId: string, _lineNumber: number) => {
+    (itemId: string) => {
       onNavigateToChapter(itemId);
     },
     [onNavigateToChapter],

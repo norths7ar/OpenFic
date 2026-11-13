@@ -11,6 +11,8 @@ import { motion } from "motion/react";
 import { useState, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 
+import type { SearchAndReplaceStorage } from "../lib/search-and-replace";
+
 interface FindReplacePanelProps {
   editor: Editor;
   /** 是否显示替换区域（false 时只显示查找） */
@@ -45,12 +47,7 @@ export function FindReplacePanel({ editor, showReplace, onClose }: FindReplacePa
   // 监听 editor 更新，同步搜索结果到组件状态
   useEffect(() => {
     const updateResults = () => {
-      const storage = (editor as any).storage.searchAndReplace as
-        | {
-            results: Array<{ from: number; to: number }>;
-            resultIndex: number;
-          }
-        | undefined;
+      const storage = editor.storage.searchAndReplace as SearchAndReplaceStorage | undefined;
       const results = storage?.results ?? [];
       const resultIndex = storage?.resultIndex ?? 0;
       setResultCount(results.length);
@@ -93,7 +90,7 @@ export function FindReplacePanel({ editor, showReplace, onClose }: FindReplacePa
 
   // 滚动到当前搜索结果
   const scrollToCurrentResult = useCallback(() => {
-    const storage = (editor as any).storage.searchAndReplace;
+    const storage = editor.storage.searchAndReplace as SearchAndReplaceStorage | undefined;
     const results = storage?.results ?? [];
     const resultIndex = storage?.resultIndex ?? 0;
     const currentResult = results[resultIndex];

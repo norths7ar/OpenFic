@@ -15,7 +15,7 @@ export function transformHighlightParts(
   }));
 }
 
-export interface ChapterSearchMatch extends HighlightPart {}
+export type ChapterSearchMatch = HighlightPart;
 
 export interface ChapterSearchResultItem {
   chapterId: string;
@@ -50,7 +50,7 @@ export async function searchChapters(
   };
 }
 
-export interface NoteSearchMatch extends HighlightPart {}
+export type NoteSearchMatch = HighlightPart;
 
 export interface NoteSearchResultItem {
   noteId: string;

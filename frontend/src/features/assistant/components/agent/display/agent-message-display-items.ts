@@ -111,7 +111,6 @@ function splitAgentRequests(messages: AgentBlockDisplayMessage[]): RequestSegmen
       if (phaseOrder[nextPhase] < phaseOrder[currentPhase]) {
         requests.push({ kind: "request", messages: current });
         current = [];
-        currentPhase = null;
       }
     }
 

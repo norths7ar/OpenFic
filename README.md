@@ -96,6 +96,8 @@ uv run --no-sync --project backend python -m service stop
 
 Python 使用 3.14、uv 和 Ruff，命令行类型检查使用 ty；前端使用 pnpm、Oxlint 和 Oxfmt。
 
+Python 公共规则与格式由根目录 `ruff.toml` 管理，后端配置只补充目录例外。检查覆盖后端源码与测试、根目录 `service/` 和 Python 工具脚本；历史版本迁移与临时输出目录不参与常规扫描。Ruff 使用精确版本，更新时同步修改后端依赖声明和锁文件；从根目录执行 `ruff format --check .` 也检查文档中的 Python 代码块。
+
 ### 代码职责与检查范围
 
 前端以功能领域组织代码。TanStack Query 管理服务器快照和请求状态，React Hook Form + Zod 管理复杂表单草稿与验证；编辑器工作副本、撤销历史和持久恢复状态继续由编辑器、Zustand 与 Dexie 按各自职责管理。实时事件更新服务器投影，不应覆盖尚未保存的编辑内容。静态视觉样式归组件 CSS 或 Radix props，共同视觉值归设计变量，运行时计算值可以使用 inline style；具体规则见 [前端设计与维护约束](docs/frontend-design.md)。
@@ -104,7 +106,11 @@ Python 使用 3.14、uv 和 Ruff，命令行类型检查使用 ty；前端使用
 
 接口声明变更后，在 `frontend/` 执行 `pnpm api:generate`，并将 `openapi.json` 与 `src/api/generated/` 一起提交。`pnpm api:check` 在隔离临时目录重新生成并比较，不修改已保存的契约。两条命令使用本地后端依赖，不启动服务、不读取用户设置或秘密；常规质量检查也包含契约一致性检查。
 
-`lint` 检查代码规则与循环依赖；`format:check` 检查格式而不写文件；`type-check` 分别检查应用、构建与生成配置、现有测试代码，再执行类型感知 lint。测试配置覆盖 `src/**/*.test.ts(x)` 和 `tests/`，单元测试与浏览器测试仍使用原有运行入口。`build` 生成网页与预缓存清单，不启动后端。检查通过不代替实际页面的交互与视觉验收。
+`lint` 检查源码、脚本、配置和现有测试的代码规则与循环依赖，分别配置浏览器、Node 和 Service Worker 环境。Oxlint 显式对齐 ESLint 10.14.0 与 typescript-eslint 8.59.2 的 recommended 规则，并保留 React Hooks、React Refresh 和 Oxc correctness 检查。TypeScript 配置按 recommended 关闭由编译器承担的重复检查；Oxlint 的 `no-unused-vars` 不检查声明文件，这是与 baseline 的已知差异。生成代码仍参与检查，修正应通过生成配置或源契约完成。
+
+当前 JavaScript 使用 ESM，重复参数和旧式八进制字面量由解析器拒绝。若新增 CommonJS 文件，需重新核对这些检查：当前 Oxlint 对非严格模式 CommonJS 的旧式八进制没有对应覆盖。
+
+`format:check` 检查格式而不写文件；Oxfmt 使用 100 列、双引号、分号和 LF，保留 import、package.json 排序及每行单个 JSX 属性，Markdown 不参与格式化。`type-check` 分别检查应用、构建与生成配置、现有测试代码，再执行类型感知 lint。测试配置覆盖 `src/**/*.test.ts(x)` 和 `tests/`，单元测试与浏览器测试仍使用原有运行入口。`build` 生成网页与预缓存清单，不启动后端。检查通过不代替实际页面的交互与视觉验收。
 
 后端路由负责 HTTP 边界，领域操作负责业务规则和生命周期，持久化模块负责数据访问。普通请求沿用 session 依赖的提交和回滚；长任务或跨资源操作的阶段提交由对应业务操作明确负责，不假设主数据库、checkpoint 和文件能够跨资源原子提交。启动配置与运行时设置分别管理；密钥文件和加密值保留在原存储位置，普通查询不返回原始秘密。连接编辑时留空密钥表示保留，输入新值表示替换，清除必须显式选择。
 

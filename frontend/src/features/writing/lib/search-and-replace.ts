@@ -6,7 +6,7 @@
  * https://github.com/sereneinserenade/tiptap-search-and-replace
  */
 
-import { Extension, type Range } from "@tiptap/core";
+import { Extension, type Editor, type Range } from "@tiptap/core";
 import type { Node as PMNode } from "@tiptap/pm/model";
 import { Plugin, PluginKey, type EditorState, type Transaction } from "@tiptap/pm/state";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
@@ -15,6 +15,10 @@ import { Decoration, DecorationSet } from "@tiptap/pm/view";
 type DispatchFn = ((tr: Transaction) => void) | undefined;
 
 declare module "@tiptap/core" {
+  interface Storage {
+    searchAndReplace: SearchAndReplaceStorage;
+  }
+
   interface Commands<ReturnType> {
     searchAndReplace: {
       /** 设置搜索词 */
@@ -214,7 +218,7 @@ export interface SearchAndReplaceStorage {
 }
 
 /** 从 editor 获取 searchAndReplace storage（带类型断言） */
-function getStorage(editor: any): SearchAndReplaceStorage {
+function getStorage(editor: Editor): SearchAndReplaceStorage {
   return editor.storage.searchAndReplace as SearchAndReplaceStorage;
 }
 
