@@ -2,6 +2,8 @@
 Model Service - 模型业务逻辑层。
 """
 
+import contextlib
+
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import NotFoundError
@@ -47,10 +49,8 @@ class ModelService:
             return raw_id, default_speed
         service = ModelProviderService(EncryptionService(settings.encryption_key))
         # Read the authenticated live snapshot, not a guessed suffix relationship.
-        try:
+        with contextlib.suppress(ValueError):
             await service.get_available_models(provider, "llm")
-        except ValueError:
-            pass
         try:
             snapshot = service.get_llm_discovery_snapshot(provider)
         except ValueError:

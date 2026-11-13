@@ -1,6 +1,6 @@
 import asyncio
 from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from contextvars import ContextVar
 from datetime import UTC, datetime
 from typing import Any, Literal, cast
@@ -334,10 +334,8 @@ class SessionRunner:
                 resumable_state = candidate_state
 
         if self._persister is not None:
-            try:
+            with suppress(PersistenceError):
                 await self._persister.finalize(reason="error")
-            except PersistenceError:
-                pass
         await emit(
             "agent:error",
             {
@@ -910,10 +908,8 @@ class SessionRunner:
                 await self._clear_replay_session()
                 return
         except asyncio.CancelledError:
-            try:
+            with suppress(PersistenceError):
                 await self._persister.finalize(reason="cancelled")
-            except PersistenceError:
-                pass
             status_session = await create_session()
             try:
                 await finalize_revision_status(
@@ -1291,10 +1287,8 @@ class SessionRunner:
                 await self._clear_replay_session()
                 return
         except asyncio.CancelledError:
-            try:
+            with suppress(PersistenceError):
                 await self._persister.finalize(reason="cancelled")
-            except PersistenceError:
-                pass
             status_session = await create_session()
             try:
                 await finalize_revision_status(status_session, revision_id, "cancelled")

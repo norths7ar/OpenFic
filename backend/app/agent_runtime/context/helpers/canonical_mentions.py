@@ -359,9 +359,7 @@ async def compile_canonical_mentions(
             continue
 
         if _is_expanded_mention(part):
-            if not compiled:
-                compiled.append("\n")
-            elif not compiled[-1].endswith("\n"):
+            if not compiled or not compiled[-1].endswith("\n"):
                 compiled.append("\n")
             compiled.append(await _compile_expanded_mention(part, resolver))
             continue

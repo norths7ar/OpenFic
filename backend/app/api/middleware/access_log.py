@@ -1,3 +1,4 @@
+import contextlib
 import logging
 import time
 from collections.abc import MutableMapping
@@ -101,10 +102,8 @@ def _patch_endpoint_location(
 def get_callable_location(endpoint: LocatedCallable) -> EndpointLocation:
     code = _get_callable_code(endpoint)
     line = code.co_firstlineno
-    try:
+    with contextlib.suppress(OSError, TypeError):
         _, line = getsourcelines(endpoint)
-    except OSError, TypeError:
-        pass
     return EndpointLocation(
         name=endpoint.__module__,
         function=endpoint.__qualname__,

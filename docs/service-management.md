@@ -23,7 +23,10 @@ python = root / "backend/.venv" / ("Scripts/python.exe" if os.name == "nt" else 
 result = subprocess.run(
     [str(python), "-m", "service", "status"],
     cwd=root,
-    capture_output=True, text=True, encoding="utf-8", timeout=15,
+    capture_output=True,
+    text=True,
+    encoding="utf-8",
+    timeout=15,
 )
 status = json.loads(result.stdout)
 ```

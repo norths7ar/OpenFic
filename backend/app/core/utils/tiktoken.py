@@ -45,7 +45,8 @@ def seed_bundled_encodings() -> None:
             if not valid:
                 cache_path.parent.mkdir(parents=True, exist_ok=True)
                 # 独立临时文件避免并发进程互相覆盖，关闭后再替换以兼容 Windows。
-                temporary = NamedTemporaryFile(dir=cache_path.parent, delete=False)
+                # 下方 with 负责关闭；外层 finally 同时清理写入或替换失败的临时文件。
+                temporary = NamedTemporaryFile(dir=cache_path.parent, delete=False)  # noqa: SIM115
                 temporary_path = Path(temporary.name)
                 try:
                     with temporary:

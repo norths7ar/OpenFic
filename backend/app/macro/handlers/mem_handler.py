@@ -59,14 +59,15 @@ class GetMemHandler(MacroHandler):
 
         if level1 == "chapter":
             chapter_ctx = context.chapter_context
-            if level2 == "latest":
-                return chapter_ctx.latest_field
-            elif level2 == "far":
-                return chapter_ctx.far_field
-            elif level2 == "middle":
-                return chapter_ctx.mid_field
-            elif level2 == "near":
-                return chapter_ctx.near_field
+            match level2:
+                case "latest":
+                    return chapter_ctx.latest_field
+                case "far":
+                    return chapter_ctx.far_field
+                case "middle":
+                    return chapter_ctx.mid_field
+                case "near":
+                    return chapter_ctx.near_field
 
         raise MacroEvaluateError(f"未知的记忆路径: {level1}::{level2}", node)
 

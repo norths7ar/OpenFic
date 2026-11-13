@@ -103,10 +103,7 @@ class GoogleGenAIAdapter(BaseAdapter):
                 # Embedding模型支持embedContent
                 if "embedContent" in methods:
                     model_name = model.get("name", "")
-                    if model_name.startswith("models/"):
-                        model_id = model_name[7:]
-                    else:
-                        model_id = model_name
+                    model_id = model_name[7:] if model_name.startswith("models/") else model_name
                     display_name = model.get("displayName", model_id)
                     models.append({"id": model_id, "name": display_name})
 

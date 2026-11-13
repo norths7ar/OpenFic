@@ -176,10 +176,7 @@ async def get_models(
     else:
         all_models = await service.get_all_models(session, include_disabled=include_disabled)
         # 如果指定task_type，进行过滤
-        if task_type:
-            models = [m for m in all_models if m.task_type == task_type]
-        else:
-            models = all_models
+        models = [m for m in all_models if m.task_type == task_type] if task_type else all_models
 
     providers = {provider.id: provider for provider in await model_provider_repo.get_all(session)}
     used = {m.provider_id for m in models if m.task_type == "llm"}

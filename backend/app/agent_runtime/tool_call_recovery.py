@@ -107,10 +107,7 @@ def _normalize_schema_value(
         ]
         if item_schemas:
             item_schema: Mapping[str, Any]
-            if len(item_schemas) == 1:
-                item_schema = item_schemas[0]
-            else:
-                item_schema = {"anyOf": item_schemas}
+            item_schema = item_schemas[0] if len(item_schemas) == 1 else {"anyOf": item_schemas}
             return [_normalize_schema_value(item, item_schema, root_schema) for item in value]
 
     return value

@@ -369,10 +369,7 @@ def parse_txt_content(content: bytes) -> ParseResult:
 
             # 获取标题内容（从标题结束到下一个目录标题开始）
             content_start = match.end()
-            if i + 1 < len(matches):
-                content_end = matches[i + 1][0].start()
-            else:
-                content_end = len(text)
+            content_end = matches[i + 1][0].start() if i + 1 < len(matches) else len(text)
 
             chapter_content = text[content_start:content_end].strip()
 

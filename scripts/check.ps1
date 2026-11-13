@@ -28,12 +28,17 @@ function Invoke-QualityCommand {
 }
 
 if (-not $SkipBackend) {
+    Push-Location -LiteralPath $repositoryRoot
+    try {
+        Invoke-QualityCommand -Command 'uv' -Arguments @('run', '--no-sync', '--project', 'backend', 'ruff', 'format', '--check', '.')
+        Invoke-QualityCommand -Command 'uv' -Arguments @('run', '--no-sync', '--project', 'backend', 'ruff', 'check', '.')
+    }
+    finally {
+        Pop-Location
+    }
+
     Push-Location -LiteralPath $backendPath
     try {
-        Invoke-QualityCommand -Command 'uv' -Arguments @('run', '--no-sync', 'ruff', 'format', '--check', '.')
-        Invoke-QualityCommand -Command 'uv' -Arguments @('run', '--no-sync', 'ruff', 'check', '.')
-        Invoke-QualityCommand -Command 'uv' -Arguments @('run', '--no-sync', 'ruff', 'format', '--check', '../service', '../scripts')
-        Invoke-QualityCommand -Command 'uv' -Arguments @('run', '--no-sync', 'ruff', 'check', '../service', '../scripts')
         Invoke-QualityCommand -Command 'uv' -Arguments @('run', '--no-sync', 'ty', 'check', 'app')
         Invoke-QualityCommand -Command 'uv' -Arguments @('run', '--no-sync', 'ty', 'check', '--extra-search-path', '..', '--extra-search-path', '.', '../service', '../scripts')
 

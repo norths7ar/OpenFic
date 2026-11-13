@@ -609,15 +609,17 @@ class TestAgentAPI:
         async def fail_child_processing(**kwargs: Any) -> bool:
             raise RuntimeError("child launch failed")
 
-        with patch(
-            "app.api.routers.agent_runtime.ensure_child_processing",
-            new=fail_child_processing,
+        with (
+            patch(
+                "app.api.routers.agent_runtime.ensure_child_processing",
+                new=fail_child_processing,
+            ),
+            pytest.raises(RuntimeError, match="child launch failed"),
         ):
-            with pytest.raises(RuntimeError, match="child launch failed"):
-                await client.post(
-                    f"/api/v1/agent/sessions/{session_id}/tool-approval",
-                    json={"approval_id": "approval-child-launch-failure", "approved": True},
-                )
+            await client.post(
+                f"/api/v1/agent/sessions/{session_id}/tool-approval",
+                json={"approval_id": "approval-child-launch-failure", "approved": True},
+            )
 
         await session.refresh(revision)
         assert revision.status == "active"

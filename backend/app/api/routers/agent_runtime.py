@@ -455,14 +455,17 @@ async def _claim_agent_session_resume(
         return revision_id, True
 
     revision = await revision_repo.get_by_id(session, revision_id)
-    if revision is not None and revision.status == "failed":
-        if await _checkpoint_has_pending_interrupt(session_id, revision_id):
-            if await revision_repo.recover_failed_revision(session, revision_id):
-                await session.commit()
-                if await revision_repo.claim_interrupted_revision(session, revision_id):
-                    await session.commit()
-                    return revision_id, True
-                revision = await revision_repo.get_by_id(session, revision_id)
+    if (
+        revision is not None
+        and revision.status == "failed"
+        and await _checkpoint_has_pending_interrupt(session_id, revision_id)
+        and await revision_repo.recover_failed_revision(session, revision_id)
+    ):
+        await session.commit()
+        if await revision_repo.claim_interrupted_revision(session, revision_id):
+            await session.commit()
+            return revision_id, True
+        revision = await revision_repo.get_by_id(session, revision_id)
     if revision is not None and revision.status == "cancelled":
         await _ensure_agent_session_resumable(session, session_id)
     if allow_active and revision is not None and revision.status == "active":

@@ -35,9 +35,10 @@ async def create_rule(
     scope: str = "global",
     project_id: str | None = None,
 ) -> AgentRule:
-    if scope == "project":
-        if not project_id or await project_repo.get_by_id(session, project_id) is None:
-            raise ValueError("project 作用域必须指定有效的项目")
+    if scope == "project" and (
+        not project_id or await project_repo.get_by_id(session, project_id) is None
+    ):
+        raise ValueError("project 作用域必须指定有效的项目")
     resolved_project_id = project_id if scope == "project" else None
     max_order = await agent_rule_repo.get_max_order_index(session, scope, resolved_project_id)
     rule = AgentRule(
